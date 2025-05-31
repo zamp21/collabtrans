@@ -16,7 +16,7 @@ timeout = httpx.Timeout(
 )
 
 
-client = httpx.Client(trust_env=False,timeout=timeout)
+client = httpx.Client(trust_env=False,timeout=timeout,proxy=None,verify=False)
 
 
 # TODO: 提供更详细的logger
@@ -124,24 +124,17 @@ def get_md_from_zip_url_with_inline_images(
 
 
     except httpx.HTTPStatusError as e:
-        print(f"HTTP 错误 (httpx): {e.response.status_code} - {e.request.url}")
-        print(f"响应内容: {e.response.text[:200]}...")
-        return None
+        raise Exception(f"HTTP 错误 (httpx): {e.response.status_code} - {e.request.url}\n响应内容: {e.response.text[:200]}...")
     except httpx.RequestError as e:
-        print(f"下载ZIP文件时发生错误 (httpx): {e}")
-        return None
+        raise Exception(f"下载ZIP文件时发生错误 (httpx): {e}")
     except zipfile.BadZipFile:
-        print("错误: 下载的文件不是一个有效的ZIP压缩文件或已损坏。")
-        return None
+        raise Exception("错误: 下载的文件不是一个有效的ZIP压缩文件或已损坏。")
     except UnicodeDecodeError:
-        print(f"错误: 无法使用 '{encoding}' 编码解码文件 '{filename_in_zip}' 的内容。")
-        print("请尝试其他编码，如 'gbk', 'latin1' 等，或确认文件本身的编码。")
-        return None
+        raise Exception(f"错误: 无法使用 '{encoding}' 编码解码文件 '{filename_in_zip}' 的内容。")
     except Exception as e:
-        print(f"发生未知错误: {e}")
         import traceback
         traceback.print_exc()  # 打印完整的堆栈跟踪，便于调试
-        return None
+        raise Exception(f"发生未知错误: {e}")
 
 
 if __name__ == '__main__':

@@ -43,8 +43,8 @@ class Agent:
         self.model_id = model_id.strip()
         self.system_prompt = system_prompt
         self.temperature = temperature
-        self.client = httpx.Client()
-        self.client_async = httpx.AsyncClient()
+        self.client = httpx.Client(trust_env=False,proxy=None,verify=False)
+        self.client_async = httpx.AsyncClient(trust_env=False,proxy=None,verify=False)
         self.max_concurrent = max_concurrent
         self.timeout = timeout
     def _prepare_request_data(self, prompt: str, system_prompt: str, temperature=None, top_p=0.9):
