@@ -135,11 +135,11 @@ async def _perform_translation(params: Dict[str, Any], file_contents: bytes, ori
 
         md_content = ft.export_to_markdown()
         try:
-            await httpx_client.head("https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/contrib/auto-render.min.js", timeout=3)
+            await httpx_client.head("https://cdn.bootcdn.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js", timeout=3)
             html_content = ft.export_to_html(title=current_state["original_filename_stem"], cdn=True)
         except (httpx.TimeoutException, httpx.RequestError) as e:
-            print(f"连接cdn.jsdelivr.net失败，错误信息：{e}")
-            translater_logger.info("无法连接cdn.jsdelivr.net，使用本地js进行pdf渲染")
+            print(f"连接cdn.bootcdn.net失败，错误信息：{e}")
+            translater_logger.info("无法连接cdn.bootcdn.net，使用本地js进行pdf渲染")
             html_content = ft.export_to_html(title=current_state["original_filename_stem"], cdn=False)
         end_time = time.time()
         duration = end_time - current_state["task_start_time"]

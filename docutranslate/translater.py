@@ -9,7 +9,7 @@ from docutranslate.agents import MDRefineAgent, MDTranslateAgent
 from docutranslate.cache import document_cacher_global
 from docutranslate.converter import Document, ConverterMineru
 from docutranslate.utils.markdown_splitter import split_markdown_text, join_markdown_texts
-from docutranslate.utils.markdown_utils import uris2placeholder, placeholder2_uris, MaskDict
+from docutranslate.utils.markdown_utils import uris2placeholder, placeholder2_uris, MaskDict, clean_markdown_math_block
 from docutranslate.logger import translater_logger
 from docutranslate.global_values import available_packages
 from docutranslate.utils.resource_utils import resource_path
@@ -50,13 +50,14 @@ class FileTranslater:
         self.timeout = timeout
         self.file_suffix: str | None = None  # 现在处理的文件后缀如".md"、".txt"
         self.cache = cache
-        self.cacher=document_cacher_global
+        self.cacher = document_cacher_global
 
     def _markdown_format(self):
         # 该方法还需要改进
         # self.markdown=mdformat.text(self.markdown)
         self.markdown = self.markdown.replace(r'\（', r'\(')
         self.markdown = self.markdown.replace(r'\）', r'\)')
+        self.markdown = clean_markdown_math_block(self.markdown)
         pass
 
     def _mask_uris_in_markdown(self):
@@ -88,8 +89,6 @@ class FileTranslater:
 
     def default_translate_agent(self, custom_prompt=None, to_lang="中文") -> MDTranslateAgent:
         return MDTranslateAgent(custom_prompt=custom_prompt, to_lang=to_lang, **self._default_agent_params())
-
-
 
     def _convert2markdown(self, document: Document, formula: bool, code: bool, artifact: Path = None) -> str:
         cached_result = self.cacher.get_cached_result(document, formula, code, convert_engin=self.convert_engin)
@@ -320,10 +319,40 @@ class FileTranslater:
         # language=html
         pico = f"<style>{resource_path("static/pico.css").read_text(encoding='utf-8')}</style>"
         html_template = resource_path("template/markdown.html").read_text(encoding='utf-8')
-        katex_css = f"<style>{resource_path("static/katex.css").read_text(encoding='utf-8')}</style>" if not cdn else r"""<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css" integrity="sha384-5TcZemv2l/9On385z///+d7MSYlvIEw9FuZTIdZ14vJLqWphw7e7ZPuOiCHJcFCP" crossorigin="anonymous">"""
-        katex_js = f"<script>{resource_path("static/katex.js").read_text(encoding='utf-8')}</script>" if not cdn else r"""<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js" integrity="sha384-cMkvdD8LoxVzGF/RPUKAcvmm49FQ0oxwDF3BGKtDXcEc+T1b2N+teh/OJfpU0jr6" crossorigin="anonymous"></script>"""
-        auto_render = f'<script>{resource_path("static/autoRender.js").read_text(encoding='utf-8')}</script>' if not cdn else r"""<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/contrib/auto-render.min.js" integrity="sha384-hCXGrW6PitJEwbkoStFjeJxv+fSOOQKOPbJxSfM6G5sWZjAyWhXiTIIAmQqnlLlh" crossorigin="anonymous"></script>"""
+        katex_css = f"<style>{resource_path("static/katex.css").read_text(encoding='utf-8')}</style>" if not cdn else r"""<link href="https://cdn.bootcdn.net/ajax/libs/KaTeX/0.16.9/katex.min.css" rel="stylesheet">"""
+        katex_js = f"<script>{resource_path("static/katex.js").read_text(encoding='utf-8')}</script>" if not cdn else r"""<script src="https://cdn.bootcdn.net/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>"""
+        auto_render = f'<script>{resource_path("static/autoRender.js").read_text(encoding='utf-8')}</script>' if not cdn else r"""<script src="https://cdn.bootcdn.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>"""
+        # language=javascript
+        renderMathInElement = r"""
+                              <script>
+                                  document.addEventListener("DOMContentLoaded", function () {
+                                  renderMathInElement(document.body, {
+                                      delimiters: [
+                                          {left: '$$', right: '$$', display: true},
+                                          {left: '\\[', right: '\\]', display: true},
+                                          {left: '$', right: '$', display: false},
+                                          {left: '\\(', right: '\\)', display: false}
+                                      ],
+                                      throwOnError: false
+                                  })
+                              });
+                              </script>""" if cdn else r"""
+                                                       <script>
+                                                           document.addEventListener("DOMContentLoaded", function () {
+                                                           renderMathInElement(document.body, {
+                                                               delimiters: [
+                                                                   {left: '$$', right: '$$', display: true},
+                                                                   {left: '\\[', right: '\\]', display: true},
+                                                                   {left: '$', right: '$', display: false},
+                                                                   {left: '\\(', right: '\\)', display: false}
+                                                               ],
+                                                               fonts: false,
+                                                               throwOnError: false
+                                                           })
+                                                       });
+                                                       </script>"""
         mermaid = f'<script>{resource_path("static/mermaid.js").read_text(encoding='utf-8')}</script>'
+
         if self.file_suffix == ".txt":
             content = html.escape(self.export_to_markdown()).replace("\n", "<br>")
         else:
@@ -336,6 +365,7 @@ class FileTranslater:
             katexJs=katex_js,
             autoRender=auto_render,
             markdown=content,
+            renderMathInElement=renderMathInElement,
             mermaid=mermaid,
         )
         return render

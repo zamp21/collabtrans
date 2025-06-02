@@ -161,5 +161,21 @@ def embed_inline_image_from_zip(zip_bytes: bytes, filename_in_zip: str, encoding
         return modified_md_content
 
 
+def clean_markdown_math_block(markdown):
+    """清除公式块的多余空格字符"""
+
+    def replace_block(match: re.Match):
+        return f"{match.group(1).strip()}\n{match.group(2).strip()}\n{match.group(3).lstrip()}"
+
+    pattern = re.compile(r"(^\s*\$\$\s*)\n([\s\S]+?)\n(^\s*\$\$\s*$)", re.MULTILINE)
+    cleaned_text = pattern.sub(replace_block, markdown)
+    return cleaned_text
+
+
 if __name__ == '__main__':
-    pass
+    markdown = r"""
+$$ 
+R T _ { k } ^ { i } ( t ) = \frac { \sum _ { t ^ { \prime } \in [ t - W , t ] } R R _ { k } ^ { i } ( t ^ { \prime } ) \times D R _ { k } ^ { i } ( t ^ { \prime } ) } { \sum _ { t ^ { \prime } \in [ t - W , t ] } D R _ { k } ^ { i } ( t ^ { \prime } ) }  
+$$
+"""
+    print(clean_markdown_math_block(markdown))
