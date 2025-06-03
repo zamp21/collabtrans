@@ -1,4 +1,5 @@
 import asyncio
+import time
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from typing import TypedDict
@@ -6,6 +7,8 @@ from typing import TypedDict
 import httpx
 
 from docutranslate.logger import translater_logger
+
+MAX_RETRY_COUNT = 3
 
 
 class AgentArgs(TypedDict, total=False):
@@ -39,14 +42,17 @@ class Agent:
     def __init__(self, baseurl: str = "", key: str = "xx", model_id: str = "", system_prompt: str = "", temperature=0.7,
                  max_concurrent=15, timeout: int = TIMEOUT):
         self.baseurl = baseurl.strip()
+        if self.baseurl.endswith("/"):
+            self.baseurl = self.baseurl[:-1]
         self.key = key.strip()
         self.model_id = model_id.strip()
         self.system_prompt = system_prompt
         self.temperature = temperature
-        self.client = httpx.Client(trust_env=False,proxy=None,verify=False)
-        self.client_async = httpx.AsyncClient(trust_env=False,proxy=None,verify=False)
+        self.client = httpx.Client(trust_env=False, proxy=None, verify=False)
+        self.client_async = httpx.AsyncClient(trust_env=False, proxy=None, verify=False)
         self.max_concurrent = max_concurrent
         self.timeout = timeout
+
     def _prepare_request_data(self, prompt: str, system_prompt: str, temperature=None, top_p=0.9):
         if temperature is None:
             temperature = self.temperature
@@ -64,14 +70,13 @@ class Agent:
         }
         return headers, data
 
-    async def send_async(self, prompt: str, system_prompt: None | str = None) -> str:
+    async def send_async(self, prompt: str, system_prompt: None | str = None, retry=True, retry_count=0) -> str:
         if system_prompt is None:
             system_prompt = self.system_prompt
-
-        """Sends a single prompt asynchronously."""
+        if prompt.strip() == "":
+            return prompt
         headers, data = self._prepare_request_data(prompt, system_prompt)
-        if self.baseurl.endswith("/"):
-            self.baseurl = self.baseurl[:-1]
+
         try:
             response = await self.client_async.post(
                 f"{self.baseurl}/chat/completions",
@@ -83,12 +88,19 @@ class Agent:
             result = response.json()["choices"][0]["message"]["content"]
             return result
         except httpx.HTTPStatusError as e:
-            print(f"AI请求错误，prompt：{prompt}\n")
-            raise Exception(f"AI请求错误 (async): {e.response.status_code} - {e.response.text}") from e
+            translater_logger.error(f"AI请求错误 (async): {e.response.status_code} - {e.response.text}")
         except httpx.RequestError as e:
-            raise Exception(f"AI请求连接错误 (async): {e}") from e
+            translater_logger.warning(Exception(f"AI请求连接错误 (async): {repr(e)}\nprompt:{prompt}"))
         except (KeyError, IndexError) as e:
-            raise Exception(f"AI响应格式错误 (async): {e}") from e
+            translater_logger.error(f"AI响应格式错误 (async): {repr(e)}")
+            return ""
+        if retry and retry_count < MAX_RETRY_COUNT:
+            translater_logger.info(f"正在重试，重试次数{retry_count}")
+            await asyncio.sleep(0.5)
+            return await self.send_async(prompt, system_prompt, retry=True, retry_count=retry_count + 1)
+        else:
+            translater_logger.error(f"达到重试次数上限")
+            return ""
 
     async def send_prompts_async(
             self,
@@ -122,14 +134,12 @@ class Agent:
         results = await asyncio.gather(*tasks, return_exceptions=False)
         return results
 
-    def send(self, prompt: str, system_prompt: None | str = None) -> str:
+    def send(self, prompt: str, system_prompt: None | str = None, retry=True, retry_count=0) -> str:
         if system_prompt is None:
             system_prompt = self.system_prompt
-
-        """Sends a single prompt asynchronously."""
+        if prompt.strip() == "":
+            return prompt
         headers, data = self._prepare_request_data(prompt, system_prompt)
-        if self.baseurl.endswith("/"):
-            self.baseurl = self.baseurl[:-1]
         try:
             response = self.client.post(
                 f"{self.baseurl}/chat/completions",
@@ -141,11 +151,19 @@ class Agent:
             result = response.json()["choices"][0]["message"]["content"]
             return result
         except httpx.HTTPStatusError as e:
-            raise Exception(f"AI请求错误 (async): {e.response.status_code} - {e.response.text}") from e
+            translater_logger.error(f"AI请求错误 (sync): {e.response.status_code} - {e.response.text}")
         except httpx.RequestError as e:
-            raise Exception(f"AI请求连接错误 (async): {e}") from e
+            translater_logger.warning(f"AI请求连接错误 (sync): {repr(e)}\nprompt:{prompt}")
         except (KeyError, IndexError) as e:
-            raise Exception(f"AI响应格式错误 (async): {e}") from e
+            translater_logger.error(f"AI响应格式错误 (sync): {repr(e)}")
+            return ""
+        if retry and retry_count < MAX_RETRY_COUNT:
+            translater_logger.info(f"正在重试，重试次数{retry_count}")
+            time.sleep(0.5)
+            return self.send(prompt, system_prompt, retry=True, retry_count=retry_count + 1)
+        else:
+            translater_logger.error(f"达到重试次数上限")
+            return ""
 
     def _send_prompt_count(self, prompt: str, system_prompt: None | str, count: PromptsCount) -> str:
         result = self.send(prompt, system_prompt)

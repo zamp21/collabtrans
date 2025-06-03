@@ -320,8 +320,8 @@ class FileTranslater:
         pico = f"<style>{resource_path("static/pico.css").read_text(encoding='utf-8')}</style>"
         html_template = resource_path("template/markdown.html").read_text(encoding='utf-8')
         katex_css = f"<style>{resource_path("static/katex.css").read_text(encoding='utf-8')}</style>" if not cdn else r"""<link href="https://cdn.bootcdn.net/ajax/libs/KaTeX/0.16.9/katex.min.css" rel="stylesheet">"""
-        katex_js = f"<script>{resource_path("static/katex.js").read_text(encoding='utf-8')}</script>" if not cdn else r"""<script src="https://cdn.bootcdn.net/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>"""
-        auto_render = f'<script>{resource_path("static/autoRender.js").read_text(encoding='utf-8')}</script>' if not cdn else r"""<script src="https://cdn.bootcdn.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>"""
+        katex_js = f"<script>{resource_path("static/katex.js").read_text(encoding='utf-8')}</script>" if not cdn else r"""<script defer src="https://cdn.bootcdn.net/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>"""
+        auto_render = f'<script>{resource_path("static/autoRender.js").read_text(encoding='utf-8')}</script>' if not cdn else r"""<script defer src="https://cdn.bootcdn.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>"""
         # language=javascript
         renderMathInElement = r"""
                               <script>
