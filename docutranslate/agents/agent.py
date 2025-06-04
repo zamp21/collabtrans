@@ -107,12 +107,11 @@ class Agent:
             result = response.json()["choices"][0]["message"]["content"]
             return result
         except httpx.HTTPStatusError as e:
-            translater_logger.error(f"AI请求错误 (async): {e.response.status_code} - {e.response.text}")
+            raise Exception(f"AI请求错误 (async): {e.response.status_code} - {e.response.text}")
         except httpx.RequestError as e:
-            translater_logger.warning(Exception(f"AI请求连接错误 (async): {repr(e)}"))
+            translater_logger.warning(f"AI请求连接错误 (async): {repr(e)}")
         except (KeyError, IndexError) as e:
-            translater_logger.error(f"AI响应格式错误 (async): {repr(e)}")
-            return ""
+            raise Exception(f"AI响应格式错误 (async): {repr(e)}")
         # 如果没有正常获取结果则重试
         if retry and retry_count < MAX_RETRY_COUNT:
             if total_retry_counter.add():
@@ -173,12 +172,11 @@ class Agent:
             result = response.json()["choices"][0]["message"]["content"]
             return result
         except httpx.HTTPStatusError as e:
-            translater_logger.error(f"AI请求错误 (sync): {e.response.status_code} - {e.response.text}")
+            raise Exception(f"AI请求错误 (sync): {e.response.status_code} - {e.response.text}")
         except httpx.RequestError as e:
             translater_logger.warning(f"AI请求连接错误 (sync): {repr(e)}\nprompt:{prompt}")
         except (KeyError, IndexError) as e:
-            translater_logger.error(f"AI响应格式错误 (sync): {repr(e)}")
-            return ""
+            raise Exception(f"AI响应格式错误 (sync): {repr(e)}")
         # 如果没有正常获取结果则重试
         if retry and retry_count < MAX_RETRY_COUNT:
             if total_retry_counter.add():

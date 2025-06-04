@@ -20,7 +20,7 @@ if DOCLING_FLAG:
 
 
 class FileTranslater:
-    def __init__(self, file_path: Path | str | None = None, chunksize: int = 2000,
+    def __init__(self, file_path: Path | str | None = None, chunksize: int = 3000,
                  base_url="", key=None, model_id="", temperature=0.7,
                  max_concurrent=30, timeout=2000,
                  convert_engin: Literal["docling", "mineru"] = "mineru",
