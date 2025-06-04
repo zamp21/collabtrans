@@ -8,7 +8,8 @@ import httpx
 
 from docutranslate.logger import translater_logger
 
-MAX_RETRY_COUNT = 3
+MAX_RETRY_COUNT = 2
+MAX_TOTAL_RETRY_COUNT = 10
 
 
 class AgentArgs(TypedDict, total=False):
@@ -21,8 +22,26 @@ class AgentArgs(TypedDict, total=False):
     timeout: int
 
 
+class TotalRetryCounter:
+    def __init__(self, ):
+        self.lock = Lock()
+        self.count = 0
+
+    def add(self):
+        self.lock.acquire()
+        self.count += 1
+        self.lock.release()
+        return self.reach_limit()
+
+    def reach_limit(self):
+        return self.count > MAX_TOTAL_RETRY_COUNT
+
+
+total_retry_counter = TotalRetryCounter()
+
+
 # 仅使用多线程时用以计数
-class PromptsCount:
+class PromptsCounter:
     def __init__(self, total: int):
         self.lock = Lock()
         self.count = 0
@@ -90,11 +109,15 @@ class Agent:
         except httpx.HTTPStatusError as e:
             translater_logger.error(f"AI请求错误 (async): {e.response.status_code} - {e.response.text}")
         except httpx.RequestError as e:
-            translater_logger.warning(Exception(f"AI请求连接错误 (async): {repr(e)}\nprompt:{prompt}"))
+            translater_logger.warning(Exception(f"AI请求连接错误 (async): {repr(e)}"))
         except (KeyError, IndexError) as e:
             translater_logger.error(f"AI响应格式错误 (async): {repr(e)}")
             return ""
+        # 如果没有正常获取结果则重试
         if retry and retry_count < MAX_RETRY_COUNT:
+            if total_retry_counter.add():
+                translater_logger.info(f"错误响应过多")
+                raise Exception("错误响应过多")
             translater_logger.info(f"正在重试，重试次数{retry_count}")
             await asyncio.sleep(0.5)
             return await self.send_async(prompt, system_prompt, retry=True, retry_count=retry_count + 1)
@@ -108,7 +131,6 @@ class Agent:
             system_prompt: str | None = None,
             max_concurrent: int | None = None  # 新增参数，默认并发数为5
     ) -> list[str]:
-        # print(f"system_prompt:{self.system_prompt}")
         max_concurrent = self.max_concurrent if max_concurrent is None else max_concurrent
         total = len(prompts)
         count = 0
@@ -157,15 +179,19 @@ class Agent:
         except (KeyError, IndexError) as e:
             translater_logger.error(f"AI响应格式错误 (sync): {repr(e)}")
             return ""
+        # 如果没有正常获取结果则重试
         if retry and retry_count < MAX_RETRY_COUNT:
+            if total_retry_counter.add():
+                translater_logger.info(f"错误响应过多")
+                raise Exception("错误响应过多")
             translater_logger.info(f"正在重试，重试次数{retry_count}")
             time.sleep(0.5)
             return self.send(prompt, system_prompt, retry=True, retry_count=retry_count + 1)
         else:
-            translater_logger.error(f"达到重试次数上限")
+            translater_logger.error(f"达到重试次数上限，返回空行")
             return ""
 
-    def _send_prompt_count(self, prompt: str, system_prompt: None | str, count: PromptsCount) -> str:
+    def _send_prompt_count(self, prompt: str, system_prompt: None | str, count: PromptsCounter) -> str:
         result = self.send(prompt, system_prompt)
         count.add()
         return result
@@ -176,7 +202,7 @@ class Agent:
             system_prompt: str | None = None,
     ) -> list[str]:
         system_prompts = [system_prompt] * len(prompts)
-        counts = [PromptsCount(len(prompts))] * len(prompts)
+        counts = [PromptsCounter(len(prompts))] * len(prompts)
         output_list = []
         with ThreadPoolExecutor(max_workers=self.max_concurrent) as executor:
             results_iterator = executor.map(self._send_prompt_count, prompts, system_prompts, counts)
