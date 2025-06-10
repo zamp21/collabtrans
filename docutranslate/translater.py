@@ -274,7 +274,7 @@ class FileTranslater:
         if isinstance(output_dir, str):
             output_dir = Path(output_dir)
         if filename is None:
-            filename=f"{self.document.stem}_translated.md"
+            filename=f"{self.document.stem}.md"
         # 确保输出目录存在
         output_dir.mkdir(parents=True, exist_ok=True)
         full_name = output_dir / filename
@@ -297,7 +297,7 @@ class FileTranslater:
             output_dir = Path(output_dir)
         if filename is None:
             if filename is None:
-                filename = f"{self.document.stem}_translated.html"
+                filename = f"{self.document.stem}.html"
         # 确保输出目录存在
         output_dir.mkdir(parents=True, exist_ok=True)
         full_name = output_dir / filename
@@ -373,13 +373,12 @@ class FileTranslater:
         if refine:
             self.refine_markdown_by_agent(refine_agent)
         self.translate_markdown_by_agent(translate_agent, to_lang=to_lang, custom_prompt=custom_prompt_translate)
+
         if save:
             if output_format == "markdown":
-                filename = f"{file_path.stem}_{to_lang}.md"
-                self.save_as_markdown(filename=filename, output_dir=output_dir)
+                self.save_as_markdown(f"{self.document.stem}_{to_lang}.md",output_dir=output_dir)
             elif output_format == "html":
-                filename = f"{file_path.stem}_{to_lang}.html"
-                self.save_as_html(filename=filename, output_dir=output_dir)
+                self.save_as_html(f"{self.document.stem}_{to_lang}.html", output_dir=output_dir)
         return self
 
     async def translate_file_async(self, file_path: Path | str | None = None, to_lang="中文", output_dir="./output",
