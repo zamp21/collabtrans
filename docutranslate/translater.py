@@ -6,7 +6,7 @@ import markdown2
 import jinja2
 from docutranslate.agents import Agent, AgentArgs
 from docutranslate.agents import MDRefineAgent, MDTranslateAgent
-from docutranslate.cache import document_cacher_global
+from docutranslate.cacher import document_cacher_global
 from docutranslate.converter import Document, ConverterMineru
 from docutranslate.utils.markdown_splitter import split_markdown_text, join_markdown_texts
 from docutranslate.utils.markdown_utils import uris2placeholder, placeholder2_uris, MaskDict, clean_markdown_math_block
@@ -308,7 +308,7 @@ class FileTranslater:
         # 确保输出目录存在
         output_dir.mkdir(parents=True, exist_ok=True)
         full_name = output_dir / filename
-        html_content = self.export_to_html(str(filename.resolve().stem))
+        html_content = self.export_to_html(title=str(full_name.resolve().stem))
         with open(full_name, "w") as file:
             file.write(html_content)
         translater_logger.info(f"文件已写入{full_name.resolve()}")

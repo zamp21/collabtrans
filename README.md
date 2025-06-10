@@ -19,7 +19,7 @@
 
 # 安装
 
-使用pip  
+使用pip
 
 `pip install docutranslate`  
 `pip install docutranslate[docling]`#如果需要使用docling进行文档解析
@@ -122,9 +122,9 @@ docutranslate -i
 ```python
 from docutranslate.translater import FileTranslater
 
-translater = FileTranslater(base_url="<baseurl>",#大模型的baseurl
-                            key="<api-key>",#大模型的api-key
-                            model_id="<model-id>",#大模型的model-id
+translater = FileTranslater(base_url="<baseurl>",  # 大模型的baseurl
+                            key="<api-key>",  # 大模型的api-key
+                            model_id="<model-id>",  # 大模型的model-id
                             convert_engin="mineru",  # 使用mineru解析文档
                             mineru_token="<申请的mineru_token>"  # 使用mineru时必填
                             # convert_engin="docling"  # 使用docling解析文档
@@ -163,13 +163,16 @@ translater.translate_file("<文件路径>", to_lang="中文", refine_agent=refin
 ```python
 from docutranslate import FileTranslater
 
-translater = FileTranslater(base_url="<baseurl>",
-                            key="<key>",
-                            model_id="<model-id>")
+translater = FileTranslater(convert_engin="mineru",  # 使用mineru解析文档
+                            mineru_token="<申请的mineru_token>"  # 使用mineru时必填
+                            # convert_engin="docling"  # 使用docling解析文档
+                            )
 # 文件转html
-translater.read_file("<文件路径>").save_as_html()
+translater.read_file("<文件路径>").save_as_html()#保存
+translater.read_file("<文件路径>").export_to_html()#输出字符串
 # 文件转markdown
-translater.read_file("<文件路径>").save_as_markdown()
+translater.read_file("<文件路径>").save_as_markdown()#保存
+translater.read_file("<文件路径>").export_to_markdown()#输出字符串
 ```
 
 ## 参数说明
@@ -182,8 +185,8 @@ from docutranslate import FileTranslater
 translater = FileTranslater(base_url="<baseurl>",  # 默认的模型baseurl
                             key="<api-key>",  # 默认的大语言模型平台api-key
                             model_id="<model-id>",  # 默认的模型id
-                            chunksize=2000,  # markdown分块长度（单位byte），分块越大效果越好（也越慢），不建议超过8000
-                            max_concurrent=20,  # 并发数，受到ai平台并发量限制，如果文章很长建议适当加大到20以上
+                            chunksize=3000,  # markdown分块长度（单位byte），分块越大效果越好（也越慢），不建议超过8000
+                            max_concurrent=30,  # 并发数，受到ai平台并发量限制，如果文章很长建议适当加大到20以上
                             timeout=2000,  # 调用api的超时时间
                             docling_artifact=None,  # 使用提前下载好的docling模型
                             convert_engin="mineru",  # 可选minerU或docling

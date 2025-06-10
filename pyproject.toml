@@ -8,7 +8,7 @@ dependencies = [
     "markdown2>=2.5.3",
     "fastapi[standard]>=0.115.12",
 ]
-dynamic=["version"]
+dynamic = ["version"]
 
 [project.optional-dependencies]
 docling = [
@@ -32,7 +32,10 @@ requires = ["setuptools>=61.0"] # 或者你需要的 setuptools 版本
 build-backend = "setuptools.build_meta"
 backend-path = ["."]
 [tool.setuptools]
-packages = ["docutranslate"]
+#packages = ["docutranslate"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["docutranslate*"]
 [tool.setuptools.package-data]
 docutranslate = ["static/**", "template/**"]
 
