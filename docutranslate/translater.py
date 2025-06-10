@@ -28,9 +28,6 @@ class FileTranslater:
                  mineru_token: str = None, cache=True):
         self.convert_engin = convert_engin
         self.mineru_token = mineru_token.strip() if mineru_token is not None else None
-        if isinstance(file_path, str):
-            file_path = Path(file_path)
-        self.file_path: Path = file_path
         self._mask_dict = MaskDict()
         self.markdown: str = ""
         self.chunksize = chunksize
@@ -50,6 +47,8 @@ class FileTranslater:
         self.document: Document | None = None
         self.cache = cache
         self.cacher = document_cacher_global
+        if file_path:
+            self.read_file(file_path=file_path)
 
     def _markdown_format(self):
         # 该方法还需要改进
@@ -182,12 +181,12 @@ class FileTranslater:
     def read_file(self, file_path: Path | str | None = None, formula=True, code=True, save=False,
                   save_format: Literal["markdown", "html"] = "markdown", refine=False,
                   refine_agent: Agent | None = None):
-        if file_path is None:
-            if self.file_path is None:
-                translater_logger.debug("未设置文件路径")
-                raise Exception("未设置文件路径")
-            file_path = self.file_path
-        document = Document(path=file_path)
+        if file_path:
+            document = Document(path=file_path)
+        else:
+            document=self.document
+        if document is None:
+            raise Exception("未读取文件")
         translater_logger.info(f"读取文件：{document.filename}")
         self.read_document(document, formula=formula, code=code, save=save, save_format=save_format, refine=refine,
                            refine_agent=refine_agent)
@@ -196,12 +195,12 @@ class FileTranslater:
     async def read_file_async(self, file_path: Path | str | None = None, formula=True, code=True, save=False,
                               save_format: Literal["markdown", "html"] = "markdown", refine=False,
                               refine_agent: Agent | None = None):
-        if file_path is None:
-            if self.file_path is None:
-                translater_logger.debug("未设置文件路径")
-                raise Exception("未设置文件路径")
-            file_path = self.file_path
-        document = Document(file_path)
+        if file_path:
+            document = Document(path=file_path)
+        else:
+            document=self.document
+        if document is None:
+            raise Exception("未读取文件")
         translater_logger.info(f"读取文件：{document.filename}")
         # 如果是markdown，直接读取
         await self.read_document_async(document, formula=formula, code=code, save=save, save_format=save_format,
@@ -370,11 +369,6 @@ class FileTranslater:
                        custom_prompt_translate=None, refine_agent: Agent | None = None,
                        translate_agent: Agent | None = None,
                        save=True):
-        if file_path is None:
-            assert self.file_path is not None, "未输入文件路径"
-            file_path = self.file_path
-        if isinstance(file_path, str):
-            file_path = Path(file_path)
         self.read_file(file_path, formula=formula, code=code)
         if refine:
             self.refine_markdown_by_agent(refine_agent)
@@ -393,11 +387,6 @@ class FileTranslater:
                                    code=True, output_format: Literal["markdown", "html"] = "markdown",
                                    custom_prompt_translate=None, refine=False,
                                    refine_agent: Agent | None = None, translate_agent: Agent | None = None, save=True):
-        if file_path is None:
-            assert self.file_path is not None, "未输入文件路径"
-            file_path = self.file_path
-        if isinstance(file_path, str):
-            file_path = Path(file_path)
         await asyncio.to_thread(
             self.read_file,
             file_path,
