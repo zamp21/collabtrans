@@ -151,7 +151,7 @@ class FileTranslater:
     async def read_document_async(self, document: Document, formula: bool, code: bool, save: bool,
                                   save_format: Literal["markdown", "html"], refine: bool,
                                   refine_agent: Agent | None):
-        self.document = document.suffix
+        self.document = document
         self.markdown = await self._convert2markdown_async(document, formula=formula, code=code,
                                                            artifact=self.docling_artifact)
         if refine:
