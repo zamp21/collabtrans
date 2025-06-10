@@ -31,7 +31,6 @@ class FileTranslater:
         if isinstance(file_path, str):
             file_path = Path(file_path)
         self.file_path: Path = file_path
-        self.file_path: Path = file_path
         self._mask_dict = MaskDict()
         self.markdown: str = ""
         self.chunksize = chunksize
@@ -48,7 +47,7 @@ class FileTranslater:
                 translater_logger.info("检测到docling_artifact文件夹")
                 self.docling_artifact = artifact_path
         self.timeout = timeout
-        self.file_suffix: str | None = None  # 现在处理的文件后缀如".md"、".txt"
+        self.document: Document | None = None
         self.cache = cache
         self.cacher = document_cacher_global
 
@@ -138,7 +137,7 @@ class FileTranslater:
     def read_document(self, document: Document, formula: bool, code: bool, save: bool,
                       save_format: Literal["markdown", "html"], refine: bool,
                       refine_agent: Agent | None):
-        self.file_suffix = document.suffix
+        self.document=document
         self.markdown = self._convert2markdown(document, formula=formula, code=code, artifact=self.docling_artifact)
         if refine:
             self.refine_markdown_by_agent(refine_agent)
@@ -152,7 +151,7 @@ class FileTranslater:
     async def read_document_async(self, document: Document, formula: bool, code: bool, save: bool,
                                   save_format: Literal["markdown", "html"], refine: bool,
                                   refine_agent: Agent | None):
-        self.file_suffix = document.suffix
+        self.document = document.suffix
         self.markdown = await self._convert2markdown_async(document, formula=formula, code=code,
                                                            artifact=self.docling_artifact)
         if refine:
@@ -216,7 +215,7 @@ class FileTranslater:
         if refine_agent is None:
             refine_agent = self.default_refine_agent(custom_prompt)
         result: list[str] = refine_agent.send_prompts(chuncks)
-        if self.file_suffix == ".txt":
+        if self.document.suffix == ".txt":
             self.markdown = "\n".join(result)
         else:
             self.markdown = join_markdown_texts(result)
@@ -231,7 +230,7 @@ class FileTranslater:
         if translate_agent is None:
             translate_agent = self.default_translate_agent(custom_prompt=custom_prompt, to_lang=to_lang)
         result: list[str] = translate_agent.send_prompts(chuncks)
-        if self.file_suffix == ".txt":
+        if self.document.suffix == ".txt":
             self.markdown = "\n".join(result)
         else:
             self.markdown = join_markdown_texts(result)
@@ -246,7 +245,7 @@ class FileTranslater:
         if refine_agent is None:
             refine_agent = self.default_refine_agent(custom_prompt=custom_prompt)
         result: list[str] = await refine_agent.send_prompts_async(chuncks)
-        if self.file_suffix == ".txt":
+        if self.document.suffix == ".txt":
             self.markdown = "\n".join(result)
         else:
             self.markdown = join_markdown_texts(result)
@@ -262,7 +261,7 @@ class FileTranslater:
         if translate_agent is None:
             translate_agent = self.default_translate_agent(to_lang=to_lang, custom_prompt=custom_prompt)
         result: list[str] = await translate_agent.send_prompts_async(chuncks)
-        if self.file_suffix == ".txt":
+        if self.document.suffix == ".txt":
             self.markdown = "\n".join(result)
         else:
             self.markdown = join_markdown_texts(result)
@@ -276,10 +275,7 @@ class FileTranslater:
         if isinstance(output_dir, str):
             output_dir = Path(output_dir)
         if filename is None:
-            if self.file_path is not None:
-                filename = self.file_path.name
-            else:
-                filename = "output.md"
+            filename=f"{self.document.stem}_translated.md"
         # 确保输出目录存在
         output_dir.mkdir(parents=True, exist_ok=True)
         full_name = output_dir / filename
@@ -301,10 +297,8 @@ class FileTranslater:
         if isinstance(output_dir, str):
             output_dir = Path(output_dir)
         if filename is None:
-            if self.file_path is not None:
-                filename = self.file_path.name
-            else:
-                filename = "output.html"
+            if filename is None:
+                filename = f"{self.document.stem}_translated.html"
         # 确保输出目录存在
         output_dir.mkdir(parents=True, exist_ok=True)
         full_name = output_dir / filename
@@ -323,7 +317,7 @@ class FileTranslater:
         katex_js = f"<script>{resource_path("static/katex.js").read_text(encoding='utf-8')}</script>" if not cdn else r"""<script defer src="https://s4.zstatic.net/ajax/libs/KaTeX/0.16.9/katex.min.js" integrity="sha512-LQNxIMR5rXv7o+b1l8+N1EZMfhG7iFZ9HhnbJkTp4zjNr5Wvst75AqUeFDxeRUa7l5vEDyUiAip//r+EFLLCyA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>"""
         auto_render = f'<script>{resource_path("static/autoRender.js").read_text(encoding='utf-8')}</script>' if not cdn else r"""<script defer src="https://s4.zstatic.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js" integrity="sha512-iWiuBS5nt6r60fCz26Nd0Zqe0nbk1ZTIQbl3Kv7kYsX+yKMUFHzjaH2+AnM6vp2Xs+gNmaBAVWJjSmuPw76Efg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>"""
         # language=javascript
-        renderMathInElement = r"""
+        render_math_in_element = r"""
                               <script>
                                   document.addEventListener("DOMContentLoaded", function () {
                                   renderMathInElement(document.body, {
@@ -353,7 +347,7 @@ class FileTranslater:
                                                        </script>"""
         mermaid = f'<script>{resource_path("static/mermaid.js").read_text(encoding='utf-8')}</script>'
 
-        if self.file_suffix == ".txt":
+        if self.document.suffix == ".txt":
             content = html.escape(self.export_to_markdown()).replace("\n", "<br>")
         else:
             content = markdowner.convert(self.export_to_markdown().replace("\\", "\\\\"))
@@ -365,7 +359,7 @@ class FileTranslater:
             katexJs=katex_js,
             autoRender=auto_render,
             markdown=content,
-            renderMathInElement=renderMathInElement,
+            renderMathInElement=render_math_in_element,
             mermaid=mermaid,
         )
         return render
