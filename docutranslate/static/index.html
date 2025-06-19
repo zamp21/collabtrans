@@ -267,6 +267,10 @@
             font-weight: bold;
         }
 
+        .clickable {
+            cursor: pointer;
+        }
+
         @media (max-width: 768px) {
             .form-grid {
                 grid-template-columns: 1fr;
@@ -409,6 +413,28 @@
         <details>
             <summary>高级选项</summary>
             <div class="form-group">
+                <div>
+                    <label for="chunk-size-slider"><span
+                            style="display:inline-block;min-width: 15vw">分块大小(bytes):</span><span
+                            id="chunk-size-display"></span><span class="clickable" id="chunk-size-reset"
+                                                                 style="color: #2e7d32">🗘</span></label>
+                    <input type="range" id="chunk-size-slider" name="chunk_size" min="1000" max="6000" step="100">
+                </div>
+                <div>
+                    <label for="concurrent-slider"><span
+                            style="display:inline-block;min-width: 15vw">并发请求数:</span><span
+                            id="concurrent-display"></span><span class="clickable" id="concurrent-reset"
+                                                                 style="color: #2e7d32">🗘</span></label>
+                    <input type="range" id="concurrent-slider" name="concurrent" min="1" max="60" step="1">
+                </div>
+                <div>
+                    <label for="temperature-slider"><span
+                            style="display:inline-block;min-width: 15vw">temperature:</span><span
+                            id="temperature-display"></span><span class="clickable" id="temperature-reset"
+                                                                  style="color: #2e7d32">🗘</span></label>
+                    <input type="range" id="temperature-slider" name="temperature" min="0" max="1" step="0.1">
+                </div>
+
                 <label for="custom_prompt_translate"></label>
                 <textarea class="prompt-area" type="text" id="custom_prompt_translate"
                           name="custom_prompt_translate" placeholder="翻译提示"></textarea>
@@ -470,7 +496,7 @@
 </div>
 
 <iframe id="printFrame" style="display:none;"></iframe>
-<script>
+<script type="module">
     const platformSelect = document.getElementById('platform_select');
     const apiHref = document.getElementById('api_href')
     const baseUrlGroup = document.getElementById('baseUrlGroup');
@@ -485,6 +511,17 @@
     const convertEnginSelect = document.getElementById('convert_engin');
     const mineruTokenGroup = document.getElementById('mineruTokenGroup');
     const mineruTokenInput = document.getElementById('mineru_token');
+
+    const chunkSizeSlider = document.getElementById('chunk-size-slider')
+    const chunkSizeDisplay = document.getElementById('chunk-size-display')
+    const chunkSizeReset = document.getElementById('chunk-size-reset')
+    const concurrentSlider = document.getElementById('concurrent-slider')
+    const concurrentDisplay = document.getElementById('concurrent-display')
+    const concurrentReset = document.getElementById("concurrent-reset")
+    const temperatureSlider = document.getElementById('temperature-slider')
+    const temperatureDisplay = document.getElementById('temperature-display')
+    const temperatureReset = document.getElementById("temperature-reset")
+
 
     const form = document.getElementById('translateForm');
     const submitButton = document.getElementById('submitButton');
@@ -520,6 +557,64 @@
     let logPollIntervalId = null;
     let statusPollIntervalId = null;
     let isTranslating = false;
+
+
+    let default_param;
+
+    // 初始化调用
+    async function init() {
+        try {
+            const response = await fetch("/meta")
+            const meta = await response.json();
+            versionDisplay.textContent = `版本号：${meta.version}`;
+        } catch (error) {
+            console.warn("获取版本号失败", error);
+        }
+        try {
+            const response = await fetch('/get-engin-list')
+            if (!response.ok) {
+                console.warn(`get engine list failed: ${response.status}`);
+                return;
+            }
+            const enginList = await response.json();
+            statusMsg.textContent = '正在初始化';
+            let options = convertEnginSelect.querySelectorAll(`option`);
+            let currentEngineDisabled = false;
+            options.forEach((option) => {
+                if (!enginList.includes(option.value)) {
+                    option.disabled = true;
+                    option.textContent += " (不可用)";
+                    if (option.value === convertEnginSelect.value) {
+                        currentEngineDisabled = true;
+                    }
+                }
+            });
+            if (currentEngineDisabled) {
+                const mineruOption = convertEnginSelect.querySelector('option[value="mineru"]');
+                if (mineruOption && !mineruOption.disabled) {
+                    convertEnginSelect.value = "mineru";
+                } else {
+                    const firstAvailable = convertEnginSelect.querySelector('option:not([disabled])');
+                    if (firstAvailable) convertEnginSelect.value = firstAvailable.value;
+                }
+                updateConvertEnginUI();
+            }
+            statusMsg.textContent = '初始化完成';
+        } catch (error) {
+            console.warn("Error get engin-list", error);
+            statusMsg.textContent = '引擎列表初始化失败';
+            statusMsg.className = 'error-message';
+        }
+        try {
+            const response = await fetch("/translate/default_param")
+            default_param = await response.json();
+        } catch (error) {
+            statusMsg.textContent = error.toString();
+            statusMsg.className = 'error-message';
+        }
+    }
+
+    await init()
 
     function saveToStorage(key, value) {
         try {
@@ -572,6 +667,7 @@
         saveToStorage('translator_last_platform', selectedPlatformValue);
     }
 
+
     function updateConvertEnginUI() {
         const selectedEngin = convertEnginSelect.value;
         if (selectedEngin === 'mineru') {
@@ -585,11 +681,50 @@
         saveToStorage('translator_convert_engin', selectedEngin);
     }
 
+    function updateChunkSizeUI() {
+        let value = chunkSizeSlider.value
+        chunkSizeDisplay.textContent = value;
+        if (value !== default_param["chunk_size"].toString()) {
+            chunkSizeReset.style.visibility = 'visible';
+        } else {
+            chunkSizeReset.style.visibility = 'hidden';
+        }
+        saveToStorage('chunk_size', value)
+    }
+
+    function updateTemperatureUI() {
+        let value = temperatureSlider.value
+        temperatureDisplay.textContent = value;
+        if (value !== default_param["temperature"].toString()) {
+            temperatureReset.style.visibility = 'visible';
+        } else {
+            temperatureReset.style.visibility = 'hidden';
+        }
+        saveToStorage('temperature', value)
+    }
+
+    function updateConcurrentUI() {
+        let value = concurrentSlider.value
+        concurrentDisplay.textContent = value;
+        if (value !== default_param["concurrent"].toString()) {
+            concurrentReset.style.visibility = 'visible';
+        } else {
+            concurrentReset.style.visibility = 'hidden';
+        }
+        saveToStorage('concurrent', value)
+    }
+
     function loadSettings() {
         platformSelect.value = getFromStorage('translator_last_platform', 'custom');
         updatePlatformUI();
         convertEnginSelect.value = getFromStorage('translator_convert_engin', 'mineru');
         updateConvertEnginUI();
+        chunkSizeSlider.value = getFromStorage("chunk_size", default_param["chunk_size"])
+        updateChunkSizeUI()
+        concurrentSlider.value = getFromStorage("concurrent", default_param["concurrent"])
+        updateConcurrentUI()
+        temperatureSlider.value = getFromStorage("temperature", default_param["temperature"])
+        updateTemperatureUI()
         toLangSelect.value = getFromStorage('translator_to_lang', '中文');
         formulaCheckbox.checked = getFromStorage('translator_formula_ocr') === 'true';
         codeCheckbox.checked = getFromStorage('translator_code_ocr') === 'true';
@@ -709,52 +844,6 @@
             fileInput.dispatchEvent(event);
         }
     }, false);
-
-    // 初始化调用
-    (async () => {
-        try {
-            const response = await fetch("/meta")
-            let meta = await response.json();
-            versionDisplay.textContent = `版本号：${meta.version}`;
-        } catch (error) {
-            console.warn("获取版本号失败", error);
-        }
-        try {
-            const response = await fetch('/get-engin-list')
-            if (!response.ok) {
-                console.warn(`get engine list failed: ${response.status}`);
-                return;
-            }
-            const enginList = await response.json();
-            statusMsg.textContent = '正在初始化';
-            let options = convertEnginSelect.querySelectorAll(`option`);
-            let currentEngineDisabled = false;
-            options.forEach((option) => {
-                if (!enginList.includes(option.value)) {
-                    option.disabled = true;
-                    option.textContent += " (不可用)";
-                    if (option.value === convertEnginSelect.value) {
-                        currentEngineDisabled = true;
-                    }
-                }
-            });
-            if (currentEngineDisabled) {
-                const mineruOption = convertEnginSelect.querySelector('option[value="mineru"]');
-                if (mineruOption && !mineruOption.disabled) {
-                    convertEnginSelect.value = "mineru";
-                } else {
-                    const firstAvailable = convertEnginSelect.querySelector('option:not([disabled])');
-                    if (firstAvailable) convertEnginSelect.value = firstAvailable.value;
-                }
-                updateConvertEnginUI();
-            }
-            statusMsg.textContent = '初始化完成';
-        } catch (error) {
-            console.warn("Error get engin-list", error);
-            statusMsg.textContent = '引擎列表初始化失败';
-            statusMsg.className = 'error-message';
-        }
-    })();
 
 
     async function pollLogs() {
@@ -989,6 +1078,23 @@
             submitButton.removeAttribute('aria-busy');
         }
     }
+
+    chunkSizeSlider.addEventListener('input', updateChunkSizeUI)
+    chunkSizeReset.addEventListener('click', () => {
+        chunkSizeSlider.value = default_param["chunk_size"]
+        updateChunkSizeUI()
+    })
+    concurrentSlider.addEventListener('input', updateConcurrentUI)
+    concurrentReset.addEventListener('click', () => {
+        concurrentSlider.value = default_param["concurrent"]
+        updateConcurrentUI()
+    })
+
+    temperatureSlider.addEventListener('input', updateTemperatureUI)
+    temperatureReset.addEventListener('click', () => {
+        temperatureSlider.value = default_param["temperature"]
+        updateTemperatureUI()
+    })
 
     submitButton.addEventListener('click', async function (event) {
         event.preventDefault();

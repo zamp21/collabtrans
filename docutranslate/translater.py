@@ -18,11 +18,16 @@ DOCLING_FLAG = True if available_packages.get("docling") else False
 if DOCLING_FLAG:
     from docutranslate.converter import ConverterDocling
 
+default_params={
+    "chunk_size":3000,
+    "concurrent":30,
+    "temperature":0.7,
+}
 
 class FileTranslater:
-    def __init__(self, file_path: Path | str | None = None, chunksize: int = 3000,
-                 base_url="", key=None, model_id="", temperature=0.7,
-                 max_concurrent=30, timeout=2000,
+    def __init__(self, file_path: Path | str | None = None, chunk_size: int = default_params["chunk_size"],
+                 base_url:str|None=None, key=None, model_id:str|None=None, temperature=default_params["temperature"],
+                 concurrent:int=default_params["concurrent"], timeout=2000,
                  convert_engin: Literal["docling", "mineru"] = "mineru",
                  docling_artifact: Path | str | None = None,
                  mineru_token: str = None, cache=True):
@@ -30,11 +35,11 @@ class FileTranslater:
         self.mineru_token = mineru_token.strip() if mineru_token is not None else None
         self._mask_dict = MaskDict()
         self.markdown: str = ""
-        self.chunksize = chunksize
-        self.max_concurrent = max_concurrent
-        self.base_url: str = base_url
-        self.key: str = key if key is not None else "xx"
-        self.model_id: str = model_id
+        self.chunk_size = chunk_size
+        self.concurrent = concurrent
+        self.base_url= base_url
+        self.key = key if key is not None else "xx"
+        self.model_id = model_id
         self.temperature = temperature
         self.docling_artifact = docling_artifact
         if docling_artifact is None:
@@ -67,17 +72,21 @@ class FileTranslater:
         return self
 
     def _split_markdown_into_chunks(self) -> list[str]:
-        chunks: list[str] = split_markdown_text(self.markdown, self.chunksize)
+        chunks: list[str] = split_markdown_text(self.markdown, self.chunk_size)
         translater_logger.info(f"markdown分为{len(chunks)}块")
         return chunks
 
     def _default_agent_params(self) -> AgentArgs:
+        if self.base_url is None:
+            raise Exception("base_url为空")
+        if self.model_id is None:
+            raise Exception("model_id为空")
         result: AgentArgs = {
             "baseurl": self.base_url,
             "key": self.key,
             "model_id": self.model_id,
             "temperature": self.temperature,
-            "max_concurrent": self.max_concurrent,
+            "max_concurrent": self.concurrent,
             "timeout": self.timeout
         }
         return result

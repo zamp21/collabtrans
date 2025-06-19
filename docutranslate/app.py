@@ -15,6 +15,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, Fil
 from fastapi.staticfiles import StaticFiles
 from docutranslate import FileTranslater, __version__
 from docutranslate.logger import translater_logger
+from docutranslate.translater import default_params
 from docutranslate.utils.resource_utils import resource_path
 from docutranslate.global_values import available_packages
 
@@ -119,6 +120,9 @@ async def _perform_translation(params: Dict[str, Any], file_contents: bytes, ori
             base_url=params['base_url'],
             key=params['apikey'],
             model_id=params['model_id'],
+            chunk_size=params['chunk_size'],
+            concurrent=params['concurrent'],
+            temperature=params['temperature'],
             convert_engin=params['convert_engin'],
             mineru_token=params['mineru_token'],
         )
@@ -135,7 +139,8 @@ async def _perform_translation(params: Dict[str, Any], file_contents: bytes, ori
 
         md_content = ft.export_to_markdown()
         try:
-            await httpx_client.head("https://s4.zstatic.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js", timeout=3)
+            await httpx_client.head("https://s4.zstatic.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js",
+                                    timeout=3)
             html_content = ft.export_to_html(title=current_state["original_filename_stem"], cdn=True)
         except (httpx.TimeoutException, httpx.RequestError) as e:
             translater_logger.info(f"连接s4.zstatic.net失败，错误信息：{e}")
@@ -213,6 +218,9 @@ async def handle_translate(
         refine_markdown: bool = Form(False),
         convert_engin: str = Form(...),
         mineru_token: Optional[str] = Form(None),
+        chunk_size: int = Form(...),
+        concurrent: int = Form(...),
+        temperature: float = Form(...),
         custom_prompt_translate: Optional[str] = Form(None),
         file: UploadFile = File(...)
 ):
@@ -283,6 +291,9 @@ async def handle_translate(
             "code_ocr": code_ocr, "refine_markdown": refine_markdown,
             "convert_engin": convert_engin,
             "mineru_token": mineru_token,
+            "chunk_size":chunk_size,
+            "concurrent":concurrent,
+            "temperature":temperature,
             "custom_prompt_translate": custom_prompt_translate,
         }
 
@@ -418,6 +429,11 @@ async def download_html(filename_with_ext: str):
         headers={
             "Content-Disposition": f"attachment; filename*=UTF-8''{quote(actual_filename, safe='', encoding='utf-8')}"}
     )
+
+
+@app.get("/translate/default_param")
+def get_default_param():
+    return JSONResponse(content=default_params)
 
 
 @app.get("/meta")

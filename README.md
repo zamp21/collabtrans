@@ -28,9 +28,9 @@
 
 1. `uv init`
 2. `uv add docutranslate`
-3. `uv add docling`#如果需要使用docling进行文档解析
+3. `uv add docutranslate[docling]`#如果需要使用docling进行文档解析
 
-使用git
+使用git（需下载uv）
 
 1. `git clone https://github.com/xunbu/docutranslate.git`
 2. `uv sync`
@@ -59,8 +59,10 @@
 
 使用minerU将文档转换为markdown时，需要在minerU平台申请token
 
-1. 打开[minerU官网](https://mineru.net/apiManage/docs)申请token
+1. 打开[minerU官网](https://mineru.net/apiManage/docs)申请API
 2. 申请成功后，在[API Token管理界面](https://mineru.net/apiManage/token)创建API Token
+
+> mineru token有14天有效期，若过期请创建新的token
 
 ## 使用docling引擎注意事项
 
@@ -185,8 +187,8 @@ from docutranslate import FileTranslater
 translater = FileTranslater(base_url="<baseurl>",  # 默认的模型baseurl
                             key="<api-key>",  # 默认的大语言模型平台api-key
                             model_id="<model-id>",  # 默认的模型id
-                            chunksize=3000,  # markdown分块长度（单位byte），分块越大效果越好（也越慢），不建议超过8000
-                            max_concurrent=30,  # 并发数，受到ai平台并发量限制，如果文章很长建议适当加大到20以上
+                            chunk_size=3000,  # markdown分块长度（单位byte），分块越大效果越好（也越慢），不建议超过8000
+                            concurrent=30,  # 并发数，受到ai平台并发量限制，如果文章很长建议适当加大到20以上
                             timeout=2000,  # 调用api的超时时间
                             docling_artifact=None,  # 使用提前下载好的docling模型
                             convert_engin="mineru",  # 可选minerU或docling
