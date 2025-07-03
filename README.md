@@ -173,8 +173,9 @@ translater = FileTranslater(convert_engin="mineru",  # 使用mineru解析文档
 translater.read_file("<文件路径>").save_as_html()#保存
 translater.read_file("<文件路径>").export_to_html()#输出字符串
 # 文件转markdown
-translater.read_file("<文件路径>").save_as_markdown()#保存
-translater.read_file("<文件路径>").export_to_markdown()#输出字符串
+translater.read_file("<文件路径>").save_as_markdown()#保存内嵌bas64图片的markdown
+translater.read_file("<文件路径>").save_as_markdown(embed=False)#保存不内嵌图片的markdown（文件夹形式）
+translater.read_file("<文件路径>").export_to_markdown()#输出内嵌图片的markdown字符串
 ```
 
 ## 参数说明
@@ -262,6 +263,7 @@ from docutranslate import FileTranslater
 translater = FileTranslater(base_url="<baseurl>",
                             key="<key>",
                             model_id="<model-id>",  # 使用的模型id
+                            convert_engin="docling", # 使用docling
                             docling_artifact=r"C:\Users\<user>\.cache\docling\models"
                             )
 ```

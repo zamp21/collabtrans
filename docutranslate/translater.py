@@ -1,5 +1,7 @@
 import asyncio
 import html
+import io
+import zipfile
 from pathlib import Path
 from typing import Literal
 import markdown2
@@ -9,7 +11,8 @@ from docutranslate.agents import MDRefineAgent, MDTranslateAgent
 from docutranslate.cacher import document_cacher_global
 from docutranslate.converter import Document, ConverterMineru
 from docutranslate.utils.markdown_splitter import split_markdown_text, join_markdown_texts
-from docutranslate.utils.markdown_utils import uris2placeholder, placeholder2_uris, MaskDict, clean_markdown_math_block
+from docutranslate.utils.markdown_utils import uris2placeholder, placeholder2_uris, MaskDict, clean_markdown_math_block, \
+    unembed_base64_images_to_zip
 from docutranslate.logger import translater_logger
 from docutranslate.global_values import available_packages
 from docutranslate.utils.resource_utils import resource_path
@@ -18,16 +21,18 @@ DOCLING_FLAG = True if available_packages.get("docling") else False
 if DOCLING_FLAG:
     from docutranslate.converter import ConverterDocling
 
-default_params={
-    "chunk_size":3000,
-    "concurrent":30,
-    "temperature":0.7,
+default_params = {
+    "chunk_size": 3000,
+    "concurrent": 30,
+    "temperature": 0.7,
 }
+
 
 class FileTranslater:
     def __init__(self, file_path: Path | str | None = None, chunk_size: int = default_params["chunk_size"],
-                 base_url:str|None=None, key=None, model_id:str|None=None, temperature=default_params["temperature"],
-                 concurrent:int=default_params["concurrent"], timeout=2000,
+                 base_url: str | None = None, key=None, model_id: str | None = None,
+                 temperature=default_params["temperature"],
+                 concurrent: int = default_params["concurrent"], timeout=2000,
                  convert_engin: Literal["docling", "mineru"] = "mineru",
                  docling_artifact: Path | str | None = None,
                  mineru_token: str = None, cache=True):
@@ -37,7 +42,7 @@ class FileTranslater:
         self.markdown: str = ""
         self.chunk_size = chunk_size
         self.concurrent = concurrent
-        self.base_url= base_url
+        self.base_url = base_url
         self.key = key if key is not None else "xx"
         self.model_id = model_id
         self.temperature = temperature
@@ -145,7 +150,7 @@ class FileTranslater:
     def read_document(self, document: Document, formula: bool, code: bool, save: bool,
                       save_format: Literal["markdown", "html"], refine: bool,
                       refine_agent: Agent | None):
-        self.document=document
+        self.document = document
         self.markdown = self._convert2markdown(document, formula=formula, code=code, artifact=self.docling_artifact)
         if refine:
             self.refine_markdown_by_agent(refine_agent)
@@ -193,7 +198,7 @@ class FileTranslater:
         if file_path:
             document = Document(path=file_path)
         else:
-            document=self.document
+            document = self.document
         if document is None:
             raise Exception("未读取文件")
         translater_logger.info(f"读取文件：{document.filename}")
@@ -207,7 +212,7 @@ class FileTranslater:
         if file_path:
             document = Document(path=file_path)
         else:
-            document=self.document
+            document = self.document
         if document is None:
             raise Exception("未读取文件")
         translater_logger.info(f"读取文件：{document.filename}")
@@ -277,27 +282,37 @@ class FileTranslater:
         translater_logger.info("翻译完成")
         return self.markdown
 
-    def save_as_markdown(self, filename: str | Path | None = None, output_dir: str | Path = "./output"):
+    def save_as_markdown(self, filename: str | Path | None = None, output_dir: str | Path = "./output", embeded=True):
         if isinstance(filename, str):
             filename = Path(filename)
         if isinstance(output_dir, str):
             output_dir = Path(output_dir)
         if filename is None:
-            filename=f"{self.document.stem}.md"
+            filename = Path(f"{self.document.stem}.md")
         # 确保输出目录存在
         output_dir.mkdir(parents=True, exist_ok=True)
-        full_name = output_dir / filename
-        # 输出前格式化markdown
-        self._markdown_format()
-        with open(full_name, "w") as file:
-            file.write(self.markdown)
-        translater_logger.info(f"文件已写入{full_name.resolve()}")
+        if embeded:
+            full_name = output_dir / filename
+            with open(full_name, "w") as file:
+                file.write(self.export_to_markdown())
+            translater_logger.info(f"文件已写入{full_name.resolve()}")
+        else:
+            with zipfile.ZipFile(self.export_to_unembed_markdown()) as zip_ref:
+                zip_ref.extractall(output_dir)
         return self
 
-    def export_to_markdown(self):
+    def export_to_markdown(self) -> str:
         # 输出前格式化markdown
         self._markdown_format()
         return self.markdown
+
+    def export_to_unembed_markdown(self, filename: str | Path | None = None) -> io.BytesIO:
+        if isinstance(filename, str):
+            filename = Path(filename)
+        if filename is None:
+            filename = Path(f"{self.document.stem}.md")
+        self._markdown_format()
+        return unembed_base64_images_to_zip(self.markdown, folder_name=str(filename.stem), markdown_name=str(filename))
 
     def save_as_html(self, filename: str | Path | None = None, output_dir: str | Path = "./output"):
         if isinstance(filename, str):
@@ -326,33 +341,34 @@ class FileTranslater:
         auto_render = f'<script>{resource_path("static/autoRender.js").read_text(encoding='utf-8')}</script>' if not cdn else r"""<script defer src="https://s4.zstatic.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js" integrity="sha512-iWiuBS5nt6r60fCz26Nd0Zqe0nbk1ZTIQbl3Kv7kYsX+yKMUFHzjaH2+AnM6vp2Xs+gNmaBAVWJjSmuPw76Efg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>"""
         # language=javascript
         render_math_in_element = r"""
-                              <script>
-                                  document.addEventListener("DOMContentLoaded", function () {
-                                  renderMathInElement(document.body, {
-                                      delimiters: [
-                                          {left: '$$', right: '$$', display: true},
-                                          {left: '\\[', right: '\\]', display: true},
-                                          {left: '$', right: '$', display: false},
-                                          {left: '\\(', right: '\\)', display: false}
-                                      ],
-                                      throwOnError: false
-                                  })
-                              });
-                              </script>""" if cdn else r"""
-                                                       <script>
-                                                           document.addEventListener("DOMContentLoaded", function () {
-                                                           renderMathInElement(document.body, {
-                                                               delimiters: [
-                                                                   {left: '$$', right: '$$', display: true},
-                                                                   {left: '\\[', right: '\\]', display: true},
-                                                                   {left: '$', right: '$', display: false},
-                                                                   {left: '\\(', right: '\\)', display: false}
-                                                               ],
-                                                               fonts: false,
-                                                               throwOnError: false
-                                                           })
-                                                       });
-                                                       </script>"""
+                                 <script>
+                                     document.addEventListener("DOMContentLoaded", function () {
+                                     renderMathInElement(document.body, {
+                                         delimiters: [
+                                             {left: '$$', right: '$$', display: true},
+                                             {left: '\\[', right: '\\]', display: true},
+                                             {left: '$', right: '$', display: false},
+                                             {left: '\\(', right: '\\)', display: false}
+                                         ],
+                                         throwOnError: false
+                                     })
+                                 });
+                                 </script>""" if cdn else r"""
+                                                          <script>
+                                                              document.addEventListener("DOMContentLoaded", function
+                                                              () {
+                                                              renderMathInElement(document.body, {
+                                                                  delimiters: [
+                                                                      {left: '$$', right: '$$', display: true},
+                                                                      {left: '\\[', right: '\\]', display: true},
+                                                                      {left: '$', right: '$', display: false},
+                                                                      {left: '\\(', right: '\\)', display: false}
+                                                                  ],
+                                                                  fonts: false,
+                                                                  throwOnError: false
+                                                              })
+                                                          });
+                                                          </script>"""
         mermaid = f'<script>{resource_path("static/mermaid.js").read_text(encoding='utf-8')}</script>'
 
         if self.document.suffix == ".txt":
@@ -385,7 +401,7 @@ class FileTranslater:
 
         if save:
             if output_format == "markdown":
-                self.save_as_markdown(f"{self.document.stem}_{to_lang}.md",output_dir=output_dir)
+                self.save_as_markdown(f"{self.document.stem}_{to_lang}.md", output_dir=output_dir)
             elif output_format == "html":
                 self.save_as_html(f"{self.document.stem}_{to_lang}.html", output_dir=output_dir)
         return self
