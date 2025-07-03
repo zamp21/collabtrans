@@ -28,6 +28,7 @@ current_state: Dict[str, Any] = {
     "error_flag": False,
     "download_ready": False,
     "markdown_content": None,
+    "markdown_zip_content": None,
     "html_content": None,
     "original_filename_stem": None,
     "task_start_time": 0,
@@ -138,6 +139,7 @@ async def _perform_translation(params: Dict[str, Any], file_contents: bytes, ori
         )
 
         md_content = ft.export_to_markdown()
+        md_zip_content = ft.export_to_unembed_markdown()
         try:
             await httpx_client.head("https://s4.zstatic.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js",
                                     timeout=3)
@@ -151,6 +153,7 @@ async def _perform_translation(params: Dict[str, Any], file_contents: bytes, ori
 
         current_state.update({
             "markdown_content": md_content,
+            "markdown_zip_content": md_zip_content,
             "html_content": html_content,
             "status_message": f"翻译成功！用时 {duration:.2f} 秒。",
             "download_ready": True,
@@ -168,6 +171,7 @@ async def _perform_translation(params: Dict[str, Any], file_contents: bytes, ori
             "error_flag": False,
             "download_ready": False,
             "markdown_content": None,
+            "md_zip_content": None,
             "html_content": None,
             "task_end_time": end_time,
         })
@@ -181,6 +185,7 @@ async def _perform_translation(params: Dict[str, Any], file_contents: bytes, ori
             "error_flag": True,
             "download_ready": False,
             "markdown_content": None,
+            "md_zip_content": None,
             "html_content": None,
             "task_end_time": end_time,
         })
@@ -255,6 +260,7 @@ async def handle_translate(
         "error_flag": False,
         "download_ready": False,
         "markdown_content": None,
+        "md_zip_content": None,
         "html_content": None,
         "original_filename_stem": Path(original_filename_for_init).stem,
         "task_start_time": time.time(),
@@ -291,9 +297,9 @@ async def handle_translate(
             "code_ocr": code_ocr, "refine_markdown": refine_markdown,
             "convert_engin": convert_engin,
             "mineru_token": mineru_token,
-            "chunk_size":chunk_size,
-            "concurrent":concurrent,
-            "temperature":temperature,
+            "chunk_size": chunk_size,
+            "concurrent": concurrent,
+            "temperature": temperature,
             "custom_prompt_translate": custom_prompt_translate,
         }
 
@@ -365,10 +371,16 @@ async def get_status():
         "error_flag": current_state["error_flag"],
         "download_ready": current_state["download_ready"],
         "original_filename_stem": current_state["original_filename_stem"],
+
         "markdown_url": f"/download/markdown/{current_state['original_filename_stem']}_translated.md" if current_state[
                                                                                                              "download_ready"] and
                                                                                                          current_state[
                                                                                                              "original_filename_stem"] else None,
+        "markdown_zip_url": f"/download/markdown_zip/{current_state['original_filename_stem']}_translated.md" if
+        current_state[
+            "download_ready"] and
+        current_state[
+            "original_filename_stem"] else None,
         "html_url": f"/download/html/{current_state['original_filename_stem']}_translated.html" if current_state[
                                                                                                        "download_ready"] and
                                                                                                    current_state[
@@ -408,6 +420,25 @@ async def download_markdown(filename_with_ext: str):
     return StreamingResponse(
         io.StringIO(current_state["markdown_content"]),
         media_type="text/markdown",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(actual_filename, safe='', encoding='utf-8')}"}
+    )
+
+
+@app.get("/download/markdown_zip/{filename_with_ext}")
+async def download_markdown(filename_with_ext: str):
+    if not current_state["download_ready"] or not current_state["markdown_zip_content"] or not current_state[
+        "original_filename_stem"]:
+        print("MarkdownZip 内容尚未准备好或不可用。")
+        raise HTTPException(status_code=404, detail="MarkdownZip 内容尚未准备好或不可用。")
+
+    if Path(filename_with_ext).stem != f"{current_state['original_filename_stem']}_translated":
+        raise HTTPException(status_code=404, detail="请求的文件名与当前结果不符。")
+
+    actual_filename = f"{current_state['original_filename_stem']}_translated.zip"
+    return StreamingResponse(
+        io.BytesIO(current_state["markdown_zip_content"]),
+        media_type="application/zip",
         headers={
             "Content-Disposition": f"attachment; filename*=UTF-8''{quote(actual_filename, safe='', encoding='utf-8')}"}
     )

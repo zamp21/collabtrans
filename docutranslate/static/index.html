@@ -114,6 +114,9 @@
             display: none;
             margin-top: 1rem;
         }
+        .smaller-button-group > *{
+            font-size: 0.9em;
+        }
 
         .hidden {
             display: none !important;
@@ -444,12 +447,11 @@
     </form>
     <div id="resultArea">
         <p id="statusMessage"></p>
-        <div id="downloadButtons" class="button-group">
-            <h4>翻译结果</h4>
-            <div class="spacer"></div>
-            <a id="downloadMarkdown" href="#" role="button" class="outline">下载 Markdown</a>
-            <a id="downloadHtml" href="#" role="button" class="outline">下载 HTML</a>
-            <button id="downloadPdf" class="outline">下载 PDF</button>
+        <div id="downloadButtons" class="button-group smaller-button-group" style="justify-content: space-around">
+            <a id="downloadMarkdownZip" href="#" role="button" class="outline">下载Markdown</a>
+            <a id="downloadMarkdown" href="#" role="button" class="outline">下载Markdown(嵌图)</a>
+            <a id="downloadHtml" href="#" role="button" class="outline">下载HTML</a>
+            <button id="downloadPdf" class="outline">下载PDF</button>
             <button id="previewHtml" class="outline">预览</button>
         </div>
     </div>
@@ -528,11 +530,13 @@
     const logArea = document.getElementById('logArea');
     const statusMsg = document.getElementById('statusMessage');
     const downloadBtns = document.getElementById('downloadButtons');
+    const markdownZipLink = document.getElementById('downloadMarkdownZip');
     const markdownLink = document.getElementById('downloadMarkdown');
     const htmlLink = document.getElementById('downloadHtml');
     const previewHtmlBtn = document.getElementById('previewHtml');
     const downloadPdfBtn = document.getElementById('downloadPdf');
     const printFrameEl = document.getElementById('printFrame');
+    const customPromptTranslateArea=document.getElementById("custom_prompt_translate");
 
     // Modal and preview elements
     const modal = document.getElementById('previewModal');
@@ -612,6 +616,7 @@
             statusMsg.textContent = error.toString();
             statusMsg.className = 'error-message';
         }
+        customPromptTranslateArea.value=getFromStorage("custom_prompt_translate")
     }
 
     await init()
@@ -794,6 +799,9 @@
     setBilingualViewBtn.addEventListener('click', () => setPreviewDisplayMode('bilingual'));
     setTranslatedOnlyViewBtn.addEventListener('click', () => setPreviewDisplayMode('translationOnly'));
 
+    customPromptTranslateArea.addEventListener('input',()=>{
+        saveToStorage("custom_prompt_translate",customPromptTranslateArea.value)
+    })
 
     fileDropArea.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', () => {
@@ -888,6 +896,8 @@
                 isTranslating = false;
 
                 if (status.download_ready && !status.error_flag) {
+                    markdownZipLink.href = status.markdown_zip_url;
+                    markdownZipLink.setAttribute('download', status.original_filename_stem + '_translated.zip');
                     markdownLink.href = status.markdown_url;
                     markdownLink.setAttribute('download', status.original_filename_stem + '_translated.md');
                     htmlLink.href = status.html_url;
