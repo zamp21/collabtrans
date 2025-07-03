@@ -179,11 +179,9 @@ def embed_inline_image_from_zip(zip_bytes: bytes, filename_in_zip: str, encoding
         return modified_md_content
 
 
-def unembed_base64_images_to_zip(markdown:str,folder_name:str,markdown_name:str,image_folder_name="images")->bytes:
+def unembed_base64_images_to_zip(markdown:str,markdown_name:str,image_folder_name="images")->bytes:
     with tempfile.TemporaryDirectory() as temp_dir:
-        subfolder = os.path.join(temp_dir, folder_name)#所有的操作都在这个subfolder里进行
-        os.makedirs(subfolder, exist_ok=True)
-        image_folder=os.path.join(subfolder,image_folder_name)
+        image_folder=os.path.join(temp_dir,image_folder_name)
         os.makedirs(image_folder,exist_ok=True)
         pattern=r"!\[(.*?)\]\(data:(.*?);.*base64,(.*)\)"
         def unembed_base64_images(match:re.Match)->str:
@@ -197,16 +195,15 @@ def unembed_base64_images_to_zip(markdown:str,folder_name:str,markdown_name:str,
                 f.write(base64.b64decode(b64data))
             return f"![{match.group(1)}]({url})"
         modified_md_content = re.sub(pattern, unembed_base64_images,markdown)
-        with open(os.path.join(subfolder,f"{markdown_name}"),"w") as f:
+        with open(os.path.join(temp_dir,f"{markdown_name}"),"w") as f:
             f.write(modified_md_content)
         zip_buffer=io.BytesIO()
-        folder_path=Path(subfolder)
+        folder_path=Path(temp_dir)
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for file in folder_path.rglob('*'):
                 if file.is_file():
-                    zipf.write(file, file.relative_to(folder_path.parent))
-
-    return zip_buffer.read()
+                    zipf.write(file, file.relative_to(folder_path))
+    return zip_buffer.getvalue()
 
 def clean_markdown_math_block(markdown):
     """清除公式块的多余空格字符"""
@@ -222,5 +219,5 @@ def clean_markdown_math_block(markdown):
 if __name__ == '__main__':
     with open(r"C:\Users\jxgm\Desktop\translate\docutranslate\tests\files\test7.md",'r') as f:
         markdown=f.read()
-        print(unembed_base64_images_to_zip(markdown))
+        print(unembed_base64_images_to_zip(markdown,"markdown.md"))
 

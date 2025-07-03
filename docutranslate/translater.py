@@ -109,6 +109,10 @@ class FileTranslater:
             return cached_result
         if document.suffix in [".md", ".txt"]:
             return document.filebytes.decode("utf-8")
+        if document.suffix in ['zip']:
+            #寻找zip内的filename
+            filename=find_markdown_in_zip(document.filebytes)
+            return embed_inline_image_from_zip(document.filebytes,filename)
         translater_logger.info("正在转化为markdown")
         if self.convert_engin == "docling":
             if artifact is None:
@@ -289,18 +293,20 @@ class FileTranslater:
     def save_as_markdown(self, filename: str | Path | None = None, output_dir: str | Path = "./output", embeded=True):
         if isinstance(filename, str):
             filename = Path(filename)
-        if isinstance(output_dir, str):
-            output_dir = Path(output_dir)
         if filename is None:
             filename = Path(f"{self.document.stem}.md")
         # 确保输出目录存在
-        output_dir.mkdir(parents=True, exist_ok=True)
+        if isinstance(output_dir, str):
+            output_dir = Path(output_dir)
         if embeded:
-            full_name = output_dir / filename
+            output_dir.mkdir(parents=True, exist_ok=True)
+            full_name = output_dir / filename.name
             with open(full_name, "w") as file:
                 file.write(self.export_to_markdown())
             translater_logger.info(f"文件已写入{full_name.resolve()}")
         else:
+            output_dir=output_dir/filename.stem
+            output_dir.mkdir(parents=True, exist_ok=True)
             with zipfile.ZipFile(io.BytesIO(self.export_to_unembed_markdown())) as zip_ref:
                 zip_ref.extractall(output_dir)
         return self
@@ -316,7 +322,7 @@ class FileTranslater:
         if filename is None:
             filename = Path(f"{self.document.stem}.md")
         self._markdown_format()
-        return unembed_base64_images_to_zip(self.markdown, folder_name=str(filename.stem), markdown_name=str(filename))
+        return unembed_base64_images_to_zip(self.markdown, markdown_name=filename.name)
 
     def save_as_html(self, filename: str | Path | None = None, output_dir: str | Path = "./output"):
         if isinstance(filename, str):
