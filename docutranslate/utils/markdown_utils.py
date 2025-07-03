@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import io
 import mimetypes
 import os
@@ -187,7 +188,7 @@ def unembed_base64_images_to_zip(markdown:str,markdown_name:str,image_folder_nam
         def unembed_base64_images(match:re.Match)->str:
             b64data = match.group(3)
             extension=mimetypes.guess_extension(match.group(2))
-            image_id=uuid.uuid1().hex[:8]
+            image_id=hashlib.md5(b64data.encode()).hexdigest()[:8]
             image_name=f"{image_id}{extension}"
             url=f"./{image_folder_name}/{image_name}"
             #创建对应的image文件
@@ -217,7 +218,5 @@ def clean_markdown_math_block(markdown):
 
 
 if __name__ == '__main__':
-    with open(r"C:\Users\jxgm\Desktop\translate\docutranslate\tests\files\test7.md",'r') as f:
-        markdown=f.read()
-        print(unembed_base64_images_to_zip(markdown,"markdown.md"))
+    pass
 
