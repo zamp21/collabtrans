@@ -109,7 +109,7 @@ class FileTranslater:
             return cached_result
         if document.suffix in [".md", ".txt"]:
             return document.filebytes.decode("utf-8")
-        if document.suffix in ['zip']:
+        if document.suffix in ['.zip']:
             #寻找zip内的filename
             filename=find_markdown_in_zip(document.filebytes)
             return embed_inline_image_from_zip(document.filebytes,filename)
@@ -136,7 +136,7 @@ class FileTranslater:
             return cached_result
         if document.suffix in [".md", ".txt"]:
             return document.filebytes.decode("utf-8")
-        if document.suffix in ['zip']:
+        if document.suffix in ['.zip']:
             #寻找zip内的filename
             filename=find_markdown_in_zip(document.filebytes)
             return embed_inline_image_from_zip(document.filebytes,filename)

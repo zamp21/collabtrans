@@ -9,7 +9,7 @@ import httpx
 from docutranslate.logger import translater_logger
 
 MAX_RETRY_COUNT = 2
-MAX_TOTAL_RETRY_COUNT = 10
+MAX_TOTAL_ERROR_COUNT = 10
 
 
 class AgentArgs(TypedDict, total=False):
@@ -22,7 +22,7 @@ class AgentArgs(TypedDict, total=False):
     timeout: int
 
 
-class TotalRetryCounter:
+class TotalErrorCounter:
     def __init__(self, ):
         self.lock = Lock()
         self.count = 0
@@ -30,7 +30,7 @@ class TotalRetryCounter:
     def add(self):
         self.lock.acquire()
         self.count += 1
-        if self.count>MAX_TOTAL_RETRY_COUNT:
+        if self.count>MAX_TOTAL_ERROR_COUNT:
             translater_logger.info(f"错误响应过多")
             raise Exception("错误响应过多")
         self.lock.release()
@@ -38,10 +38,10 @@ class TotalRetryCounter:
         return self.reach_limit()
 
     def reach_limit(self):
-        return self.count > MAX_TOTAL_RETRY_COUNT
+        return self.count > MAX_TOTAL_ERROR_COUNT
 
 
-total_retry_counter = TotalRetryCounter()
+total_error_counter = TotalErrorCounter()
 
 
 # 仅使用多线程时用以计数
@@ -113,6 +113,7 @@ class Agent:
         except httpx.HTTPStatusError as e:
             translater_logger.warning(f"AI请求错误 (async): {e.response.status_code} - {e.response.text}")
             print(f"prompt:\n{prompt}")
+            total_error_counter.add()
             retry=False
         except httpx.RequestError as e:
             translater_logger.warning(f"AI请求连接错误 (async): {repr(e)}")
@@ -120,7 +121,7 @@ class Agent:
             raise Exception(f"AI响应格式错误 (async): {repr(e)}")
         # 如果没有正常获取结果则重试
         if retry and retry_count < MAX_RETRY_COUNT:
-            total_retry_counter.add()
+            total_error_counter.add()
             translater_logger.info(f"正在重试，重试次数{retry_count}")
             await asyncio.sleep(0.5)
             return await self.send_async(prompt, system_prompt, retry=True, retry_count=retry_count + 1)
@@ -178,14 +179,15 @@ class Agent:
         except httpx.HTTPStatusError as e:
             translater_logger.warning(f"AI请求错误 (async): {e.response.status_code} - {e.response.text}")
             print(f"prompt:\n{prompt}")
-            retry = False
+            total_error_counter.add()
+            return prompt
         except httpx.RequestError as e:
             translater_logger.warning(f"AI请求连接错误 (sync): {repr(e)}\nprompt:{prompt}")
         except (KeyError, IndexError) as e:
             raise Exception(f"AI响应格式错误 (sync): {repr(e)}")
         # 如果没有正常获取结果则重试
         if retry and retry_count < MAX_RETRY_COUNT:
-            total_retry_counter.add()
+            total_error_counter.add()
             translater_logger.info(f"正在重试，重试次数{retry_count}")
             time.sleep(0.5)
             return self.send(prompt, system_prompt, retry=True, retry_count=retry_count + 1)
