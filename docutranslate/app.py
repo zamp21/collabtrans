@@ -482,8 +482,8 @@ def find_free_port(start_port):
             port += 1  # 端口被占用，尝试下一个端口
 
 
-def run_app():
-    initial_port = 8010
+def run_app(port=8010):
+    initial_port = port
     try:
         # 首先检查初始端口是否可用
         port = find_free_port(initial_port)
