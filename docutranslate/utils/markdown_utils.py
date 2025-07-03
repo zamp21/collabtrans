@@ -76,6 +76,22 @@ def placeholder2_uris(markdown: str, mask_dict: MaskDict):
     return markdown
 
 
+def find_markdown_in_zip(zip_bytes: bytes):
+    zip_file_bytes = io.BytesIO(zip_bytes)
+    with zipfile.ZipFile(zip_file_bytes, 'r') as zip_ref:
+        # 获取 ZIP 中所有文件名
+        all_files = zip_ref.namelist()
+        # 筛选出 .md 文件
+        md_files = [f for f in all_files if f.lower().endswith('.md')]
+
+        if len(md_files) == 1:
+            return md_files[0]
+        elif len(md_files) > 1:
+            raise ValueError("ZIP 中包含多个 Markdown 文件")
+        else:
+            raise ValueError("ZIP 中没有 Markdown 文件")
+
+
 def embed_inline_image_from_zip(zip_bytes: bytes, filename_in_zip: str, encoding="utf-8"):
     zip_file_bytes = io.BytesIO(zip_bytes)
 
@@ -163,7 +179,7 @@ def embed_inline_image_from_zip(zip_bytes: bytes, filename_in_zip: str, encoding
         return modified_md_content
 
 
-def unembed_base64_images_to_zip(markdown:str,folder_name:str,markdown_name:str,image_folder_name="images")->io.BytesIO:
+def unembed_base64_images_to_zip(markdown:str,folder_name:str,markdown_name:str,image_folder_name="images")->bytes:
     with tempfile.TemporaryDirectory() as temp_dir:
         subfolder = os.path.join(temp_dir, folder_name)#所有的操作都在这个subfolder里进行
         os.makedirs(subfolder, exist_ok=True)
@@ -190,7 +206,7 @@ def unembed_base64_images_to_zip(markdown:str,folder_name:str,markdown_name:str,
                 if file.is_file():
                     zipf.write(file, file.relative_to(folder_path.parent))
 
-    return zip_buffer
+    return zip_buffer.read()
 
 def clean_markdown_math_block(markdown):
     """清除公式块的多余空格字符"""

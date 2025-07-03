@@ -12,7 +12,7 @@ from docutranslate.cacher import document_cacher_global
 from docutranslate.converter import Document, ConverterMineru
 from docutranslate.utils.markdown_splitter import split_markdown_text, join_markdown_texts
 from docutranslate.utils.markdown_utils import uris2placeholder, placeholder2_uris, MaskDict, clean_markdown_math_block, \
-    unembed_base64_images_to_zip
+    unembed_base64_images_to_zip, embed_inline_image_from_zip, find_markdown_in_zip
 from docutranslate.logger import translater_logger
 from docutranslate.global_values import available_packages
 from docutranslate.utils.resource_utils import resource_path
@@ -132,6 +132,10 @@ class FileTranslater:
             return cached_result
         if document.suffix in [".md", ".txt"]:
             return document.filebytes.decode("utf-8")
+        if document.suffix in ['zip']:
+            #寻找zip内的filename
+            filename=find_markdown_in_zip(document.filebytes)
+            return embed_inline_image_from_zip(document.filebytes,filename)
         translater_logger.info("正在转化为markdown")
         if self.convert_engin == "docling":
             if artifact is None:
@@ -297,7 +301,7 @@ class FileTranslater:
                 file.write(self.export_to_markdown())
             translater_logger.info(f"文件已写入{full_name.resolve()}")
         else:
-            with zipfile.ZipFile(self.export_to_unembed_markdown()) as zip_ref:
+            with zipfile.ZipFile(io.BytesIO(self.export_to_unembed_markdown())) as zip_ref:
                 zip_ref.extractall(output_dir)
         return self
 
@@ -306,7 +310,7 @@ class FileTranslater:
         self._markdown_format()
         return self.markdown
 
-    def export_to_unembed_markdown(self, filename: str | Path | None = None) -> io.BytesIO:
+    def export_to_unembed_markdown(self, filename: str | Path | None = None) -> bytes:
         if isinstance(filename, str):
             filename = Path(filename)
         if filename is None:
