@@ -114,7 +114,7 @@ class Agent:
             translater_logger.warning(f"AI请求错误 (async): {e.response.status_code} - {e.response.text}")
             print(f"prompt:\n{prompt}")
             total_error_counter.add()
-            retry=False
+            return prompt
         except httpx.RequestError as e:
             translater_logger.warning(f"AI请求连接错误 (async): {repr(e)}")
         except (KeyError, IndexError) as e:
