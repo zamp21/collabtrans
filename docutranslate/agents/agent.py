@@ -30,7 +30,11 @@ class TotalRetryCounter:
     def add(self):
         self.lock.acquire()
         self.count += 1
+        if self.count>MAX_TOTAL_RETRY_COUNT:
+            translater_logger.info(f"错误响应过多")
+            raise Exception("错误响应过多")
         self.lock.release()
+
         return self.reach_limit()
 
     def reach_limit(self):
@@ -108,23 +112,21 @@ class Agent:
             return result
         except httpx.HTTPStatusError as e:
             translater_logger.warning(f"AI请求错误 (async): {e.response.status_code} - {e.response.text}")
-            print(f"system_prompt:\n{system_prompt}\nprompt:\n{prompt}")
-            return prompt
+            print(f"prompt:\n{prompt}")
+            retry=False
         except httpx.RequestError as e:
             translater_logger.warning(f"AI请求连接错误 (async): {repr(e)}")
         except (KeyError, IndexError) as e:
             raise Exception(f"AI响应格式错误 (async): {repr(e)}")
         # 如果没有正常获取结果则重试
         if retry and retry_count < MAX_RETRY_COUNT:
-            if total_retry_counter.add():
-                translater_logger.info(f"错误响应过多")
-                raise Exception("错误响应过多")
+            total_retry_counter.add()
             translater_logger.info(f"正在重试，重试次数{retry_count}")
             await asyncio.sleep(0.5)
             return await self.send_async(prompt, system_prompt, retry=True, retry_count=retry_count + 1)
         else:
             translater_logger.error(f"达到重试次数上限")
-            return ""
+            return prompt
 
     async def send_prompts_async(
             self,
@@ -174,22 +176,22 @@ class Agent:
             result = response.json()["choices"][0]["message"]["content"]
             return result
         except httpx.HTTPStatusError as e:
-            raise Exception(f"AI请求错误 (sync): {e.response.status_code} - {e.response.text}")
+            translater_logger.warning(f"AI请求错误 (async): {e.response.status_code} - {e.response.text}")
+            print(f"prompt:\n{prompt}")
+            retry = False
         except httpx.RequestError as e:
             translater_logger.warning(f"AI请求连接错误 (sync): {repr(e)}\nprompt:{prompt}")
         except (KeyError, IndexError) as e:
             raise Exception(f"AI响应格式错误 (sync): {repr(e)}")
         # 如果没有正常获取结果则重试
         if retry and retry_count < MAX_RETRY_COUNT:
-            if total_retry_counter.add():
-                translater_logger.info(f"错误响应过多")
-                raise Exception("错误响应过多")
+            total_retry_counter.add()
             translater_logger.info(f"正在重试，重试次数{retry_count}")
             time.sleep(0.5)
             return self.send(prompt, system_prompt, retry=True, retry_count=retry_count + 1)
         else:
             translater_logger.error(f"达到重试次数上限，返回空行")
-            return ""
+            return prompt
 
     def _send_prompt_count(self, prompt: str, system_prompt: None | str, count: PromptsCounter) -> str:
         result = self.send(prompt, system_prompt)
