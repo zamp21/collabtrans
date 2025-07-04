@@ -16,7 +16,7 @@ def main():
     parser.add_argument(
         "-p", "--port",
         type=int,  # 指定参数类型（例如整数）
-        default=8010,  # 默认值（可选）
+        default=None,  # 默认值（可选）
         help="指定端口号（默认：8010）。"
     )
 
@@ -51,15 +51,8 @@ def main():
         from docutranslate import  __version__
         print(__version__)
     else:
-        print("提示：若要启动 DocuTranslate 图形界面，请使用 -i 或 --interactive 选项。")
-        print("\n用法示例:")
-        print("  docutranslate -i")
-        print("  docutranslate --interactive")
-        print("\n如需查看所有可用选项，请运行:")
-        print("  docutranslate --help")
-        # 或者直接显示帮助信息:
-        # parser.print_help()
-        sys.exit(1) # 以错误码退出，表明命令未按预期执行
+        parser.print_help()
+        sys.exit(1)
 
 
 if __name__ == "__main__":

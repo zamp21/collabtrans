@@ -1,6 +1,7 @@
 import asyncio
 import io
 import logging
+import os
 import socket
 import time
 from contextlib import asynccontextmanager, closing
@@ -482,8 +483,12 @@ def find_free_port(start_port):
             port += 1  # 端口被占用，尝试下一个端口
 
 
-def run_app(port=8010):
-    initial_port = port
+def run_app(port:int|None=None):
+    if port:
+        initial_port = port
+    else:
+        env_port=os.environ.get("DOCUTRANSLATE_PORT")
+        initial_port=int(env_port) if env_port else 8010
     try:
         # 首先检查初始端口是否可用
         port = find_free_port(initial_port)
@@ -491,6 +496,7 @@ def run_app(port=8010):
             print(f"端口 {initial_port} 被占用，将使用端口 {port} 代替")
         print(f"正在启动 DocuTranslate WebUI 版本号：{__version__}")
         print(f"请用浏览器访问 http://127.0.0.1:{port} (部分终端可以使用ctrl+左键点击网址打开)")
+        print(f"可以设置环境变量`DOCUTRANSLATE_PORT=<port>`改变默认服务端口号")
         uvicorn.run(app, host="127.0.0.1", port=port, workers=1)
     except Exception as e:
         print(f"启动失败: {e}")

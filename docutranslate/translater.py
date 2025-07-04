@@ -301,7 +301,7 @@ class FileTranslater:
         if embeded:
             output_dir.mkdir(parents=True, exist_ok=True)
             full_name = output_dir / filename.name
-            with open(full_name, "w") as file:
+            with open(full_name, "w", encoding="utf-8") as file:
                 file.write(self.export_to_markdown())
             translater_logger.info(f"文件已写入{full_name.resolve()}")
         else:
@@ -336,7 +336,7 @@ class FileTranslater:
         output_dir.mkdir(parents=True, exist_ok=True)
         full_name = output_dir / filename
         html_content = self.export_to_html(title=str(full_name.resolve().stem))
-        with open(full_name, "w") as file:
+        with open(full_name, "w",encoding="utf-8") as file:
             file.write(html_content)
         translater_logger.info(f"文件已写入{full_name.resolve()}")
         return self

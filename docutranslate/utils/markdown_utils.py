@@ -196,7 +196,7 @@ def unembed_base64_images_to_zip(markdown:str,markdown_name:str,image_folder_nam
                 f.write(base64.b64decode(b64data))
             return f"![{match.group(1)}]({url})"
         modified_md_content = re.sub(pattern, unembed_base64_images,markdown)
-        with open(os.path.join(temp_dir,f"{markdown_name}"),"w") as f:
+        with open(os.path.join(temp_dir,f"{markdown_name}"),"w",encoding="utf-8") as f:
             f.write(modified_md_content)
         zip_buffer=io.BytesIO()
         folder_path=Path(temp_dir)

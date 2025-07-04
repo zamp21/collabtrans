@@ -113,10 +113,18 @@ os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 - 第一次使用该库读取、翻译非markdown文本
 - 第一次使用该库的公式识别或代码识别功能
 
-## 使用图形化界面
+## 启动交互式界面
+
+启动交互式界面
 
 ```commandline
 docutranslate -i
+```
+
+启动交互式界面并指定端口
+
+```commandline
+docutranslate -i -p 8011
 ```
 
 ## 翻译文件
@@ -170,12 +178,12 @@ translater = FileTranslater(convert_engin="mineru",  # 使用mineru解析文档
                             # convert_engin="docling"  # 使用docling解析文档
                             )
 # 文件转html
-translater.read_file("<文件路径>").save_as_html()#保存
-translater.read_file("<文件路径>").export_to_html()#输出字符串
+translater.read_file("<文件路径>").save_as_html()  # 保存
+translater.read_file("<文件路径>").export_to_html()  # 输出字符串
 # 文件转markdown
-translater.read_file("<文件路径>").save_as_markdown()#保存内嵌bas64图片的markdown
-translater.read_file("<文件路径>").save_as_markdown(embed=False)#保存不内嵌图片的markdown（文件夹形式）
-translater.read_file("<文件路径>").export_to_markdown()#输出内嵌图片的markdown字符串
+translater.read_file("<文件路径>").save_as_markdown()  # 保存内嵌bas64图片的markdown
+translater.read_file("<文件路径>").save_as_markdown(embed=False)  # 保存不内嵌图片的markdown（文件夹形式）
+translater.read_file("<文件路径>").export_to_markdown()  # 输出内嵌图片的markdown字符串
 ```
 
 ## 参数说明
@@ -233,18 +241,22 @@ translater.translate_file(r"<要翻译的文件路径>",
 
 # FAQ
 
-1. 是否支持扫描件
+1. 8010端口被占用了怎么办
 
-> 暂不支持
+> 可以通过设置系统环境变量`DOCUTRANSLATE_PORT=<port>`来指定启动端口
 
-2. 第一次使用很慢是怎么回事
+2. 是否支持扫描件
+
+> mineru解析引擎支持，docling不支持
+
+3. 第一次使用很慢是怎么回事
 
 > 第一次是使用时docling需要从huggingface下载转换输入文件为markdown的模型  
 > 通过设置环境变量换源或科学上网可能有助于提高下载速度
 
 > huggingface换源，请设置环境变量：`HF_ENDPOINT=https://hf-mirror.com`
 
-3. 如何内网使用（不联网）
+4如何内网使用（不联网）
 
 > 可以，对于docling提供的解析pdf、html等功能，可以使用以下方式提前下载所需的模型
 
@@ -263,7 +275,7 @@ from docutranslate import FileTranslater
 translater = FileTranslater(base_url="<baseurl>",
                             key="<key>",
                             model_id="<model-id>",  # 使用的模型id
-                            convert_engin="docling", # 使用docling
+                            convert_engin="docling",  # 使用docling
                             docling_artifact=r"C:\Users\<user>\.cache\docling\models"
                             )
 ```
