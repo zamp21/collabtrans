@@ -175,7 +175,10 @@ from docutranslate.agents import MDTranslateAgent
 
 translater = FileTranslater()
 
-translate_agent = MDTranslateAgent(baseurl="<baseurl>", key="<key>", model_id="<model-id>",custom_prompt="Ordering Node全部翻译为排序节点")#这里必须指定baseurl\api-key\model_id
+translate_agent = MDTranslateAgent(baseurl="<baseurl>", 
+                                   key="<key>", 
+                                   model_id="<model-id>",
+                                   custom_prompt="Ordering Node全部翻译为排序节点")#这里必须指定baseurl\api-key\model_id
 
 translater.translate_file("<文件路径>", to_lang="中文",translate_agent=translate_agent)
 ```
@@ -292,4 +295,4 @@ translater = FileTranslater(base_url="<baseurl>",
                             )
 ```
 
-> 对于llm功能，可以使用ollama或lm studio等方式本地部署。
+> 对于本地ai翻译功能，可以使用ollama或lm studio等方式本地部署。

@@ -57,6 +57,7 @@ class MDTranslateAgent(Agent):
 不能改变形如<ph-xxxxxx>的占位符
 code、latex和HTML只翻译说明文字，其余保持原文
 公式无论长短必须表示为能被解析的合法latex公式，公式需被$或\\(\\)或$$正确包裹，如不正确则进行修正
+表格如果是table标签请改为普通表格写法，注意表格正确性
 去除、修正明显异常的字符、但不能改变原意
 引用参考文献时请严格保持原文，不要翻译。参考文献格式示例如下：
 [1] Author A, Author B. "Original Title". Journal, 2023.  
