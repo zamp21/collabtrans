@@ -7,28 +7,27 @@ dependencies = [
     "httpx>=0.28.1",
     "markdown2>=2.5.3",
     "fastapi[standard]>=0.115.12",
+
 ]
 dynamic = ["version"]
 
 [project.optional-dependencies]
 docling = [
-    "opencv-python",
-    "transformers==4.51.3",
-    "docling"
+    "opencv-python>=4.11.0.86",
+    "docling>=2.40.0",
 ]
 
 [dependency-groups]
 dev = [
-    "opencv-python",
-    "transformers==4.51.3",
-    "docling",
-    "pyinstaller",
+    "opencv-python>=4.11.0.86",
+    "docling>=2.40.0",
+    "pyinstaller>=6.14.2",
 ]
 [project.scripts]
 docutranslate = "docutranslate.cli:main"
 
 [build-system]
-requires = ["setuptools>=61.0"] # 或者你需要的 setuptools 版本
+requires = ["setuptools>=80.9.0"] # 或者你需要的 setuptools 版本
 build-backend = "setuptools.build_meta"
 backend-path = ["."]
 [tool.setuptools]
