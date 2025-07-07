@@ -38,12 +38,12 @@
 
 # 支持的文件格式
 
-| 输入格式           | 输出格式         |
-|----------------|--------------|
-| PDF（非扫描版）      | Markdown（推荐） |
-| Markdown       | HTML         |
-| HTML、XHTML     | PDF(仅交互界面支持) |
-| CSV            |              |
+| 输入格式         | 输出格式         |
+|--------------|--------------|
+| PDF      | Markdown（推荐） |
+| Markdown     | HTML         |
+| HTML、XHTML   | PDF(仅交互界面支持) |
+| CSV          |              |
 | DOC、DOCX（部分支持） |              |
 
 > 如果想不使用交互界面获取pdf，可以先下载HTML文件，用浏览器打开并打印
@@ -70,7 +70,7 @@
 
 可以在[github release](https://github.com/xunbu/docutranslate/releases)中下载docling_artifact压缩包，将该压缩包解压放置在项目下可以解决模型下载的网络问题
 
-### huggingface换源
+### huggingface换源（使用docling且尚未下载`docling_artifact`模型包）
 
 > 不能科学上网的友友注意了
 
@@ -101,7 +101,7 @@ os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 由于需要使用大语言模型进行markdown调整与翻译，所以需要预先获取模型的baseurl、key、model-id  
 常见的大模型平台baseurl与api获取方式可见[常用ai平台](#常用ai平台)
 > 比较推荐的模型有智谱的glm-4-air、glm-4-flash（免费），阿里云的qwen-plus等。  
-> 推理模型需要支持api请求响应中区分`reasoning_content`和`content`（详见平台开发手册，ollama、lmstudio需开启对应选项）
+> 推理模型（不建议使用）需要支持api请求响应中区分`reasoning_content`和`content`（详见平台开发手册，ollama、lmstudio需开启对应选项）
 
 # 使用方式
 
@@ -140,13 +140,13 @@ translater = FileTranslater(base_url="<baseurl>",  # 大模型的baseurl
                             # convert_engin="docling"  # 使用docling解析文档
                             )
 
-# 不开启公式、代码识别（默认输出为markdown文件）
+# 不开启公式、代码识别
 translater.translate_file("<文件路径>", to_lang="中文")
 
-# 开启公式、代码识别（需要下载更多模型）
+# 开启公式、代码识别
 translater.translate_file("<文件路径>", to_lang="中文", formula=True, code=True)
 
-# 在先修复文本再翻译（适用于翻译pdf，但更耗时耗费）
+# 使用ai先修复解析后的文本再翻译（解析效果很差时才需要，现不推荐使用）
 translater.translate_file("<文件路径>", to_lang="中文", refine=True)
 ```
 
@@ -168,6 +168,18 @@ translater.translate_file("<文件路径>", to_lang="中文", refine_agent=refin
                           translate_agent=translate_agent)
 ```
 
+## 自定义翻译提示词
+```python
+from docutranslate import FileTranslater
+from docutranslate.agents import MDTranslateAgent
+
+translater = FileTranslater()
+
+translate_agent = MDTranslateAgent(baseurl="<baseurl>", key="<key>", model_id="<model-id>",custom_prompt="Ordering Node全部翻译为排序节点")#这里必须指定baseurl\api-key\model_id
+
+translater.translate_file("<文件路径>", to_lang="中文",translate_agent=translate_agent)
+```
+
 ## 文件转换(pdf/markdown/HTML/Doc等->markdown/html)
 
 ```python
@@ -178,7 +190,7 @@ translater = FileTranslater(convert_engin="mineru",  # 使用mineru解析文档
                             # convert_engin="docling"  # 使用docling解析文档
                             )
 # 文件转html
-translater.read_file("<文件路径>").save_as_html()  # 保存
+translater.read_file("<文件路径>").save_as_html()  # 保存(可通过output_dir参数指定保存目录)
 translater.read_file("<文件路径>").export_to_html()  # 输出字符串
 # 文件转markdown
 translater.read_file("<文件路径>").save_as_markdown()  # 保存内嵌bas64图片的markdown
