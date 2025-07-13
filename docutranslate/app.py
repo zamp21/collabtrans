@@ -497,7 +497,7 @@ def run_app(port:int|None=None):
         print(f"正在启动 DocuTranslate WebUI 版本号：{__version__}")
         print(f"请用浏览器访问 http://127.0.0.1:{port} (部分终端可以使用ctrl+左键点击网址打开)")
         print(f"可以设置环境变量`DOCUTRANSLATE_PORT=<port>`改变默认服务端口号")
-        uvicorn.run(app, host="127.0.0.1", port=port, workers=1)
+        uvicorn.run(app, host=None, port=port, workers=1)
     except Exception as e:
         print(f"启动失败: {e}")
 
