@@ -401,7 +401,7 @@
                         <li><a class="dropdown-item download-html-link" href="#"><i
                                 class="bi bi-filetype-html me-2"></i>HTML</a></li>
                         <li><a class="dropdown-item download-markdown-link" href="#"><i
-                                class="bi bi-markdown-fill me-2"></i>Markdown（嵌图）</a></li>
+                                class="bi bi-markdown-fill me-2"></i>Markdown(嵌图)</a></li>
                         <li><a class="dropdown-item download-markdown-zip-link" href="#"><i
                                 class="bi bi-file-zip-fill me-2"></i>Markdown压缩包</a></li>
                     </ul>
@@ -667,7 +667,7 @@
                     file: null,
                     htmlUrl: null,
                     fileNameStem: null,
-                    isSubmitted: false // MODIFICATION 1: Add isSubmitted flag
+                    isSubmitted: false
                 },
                 intervals: {
                     log: null,
@@ -791,7 +791,7 @@
             try {
                 const fileContentBase64 = await fileToBase64(state.file);
 
-                state.isSubmitted = true; // MODIFICATION 2: Mark task as submitted before sending request
+                state.isSubmitted = true;
 
                 const payload = {
                     task_id: taskId,
@@ -902,14 +902,26 @@
             try {
                 const response = await fetch(`/service/status/${taskId}`);
                 if (!response.ok) {
-                    // MODIFICATION 3: Only remove task if it was already submitted
-                    // An unsubmitted task will have `state.isSubmitted = false`, and will not be removed.
                     if (response.status === 404 && isRestore && state.isSubmitted) {
                         removeTask(taskId);
                     }
                     return;
                 }
                 const status = await response.json();
+
+                // ==================== MODIFICATION START ====================
+                // Restore filename display from status
+                // This runs only if state.file is not present (e.g., after a page refresh)
+                // and the backend provides the original filename.
+                if (status.original_filename && !state.file) {
+                    elements.fileNameDisplay.textContent = `已上传: ${status.original_filename}`;
+                    elements.fileDropArea.classList.add('file-selected');
+                    elements.fileDropPrompt.style.display = 'none';
+                    // Also clear any potential error states from a previous failed attempt
+                    elements.fileDropArea.classList.remove('input-error');
+                    elements.fileNameDisplay.classList.remove('input-error-text');
+                }
+                // ==================== MODIFICATION END ====================
 
                 elements.statusMessage.textContent = status.status_message || '正在获取状态...';
                 elements.statusMessage.className = `status-message small ${status.error_flag ? 'text-danger' : 'text-info'}`;

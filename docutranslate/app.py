@@ -38,6 +38,7 @@ def _create_default_task_state() -> Dict[str, Any]:
         "download_ready": False, "markdown_content": None, "markdown_zip_content": None,
         "html_content": None, "original_filename_stem": None, "task_start_time": 0,
         "task_end_time": 0, "current_task_ref": None,
+        "original_filename": None,
     }
 
 
@@ -180,6 +181,7 @@ async def _start_translation_task(
         "status_message": "任务初始化中...", "error_flag": False, "download_ready": False,
         "markdown_content": None, "md_zip_content": None, "html_content": None,
         "original_filename_stem": Path(original_filename).stem,
+        "original_filename": original_filename,
         "task_start_time": time.time(), "task_end_time": 0, "current_task_ref": None,
     })
 
@@ -275,9 +277,10 @@ class TranslateServiceRequest(BaseModel):
         examples=["task-12345"]
     )
     base_url: str = Field(..., description="LLM API的基础URL。", examples=["https://api.openai.com/v1"])
-    apikey: str = Field(..., description="LLM API的密钥。注意：请勿在不安全的环境中暴露此密钥。", examples=["sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"])
+    apikey: str = Field(..., description="LLM API的密钥。注意：请勿在不安全的环境中暴露此密钥。",
+                        examples=["sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"])
     model_id: str = Field(..., description="使用的模型ID。", examples=["gpt-4-turbo"])
-    to_lang: str = Field("中文", description="目标翻译语言。", examples=["中文","英文","English"])
+    to_lang: str = Field("中文", description="目标翻译语言。", examples=["中文", "英文", "English"])
     formula_ocr: bool = Field(False, description="是否对公式进行OCR识别。")
     code_ocr: bool = Field(False, description="是否对代码块进行OCR识别。")
     refine_markdown: bool = Field(False, description="是否使用ai对解析后的文档进行一遍优化（现不推荐使用）")
@@ -286,9 +289,11 @@ class TranslateServiceRequest(BaseModel):
     chunk_size: int = Field(..., description="文本分块的大小。", examples=[2048])
     concurrent: int = Field(..., description="并发请求的数量。", examples=[5])
     temperature: float = Field(..., description="LLM的温度参数，控制生成文本的随机性。", examples=[0.7])
-    custom_prompt_translate: Optional[str] = Field(None, description="用户自定义的翻译Prompt。", examples=["人名保持原文不翻译。"])
+    custom_prompt_translate: Optional[str] = Field(None, description="用户自定义的翻译Prompt。",
+                                                   examples=["人名保持原文不翻译。"])
     file_name: str = Field(..., description="上传的原始文件名，包含扩展名。", examples=["my_document.pdf"])
-    file_content: str = Field(..., description="Base64编码的文件内容。", examples=["JVBERi0xLjQKJeLjz9MKMSAwIG9iago8PAovVHlwZS..."])
+    file_content: str = Field(..., description="Base64编码的文件内容。",
+                              examples=["JVBERi0xLjQKJeLjz9MKMSAwIG9iago8PAovVHlwZS..."])
 
     class Config:
         json_schema_extra = {
@@ -357,7 +362,8 @@ async def service_translate(request: TranslateServiceRequest = Body(..., descrip
     summary="取消翻译任务",
     description="根据任务ID取消一个正在进行的翻译任务。这是一个异步操作，发送取消请求后，任务不会立即停止，需要通过状态接口确认最终状态。"
 )
-async def service_cancel_translate(task_id: str = FastApiPath(..., description="要取消的任务的ID", example="task-12345")):
+async def service_cancel_translate(
+        task_id: str = FastApiPath(..., description="要取消的任务的ID", example="task-12345")):
     """根据任务ID取消一个正在进行的翻译任务。"""
     try:
         response_data = _cancel_translation_logic(task_id)
@@ -392,6 +398,7 @@ async def service_get_status(task_id: str = FastApiPath(..., description="要查
         "error_flag": task_state["error_flag"],
         "download_ready": task_state["download_ready"],
         "original_filename_stem": task_state["original_filename_stem"],
+        "original_filename": task_state.get("original_filename"),  # <--- MODIFIED
         "task_start_time": task_state["task_start_time"],
         "task_end_time": task_state["task_end_time"],
         "downloads": {
@@ -423,6 +430,8 @@ async def service_get_logs(task_id: str = FastApiPath(..., description="要获�
 
 
 FileType = Literal["markdown", "markdown_zip", "html"]
+
+
 @service_router.get(
     "/download/{task_id}/{file_type}",
     summary="下载翻译结果文件",
@@ -506,14 +515,16 @@ async def main_page_admin():
           summary="[内部] 临时同步翻译接口",
           description="一个简单的、同步的翻译接口，用于快速测试。不涉及后台任务、状态管理或多格式输出。**不建议在生产环境中使用。**",
           tags=["Internal / UI"])
-async def temp_translate(base_url: str = Body(..., description="LLM API的基础URL。", example="https://api.openai.com/v1"),
-                         api_key: str = Body(..., description="LLM API的密钥。", example="sk-xxxxxxxxxx"),
-                         model_id: str = Body(..., description="使用的模型ID。", example="gpt-4-turbo"),
-                         mineru_token: str = Body(..., description="Mineru引擎的Token。"),
-                         file_name: str = Body(..., description="原始文件名。", example="test.txt"),
-                         file_content: str = Body(..., description="文件内容，可以是纯文本或Base64编码的字符串。"),
-                         to_lang: str = Body("中文", description="目标语言。")
-                         ):
+async def temp_translate(
+        base_url: str = Body(..., description="LLM API的基础URL。", example="https://api.openai.com/v1"),
+        api_key: str = Body(..., description="LLM API的密钥。", example="sk-xxxxxxxxxx"),
+        model_id: str = Body(..., description="使用的模型ID。", example="gpt-4-turbo"),
+        mineru_token: str = Body(..., description="Mineru引擎的Token。"),
+        file_name: str = Body(..., description="原始文件名。", example="test.txt"),
+        file_content: str = Body(..., description="文件内容，可以是纯文本或Base64编码的字符串。"),
+        to_lang: str = Body("中文", description="目标语言。"),
+        concurrent: int = Body(30, description="ai翻译并发数")
+        ):
     def is_base64(s):
         try:
             base64.b64decode(s)
@@ -525,6 +536,7 @@ async def temp_translate(base_url: str = Body(..., description="LLM API的基础
                         key=api_key,
                         model_id=model_id,
                         mineru_token=mineru_token,
+                        concurrent=concurrent
                         )
 
     try:
