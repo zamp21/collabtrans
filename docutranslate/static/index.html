@@ -698,7 +698,7 @@
             formData.append('task_id', taskId);
 
             try {
-                const response = await fetch('/translate', { method: 'POST', body: formData });
+                const response = await fetch('backend/translate', { method: 'POST', body: formData });
                 const result = await response.json();
 
                 if (response.ok && result.task_started) {
@@ -731,7 +731,7 @@
             try {
                 const formData = new FormData();
                 formData.append('task_id', taskId);
-                const response = await fetch('/cancel-translate', { method: 'POST', body: formData });
+                const response = await fetch('backend/cancel-translate', { method: 'POST', body: formData });
                 const result = await response.json();
 
                 if (response.ok && result.cancelled) {
@@ -769,7 +769,7 @@
         async function pollLogs(taskId) {
             const { elements } = tasks[taskId];
             try {
-                const response = await fetch(`/get-logs?task_id=${taskId}`);
+                const response = await fetch(`backend/get-logs?task_id=${taskId}`);
                 if (!response.ok) return;
                 const data = await response.json();
                 if (data.logs && data.logs.length > 0) {
@@ -784,7 +784,7 @@
         async function pollStatus(taskId, isRestore = false) {
             const { elements, state } = tasks[taskId];
             try {
-                const response = await fetch(`/get-status?task_id=${taskId}`);
+                const response = await fetch(`backend/get-status?task_id=${taskId}`);
                 if (!response.ok) {
                     // If 404 on restore, it means the task is old and gone from server. Remove it.
                     if (response.status === 404 && isRestore) {
@@ -958,9 +958,9 @@
             // Fetch metadata
             try {
                 const [metaRes, enginRes, paramsRes] = await Promise.all([
-                    fetch("/meta"),
-                    fetch('/get-engin-list'),
-                    fetch("/translate/default_param")
+                    fetch("backend/meta"),
+                    fetch('backend/get-engin-list'),
+                    fetch("backend/translate/default_param")
                 ]);
                 const meta = await metaRes.json();
                 versionDisplay.textContent = `v${meta.version}`;

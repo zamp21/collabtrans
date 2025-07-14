@@ -445,7 +445,7 @@ class FileTranslater:
                         code=True, output_format: Literal["markdown", "html"] = "markdown",
                         custom_prompt_translate=None,
                         refine=False,
-                        refine_agent: Agent | None = None, translate_agent: Agent | None = None, save=True):
+                        refine_agent: Agent | None = None, translate_agent: Agent | None = None, save=False):
         self.read_bytes(name=name, file=file, formula=formula, code=code)
         if refine:
             self.refine_markdown_by_agent(refine_agent)
@@ -463,7 +463,7 @@ class FileTranslater:
                                     formula=True,
                                     code=True, output_format: Literal["markdown", "html"] = "markdown",
                                     custom_prompt_translate=None, refine=False,
-                                    refine_agent: Agent | None = None, translate_agent: Agent | None = None, save=True):
+                                    refine_agent: Agent | None = None, translate_agent: Agent | None = None, save=False):
         await self.read_bytes_async(name=name, file=file, formula=formula, code=code)
 
         if refine:
