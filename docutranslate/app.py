@@ -512,9 +512,9 @@ async def main_page_admin():
 
 
 @app.post("/temp/translate",
-          summary="[内部] 临时同步翻译接口",
+          summary="[临时]同步翻译接口",
           description="一个简单的、同步的翻译接口，用于快速测试。不涉及后台任务、状态管理或多格式输出。**不建议在生产环境中使用。**",
-          tags=["Internal / UI"])
+          tags=["Temp"])
 async def temp_translate(
         base_url: str = Body(..., description="LLM API的基础URL。", example="https://api.openai.com/v1"),
         api_key: str = Body(..., description="LLM API的密钥。", example="sk-xxxxxxxxxx"),
