@@ -1,1200 +1,1051 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-bs-theme="auto">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DocuTranslate</title>
-    <link rel="icon" href="/static/DocuTranslate.ico" type="image/x-icon">
-    <link rel="stylesheet" href="/static/pico.css">
+    <title>DocuTranslate - 交互式文档翻译</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="/static/bootstrap.css" rel="stylesheet" crossorigin="anonymous">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="/static/bootstrap-icons.css">
+
     <style>
         body {
-            padding: 20px;
+            background-color: var(--bs-body-bg);
         }
 
-        .container {
-            max-width: 800px;
-            margin: auto;
-            padding: 1rem;
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding-top: 1rem;
+            padding-bottom: 1rem;
         }
 
-        summary {
-            border-bottom: 1px dashed #ccc;
-            padding-bottom: 0.5rem;
+        .settings-panel {
+            height: calc(100vh - 2rem);
+            overflow-y: auto;
+            padding-right: 15px; /* for scrollbar */
         }
 
-        .prompt-area {
-            resize: vertical;
-            width: 100%;
-            min-height: 200px;
-            font-size: 0.9em;
-            box-sizing: border-box;
-            display: block;
+        .task-area {
+            height: calc(100vh - 2rem);
+            overflow-y: auto;
+        }
+
+        .task-card {
+            transition: all 0.3s ease-in-out;
         }
 
         .log-area {
-            background-color: #f5f5f5;
-            border: 1px solid #e0e0e0;
-            padding: 10px;
-            height: 300px;
-            overflow-y: scroll;
-            white-space: pre-wrap;
+            height: 150px;
+            background-color: var(--bs-tertiary-bg);
+            border: 1px solid var(--bs-border-color);
+            border-radius: .375rem;
             font-family: monospace;
-            margin-top: 1rem;
-        }
-
-        .meta {
-            margin-top: 2rem;
             font-size: 0.8rem;
+            padding: 10px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
         }
 
-        .meta * {
-            font-size: inherit;
+        .file-drop-area {
+            border: 2px dashed var(--bs-secondary-bg);
+            border-radius: .375rem;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            background-color: var(--bs-body-bg);
+        }
+        .file-drop-area.drag-over {
+            border-color: var(--bs-primary);
+            background-color: var(--bs-secondary-bg);
+        }
+        .file-drop-area.file-selected {
+            border-style: solid;
+            border-color: var(--bs-success);
+        }
+        .file-drop-area.input-error {
+            border-color: var(--bs-danger);
+        }
+        .file-name-display.input-error-text {
+            color: var(--bs-danger);
+            font-weight: bold;
         }
 
-        .error-message {
-            color: #d32f2f;
-        }
-
-        .success-message {
-            color: #2e7d32;
-        }
-
-        a.no-style {
-            text-decoration: none;
-            color: inherit;
-        }
-
-        .form-group {
-            margin-bottom: 0.5rem;
-            margin-left: 1rem;
-            margin-right: 2rem;
-        }
-
-        .form-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-        }
-
-        .button-group {
-            margin-top: 1rem;
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-            justify-content: right;
-            align-items: baseline;
-        }
-
-        .spacer {
-            flex-grow: 1;
-        }
-
-        details {
-            margin-bottom: 2rem;
-        }
-
-        .checkbox-group {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .checkbox-group label {
-            margin-right: 10px;
-        }
-
-        #resultArea {
-            margin-top: 1.5rem;
-            padding-top: 1rem;
-            border-top: 1px solid #eee;
-        }
-
-        #downloadButtons {
-            display: none;
-            margin-top: 1rem;
-        }
-        .smaller-button-group > *{
-            font-size: 0.9em;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
+        #printFrame, #translatedPreviewFrame {
+            border: none;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.6);
-            z-index: 1000;
-            overflow: auto;
         }
 
-        .modal-content {
-            background-color: #fff;
-            margin: 2% auto;
-            padding: 20px;
-            width: 95%;
-            max-width: 1400px;
-            height: 90vh;
-            border-radius: 8px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
+        #previewModal .modal-dialog {
+            max-width: 95vw;
         }
-
-        #previewTitleBar {
-            display: flex;
-            align-items: center; /* Vertically align items */
-            margin-bottom: 10px;
-            flex-shrink: 0; /* Prevent shrinking when content is large */
-        }
-
-        #previewModalTitle {
-            margin: 0; /* Remove default h3 margin */
-            font-size: 1.2rem; /* Adjust title size */
-        }
-
-        .preview-view-mode-buttons { /* This is a Pico .button-group */
-            margin-left: 1.5rem; /* Space from title */
-            /* Pico styles will apply display:flex, gap */
-        }
-
-        .preview-view-mode-buttons button {
-            font-size: 0.85rem; /* Smaller buttons for toggle */
-            padding: 0.4rem 0.8rem;
-        }
-
-
-        #closeModalBtnInTitle { /* Renamed to avoid conflict if another element has closeModalBtn */
-            cursor: pointer;
-            margin-left: auto; /* Pushes close button to the very right */
-            font-size: 1.5rem;
-            line-height: 1;
-            padding: 0 0.5rem; /* Add some clickable area */
-        }
-
-
-        #previewContainer {
-            display: flex;
-            flex-grow: 1;
-            gap: 15px;
-            overflow: hidden;
-            min-height: 0;
+        #previewModal .modal-body {
+            height: 80vh;
         }
 
         .preview-pane {
-            flex: 1 1 0; /* Grow, Shrink, Basis. Basis 0 for even distribution with gap */
-            min-width: 0; /* Important for flex items that might contain oversized content */
-            border: 1px solid #ddd;
-            display: flex;
-            flex-direction: column;
+            height: 100%;
             overflow: hidden;
-            background-color: #f9f9f9;
+            border: 1px solid var(--bs-border-color);
+            border-radius: .375rem;
         }
-
-        .preview-pane h4 {
-            margin: 0;
-            padding: 8px 12px;
-            background-color: #efefef;
-            border-bottom: 1px solid #ddd;
-            font-size: 0.9rem;
-            text-align: center;
-            flex-shrink: 0; /* Prevent title from shrinking */
-        }
-
         .preview-pane iframe, .preview-pane pre {
             width: 100%;
-            flex-grow: 1;
+            height: 100%;
             border: none;
-            overflow: auto;
-            background-color: #fff;
-        }
-
-        .preview-pane pre {
+            margin: 0;
             padding: 10px;
-            white-space: pre-wrap;
-            word-break: break-all;
-            font-family: monospace;
+            overflow: auto;
+            background-color: var(--bs-body-bg);
         }
 
-        #printFrame {
-            display: none;
+        .slider-reset-btn {
+            visibility: hidden;
         }
 
-        #fileDropArea {
-            border: 2px dashed #ccc;
-            padding: 20px;
-            text-align: center;
-            cursor: pointer;
-            transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
-        }
-
-        #fileDropArea.drag-over {
-            border-color: #1095c1;
-            background-color: #e7f5fa;
-        }
-
-        #fileDropArea.file-selected {
-            border-color: #2e7d32;
-            background-color: #e8f5e9;
-        }
-
-        #fileDropArea p {
-            margin: 0.5rem 0;
-            color: #555;
-        }
-
-        #fileNameDisplay {
-            margin-top: 0.5rem;
-            font-style: italic;
-            color: #333;
-        }
-
-        #fileNameDisplay.has-file {
-            font-style: normal;
-            font-weight: bold;
-            color: #1a531d;
-        }
-
-        #fileDropArea.input-error, input.input-error, select.input-error {
-            border-color: #d32f2f !important;
-        }
-
-        #fileNameDisplay.input-error-text {
-            color: #d32f2f !important;
-            font-weight: bold;
-        }
-
-        .clickable {
-            cursor: pointer;
-        }
-
-        @media (max-width: 768px) {
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
-
-            #previewContainer {
-                flex-direction: column;
-                height: auto;
-            }
-
-            .modal-content {
-                height: 95vh;
-            }
-
-            .preview-pane {
-                min-height: 300px;
-            }
-
-            #previewTitleBar {
-                flex-wrap: wrap; /* Allow wrapping for smaller screens */
-            }
-
-            .preview-view-mode-buttons {
-                margin-left: 0;
-                margin-top: 0.5rem; /* Space when wrapped */
-                width: 100%; /* Take full width when wrapped */
-                justify-content: center;
-            }
-
-            #closeModalBtnInTitle {
-                order: -1; /* Move close button to top left on wrap if needed, or adjust layout */
-                margin-left: auto; /* Keep it to the right */
-            }
-
-            #previewModalTitle {
-                width: 100%; /* Allow title to take width if buttons wrap below */
-                text-align: center;
-                margin-bottom: 0.5rem; /* Space if buttons wrap */
-            }
+        .theme-switch {
+            position: fixed;
+            bottom: 1rem;
+            left: 1rem;
+            z-index: 1050;
         }
     </style>
 </head>
 <body>
-<main class="container">
-    <h1>
-        <a href="https://github.com/xunbu/docutranslate" target="_blank">DocuTranslate🔗</a>
-    </h1>
-    <form id="translateForm">
 
-        <div class="form-group">
-            <label for="file">文档选择</label>
-            <div id="fileDropArea">
-                <input type="file" id="file" name="file" required style="display: none;">
-                <p id="fileDropPrompt">点击此处选择文件，或将文件拖拽到这里</p>
-                <div id="fileNameDisplay">未选择文件</div>
-            </div>
-        </div>
+    <div class="container-fluid main-container">
+        <div class="row gx-4">
+            <!-- Left: Settings Panel -->
+            <div class="col-lg-4">
+                <div class="settings-panel">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="mb-0"><i class="bi bi-gear-fill me-2"></i>Docutranslate</h4>
+                        <span id="versionDisplay" class="text-muted small"></span>
+                    </div>
 
-        <div class="form-grid">
-            <div class="form-group">
-                <label for="to_lang">目标语言</label>
-                <select id="to_lang" name="to_lang">
-                    <option value="中文">中文 (Chinese)</option>
-                    <option value="English">英文 (English)</option>
-                    <option value="日本語">日语 (Japanese)</option>
-                    <option value="한국어">韩语 (Korean)</option>
-                    <option value="Français">法语 (French)</option>
-                    <option value="Deutsch">德语 (German)</option>
-                    <option value="Español">西班牙语 (Spanish)</option>
-                    <option value="Italiano">意大利语 (Italian)</option>
-                    <option value="Português">葡萄牙语 (Portuguese)</option>
-                    <option value="Русский">俄语 (Russian)</option>
-                    <option value="العربية">阿拉伯语 (Arabic)</option>
-                    <option value="हिन्दी">印地语 (Hindi)</option>
-                    <option value="Nederlands">荷兰语 (Dutch)</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>选项</label>
-                <div class="checkbox-group">
-                    <label for="formula_ocr"><input type="checkbox" id="formula_ocr" name="formula_ocr" role="switch">公式识别</label>
-                    <label for="code_ocr"><input type="checkbox" id="code_ocr" name="code_ocr"
-                                                 role="switch">代码识别</label>
-                    <label for="refine_markdown"><input type="checkbox" id="refine_markdown" name="refine_markdown"
-                                                        role="switch">修正文本（耗时）</label>
-                </div>
-            </div>
-        </div>
-        <details>
-            <summary>文档解析引擎配置</summary>
-            <div class="form-group">
-                <label for="convert_engin">解析引擎</label>
-                <select id="convert_engin" name="convert_engin">
-                    <option value="mineru" selected>minerU（推荐）</option>
-                    <option value="docling" id="docling">Docling</option>
-                </select>
-            </div>
-            <div class="form-group hidden" id="mineruTokenGroup">
-                <label for="mineru_token">minerU Token<a class="no-style" href="https://mineru.net/apiManage/token"
-                                                         target="_blank"
-                                                         title="获取令牌">🔗</a></label>
-                <input type="password" id="mineru_token" name="mineru_token" placeholder="使用 Mineru 引擎时必须填写">
-            </div>
-        </details>
+                    <form id="translateForm">
+                        <div class="accordion" id="settingsAccordion">
 
+                            <!-- Parsing Engine Settings -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="headingOne">
+                                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                                        <strong><i class="bi bi-file-earmark-binary me-2"></i>解析引擎</strong>
+                                    </button>
+                                </h2>
+                                <div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne">
+                                    <div class="accordion-body">
+                                        <div class="mb-3">
+                                            <label for="convert_engin" class="form-label">解析引擎</label>
+                                            <select class="form-select" id="convert_engin" name="convert_engin">
+                                                <option value="mineru">minerU (推荐)</option>
+                                                <option value="docling">Docling (本地翻译)</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3" id="mineruTokenGroup">
+                                            <label for="mineru_token" class="form-label">
+                                                Mineru Token
+                                                <a href="https://mineru.net/apiManage/token" target="_blank" class="ms-1" title="获取Mineru Token"><i class="bi bi-box-arrow-up-right"></i></a>
+                                            </label>
+                                            <input type="password" class="form-control" id="mineru_token" name="mineru_token" placeholder="使用Mineru引擎时需要">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
-        <details>
-            <summary>翻译API配置</summary>
-            <div class="form-grid">
-                <div class="form-group">
-                    <label for="platform_select">AI 平台 </label>
-                    <select id="platform_select" name="platform_select_ui">
-                        <option value="custom">自定义接口</option>
-                        <option value="https://api.openai.com/v1">OpenAI</option>
-                        <option value="https://open.bigmodel.cn/api/paas/v4">智谱AI</option>
-                        <option value="https://api.deepseek.com/v1">DeepSeek</option>
-                        <option value="https://dashscope.aliyuncs.com/compatible-mode/v1">阿里云百炼</option>
-                        <option value="https://www.dmxapi.cn/v1">DMXAPI</option>
-                        <option value="https://openrouter.ai/api/v1">OpenRouter</option>
-                        <option value="https://ark.cn-beijing.volces.com/api/v3">火山引擎</option>
-                        <option value="https://api.siliconflow.cn/v1">硅基流动</option>
-                    </select>
-                </div>
-                <div class="form-group hidden" id="baseUrlGroup">
-                    <label for="base_url">API 地址 (Base URL)</label>
-                    <input type="text" id="base_url" name="base_url" placeholder="https://api.openai.com/v1">
-                </div>
-            </div>
-            <div class="form-group">
-                <label for="apikey">API 密钥<a id="api_href" class="no-style" href="/"
-                                               target="_blank"
-                                               title="获取API-KEY">🔗</a></label>
-                <input type="password" id="apikey" name="apikey" placeholder="平台对应的API Key" required>
-            </div>
-            <div class="form-group">
-                <label for="model_id">模型 ID</label>
-                <input type="text" id="model_id" name="model_id" placeholder="模型id" required>
-            </div>
-        </details>
-        <details>
-            <summary>高级选项</summary>
-            <div class="form-group">
-                <div>
-                    <label for="chunk-size-slider"><span
-                            style="display:inline-block;min-width: 15vw">分块大小(bytes):</span><span
-                            id="chunk-size-display"></span><span class="clickable" id="chunk-size-reset"
-                                                                 style="color: #2e7d32">🗘</span></label>
-                    <input type="range" id="chunk-size-slider" name="chunk_size" min="1000" max="6000" step="100">
-                </div>
-                <div>
-                    <label for="concurrent-slider"><span
-                            style="display:inline-block;min-width: 15vw">并发请求数:</span><span
-                            id="concurrent-display"></span><span class="clickable" id="concurrent-reset"
-                                                                 style="color: #2e7d32">🗘</span></label>
-                    <input type="range" id="concurrent-slider" name="concurrent" min="1" max="60" step="1">
-                </div>
-                <div>
-                    <label for="temperature-slider"><span
-                            style="display:inline-block;min-width: 15vw">temperature:</span><span
-                            id="temperature-display"></span><span class="clickable" id="temperature-reset"
-                                                                  style="color: #2e7d32">🗘</span></label>
-                    <input type="range" id="temperature-slider" name="temperature" min="0" max="1" step="0.1">
-                </div>
+                            <!-- AI Settings -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="headingTwo">
+                                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="true" aria-controls="collapseTwo">
+                                        <strong><i class="bi bi-robot me-2"></i>翻译模型</strong>
+                                    </button>
+                                </h2>
+                                <div id="collapseTwo" class="accordion-collapse collapse show" aria-labelledby="headingTwo">
+                                    <div class="accordion-body">
+                                        <div class="mb-3">
+                                            <label for="platform_select" class="form-label">选择平台</label>
+                                            <select class="form-select" id="platform_select">
+                                                <option value="custom">自定义接口</option>
+                                                <option value="https://api.openai.com/v1">OpenAI</option>
+                                                <option value="https://open.bigmodel.cn/api/paas/v4">智谱AI</option>
+                                                <option value="https://api.deepseek.com/v1">DeepSeek</option>
+                                                <option value="https://dashscope.aliyuncs.com/compatible-mode/v1">阿里云百炼</option>
+                                                <option value="https://www.dmxapi.cn/v1">DMXAPI</option>
+                                                <option value="https://openrouter.ai/api/v1">OpenRouter</option>
+                                                <option value="https://ark.cn-beijing.volces.com/api/v3">火山引擎</option>
+                                                <option value="https://api.siliconflow.cn/v1">硅基流动</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3" id="baseUrlGroup">
+                                            <label for="base_url" class="form-label">API 地址 (Base URL)</label>
+                                            <input type="url" class="form-control" id="base_url" name="base_url" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="apikey" class="form-label">
+                                                API Key
+                                                <a href="#" target="_blank" class="ms-1" id="api_href" title="获取API Key"><i class="bi bi-box-arrow-up-right"></i></a>
+                                            </label>
+                                            <input type="password" class="form-control" id="apikey" name="apikey" required placeholder="请输入您的API Key">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="model_id" class="form-label">模型 ID</label>
+                                            <input type="text" class="form-control" id="model_id" name="model_id" required placeholder="例如: gpt-4o, glm-4">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
-                <label for="custom_prompt_translate"></label>
-                <textarea class="prompt-area" type="text" id="custom_prompt_translate"
-                          name="custom_prompt_translate" placeholder="翻译提示"></textarea>
+                            <!-- Translation Settings -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="headingThree">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+                                        <strong><i class="bi bi-translate me-2"></i>翻译配置</strong>
+                                    </button>
+                                </h2>
+                                <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree">
+                                    <div class="accordion-body">
+                                        <div class="mb-3">
+                                            <label for="to_lang" class="form-label">目标语言</label>
+                                            <select class="form-select" id="to_lang" name="to_lang">
+                                                <option value="中文">中文</option>
+                                                <option value="English">English</option>
+                                                <option value="Japanese">Japanese</option>
+                                                <option value="Korean">Korean</option>
+                                            </select>
+                                        </div>
+                                         <div class="mb-3">
+                                            <label for="custom_prompt_translate" class="form-label">自定义Prompt</label>
+                                            <textarea class="form-control" id="custom_prompt_translate" name="custom_prompt_translate" rows="3" placeholder="可选，如“人名保持原文不翻译”"></textarea>
+                                        </div>
+                                        <div class="form-check form-switch mb-2">
+                                            <input class="form-check-input" type="checkbox" role="switch" id="formula_ocr" name="formula_ocr" checked>
+                                            <label class="form-check-label" for="formula_ocr">公式识别</label>
+                                        </div>
+                                        <div class="form-check form-switch mb-2">
+                                            <input class="form-check-input" type="checkbox" role="switch" id="code_ocr" name="code_ocr" checked>
+                                            <label class="form-check-label" for="code_ocr">代码识别</label>
+                                        </div>
+                                        <div class="form-check form-switch mb-2">
+                                            <input class="form-check-input" type="checkbox" role="switch" id="refine_markdown" name="refine_markdown">
+                                            <label class="form-check-label" for="refine_markdown">Markdown修复<span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" title="使用ai对解析后的文本先修复再翻译，现不推荐开启">
+                                              <i class="bi bi-question-circle"></i>
+                                            </span></label>
+
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Other Settings -->
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="headingFour">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFour" aria-expanded="false" aria-controls="collapseFour">
+                                        <strong><i class="bi bi-sliders me-2"></i>高级参数</strong>
+                                    </button>
+                                </h2>
+                                <div id="collapseFour" class="accordion-collapse collapse" aria-labelledby="headingFour">
+                                    <div class="accordion-body">
+                                        <div class="mb-3">
+                                            <label for="chunk-size-slider" class="form-label d-flex justify-content-between">
+                                                <span>分块大小: <span id="chunk-size-display"></span></span>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1 slider-reset-btn" id="chunk-size-reset">重置</button>
+                                            </label>
+                                            <input type="range" class="form-range" min="1000" max="6000" step="100" id="chunk-size-slider" name="chunk_size">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="concurrent-slider" class="form-label d-flex justify-content-between">
+                                                <span>并发数: <span id="concurrent-display"></span></span>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1 slider-reset-btn" id="concurrent-reset">重置</button>
+                                            </label>
+                                            <input type="range" class="form-range" min="1" max="60" step="1" id="concurrent-slider" name="concurrent">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="temperature-slider" class="form-label d-flex justify-content-between">
+                                                <span>Temperature: <span id="temperature-display"></span></span>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1 slider-reset-btn" id="temperature-reset">重置</button>
+                                            </label>
+                                            <input type="range" class="form-range" min="0" max="2" step="0.1" id="temperature-slider" name="temperature">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
             </div>
-        </details>
-        <button type="submit" id="submitButton" class="primary">开始翻译</button>
-    </form>
-    <div id="resultArea">
-        <p id="statusMessage"></p>
-        <div id="downloadButtons" class="button-group smaller-button-group" style="justify-content: space-around">
-            <a id="downloadMarkdownZip" href="#" role="button" class="outline">下载Markdown</a>
-            <a id="downloadMarkdown" href="#" role="button" class="outline">下载Markdown(嵌图)</a>
-            <a id="downloadHtml" href="#" role="button" class="outline">下载HTML</a>
-            <button id="downloadPdf" class="outline">下载PDF</button>
-            <button id="previewHtml" class="outline">预览</button>
+
+            <!-- Right: Task Area -->
+            <div class="col-lg-8">
+                <div class="task-area" id="task-area-container">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4 class="mb-0"><i class="bi bi-list-task me-2"></i>任务列表</h4>
+                        <button class="btn btn-primary" id="addNewTaskBtn"><i class="bi bi-plus-circle-fill me-2"></i>新建任务</button>
+                    </div>
+                    <div id="task-container">
+                        <!-- Task cards will be injected here -->
+                    </div>
+                    <div id="no-task-placeholder" class="text-center text-muted mt-5">
+                        <i class="bi bi-journal-plus" style="font-size: 4rem;"></i>
+                        <p class="mt-3">当前没有任务，点击“新建任务”开始吧！</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-    <h4 style="margin-top: 1.5rem;">运行日志</h4>
-    <div class="log-area" id="logArea"></div>
-    <ul class="meta">
-        <li id="versionDisplay"></li>
-        <li>QQ交流群：1047781902</li>
-        <li><a class="no-style"
-               target="_blank"
-               href="https://github.com/xunbu/docutranslate">项目主页：github.com/xunbu/docutranslate</a>（欢迎star❤）</li>
-    </ul>
-</main>
 
-<!-- MODIFIED MODAL STRUCTURE -->
-<div id="previewModal" class="modal">
-    <div class="modal-content">
-        <div id="previewTitleBar">
-            <h3 id="previewModalTitle">双语预览</h3>
-            <div class="preview-view-mode-buttons button-group" style="margin-top:0;">
-                <!-- Pico .button-group applied -->
-                <button id="setBilingualViewBtn" role="button" class="primary">双语</button>
-                <button id="setTranslatedOnlyViewBtn" role="button" class="outline">译文</button>
+    <!-- Task Card Template -->
+    <template id="taskCardTemplate">
+        <div class="card mb-3 task-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-bold">任务 ID: <code class="task-id-display"></code></span>
+                <button type="button" class="btn-close remove-task-btn" aria-label="Close"></button>
             </div>
-            <span id="closeModalBtnInTitle">×</span>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-5">
+                        <input type="file" class="d-none file-input">
+                        <div class="file-drop-area">
+                            <i class="bi bi-cloud-arrow-up fs-1"></i>
+                            <p class="file-drop-prompt mb-0">点击或拖拽文件到此处</p>
+                            <p class="file-name-display text-success"></p>
+                        </div>
+                    </div>
+                    <div class="col-md-7">
+                        <h6><i class="bi bi-terminal me-2"></i>日志</h6>
+                        <div class="log-area"></div>
+                        <div class="mt-2">
+                            <div class="status-message-container">
+                                <span class="status-message small text-muted">等待上传文件...</span>
+                            </div>
+                            <div class="progress mt-1" role="progressbar" style="height: 5px; display: none;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer d-flex justify-content-between align-items-center">
+                <div class="download-buttons" style="display: none;">
+                    <button class="btn btn-sm btn-success preview-html-btn"><i class="bi bi-eye-fill me-1"></i>预览</button>
+                    <button class="btn btn-sm btn-info download-pdf-btn"><i class="bi bi-file-earmark-pdf-fill me-1"></i>下载 PDF</button>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-sm btn-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                           <i class="bi bi-download me-1"></i>下载其他格式
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item download-html-link" href="#"><i class="bi bi-filetype-html me-2"></i>HTML</a></li>
+                            <li><a class="dropdown-item download-markdown-link" href="#"><i class="bi bi-markdown-fill me-2"></i>Markdown（嵌图）</a></li>
+                            <li><a class="dropdown-item download-markdown-zip-link" href="#"><i class="bi bi-file-zip-fill me-2"></i>Markdown压缩包</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <button class="btn btn-primary start-translate-btn ms-auto"><i class="bi bi-play-fill me-1"></i>开始翻译</button>
+            </div>
         </div>
+    </template>
 
-        <div id="previewContainer">
-            <div class="preview-pane" id="originalPreviewPane">
-                <h4>原文</h4>
-                <!-- Content will be an iframe or pre, added by JS -->
+    <!-- Preview Modal -->
+    <div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-fullscreen-xl-down">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="previewModalTitle">双语预览</h5>
+                    <div class="btn-group me-auto ms-4" role="group">
+                        <button type="button" class="btn btn-sm btn-primary" id="setBilingualViewBtn">双语</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="setTranslatedOnlyViewBtn">仅译文</button>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                   <div class="row h-100 gx-2">
+                       <div class="col-6" id="originalPreviewContainer">
+                           <h6 class="text-center text-muted small">原文</h6>
+                           <div class="preview-pane" id="originalPreviewPane"></div>
+                       </div>
+                       <div class="col-6" id="translatedPreviewContainer">
+                           <h6 class="text-center text-muted small">译文</h6>
+                           <div class="preview-pane">
+                               <iframe id="translatedPreviewFrame" src="about:blank"></iframe>
+                           </div>
+                       </div>
+                   </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                    <button type="button" class="btn btn-primary" id="printFromPreview"><i class="bi bi-printer-fill me-2"></i>打印/保存为PDF</button>
+                </div>
             </div>
-            <div class="preview-pane" id="translatedPreviewPane">
-                <h4>译文</h4>
-                <iframe id="translatedPreviewFrame"></iframe>
-            </div>
-        </div>
-
-        <div class="button-group" style="margin-top: 15px; flex-shrink:0;"> <!-- flex-shrink:0 to prevent shrinking -->
-            <button id="printFromPreview" class="primary">打印/保存为PDF (译文)</button>
-            <button id="closePreviewModalBtn" class="outline">关闭</button> <!-- Renamed to avoid conflict -->
         </div>
     </div>
-</div>
 
-<iframe id="printFrame" style="display:none;"></iframe>
-<script type="module">
-    const platformSelect = document.getElementById('platform_select');
-    const apiHref = document.getElementById('api_href')
-    const baseUrlGroup = document.getElementById('baseUrlGroup');
-    const baseUrlInput = document.getElementById('base_url');
-    const apikeyInput = document.getElementById('apikey');
-    const modelInput = document.getElementById('model_id');
-    const toLangSelect = document.getElementById('to_lang');
-    const formulaCheckbox = document.getElementById('formula_ocr');
-    const codeCheckbox = document.getElementById('code_ocr');
-    const refineCheckbox = document.getElementById('refine_markdown');
+    <!-- Hidden iframe for direct PDF printing -->
+    <iframe id="printFrame" style="display: none;"></iframe>
 
-    const convertEnginSelect = document.getElementById('convert_engin');
-    const mineruTokenGroup = document.getElementById('mineruTokenGroup');
-    const mineruTokenInput = document.getElementById('mineru_token');
+    <!-- Theme Switcher -->
+    <div class="dropdown theme-switch">
+        <button class="btn btn-secondary dropdown-toggle" type="button" id="theme-switcher" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-circle-half"></i>
+        </button>
+        <ul class="dropdown-menu" aria-labelledby="theme-switcher">
+            <li><button class="dropdown-item" type="button" data-bs-theme-value="light"><i class="bi bi-sun-fill me-2"></i> Light</button></li>
+            <li><button class="dropdown-item" type="button" data-bs-theme-value="dark"><i class="bi bi-moon-stars-fill me-2"></i> Dark</button></li>
+            <li><button class="dropdown-item active" type="button" data-bs-theme-value="auto"><i class="bi bi-circle-half me-2"></i> Auto</button></li>
+        </ul>
+    </div>
 
-    const chunkSizeSlider = document.getElementById('chunk-size-slider')
-    const chunkSizeDisplay = document.getElementById('chunk-size-display')
-    const chunkSizeReset = document.getElementById('chunk-size-reset')
-    const concurrentSlider = document.getElementById('concurrent-slider')
-    const concurrentDisplay = document.getElementById('concurrent-display')
-    const concurrentReset = document.getElementById("concurrent-reset")
-    const temperatureSlider = document.getElementById('temperature-slider')
-    const temperatureDisplay = document.getElementById('temperature-display')
-    const temperatureReset = document.getElementById("temperature-reset")
+    <!-- Bootstrap JS -->
+    <script src="/static/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
 
+    <script type="module">
 
-    const form = document.getElementById('translateForm');
-    const submitButton = document.getElementById('submitButton');
-    const logArea = document.getElementById('logArea');
-    const statusMsg = document.getElementById('statusMessage');
-    const downloadBtns = document.getElementById('downloadButtons');
-    const markdownZipLink = document.getElementById('downloadMarkdownZip');
-    const markdownLink = document.getElementById('downloadMarkdown');
-    const htmlLink = document.getElementById('downloadHtml');
-    const previewHtmlBtn = document.getElementById('previewHtml');
-    const downloadPdfBtn = document.getElementById('downloadPdf');
-    const printFrameEl = document.getElementById('printFrame');
-    const customPromptTranslateArea=document.getElementById("custom_prompt_translate");
+        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+        const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+        // --- DOM Elements ---
+        const settingsForm = document.getElementById('translateForm');
+        const platformSelect = document.getElementById('platform_select');
+        const apiHref = document.getElementById('api_href');
+        const baseUrlGroup = document.getElementById('baseUrlGroup');
+        const baseUrlInput = document.getElementById('base_url');
+        const apikeyInput = document.getElementById('apikey');
+        const modelInput = document.getElementById('model_id');
+        const toLangSelect = document.getElementById('to_lang');
+        const formulaCheckbox = document.getElementById('formula_ocr');
+        const codeCheckbox = document.getElementById('code_ocr');
+        const refineCheckbox = document.getElementById('refine_markdown');
+        const convertEnginSelect = document.getElementById('convert_engin');
+        const mineruTokenGroup = document.getElementById('mineruTokenGroup');
+        const mineruTokenInput = document.getElementById('mineru_token');
+        const customPromptTranslateArea = document.getElementById("custom_prompt_translate");
 
-    // Modal and preview elements
-    const modal = document.getElementById('previewModal');
-    const previewModalTitle = document.getElementById('previewModalTitle');
-    const closeModalBtnInTitle = document.getElementById('closeModalBtnInTitle');
-    const closePreviewModalBtn = document.getElementById('closePreviewModalBtn'); // Bottom close button
-    const printFromPreview = document.getElementById('printFromPreview');
+        const chunkSizeSlider = document.getElementById('chunk-size-slider');
+        const chunkSizeDisplay = document.getElementById('chunk-size-display');
+        const chunkSizeReset = document.getElementById('chunk-size-reset');
+        const concurrentSlider = document.getElementById('concurrent-slider');
+        const concurrentDisplay = document.getElementById('concurrent-display');
+        const concurrentReset = document.getElementById("concurrent-reset");
+        const temperatureSlider = document.getElementById('temperature-slider');
+        const temperatureDisplay = document.getElementById('temperature-display');
+        const temperatureReset = document.getElementById("temperature-reset");
 
-    const originalPreviewPane = document.getElementById('originalPreviewPane');
-    const translatedPreviewFrame = document.getElementById('translatedPreviewFrame');
+        const versionDisplay = document.getElementById("versionDisplay");
+        const addNewTaskBtn = document.getElementById('addNewTaskBtn');
+        const taskContainer = document.getElementById('task-container');
+        const noTaskPlaceholder = document.getElementById('no-task-placeholder');
+        const taskCardTemplate = document.getElementById('taskCardTemplate');
 
-    const setBilingualViewBtn = document.getElementById('setBilingualViewBtn');
-    const setTranslatedOnlyViewBtn = document.getElementById('setTranslatedOnlyViewBtn');
+        // Modal and preview elements
+        const previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
+        const previewModalTitle = document.getElementById('previewModalTitle');
+        const originalPreviewPane = document.getElementById('originalPreviewPane');
+        const translatedPreviewFrame = document.getElementById('translatedPreviewFrame');
+        const originalPreviewContainer = document.getElementById('originalPreviewContainer');
+        const translatedPreviewContainer = document.getElementById('translatedPreviewContainer');
+        const setBilingualViewBtn = document.getElementById('setBilingualViewBtn');
+        const setTranslatedOnlyViewBtn = document.getElementById('setTranslatedOnlyViewBtn');
+        const printFromPreview = document.getElementById('printFromPreview');
+        const printFrameEl = document.getElementById('printFrame');
 
-    const fileInput = document.getElementById('file');
-    const fileDropArea = document.getElementById('fileDropArea');
-    const fileNameDisplay = document.getElementById('fileNameDisplay');
-    const fileDropPrompt = document.getElementById('fileDropPrompt');
+        // --- Global State ---
+        let defaultParams = {};
+        const tasks = {}; // { taskId: { elements: {...}, state: {...}, intervals: {...} } }
 
-    const versionDisplay = document.getElementById("versionDisplay")
+        const apiHrefMap = {
+            "https://openrouter.ai/api/v1": "https://openrouter.ai/settings/keys",
+            "https://api.openai.com/v1": "https://platform.openai.com/api-keys",
+            "https://api.deepseek.com/v1": "https://platform.deepseek.com/api_keys",
+            "https://open.bigmodel.cn/api/paas/v4": "https://open.bigmodel.cn/usercenter/apikeys",
+            "https://dashscope.aliyuncs.com/compatible-mode/v1": "https://bailian.console.aliyun.com/?tab=model#/api-key",
+            "https://ark.cn-beijing.volces.com/api/v3": "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey?apikey=%7B%7D",
+            "https://api.siliconflow.cn/v1": "https://cloud.siliconflow.cn/account/ak",
+            "https://www.dmxapi.cn/v1": "https://www.dmxapi.cn/token"
+        };
 
-    let logPollIntervalId = null;
-    let statusPollIntervalId = null;
-    let isTranslating = false;
+        // --- Utility Functions ---
+        const generateTaskId = () => Math.random().toString(36).substring(2, 10);
+        const saveToStorage = (key, value) => { try { localStorage.setItem(key, value); } catch (e) { console.warn("Save to storage failed:", e); } };
+        const getFromStorage = (key, defaultValue = '') => { try { return localStorage.getItem(key) || defaultValue; } catch (e) { console.warn("Read from storage failed:", e); return defaultValue; } };
 
-
-    let default_param;
-
-    // 初始化调用
-    async function init() {
-        try {
-            const response = await fetch("/meta")
-            const meta = await response.json();
-            versionDisplay.textContent = `版本号：${meta.version}`;
-        } catch (error) {
-            console.warn("获取版本号失败", error);
-        }
-        try {
-            const response = await fetch('/get-engin-list')
-            if (!response.ok) {
-                console.warn(`get engine list failed: ${response.status}`);
-                return;
+        // --- UI Update Functions ---
+        function updatePlatformUI() {
+            const selectedPlatformValue = platformSelect.value;
+            apikeyInput.value = getFromStorage(`translator_platform_${selectedPlatformValue}_apikey`);
+            modelInput.value = getFromStorage(`translator_platform_${selectedPlatformValue}_model_id`);
+            if (selectedPlatformValue === 'custom') {
+                baseUrlGroup.classList.remove('d-none');
+                baseUrlInput.required = true;
+                baseUrlInput.value = getFromStorage('translator_platform_custom_base_url');
+                apiHref.classList.add('d-none');
+            } else {
+                baseUrlGroup.classList.add('d-none');
+                baseUrlInput.required = false;
+                baseUrlInput.value = selectedPlatformValue;
+                if (apiHrefMap[baseUrlInput.value]) {
+                    apiHref.href = apiHrefMap[baseUrlInput.value];
+                    apiHref.classList.remove('d-none');
+                } else {
+                    apiHref.classList.add('d-none');
+                }
             }
-            const enginList = await response.json();
-            statusMsg.textContent = '正在初始化';
-            let options = convertEnginSelect.querySelectorAll(`option`);
-            let currentEngineDisabled = false;
-            options.forEach((option) => {
-                if (!enginList.includes(option.value)) {
-                    option.disabled = true;
-                    option.textContent += " (不可用)";
-                    if (option.value === convertEnginSelect.value) {
-                        currentEngineDisabled = true;
-                    }
+            saveToStorage('translator_last_platform', selectedPlatformValue);
+        }
+
+        function updateConvertEnginUI() {
+            const selectedEngin = convertEnginSelect.value;
+            mineruTokenGroup.style.display = selectedEngin === 'mineru' ? 'block' : 'none';
+            mineruTokenInput.required = selectedEngin === 'mineru';
+            if (selectedEngin === 'mineru') {
+                mineruTokenInput.value = getFromStorage('translator_mineru_token');
+            }
+            saveToStorage('translator_convert_engin', selectedEngin);
+        }
+
+        function createSliderUpdater(slider, display, resetBtn, key, params) {
+            return () => {
+                const value = slider.value;
+                display.textContent = value;
+                resetBtn.style.visibility = value !== String(params[key]) ? 'visible' : 'hidden';
+                saveToStorage(key, value);
+            };
+        }
+
+        function setupSlider(slider, display, resetBtn, key, params) {
+            slider.value = getFromStorage(key, params[key]);
+            const updater = createSliderUpdater(slider, display, resetBtn, key, params);
+            slider.addEventListener('input', updater);
+            resetBtn.addEventListener('click', () => {
+                slider.value = params[key];
+                updater();
+            });
+            updater(); // Initial call
+        }
+
+        function updateTaskPlaceholderVisibility() {
+            noTaskPlaceholder.style.display = Object.keys(tasks).length === 0 ? 'block' : 'none';
+        }
+
+        function saveTaskIds() {
+            const taskIds = Object.keys(tasks);
+            saveToStorage('active_task_ids', JSON.stringify(taskIds));
+        }
+
+        // --- Task Card Management ---
+        function createTaskCard(taskId = null, restoreState = false) {
+            if (!taskId) {
+                taskId = generateTaskId();
+            }
+
+            const cardFragment = taskCardTemplate.content.cloneNode(true);
+            const cardElement = cardFragment.querySelector('.task-card');
+            cardElement.dataset.taskId = taskId;
+
+            const elements = {
+                card: cardElement,
+                taskIdDisplay: cardElement.querySelector('.task-id-display'),
+                removeBtn: cardElement.querySelector('.remove-task-btn'),
+                fileInput: cardElement.querySelector('.file-input'),
+                fileDropArea: cardElement.querySelector('.file-drop-area'),
+                fileDropPrompt: cardElement.querySelector('.file-drop-prompt'),
+                fileNameDisplay: cardElement.querySelector('.file-name-display'),
+                logArea: cardElement.querySelector('.log-area'),
+                statusMessage: cardElement.querySelector('.status-message'),
+                progress: cardElement.querySelector('.progress'),
+                downloadButtons: cardElement.querySelector('.download-buttons'),
+                previewBtn: cardElement.querySelector('.preview-html-btn'),
+                pdfBtn: cardElement.querySelector('.download-pdf-btn'),
+                htmlLink: cardElement.querySelector('.download-html-link'),
+                mdLink: cardElement.querySelector('.download-markdown-link'),
+                mdZipLink: cardElement.querySelector('.download-markdown-zip-link'),
+                startBtn: cardElement.querySelector('.start-translate-btn'),
+            };
+
+            elements.taskIdDisplay.textContent = taskId;
+
+            tasks[taskId] = {
+                elements,
+                state: {
+                    isTranslating: false,
+                    file: null,
+                    htmlUrl: null,
+                    fileNameStem: null,
+                },
+                intervals: {
+                    log: null,
+                    status: null
+                }
+            };
+
+            addEventListenersToCard(taskId);
+
+            taskContainer.prepend(cardElement);
+            updateTaskPlaceholderVisibility();
+
+            if (!restoreState) {
+                saveTaskIds();
+            } else {
+                // If restoring, immediately check status
+                pollStatus(taskId, true);
+            }
+        }
+
+        function removeTask(taskId) {
+            stopPolling(taskId);
+            tasks[taskId].elements.card.remove();
+            delete tasks[taskId];
+            saveTaskIds();
+            updateTaskPlaceholderVisibility();
+        }
+
+        function addEventListenersToCard(taskId) {
+            const { elements, state } = tasks[taskId];
+
+            elements.removeBtn.addEventListener('click', () => removeTask(taskId));
+
+            // File Drop/Select Logic
+            elements.fileDropArea.addEventListener('click', () => elements.fileInput.click());
+            elements.fileInput.addEventListener('change', () => handleFileSelect(taskId));
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                elements.fileDropArea.addEventListener(eventName, e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }, false);
+            });
+            ['dragenter', 'dragover'].forEach(eventName => {
+                elements.fileDropArea.addEventListener(eventName, () => elements.fileDropArea.classList.add('drag-over'), false);
+            });
+            ['dragleave', 'drop'].forEach(eventName => {
+                elements.fileDropArea.addEventListener(eventName, () => elements.fileDropArea.classList.remove('drag-over'), false);
+            });
+            elements.fileDropArea.addEventListener('drop', e => {
+                if (e.dataTransfer.files.length > 0) {
+                    elements.fileInput.files = e.dataTransfer.files;
+                    handleFileSelect(taskId);
+                }
+            }, false);
+
+            // Main Action Button
+            elements.startBtn.addEventListener('click', () => {
+                if (state.isTranslating) {
+                    cancelTranslation(taskId);
+                } else {
+                    startTranslation(taskId);
                 }
             });
-            if (currentEngineDisabled) {
-                const mineruOption = convertEnginSelect.querySelector('option[value="mineru"]');
-                if (mineruOption && !mineruOption.disabled) {
-                    convertEnginSelect.value = "mineru";
-                } else {
-                    const firstAvailable = convertEnginSelect.querySelector('option:not([disabled])');
-                    if (firstAvailable) convertEnginSelect.value = firstAvailable.value;
-                }
-                updateConvertEnginUI();
-            }
-            statusMsg.textContent = '初始化完成';
-        } catch (error) {
-            console.warn("Error get engin-list", error);
-            statusMsg.textContent = '引擎列表初始化失败';
-            statusMsg.className = 'error-message';
         }
-        try {
-            const response = await fetch("/translate/default_param")
-            default_param = await response.json();
-        } catch (error) {
-            statusMsg.textContent = error.toString();
-            statusMsg.className = 'error-message';
-        }
-        customPromptTranslateArea.value=getFromStorage("custom_prompt_translate")
-    }
 
-    await init()
-
-    function saveToStorage(key, value) {
-        try {
-            localStorage.setItem(key, value);
-        } catch (e) {
-            console.warn("保存到本地存储失败:", e);
-        }
-    }
-
-    function getFromStorage(key, defaultValue = '') {
-        try {
-            return localStorage.getItem(key) || defaultValue;
-        } catch (e) {
-            console.warn("从本地存储读取失败:", e);
-            return defaultValue;
-        }
-    }
-
-    const apiHrefMap = {
-        "https://openrouter.ai/api/v1": "https://openrouter.ai/settings/keys",
-        "https://api.openai.com/v1": "https://platform.openai.com/api-keys",
-        "https://api.deepseek.com/v1": "https://platform.deepseek.com/api_keys",
-        "https://open.bigmodel.cn/api/paas/v4": "https://open.bigmodel.cn/usercenter/apikeys",
-        "https://dashscope.aliyuncs.com/compatible-mode/v1": "https://bailian.console.aliyun.com/?tab=model#/api-key",
-        "https://ark.cn-beijing.volces.com/api/v3": "https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey?apikey=%7B%7D",
-        "https://api.siliconflow.cn/v1": "https://cloud.siliconflow.cn/account/ak",
-        "https://www.dmxapi.cn/v1": "https://www.dmxapi.cn/token"
-    }
-
-    function updatePlatformUI() {
-        const selectedPlatformValue = platformSelect.value;
-        apikeyInput.value = getFromStorage(`translator_platform_${selectedPlatformValue}_apikey`);
-        modelInput.value = getFromStorage(`translator_platform_${selectedPlatformValue}_model_id`);
-        if (selectedPlatformValue === 'custom') {
-            baseUrlGroup.classList.remove('hidden');
-            baseUrlInput.required = true;
-            baseUrlInput.value = getFromStorage('translator_platform_custom_base_url');
-            apiHref.classList.add('hidden')
-        } else {
-            baseUrlGroup.classList.add('hidden');
-            baseUrlInput.required = false;
-            baseUrlInput.value = selectedPlatformValue;
-            apiHref.classList.remove('hidden')
-            if (apiHrefMap[baseUrlInput.value]) { // Check if key exists
-                apiHref.href = apiHrefMap[baseUrlInput.value];
-            } else {
-                apiHref.classList.add('hidden'); // Hide if no link defined
+        function handleFileSelect(taskId) {
+            const { elements, state } = tasks[taskId];
+            const file = elements.fileInput.files[0];
+            if (file) {
+                state.file = file;
+                elements.fileNameDisplay.textContent = `已选: ${file.name}`;
+                elements.fileDropArea.classList.add('file-selected');
+                elements.fileDropPrompt.style.display = 'none';
+                // Clear any previous error states
+                elements.fileDropArea.classList.remove('input-error');
+                elements.fileNameDisplay.classList.remove('input-error-text');
             }
         }
-        saveToStorage('translator_last_platform', selectedPlatformValue);
-    }
 
+        // --- Core Translation Logic ---
+        async function startTranslation(taskId) {
+            const { elements, state } = tasks[taskId];
 
-    function updateConvertEnginUI() {
-        const selectedEngin = convertEnginSelect.value;
-        if (selectedEngin === 'mineru') {
-            mineruTokenGroup.classList.remove('hidden');
-            mineruTokenInput.required = true;
-            mineruTokenInput.value = getFromStorage('translator_mineru_token');
-        } else {
-            mineruTokenGroup.classList.add('hidden');
-            mineruTokenInput.required = false;
-        }
-        saveToStorage('translator_convert_engin', selectedEngin);
-    }
-
-    function updateChunkSizeUI() {
-        let value = chunkSizeSlider.value
-        chunkSizeDisplay.textContent = value;
-        if (value !== default_param["chunk_size"].toString()) {
-            chunkSizeReset.style.visibility = 'visible';
-        } else {
-            chunkSizeReset.style.visibility = 'hidden';
-        }
-        saveToStorage('chunk_size', value)
-    }
-
-    function updateTemperatureUI() {
-        let value = temperatureSlider.value
-        temperatureDisplay.textContent = value;
-        if (value !== default_param["temperature"].toString()) {
-            temperatureReset.style.visibility = 'visible';
-        } else {
-            temperatureReset.style.visibility = 'hidden';
-        }
-        saveToStorage('temperature', value)
-    }
-
-    function updateConcurrentUI() {
-        let value = concurrentSlider.value
-        concurrentDisplay.textContent = value;
-        if (value !== default_param["concurrent"].toString()) {
-            concurrentReset.style.visibility = 'visible';
-        } else {
-            concurrentReset.style.visibility = 'hidden';
-        }
-        saveToStorage('concurrent', value)
-    }
-
-    function loadSettings() {
-        platformSelect.value = getFromStorage('translator_last_platform', 'custom');
-        updatePlatformUI();
-        convertEnginSelect.value = getFromStorage('translator_convert_engin', 'mineru');
-        updateConvertEnginUI();
-        chunkSizeSlider.value = getFromStorage("chunk_size", default_param["chunk_size"])
-        updateChunkSizeUI()
-        concurrentSlider.value = getFromStorage("concurrent", default_param["concurrent"])
-        updateConcurrentUI()
-        temperatureSlider.value = getFromStorage("temperature", default_param["temperature"])
-        updateTemperatureUI()
-        toLangSelect.value = getFromStorage('translator_to_lang', '中文');
-        formulaCheckbox.checked = getFromStorage('translator_formula_ocr') === 'true';
-        codeCheckbox.checked = getFromStorage('translator_code_ocr') === 'true';
-        refineCheckbox.checked = getFromStorage('translator_refine_markdown') === 'true';
-    }
-
-    loadSettings();
-    startPolling();
-
-    platformSelect.addEventListener('change', updatePlatformUI);
-    apikeyInput.addEventListener('input', (e) => saveToStorage(`translator_platform_${platformSelect.value}_apikey`, e.target.value));
-    modelInput.addEventListener('input', (e) => saveToStorage(`translator_platform_${platformSelect.value}_model_id`, e.target.value));
-    baseUrlInput.addEventListener('input', (e) => {
-        if (platformSelect.value === 'custom') saveToStorage('translator_platform_custom_base_url', e.target.value);
-    });
-    convertEnginSelect.addEventListener('change', updateConvertEnginUI);
-    mineruTokenInput.addEventListener('input', (e) => saveToStorage('translator_mineru_token', e.target.value));
-    toLangSelect.addEventListener('change', e => saveToStorage('translator_to_lang', e.target.value));
-    formulaCheckbox.addEventListener('change', e => saveToStorage('translator_formula_ocr', e.target.checked.toString()));
-    codeCheckbox.addEventListener('change', e => saveToStorage('translator_code_ocr', e.target.checked.toString()));
-    refineCheckbox.addEventListener('change', e => saveToStorage('translator_refine_markdown', e.target.checked.toString()));
-
-    function closePreviewModal() {
-        modal.style.display = 'none';
-        const existingOriginalFrame = originalPreviewPane.querySelector('iframe, pre, p');
-        if (existingOriginalFrame) existingOriginalFrame.remove();
-        translatedPreviewFrame.src = 'about:blank';
-    }
-
-    [closeModalBtnInTitle, closePreviewModalBtn].forEach(elem => elem.addEventListener('click', closePreviewModal));
-
-    window.addEventListener('click', (event) => {
-        if (event.target === modal) {
-            closePreviewModal();
-        }
-    });
-
-    printFromPreview.addEventListener('click', () => {
-        try {
-            translatedPreviewFrame.contentWindow.focus();
-            translatedPreviewFrame.contentWindow.print();
-        } catch (err) {
-            console.error('打印预览内容失败:', err);
-            alert('打印失败，请尝试使用浏览器的打印功能 (Ctrl+P 或 ⌘+P)。');
-        }
-    });
-
-    // Function to set the preview display mode
-    function setPreviewDisplayMode(mode) {
-        if (mode === 'bilingual') {
-            originalPreviewPane.style.display = 'flex'; // 'flex' because it's a flex container
-            previewModalTitle.textContent = '双语预览';
-            setBilingualViewBtn.classList.add('primary');
-            setBilingualViewBtn.classList.remove('outline');
-            setTranslatedOnlyViewBtn.classList.add('outline');
-            setTranslatedOnlyViewBtn.classList.remove('primary');
-        } else if (mode === 'translationOnly') {
-            originalPreviewPane.style.display = 'none';
-            previewModalTitle.textContent = '译文预览';
-            setTranslatedOnlyViewBtn.classList.add('primary');
-            setTranslatedOnlyViewBtn.classList.remove('outline');
-            setBilingualViewBtn.classList.add('outline');
-            setBilingualViewBtn.classList.remove('primary');
-        }
-    }
-
-    setBilingualViewBtn.addEventListener('click', () => setPreviewDisplayMode('bilingual'));
-    setTranslatedOnlyViewBtn.addEventListener('click', () => setPreviewDisplayMode('translationOnly'));
-
-    customPromptTranslateArea.addEventListener('input',()=>{
-        saveToStorage("custom_prompt_translate",customPromptTranslateArea.value)
-    })
-
-    fileDropArea.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', () => {
-        if (fileInput.files.length > 0) {
-            fileNameDisplay.textContent = `已选择: ${fileInput.files[0].name}`;
-            fileDropArea.classList.add('file-selected');
-            fileNameDisplay.classList.add('has-file');
-            fileDropPrompt.classList.add('hidden');
-            fileDropArea.classList.remove('input-error');
-            fileNameDisplay.classList.remove('input-error-text');
-            statusMsg.textContent = '';
-            statusMsg.className = '';
-        } else {
-            fileNameDisplay.textContent = '未选择文件';
-            fileDropArea.classList.remove('file-selected');
-            fileNameDisplay.classList.remove('has-file');
-            fileDropPrompt.classList.remove('hidden');
-        }
-    });
-
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        fileDropArea.addEventListener(eventName, preventDefaults, false);
-    });
-
-    function preventDefaults(e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-
-    ['dragenter', 'dragover'].forEach(eventName => {
-        fileDropArea.addEventListener(eventName, () => {
-            if (!fileDropArea.classList.contains('file-selected')) {
-                fileDropArea.classList.add('drag-over');
-            }
-        }, false);
-    });
-    ['dragleave', 'drop'].forEach(eventName => {
-        fileDropArea.addEventListener(eventName, () => {
-            fileDropArea.classList.remove('drag-over');
-        }, false);
-    });
-    fileDropArea.addEventListener('drop', (e) => {
-        const dt = e.dataTransfer;
-        const files = dt.files;
-        if (files.length > 0) {
-            fileInput.files = files;
-            const event = new Event('change', {bubbles: true});
-            fileInput.dispatchEvent(event);
-        }
-    }, false);
-
-
-    async function pollLogs() {
-        try {
-            const response = await fetch('/get-logs');
-            if (!response.ok) {
-                console.warn(`Log polling failed: ${response.status}`);
+            // --- Validation ---
+            if (!state.file) {
+                elements.statusMessage.textContent = '请先选择一个文件。';
+                elements.statusMessage.className = 'status-message small text-danger';
+                elements.fileDropArea.classList.add('input-error');
                 return;
             }
-            const data = await response.json();
-            if (data.logs && data.logs.length > 0) {
-                data.logs.forEach(log => {
-                    const escapedLog = log.replace(/&/g, "&").replace(/</g, "<").replace(/>/g, ">");
-                    logArea.innerHTML += escapedLog + "<br>";
+            const requiredInputs = [apikeyInput, modelInput];
+            if (platformSelect.value === 'custom') requiredInputs.push(baseUrlInput);
+            if (convertEnginSelect.value === 'mineru' && !mineruTokenInput.value.trim() && (!["md", "txt"].includes(state.file.name.split('.').pop()))) {
+                requiredInputs.push(mineruTokenInput);
+            }
+
+            let isValid = true;
+            requiredInputs.forEach(input => {
+                input.classList.remove('is-invalid');
+                if (!input.value.trim()) {
+                    input.classList.add('is-invalid');
+                    isValid = false;
+                }
+            });
+            if (!isValid) {
+                 elements.statusMessage.textContent = '请填写所有必填的设置项。';
+                 elements.statusMessage.className = 'status-message small text-danger';
+                return;
+            }
+
+            // --- UI Update for Starting ---
+            state.isTranslating = true;
+            elements.startBtn.disabled = true;
+            elements.startBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 初始化...`;
+            elements.logArea.innerHTML = '';
+            elements.statusMessage.textContent = '正在提交任务...';
+            elements.statusMessage.className = 'status-message small text-muted';
+            elements.downloadButtons.style.display = 'none';
+            elements.progress.style.display = 'block';
+
+            const formData = new FormData(settingsForm);
+            formData.append('file', state.file);
+            formData.append('task_id', taskId);
+
+            try {
+                const response = await fetch('/translate', { method: 'POST', body: formData });
+                const result = await response.json();
+
+                if (response.ok && result.task_started) {
+                    elements.statusMessage.textContent = result.message || '任务已开始，正在处理...';
+                    elements.statusMessage.className = 'status-message small text-info';
+                    elements.startBtn.innerHTML = `<i class="bi bi-stop-circle-fill me-1"></i>取消翻译`;
+                    elements.startBtn.classList.replace('btn-primary', 'btn-danger');
+                    elements.startBtn.disabled = false;
+                    startPolling(taskId);
+                } else {
+                    throw new Error(result.message || `请求失败 (${response.status})`);
+                }
+            } catch (error) {
+                console.error('请求失败:', error);
+                elements.statusMessage.textContent = `启动失败: ${error.message}`;
+                elements.statusMessage.className = 'status-message small text-danger';
+                elements.startBtn.innerHTML = `<i class="bi bi-play-fill me-1"></i>开始翻译`;
+                elements.startBtn.classList.replace('btn-danger', 'btn-primary');
+                elements.startBtn.disabled = false;
+                elements.progress.style.display = 'none';
+                state.isTranslating = false;
+            }
+        }
+
+        async function cancelTranslation(taskId) {
+            const { elements } = tasks[taskId];
+            elements.startBtn.disabled = true;
+            elements.startBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 正在取消...`;
+
+            try {
+                const formData = new FormData();
+                formData.append('task_id', taskId);
+                const response = await fetch('/cancel-translate', { method: 'POST', body: formData });
+                const result = await response.json();
+
+                if (response.ok && result.cancelled) {
+                    elements.statusMessage.textContent = result.message || '取消请求已发送。';
+                    elements.statusMessage.className = 'status-message small text-warning';
+                } else {
+                    throw new Error(result.message || '取消失败');
+                }
+            } catch (error) {
+                elements.statusMessage.textContent = `取消请求失败: ${error.message}`;
+                elements.statusMessage.className = 'status-message small text-danger';
+                elements.startBtn.disabled = false;
+                elements.startBtn.innerHTML = `<i class="bi bi-stop-circle-fill me-1"></i>取消翻译`;
+            }
+        }
+
+        // --- Polling ---
+        function startPolling(taskId) {
+            stopPolling(taskId);
+            const { intervals } = tasks[taskId];
+            intervals.log = setInterval(() => pollLogs(taskId), 2000);
+            intervals.status = setInterval(() => pollStatus(taskId), 1500);
+            pollLogs(taskId);
+            pollStatus(taskId);
+        }
+
+        function stopPolling(taskId) {
+            const { intervals } = tasks[taskId];
+            if (intervals.log) clearInterval(intervals.log);
+            if (intervals.status) clearInterval(intervals.status);
+            intervals.log = null;
+            intervals.status = null;
+        }
+
+        async function pollLogs(taskId) {
+            const { elements } = tasks[taskId];
+            try {
+                const response = await fetch(`/get-logs?task_id=${taskId}`);
+                if (!response.ok) return;
+                const data = await response.json();
+                if (data.logs && data.logs.length > 0) {
+                    elements.logArea.innerHTML += data.logs.map(log => log.replace(/</g, "<").replace(/>/g, ">") + '<br>').join('');
+                    elements.logArea.scrollTop = elements.logArea.scrollHeight;
+                }
+            } catch (error) {
+                console.warn(`[${taskId}] Error polling logs:`, error);
+            }
+        }
+
+        async function pollStatus(taskId, isRestore = false) {
+            const { elements, state } = tasks[taskId];
+            try {
+                const response = await fetch(`/get-status?task_id=${taskId}`);
+                if (!response.ok) {
+                    // If 404 on restore, it means the task is old and gone from server. Remove it.
+                    if (response.status === 404 && isRestore) {
+                        removeTask(taskId);
+                    }
+                    return;
+                }
+                const status = await response.json();
+
+                elements.statusMessage.textContent = status.status_message || '正在获取状态...';
+                elements.statusMessage.className = `status-message small ${status.error_flag ? 'text-danger' : 'text-info'}`;
+
+                if (!status.is_processing) {
+                    stopPolling(taskId);
+                    state.isTranslating = false;
+                    elements.startBtn.disabled = false;
+                    elements.startBtn.innerHTML = `<i class="bi bi-play-fill me-1"></i>重新翻译`;
+                    elements.startBtn.classList.replace('btn-danger', 'btn-primary');
+                    elements.progress.style.display = 'none';
+
+                    if (status.download_ready && !status.error_flag) {
+                        elements.statusMessage.className = 'status-message small text-success';
+
+                        state.htmlUrl = status.html_url;
+                        state.fileNameStem = status.original_filename_stem;
+
+                        elements.htmlLink.href = status.html_url;
+                        elements.mdLink.href = status.markdown_url;
+                        elements.mdZipLink.href = status.markdown_zip_url;
+
+                        elements.previewBtn.onclick = () => setupPreview(taskId);
+                        elements.pdfBtn.onclick = () => downloadPdf(taskId);
+
+                        elements.downloadButtons.style.display = 'flex';
+                    } else {
+                        elements.downloadButtons.style.display = 'none';
+                    }
+                } else {
+                    state.isTranslating = true;
+                    elements.startBtn.innerHTML = `<i class="bi bi-stop-circle-fill me-1"></i>取消翻译`;
+                    elements.startBtn.classList.replace('btn-primary', 'btn-danger');
+                    elements.startBtn.disabled = false;
+                    elements.progress.style.display = 'block';
+                    elements.downloadButtons.style.display = 'none';
+                }
+
+            } catch (error) {
+                console.error(`[${taskId}] Error polling status:`, error);
+                elements.statusMessage.textContent = '状态更新出错。';
+                elements.statusMessage.className = 'status-message small text-danger';
+            }
+        }
+
+        // --- Download and Preview ---
+        function setupPreview(taskId) {
+            const { state } = tasks[taskId];
+            if (!state.htmlUrl) return;
+
+            // Clear previous content
+            const existingOriginalContent = originalPreviewPane.querySelector('iframe, pre, p');
+            if (existingOriginalContent) existingOriginalContent.remove();
+            translatedPreviewFrame.src = 'about:blank';
+
+            // Render original file preview
+            if (state.file) {
+                const fileType = state.file.type;
+                const fileExtension = state.file.name.split('.').pop().toLowerCase();
+                const textLikeExtensions = ['md', 'json', 'xml', 'log', 'py', 'js', 'css', 'java', 'c', 'cpp', 'h', 'hpp', 'cs', 'rb', 'php', 'swift', 'kt', 'go', 'rs', 'ts', 'txt'];
+
+                if (fileType.startsWith('text/') || textLikeExtensions.includes(fileExtension)) {
+                    const pre = document.createElement('pre');
+                    state.file.text().then(text => pre.textContent = text).catch(() => pre.textContent = '无法读取原文内容。');
+                    originalPreviewPane.appendChild(pre);
+                } else if (['application/pdf', 'text/html'].includes(fileType) || ['html', 'htm'].includes(fileExtension)) {
+                    const iframe = document.createElement('iframe');
+                    iframe.src = URL.createObjectURL(state.file);
+                    originalPreviewPane.appendChild(iframe);
+                } else {
+                    const p = document.createElement('p');
+                    p.className = 'p-3 text-muted';
+                    p.textContent = `无法直接预览此文件类型 (${fileType || '未知: ' + fileExtension})。`;
+                    originalPreviewPane.appendChild(p);
+                }
+            } else {
+                const p = document.createElement('p');
+                p.className = 'p-3 text-muted';
+                p.textContent = '未找到原文文件缓存。';
+                originalPreviewPane.appendChild(p);
+            }
+
+            // Fetch and render translated HTML
+            fetch(state.htmlUrl)
+                .then(resp => resp.ok ? resp.text() : Promise.reject(`HTTP error ${resp.status}`))
+                .then(html => {
+                    translatedPreviewFrame.srcdoc = html;
+                    setPreviewDisplayMode('bilingual');
+                    previewModal.show();
+                })
+                .catch(err => {
+                    console.error('Preview fetch failed:', err);
+                    translatedPreviewFrame.srcdoc = `<h3>加载译文失败</h3><p>${err.message}</p>`;
+                    setPreviewDisplayMode('bilingual');
+                    previewModal.show();
                 });
-                logArea.scrollTop = logArea.scrollHeight;
-            }
-        } catch (error) {
-            console.warn("Error polling logs:", error);
-        }
-    }
 
-    async function pollStatus() {
-        try {
-            const response = await fetch('/get-status');
-            if (!response.ok) {
-                console.warn(`Status polling failed: ${response.status}`);
-                statusMsg.textContent = `状态更新失败 (${response.status})`;
-                statusMsg.className = 'error-message';
+            printFromPreview.onclick = () => {
+                try {
+                    translatedPreviewFrame.contentWindow.focus();
+                    translatedPreviewFrame.contentWindow.print();
+                } catch(e) { alert('打印失败，请使用浏览器打印功能。'); }
+            };
+        }
+
+        function downloadPdf(taskId) {
+            const { elements, state } = tasks[taskId];
+            if (!state.htmlUrl) return;
+
+            elements.pdfBtn.disabled = true;
+            elements.pdfBtn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> 准备中...`;
+
+            fetch(state.htmlUrl)
+                .then(resp => resp.ok ? resp.text() : Promise.reject(`HTTP error ${resp.status}`))
+                .then(html => {
+                    printFrameEl.onload = () => {
+                        setTimeout(() => {
+                            try {
+                                printFrameEl.contentWindow.focus();
+                                printFrameEl.contentWindow.print();
+                            } catch (err) {
+                                alert('自动打印失败，请在预览中手动打印。');
+                            } finally {
+                                elements.pdfBtn.disabled = false;
+                                elements.pdfBtn.innerHTML = `<i class="bi bi-file-earmark-pdf-fill me-1"></i>下载 PDF`;
+                                printFrameEl.onload = null;
+                            }
+                        }, 500);
+                    };
+                    printFrameEl.srcdoc = html;
+                })
+                .catch(err => {
+                    alert('获取HTML内容失败，无法生成PDF。');
+                    elements.pdfBtn.disabled = false;
+                    elements.pdfBtn.innerHTML = `<i class="bi bi-file-earmark-pdf-fill me-1"></i>下载 PDF`;
+                });
+        }
+
+        function setPreviewDisplayMode(mode) {
+            if (mode === 'bilingual') {
+                originalPreviewContainer.style.display = 'block';
+                translatedPreviewContainer.classList.remove('col-12');
+                translatedPreviewContainer.classList.add('col-6');
+                previewModalTitle.textContent = '双语预览';
+                setBilingualViewBtn.classList.add('btn-primary');
+                setBilingualViewBtn.classList.remove('btn-outline-primary');
+                setTranslatedOnlyViewBtn.classList.remove('btn-primary');
+                setTranslatedOnlyViewBtn.classList.add('btn-outline-primary');
+            } else { // translationOnly
+                originalPreviewContainer.style.display = 'none';
+                translatedPreviewContainer.classList.remove('col-6');
+                translatedPreviewContainer.classList.add('col-12');
+                previewModalTitle.textContent = '译文预览';
+                setTranslatedOnlyViewBtn.classList.add('btn-primary');
+                setTranslatedOnlyViewBtn.classList.remove('btn-outline-primary');
+                setBilingualViewBtn.classList.remove('btn-primary');
+                setBilingualViewBtn.classList.add('btn-outline-primary');
+            }
+        }
+
+        // --- Initialization ---
+        async function init() {
+            // Fetch metadata
+            try {
+                const [metaRes, enginRes, paramsRes] = await Promise.all([
+                    fetch("/meta"),
+                    fetch('/get-engin-list'),
+                    fetch("/translate/default_param")
+                ]);
+                const meta = await metaRes.json();
+                versionDisplay.textContent = `v${meta.version}`;
+
+                const enginList = await enginRes.json();
+                Array.from(convertEnginSelect.options).forEach(option => {
+                    if (!enginList.includes(option.value)) {
+                        option.disabled = true;
+                        option.textContent += " (不可用)";
+                    }
+                });
+
+                defaultParams = await paramsRes.json();
+            } catch (error) {
+                console.error("Initialization failed:", error);
+                alert("页面初始化失败，请检查后端服务是否正常并刷新页面。");
                 return;
             }
-            const status = await response.json();
-            statusMsg.textContent = status.status_message || '正在获取状态...';
-            statusMsg.className = status.error_flag ? 'error-message' : 'success-message';
-            if (!status.is_processing) {
-                stopPolling();
-                submitButton.disabled = false;
-                submitButton.removeAttribute('aria-busy');
-                submitButton.textContent = '开始翻译';
-                submitButton.classList.remove('secondary', 'contrast');
-                submitButton.classList.add('primary');
-                isTranslating = false;
 
-                if (status.download_ready && !status.error_flag) {
-                    markdownZipLink.href = status.markdown_zip_url;
-                    markdownZipLink.setAttribute('download', status.original_filename_stem + '_translated.zip');
-                    markdownLink.href = status.markdown_url;
-                    markdownLink.setAttribute('download', status.original_filename_stem + '_translated.md');
-                    htmlLink.href = status.html_url;
-                    htmlLink.setAttribute('download', status.original_filename_stem + '_translated.html');
+            // Load settings
+            platformSelect.value = getFromStorage('translator_last_platform', 'https://api.openai.com/v1');
+            updatePlatformUI();
+            convertEnginSelect.value = getFromStorage('translator_convert_engin', 'mineru');
+            updateConvertEnginUI();
+            toLangSelect.value = getFromStorage('translator_to_lang', '中文');
+            formulaCheckbox.checked = getFromStorage('translator_formula_ocr') === 'true';
+            codeCheckbox.checked = getFromStorage('translator_code_ocr') === 'true';
+            refineCheckbox.checked = getFromStorage('translator_refine_markdown') === 'true';
+            customPromptTranslateArea.value = getFromStorage("custom_prompt_translate");
 
-                    let htmlUrl = status.html_url;
-                    let fileName = status.original_filename_stem;
+            // Setup sliders
+            setupSlider(chunkSizeSlider, chunkSizeDisplay, chunkSizeReset, 'chunk_size', defaultParams);
+            setupSlider(concurrentSlider, concurrentDisplay, concurrentReset, 'concurrent', defaultParams);
+            setupSlider(temperatureSlider, temperatureDisplay, temperatureReset, 'temperature', defaultParams);
 
-                    previewHtmlBtn.onclick = function () {
-                        const currentHtmlUrl = htmlUrl;
-                        const currentFileName = fileName;
-                        const originalFile = fileInput.files[0];
-
-                        const existingOriginalContent = originalPreviewPane.querySelector('iframe, pre, p');
-                        if (existingOriginalContent) existingOriginalContent.remove();
-
-                        if (originalFile) {
-                            const fileType = originalFile.type;
-                            const reader = new FileReader();
-                            const fileExtension = originalFile.name.split('.').pop().toLowerCase();
-
-                            if (fileType.startsWith('text/') || ['md', 'json', 'xml', 'log', 'py', 'js', 'css', 'java', 'c', 'cpp', 'h', 'hpp', 'cs', 'rb', 'php', 'swift', 'kt', 'go', 'rs', 'ts'].includes(fileExtension)) {
-                                const pre = document.createElement('pre');
-                                reader.onload = (e) => {
-                                    pre.textContent = e.target.result;
-                                    originalPreviewPane.appendChild(pre);
-                                };
-                                reader.onerror = () => {
-                                    pre.textContent = '无法读取原文文件内容。';
-                                    originalPreviewPane.appendChild(pre);
-                                };
-                                reader.readAsText(originalFile);
-                            } else if (fileType === 'application/pdf' || fileType === 'text/html' || fileExtension === 'html' || fileExtension === 'htm') {
-                                const iframe = document.createElement('iframe');
-                                const objectUrl = URL.createObjectURL(originalFile);
-                                iframe.src = objectUrl;
-                                iframe.onload = () => URL.revokeObjectURL(objectUrl);
-                                originalPreviewPane.appendChild(iframe);
-                            } else {
-                                const p = document.createElement('p');
-                                p.style.padding = '10px';
-                                p.textContent = `无法直接预览此文件类型 (${fileType || '未知类型: ' + fileExtension}). 文件名: ${originalFile.name}.`;
-                                originalPreviewPane.appendChild(p);
-                            }
-                        } else {
-                            const p = document.createElement('p');
-                            p.style.padding = '10px';
-                            p.textContent = '未选择原文文件。';
-                            originalPreviewPane.appendChild(p);
-                        }
-
-                        fetch(currentHtmlUrl)
-                            .then(resp => {
-                                if (!resp.ok) throw new Error(`HTTP error ${resp.status}`);
-                                return resp.text();
-                            })
-                            .then(html => {
-                                const blob = new Blob([html], {type: 'text/html'});
-                                const blobUrl = URL.createObjectURL(blob);
-                                translatedPreviewFrame.src = blobUrl;
-                                translatedPreviewFrame.onload = function () {
-                                    try {
-                                        translatedPreviewFrame.contentWindow.document.title = currentFileName + '_translated';
-                                        URL.revokeObjectURL(blobUrl);
-                                    } catch (e) {
-                                        console.warn('无法设置译文iframe标题或释放Blob URL', e);
-                                    }
-                                };
-                                setPreviewDisplayMode('bilingual'); // Default to bilingual view
-                                modal.style.display = 'block';
-                            })
-                            .catch(err => {
-                                console.error('预览: 获取译文HTML内容失败:', err);
-                                statusMsg.textContent = '获取译文HTML内容失败，无法预览。';
-                                statusMsg.className = 'error-message';
-                                translatedPreviewFrame.srcdoc = `<h3>加载译文失败</h3><p>${err.message}</p>`;
-                                setPreviewDisplayMode('bilingual'); // Default to bilingual view even on error
-                                modal.style.display = 'block';
-                            });
-                    };
-
-                    downloadPdfBtn.onclick = function () {
-                        downloadPdfBtn.disabled = true;
-                        downloadPdfBtn.textContent = '准备PDF...';
-                        const currentHtmlUrl = htmlUrl;
-                        const currentFileName = fileName;
-                        const iframe = printFrameEl;
-
-                        fetch(currentHtmlUrl)
-                            .then(resp => {
-                                if (!resp.ok) throw new Error(`HTTP error ${resp.status} for PDF HTML`);
-                                return resp.text();
-                            })
-                            .then(htmlContent => {
-                                let finalHtml = htmlContent;
-                                iframe.onload = () => {
-                                    iframe.onload = null;
-                                    setTimeout(() => {
-                                        try {
-                                            const iframeWindow = iframe.contentWindow;
-                                            if (!iframeWindow) throw new Error("无法访问打印框架。");
-                                            iframeWindow.document.title = currentFileName + '_translated.pdf';
-                                            iframeWindow.focus();
-                                            iframeWindow.print();
-                                        } catch (err) {
-                                            console.error('打印PDF出错:', err);
-                                            statusMsg.textContent = '无法直接生成PDF。请预览HTML后，使用浏览器的打印功能 (Ctrl+P) 保存。';
-                                            statusMsg.className = 'error-message';
-                                        } finally {
-                                            setTimeout(() => {
-                                                downloadPdfBtn.disabled = false;
-                                                downloadPdfBtn.textContent = '下载 PDF';
-                                            }, 2000);
-                                        }
-                                    }, 500)
-                                };
-                                iframe.srcdoc = finalHtml;
-                            })
-                            .catch(err => {
-                                console.error('PDF生成: 获取HTML内容失败:', err);
-                                statusMsg.textContent = '获取HTML内容失败，无法生成PDF。请尝试预览。';
-                                statusMsg.className = 'error-message';
-                                downloadPdfBtn.disabled = false;
-                                downloadPdfBtn.textContent = '下载 PDF';
-                            });
-                    };
-                    downloadBtns.style.display = 'flex';
-                } else {
-                    downloadBtns.style.display = 'none';
-                }
+            // Restore tasks
+            const savedTaskIds = JSON.parse(getFromStorage('active_task_ids', '[]'));
+            if (savedTaskIds.length > 0) {
+                savedTaskIds.forEach(taskId => createTaskCard(taskId, true));
             } else {
-                submitButton.textContent = '取消翻译';
-                submitButton.classList.remove('primary');
-                submitButton.classList.add('secondary', 'contrast');
-                isTranslating = true;
-                submitButton.disabled = false;
-                submitButton.removeAttribute('aria-busy');
-                downloadBtns.style.display = 'none';
+                createTaskCard(); // Create one new task by default
             }
-        } catch (error) {
-            console.error("Error polling status:", error);
-            statusMsg.textContent = '状态更新出错。';
-            statusMsg.className = 'error-message';
+
+            // Add event listeners for settings
+            platformSelect.addEventListener('change', updatePlatformUI);
+            apikeyInput.addEventListener('input', e => saveToStorage(`translator_platform_${platformSelect.value}_apikey`, e.target.value));
+            modelInput.addEventListener('input', e => saveToStorage(`translator_platform_${platformSelect.value}_model_id`, e.target.value));
+            baseUrlInput.addEventListener('input', e => { if (platformSelect.value === 'custom') saveToStorage('translator_platform_custom_base_url', e.target.value); });
+            convertEnginSelect.addEventListener('change', updateConvertEnginUI);
+            mineruTokenInput.addEventListener('input', e => saveToStorage('translator_mineru_token', e.target.value));
+            toLangSelect.addEventListener('change', e => saveToStorage('translator_to_lang', e.target.value));
+            formulaCheckbox.addEventListener('change', e => saveToStorage('translator_formula_ocr', e.target.checked));
+            codeCheckbox.addEventListener('change', e => saveToStorage('translator_code_ocr', e.target.checked));
+            refineCheckbox.addEventListener('change', e => saveToStorage('translator_refine_markdown', e.target.checked));
+            customPromptTranslateArea.addEventListener('input', () => saveToStorage("custom_prompt_translate", customPromptTranslateArea.value));
+
+            addNewTaskBtn.addEventListener('click', () => createTaskCard());
+            setBilingualViewBtn.addEventListener('click', () => setPreviewDisplayMode('bilingual'));
+            setTranslatedOnlyViewBtn.addEventListener('click', () => setPreviewDisplayMode('translationOnly'));
         }
-    }
 
-    function startPolling() {
-        stopPolling();
-        logArea.innerHTML = '';
-        pollLogs();
-        pollStatus();
-        logPollIntervalId = setInterval(pollLogs, 2000);
-        statusPollIntervalId = setInterval(pollStatus, 1500);
-    }
-
-    function stopPolling() {
-        if (logPollIntervalId) clearInterval(logPollIntervalId);
-        if (statusPollIntervalId) clearInterval(statusPollIntervalId);
-        logPollIntervalId = null;
-        statusPollIntervalId = null;
-        setTimeout(pollLogs, 500);
-    }
-
-    async function cancelTranslation() {
-        submitButton.disabled = true;
-        submitButton.textContent = '正在取消...';
-        submitButton.setAttribute('aria-busy', 'true');
-
-        try {
-            const response = await fetch('/cancel-translate', {method: 'POST'});
-            const result = await response.json();
-            if (response.ok && result.cancelled) {
-                statusMsg.textContent = result.message || '取消请求已发送。';
-                statusMsg.className = '';
+        // Theme switcher logic
+        const getPreferredTheme = () => {
+            const storedTheme = localStorage.getItem('theme');
+            if (storedTheme) return storedTheme;
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        };
+        const setTheme = theme => {
+            if (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.setAttribute('data-bs-theme', 'dark');
             } else {
-                statusMsg.textContent = result.message || '取消失败。';
-                statusMsg.className = 'error-message';
-                submitButton.disabled = false;
-                submitButton.textContent = '取消翻译';
-                submitButton.removeAttribute('aria-busy');
+                document.documentElement.setAttribute('data-bs-theme', theme);
             }
-        } catch (error) {
-            console.error('取消请求失败:', error);
-            statusMsg.textContent = '取消请求发送失败。';
-            statusMsg.className = 'error-message';
-            submitButton.disabled = false;
-            submitButton.textContent = '取消翻译';
-            submitButton.removeAttribute('aria-busy');
-        }
-    }
+        };
+        setTheme(getPreferredTheme());
+        document.querySelectorAll('[data-bs-theme-value]').forEach(toggle => {
+            toggle.addEventListener('click', () => {
+                const theme = toggle.getAttribute('data-bs-theme-value');
+                localStorage.setItem('theme', theme);
+                setTheme(theme);
+            });
+        });
 
-    chunkSizeSlider.addEventListener('input', updateChunkSizeUI)
-    chunkSizeReset.addEventListener('click', () => {
-        chunkSizeSlider.value = default_param["chunk_size"]
-        updateChunkSizeUI()
-    })
-    concurrentSlider.addEventListener('input', updateConcurrentUI)
-    concurrentReset.addEventListener('click', () => {
-        concurrentSlider.value = default_param["concurrent"]
-        updateConcurrentUI()
-    })
-
-    temperatureSlider.addEventListener('input', updateTemperatureUI)
-    temperatureReset.addEventListener('click', () => {
-        temperatureSlider.value = default_param["temperature"]
-        updateTemperatureUI()
-    })
-
-    submitButton.addEventListener('click', async function (event) {
-        event.preventDefault();
-        console.log(fileInput)
-        if (isTranslating) {
-            await cancelTranslation();
-            return;
-        }
-
-        [fileDropArea, mineruTokenInput, apikeyInput, modelInput, baseUrlInput].forEach(el => el.classList.remove('input-error'));
-        fileNameDisplay.classList.remove('input-error-text');
-
-        if (fileInput.files.length !== 1) {
-            statusMsg.textContent = '请选择一个文件进行翻译。';
-            statusMsg.className = 'error-message';
-            fileNameDisplay.textContent = '请选择文件！';
-            fileNameDisplay.classList.add('input-error-text');
-            fileDropArea.classList.add('input-error');
-            fileDropPrompt.classList.remove('hidden');
-            return
-        }
-        console.log(convertEnginSelect.value === 'mineru' && (!mineruTokenInput.value.trim()) && (!["md", "txt"].includes(fileInput.files[0].name.split('.').pop())))
-        if (convertEnginSelect.value === 'mineru' && !mineruTokenInput.value.trim() && (!["md", "txt"].includes(fileInput.files[0].name.split('.').pop()))) {
-            statusMsg.textContent = '使用 Mineru 引擎时，必须填写 Mineru Token。';
-            statusMsg.className = 'error-message';
-            mineruTokenInput.classList.add('input-error');
-            return
-        }
-
-        if (!apikeyInput.value.trim()) {
-            statusMsg.textContent = 'API 密钥不能为空。';
-            statusMsg.className = 'error-message';
-            apikeyInput.classList.add('input-error');
-            return
-        }
-        if (!modelInput.value.trim()) {
-            statusMsg.textContent = '模型 ID 不能为空。';
-            statusMsg.className = 'error-message';
-            modelInput.classList.add('input-error');
-            return
-        }
-        if (platformSelect.value === 'custom' && !baseUrlInput.value.trim()) {
-            statusMsg.textContent = '自定义接口时，API 地址不能为空。';
-            statusMsg.className = 'error-message';
-            baseUrlInput.classList.add('input-error');
-            return
-        }
-
-        stopPolling();
-        submitButton.disabled = true;
-        submitButton.setAttribute('aria-busy', 'true');
-        submitButton.textContent = '初始化...';
-        logArea.innerHTML = '';
-        statusMsg.textContent = '正在提交任务...';
-        statusMsg.className = '';
-        downloadBtns.style.display = 'none';
-
-        const formData = new FormData(form);
-
-        try {
-            const response = await fetch('/translate', {method: 'POST', body: formData});
-            const result = await response.json();
-            if (response.ok && result.task_started) {
-                statusMsg.textContent = result.message || '任务已开始，正在处理...';
-                statusMsg.className = '';
-                submitButton.textContent = '取消翻译';
-                submitButton.classList.remove('primary');
-                submitButton.classList.add('secondary', 'contrast');
-                isTranslating = true;
-                submitButton.disabled = false;
-                submitButton.removeAttribute('aria-busy');
-                startPolling();
-            } else {
-                statusMsg.textContent = result.message || `请求失败 (${response.status})`;
-                statusMsg.className = 'error-message';
-                submitButton.disabled = false;
-                submitButton.removeAttribute('aria-busy');
-                submitButton.textContent = '开始翻译';
-                isTranslating = false;
-            }
-        } catch (error) {
-            console.error('请求失败:', error);
-            statusMsg.textContent = '请求翻译失败，请检查网络或服务状态。';
-            statusMsg.className = 'error-message';
-            submitButton.disabled = false;
-            submitButton.removeAttribute('aria-busy');
-            submitButton.textContent = '开始翻译';
-            isTranslating = false;
-        }
-    });
-</script>
+        // --- Start the application ---
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
 </body>
 </html>
