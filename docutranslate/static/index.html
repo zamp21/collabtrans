@@ -661,8 +661,13 @@
 
         function saveTaskIds() {
             if (isAdminMode) return; // In admin mode, do not save task list to localStorage
-            const taskIds = Object.keys(tasks);
-            saveToStorage('active_task_ids', JSON.stringify(taskIds));
+            // === 修改点: 只保存已提交到后端的任务ID ===
+            // 这是解决问题的核心。通过只持久化那些已经成功提交给后端处理的任务，
+            // 我们可以防止未提交的任务（这些任务在后端不存在）在页面刷新后被恢复。
+            // 如果一个未提交的任务是页面上唯一的任务，刷新后 `localStorage` 中的任务列表会是空的，
+            // `init`函数在初始化时会发现没有任务，从而新建一个空白任务，符合预期。
+            const submittedTaskIds = Object.keys(tasks).filter(taskId => tasks[taskId].state.isSubmitted);
+            saveToStorage('active_task_ids', JSON.stringify(submittedTaskIds));
         }
 
         // --- Task Card Management ---
@@ -675,7 +680,6 @@
             const cardElement = cardFragment.querySelector('.task-card');
             cardElement.dataset.taskId = taskId;
 
-            // --- 修改点: 更新元素选择器以获取新的和现有的元素 ---
             const elements = {
                 card: cardElement,
                 taskIdDisplay: cardElement.querySelector('.task-id-display'),
@@ -707,7 +711,6 @@
                     file: null,
                     htmlUrl: null,
                     fileNameStem: null,
-                    // === 修改点 1: 正确设置恢复任务的初始状态 ===
                     // 如果任务是从之前的会话中恢复的（restoreState为true），
                     // 那么它一定是一个已经提交过的任务。
                     isSubmitted: restoreState
@@ -776,7 +779,6 @@
             });
         }
 
-        // --- 修改点: 更新 handleFileSelect 函数以改变拖放区外观 ---
         function handleFileSelect(taskId) {
             const { elements, state } = tasks[taskId];
             const file = elements.fileInput.files[0];
@@ -871,6 +873,10 @@
                 const result = await response.json();
 
                 if (response.ok && result.task_started) {
+                    // === 修改点: 任务成功提交后，保存其ID ===
+                    // 由于 saveTaskIds 只保存 isSubmitted 为 true 的任务，
+                    // 在这里调用它可以确保这个新提交的任务ID被持久化。
+                    saveTaskIds();
                     elements.statusMessage.textContent = result.message || '任务已开始，正在处理...';
                     elements.statusMessage.className = 'status-message small text-info';
                     elements.startBtn.innerHTML = `<i class="bi bi-stop-circle-fill me-1"></i>取消翻译`;
@@ -881,6 +887,9 @@
                     throw new Error(result.message || `请求失败 (${response.status})`);
                 }
             } catch (error) {
+                // === 修改点: 如果提交失败或过程中出现任何异常，将任务状态重置为未提交 ===
+                // 这样可以防止一个失败的任务被错误地标记为“已提交”，从而避免了刷新后出现问题。
+                state.isSubmitted = false;
                 console.error('请求失败:', error);
                 elements.statusMessage.textContent = `启动失败: ${error.message}`;
                 elements.statusMessage.className = 'status-message small text-danger';
@@ -961,7 +970,6 @@
                 const status = await response.json();
 
                 // 页面刷新时，从后端状态恢复文件名显示
-                // 注意: 这里不改变拖放区的绿色状态，以满足“刷新后恢复”的需求
                 if (status.original_filename && (!state.file || isRestore)) {
                     elements.fileNameDisplay.textContent = status.original_filename;
                     elements.fileNameDisplayWrapper.style.display = 'block';
@@ -1004,12 +1012,6 @@
                     elements.progress.style.display = 'block';
                     elements.downloadButtons.style.display = 'none';
 
-                    // === 修改点 2: 刷新后启动轮询 ===
-                    // 这是实现需求的核心改动。
-                    // 如果此函数是在页面刷新恢复任务时被调用的 (isRestore为true),
-                    // 并且服务器确认任务仍在处理中，
-                    // 我们就必须启动客户端的轮询，以继续接收后续的日志和状态更新。
-                    // 我们也检查轮询间隔是否已存在，避免重复启动。
                     if (isRestore && !tasks[taskId].intervals.status) {
                         startPolling(taskId);
                     }
