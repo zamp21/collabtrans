@@ -84,30 +84,56 @@
         #printFrame, #translatedPreviewFrame {
             border: none;
             width: 100%;
+        }
+
+        /* --- MODIFIED: Styles for the new Offcanvas Preview --- */
+        #previewOffcanvas {
+            --bs-offcanvas-width: 95vw;
+            max-width: 1600px;
+        }
+
+        .preview-split-container {
+            display: flex;
+            flex-direction: row;
             height: 100%;
         }
 
-        #previewModal .modal-dialog {
-            max-width: 95vw;
+        .preview-pane-wrapper {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Important for split.js */
         }
 
-        #previewModal .modal-body {
-            height: 80vh;
+        .preview-pane-wrapper h6 {
+            flex-shrink: 0;
+            padding: 0.25rem;
         }
 
-        .preview-pane {
-            height: 100%;
-            overflow: hidden;
-            border: 1px solid var(--bs-border-color);
-            border-radius: .375rem;
+        .preview-pane-wrapper .preview-pane {
+             flex-grow: 1; /* Make the inner pane grow */
+             border: 1px solid var(--bs-border-color);
+             border-radius: .375rem;
+            overflow: auto;
         }
+
+        /* split.js gutter style */
+        .gutter {
+            background-color: var(--bs-tertiary-bg);
+            border-left: 1px solid var(--bs-border-color);
+            border-right: 1px solid var(--bs-border-color);
+        }
+        .gutter.gutter-horizontal {
+            cursor: col-resize;
+        }
+        /* --- END OF MODIFICATION --- */
+
 
         .preview-pane iframe, .preview-pane pre {
             width: 100%;
-            height: 100%;
+            height: 95%;
             border: none;
             margin: 0;
-            padding: 10px;
+            padding: 0;
             overflow: auto;
             background-color: var(--bs-body-bg);
         }
@@ -413,39 +439,34 @@
     </div>
 </template>
 
-<!-- Preview Modal -->
-<div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalTitle" aria-hidden="true">
-    <div class="modal-dialog modal-fullscreen-xl-down">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="previewModalTitle">双语预览</h5>
-                <div class="btn-group me-auto ms-4" role="group">
-                    <button type="button" class="btn btn-sm btn-primary" id="setBilingualViewBtn">双语</button>
-                    <button type="button" class="btn btn-sm btn-outline-primary" id="setTranslatedOnlyViewBtn">仅译文
-                    </button>
-                </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+<!-- MODIFIED: Preview Offcanvas with Resizable Panes -->
+<div class="offcanvas offcanvas-end" data-bs-scroll="true" tabindex="-1" id="previewOffcanvas" aria-labelledby="previewOffcanvasLabel">
+    <div class="offcanvas-header border-bottom">
+        <h5 class="offcanvas-title" id="previewOffcanvasLabel">预览</h5>
+        <div class="btn-group me-auto ms-4" role="group">
+            <button type="button" class="btn btn-sm btn-primary" id="setBilingualViewBtn">双语</button>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="setTranslatedOnlyViewBtn">仅译文</button>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body d-flex flex-column p-2">
+        <div class="preview-split-container flex-grow-1">
+            <div id="originalPreviewContainer" class="preview-pane-wrapper">
+                <h6 class="text-center text-muted small">原文</h6>
+                <div class="preview-pane" id="originalPreviewPane"></div>
             </div>
-            <div class="modal-body">
-                <div class="row h-100 gx-2">
-                    <div class="col-6" id="originalPreviewContainer">
-                        <h6 class="text-center text-muted small">原文</h6>
-                        <div class="preview-pane" id="originalPreviewPane"></div>
-                    </div>
-                    <div class="col-6" id="translatedPreviewContainer">
-                        <h6 class="text-center text-muted small">译文</h6>
-                        <div class="preview-pane">
-                            <iframe id="translatedPreviewFrame" src="about:blank"></iframe>
-                        </div>
-                    </div>
+            <div id="translatedPreviewContainer" class="preview-pane-wrapper">
+                <h6 class="text-center text-muted small">译文</h6>
+                <div class="preview-pane">
+                    <iframe id="translatedPreviewFrame" src="about:blank"></iframe>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-                <button type="button" class="btn btn-primary" id="printFromPreview"><i
-                        class="bi bi-printer-fill me-2"></i>打印/保存为PDF
-                </button>
-            </div>
+        </div>
+        <div class="offcanvas-footer mt-2 pt-3 border-top d-flex justify-content-end align-items-center">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="offcanvas">关闭</button>
+            <button type="button" class="btn btn-primary ms-2" id="printFromPreview">
+                <i class="bi bi-printer-fill me-2"></i>打印/保存为PDF
+            </button>
         </div>
     </div>
 </div>
@@ -480,8 +501,10 @@
 
 <!-- Bootstrap JS -->
 <script src="/static/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+<!-- MODIFIED: Split.js for resizable panes -->
+<script src="https://unpkg.com/split.js/dist/split.min.js"></script>
 
-    <script type="module">
+<script type="module">
 
         const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
         const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
@@ -518,9 +541,10 @@
         const noTaskPlaceholder = document.getElementById('no-task-placeholder');
         const taskCardTemplate = document.getElementById('taskCardTemplate');
 
-        // Modal and preview elements
-        const previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
-        const previewModalTitle = document.getElementById('previewModalTitle');
+        // MODIFIED: Offcanvas and preview elements
+        const previewOffcanvasEl = document.getElementById('previewOffcanvas');
+        const previewOffcanvas = new bootstrap.Offcanvas(previewOffcanvasEl);
+        const previewOffcanvasLabel = document.getElementById('previewOffcanvasLabel');
         const originalPreviewPane = document.getElementById('originalPreviewPane');
         const translatedPreviewFrame = document.getElementById('translatedPreviewFrame');
         const originalPreviewContainer = document.getElementById('originalPreviewContainer');
@@ -534,6 +558,7 @@
         let defaultParams = {};
         const tasks = {}; // { taskId: { elements: {...}, state: {...}, intervals: {...} } }
         let isAdminMode = false; // Flag for admin view
+        let previewSplitInstance = null; // To hold the Split.js instance
 
         const apiHrefMap = {
             "https://openrouter.ai/api/v1": "https://openrouter.ai/settings/keys",
@@ -909,19 +934,14 @@
                 }
                 const status = await response.json();
 
-                // ==================== MODIFICATION START ====================
                 // Restore filename display from status
-                // This runs only if state.file is not present (e.g., after a page refresh)
-                // and the backend provides the original filename.
                 if (status.original_filename && !state.file) {
                     elements.fileNameDisplay.textContent = `已上传: ${status.original_filename}`;
                     elements.fileDropArea.classList.add('file-selected');
                     elements.fileDropPrompt.style.display = 'none';
-                    // Also clear any potential error states from a previous failed attempt
                     elements.fileDropArea.classList.remove('input-error');
                     elements.fileNameDisplay.classList.remove('input-error-text');
                 }
-                // ==================== MODIFICATION END ====================
 
                 elements.statusMessage.textContent = status.status_message || '正在获取状态...';
                 elements.statusMessage.className = `status-message small ${status.error_flag ? 'text-danger' : 'text-info'}`;
@@ -968,7 +988,7 @@
             }
         }
 
-        // --- Download and Preview ---
+        // --- MODIFIED: Download and Preview ---
         function setupPreview(taskId) {
             const { state } = tasks[taskId];
             if (!state.htmlUrl) return;
@@ -1011,13 +1031,13 @@
                 .then(html => {
                     translatedPreviewFrame.srcdoc = html;
                     setPreviewDisplayMode('bilingual');
-                    previewModal.show();
+                    previewOffcanvas.show();
                 })
                 .catch(err => {
                     console.error('Preview fetch failed:', err);
                     translatedPreviewFrame.srcdoc = `<h3>加载译文失败</h3><p>${err.message}</p>`;
                     setPreviewDisplayMode('bilingual');
-                    previewModal.show();
+                    previewOffcanvas.show();
                 });
 
             printFromPreview.onclick = () => {
@@ -1062,26 +1082,49 @@
         }
 
         function setPreviewDisplayMode(mode) {
+            // Always destroy the previous split instance to avoid errors
+            if (previewSplitInstance) {
+                previewSplitInstance.destroy();
+                previewSplitInstance = null;
+            }
+
+            // Ensure containers are visible and reset styles before applying new ones
+            originalPreviewContainer.style.display = 'flex';
+            originalPreviewContainer.style.width = '';
+            translatedPreviewContainer.style.width = '';
+
             if (mode === 'bilingual') {
-                originalPreviewContainer.style.display = 'block';
-                translatedPreviewContainer.classList.remove('col-12');
-                translatedPreviewContainer.classList.add('col-6');
-                previewModalTitle.textContent = '双语预览';
+                previewOffcanvasLabel.textContent = '双语预览';
+
+                // Re-initialize Split.js for resizable panes
+                previewSplitInstance = Split(['#originalPreviewContainer', '#translatedPreviewContainer'], {
+                    sizes: [50, 50],
+                    minSize: 200, // Minimum pane size in pixels
+                    gutterSize: 10,
+                    cursor: 'col-resize',
+                });
+
+                // Update button states
                 setBilingualViewBtn.classList.add('btn-primary');
                 setBilingualViewBtn.classList.remove('btn-outline-primary');
                 setTranslatedOnlyViewBtn.classList.remove('btn-primary');
                 setTranslatedOnlyViewBtn.classList.add('btn-outline-primary');
+
             } else { // translationOnly
+                previewOffcanvasLabel.textContent = '译文预览';
+
+                // Hide original, make translated pane full-width
                 originalPreviewContainer.style.display = 'none';
-                translatedPreviewContainer.classList.remove('col-6');
-                translatedPreviewContainer.classList.add('col-12');
-                previewModalTitle.textContent = '译文预览';
+                translatedPreviewContainer.style.width = '100%';
+
+                // Update button states
                 setTranslatedOnlyViewBtn.classList.add('btn-primary');
                 setTranslatedOnlyViewBtn.classList.remove('btn-outline-primary');
                 setBilingualViewBtn.classList.remove('btn-primary');
                 setBilingualViewBtn.classList.add('btn-outline-primary');
             }
         }
+        // --- End of MODIFICATION ---
 
         // --- Initialization ---
         async function init() {
@@ -1172,45 +1215,38 @@
             setTranslatedOnlyViewBtn.addEventListener('click', () => setPreviewDisplayMode('translationOnly'));
         }
 
-        // --- MODIFIED: Theme switcher logic ---
+        // --- Theme switcher logic ---
         const getPreferredTheme = () => {
             const storedTheme = localStorage.getItem('theme');
             if (storedTheme) {
                 return storedTheme;
             }
-            // Default to 'auto' if no preference is stored
             return 'auto';
         };
 
         const setTheme = theme => {
             if (theme === 'auto') {
-                 // Set theme based on system preference
                 document.documentElement.setAttribute('data-bs-theme', window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
             } else {
-                // Set theme based on user's choice (light/dark)
                 document.documentElement.setAttribute('data-bs-theme', theme);
             }
         };
 
         const showActiveTheme = (theme) => {
-            // Remove active class from all buttons
             document.querySelectorAll('[data-bs-theme-value]').forEach(element => {
                 element.classList.remove('active');
             });
 
-            // Add active class to the button corresponding to the current theme
             const activeButton = document.querySelector(`[data-bs-theme-value="${theme}"]`);
             if (activeButton) {
                 activeButton.classList.add('active');
             }
         };
 
-        // On page load, set theme and update UI
         const preferredTheme = getPreferredTheme();
         setTheme(preferredTheme);
         showActiveTheme(preferredTheme);
 
-        // When system theme changes, update if in 'auto' mode
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
             const storedTheme = localStorage.getItem('theme');
             if (storedTheme === 'auto' || !storedTheme) {
@@ -1218,7 +1254,6 @@
             }
         });
 
-        // Add click listeners to theme switch buttons
         document.querySelectorAll('[data-bs-theme-value]').forEach(toggle => {
             toggle.addEventListener('click', () => {
                 const theme = toggle.getAttribute('data-bs-theme-value');
