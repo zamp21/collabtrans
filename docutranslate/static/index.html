@@ -67,9 +67,11 @@
             background-color: var(--bs-secondary-bg);
         }
 
+        /* --- 修改点: 添加了文件选中后的样式 --- */
         .file-drop-area.file-selected {
             border-style: solid;
             border-color: var(--bs-success);
+            background-color: var(--bs-success-bg-subtle);
         }
 
         .file-drop-area.input-error {
@@ -391,10 +393,20 @@
             <div class="row">
                 <div class="col-md-5">
                     <input type="file" class="d-none file-input">
+                    <!-- --- 修改点: 更新拖放区域的内部结构以支持两种状态 --- -->
                     <div class="file-drop-area">
-                        <i class="bi bi-cloud-arrow-up fs-1"></i>
-                        <p class="file-drop-prompt mb-0">点击或拖拽文件到此处</p>
-                        <p class="file-name-display text-success"></p>
+                        <div class="file-drop-default">
+                            <i class="bi bi-cloud-arrow-up fs-1"></i>
+                            <p class="file-drop-prompt mb-0">点击或拖拽文件到此处</p>
+                        </div>
+                        <div class="file-drop-selected" style="display: none;">
+                            <i class="bi bi-check-circle-fill fs-1 text-success"></i>
+                            <p class="mb-0 mt-2 fw-bold text-success">文件已选择</p>
+                        </div>
+                    </div>
+                    <div class="file-name-display-wrapper mt-2" style="display: none;">
+                        <span class="fw-bold">文件名: </span>
+                        <span class="file-name-display text-success"></span>
                     </div>
                 </div>
                 <div class="col-md-7">
@@ -663,13 +675,16 @@
             const cardElement = cardFragment.querySelector('.task-card');
             cardElement.dataset.taskId = taskId;
 
+            // --- 修改点: 更新元素选择器以获取新的和现有的元素 ---
             const elements = {
                 card: cardElement,
                 taskIdDisplay: cardElement.querySelector('.task-id-display'),
                 removeBtn: cardElement.querySelector('.remove-task-btn'),
                 fileInput: cardElement.querySelector('.file-input'),
                 fileDropArea: cardElement.querySelector('.file-drop-area'),
-                fileDropPrompt: cardElement.querySelector('.file-drop-prompt'),
+                fileDropDefault: cardElement.querySelector('.file-drop-default'),
+                fileDropSelected: cardElement.querySelector('.file-drop-selected'),
+                fileNameDisplayWrapper: cardElement.querySelector('.file-name-display-wrapper'),
                 fileNameDisplay: cardElement.querySelector('.file-name-display'),
                 logArea: cardElement.querySelector('.log-area'),
                 statusMessage: cardElement.querySelector('.status-message'),
@@ -692,7 +707,10 @@
                     file: null,
                     htmlUrl: null,
                     fileNameStem: null,
-                    isSubmitted: false
+                    // === 修改点 1: 正确设置恢复任务的初始状态 ===
+                    // 如果任务是从之前的会话中恢复的（restoreState为true），
+                    // 那么它一定是一个已经提交过的任务。
+                    isSubmitted: restoreState
                 },
                 intervals: {
                     log: null,
@@ -758,15 +776,23 @@
             });
         }
 
+        // --- 修改点: 更新 handleFileSelect 函数以改变拖放区外观 ---
         function handleFileSelect(taskId) {
             const { elements, state } = tasks[taskId];
             const file = elements.fileInput.files[0];
             if (file) {
                 state.file = file;
-                elements.fileNameDisplay.textContent = `已选: ${file.name}`;
+
+                // 更新外部文件名显示
+                elements.fileNameDisplay.textContent = file.name;
+                elements.fileNameDisplayWrapper.style.display = 'block';
+
+                // 更新拖放区外观为“已选择”状态
                 elements.fileDropArea.classList.add('file-selected');
-                elements.fileDropPrompt.style.display = 'none';
-                // Clear any previous error states
+                elements.fileDropDefault.style.display = 'none';
+                elements.fileDropSelected.style.display = 'block';
+
+                // 清除任何之前的错误状态
                 elements.fileDropArea.classList.remove('input-error');
                 elements.fileNameDisplay.classList.remove('input-error-text');
             }
@@ -934,13 +960,11 @@
                 }
                 const status = await response.json();
 
-                // Restore filename display from status
-                if (status.original_filename && !state.file) {
-                    elements.fileNameDisplay.textContent = `已上传: ${status.original_filename}`;
-                    elements.fileDropArea.classList.add('file-selected');
-                    elements.fileDropPrompt.style.display = 'none';
-                    elements.fileDropArea.classList.remove('input-error');
-                    elements.fileNameDisplay.classList.remove('input-error-text');
+                // 页面刷新时，从后端状态恢复文件名显示
+                // 注意: 这里不改变拖放区的绿色状态，以满足“刷新后恢复”的需求
+                if (status.original_filename && (!state.file || isRestore)) {
+                    elements.fileNameDisplay.textContent = status.original_filename;
+                    elements.fileNameDisplayWrapper.style.display = 'block';
                 }
 
                 elements.statusMessage.textContent = status.status_message || '正在获取状态...';
@@ -979,6 +1003,16 @@
                     elements.startBtn.disabled = false;
                     elements.progress.style.display = 'block';
                     elements.downloadButtons.style.display = 'none';
+
+                    // === 修改点 2: 刷新后启动轮询 ===
+                    // 这是实现需求的核心改动。
+                    // 如果此函数是在页面刷新恢复任务时被调用的 (isRestore为true),
+                    // 并且服务器确认任务仍在处理中，
+                    // 我们就必须启动客户端的轮询，以继续接收后续的日志和状态更新。
+                    // 我们也检查轮询间隔是否已存在，避免重复启动。
+                    if (isRestore && !tasks[taskId].intervals.status) {
+                        startPolling(taskId);
+                    }
                 }
 
             } catch (error) {
