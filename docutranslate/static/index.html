@@ -454,6 +454,7 @@
         // --- Global State ---
         let defaultParams = {};
         const tasks = {}; // { taskId: { elements: {...}, state: {...}, intervals: {...} } }
+        let isAdminMode = false; // Flag for admin view
 
         const apiHrefMap = {
             "https://openrouter.ai/api/v1": "https://openrouter.ai/settings/keys",
@@ -530,6 +531,7 @@
         }
 
         function saveTaskIds() {
+            if (isAdminMode) return; // In admin mode, do not save task list to localStorage
             const taskIds = Object.keys(tasks);
             saveToStorage('active_task_ids', JSON.stringify(taskIds));
         }
@@ -955,6 +957,9 @@
 
         // --- Initialization ---
         async function init() {
+            // Determine if in admin mode
+            isAdminMode = window.location.pathname === '/admin';
+
             // Fetch metadata
             try {
                 const [metaRes, enginRes, paramsRes] = await Promise.all([
@@ -996,12 +1001,29 @@
             setupSlider(concurrentSlider, concurrentDisplay, concurrentReset, 'concurrent', defaultParams);
             setupSlider(temperatureSlider, temperatureDisplay, temperatureReset, 'temperature', defaultParams);
 
-            // Restore tasks
-            const savedTaskIds = JSON.parse(getFromStorage('active_task_ids', '[]'));
-            if (savedTaskIds.length > 0) {
-                savedTaskIds.forEach(taskId => createTaskCard(taskId, true));
+            // Restore tasks based on mode
+            if (isAdminMode) {
+                document.title = "DocuTranslate - Admin Panel";
+                try {
+                    const response = await fetch('/backend/get-task-list');
+                    if (!response.ok) throw new Error(`Failed to fetch task list: ${response.statusText}`);
+                    const allTaskIds = await response.json();
+                    if (allTaskIds && Array.isArray(allTaskIds) && allTaskIds.length > 0) {
+                        allTaskIds.reverse().forEach(taskId => createTaskCard(taskId, true));
+                    }
+                } catch (error) {
+                    console.error("Admin mode: Failed to load task list from server.", error);
+                    alert("无法从服务器加载任务列表，请检查后台连接。");
+                }
+                updateTaskPlaceholderVisibility();
             } else {
-                createTaskCard(); // Create one new task by default
+                // Normal mode: Restore from localStorage
+                const savedTaskIds = JSON.parse(getFromStorage('active_task_ids', '[]'));
+                if (savedTaskIds.length > 0) {
+                    savedTaskIds.forEach(taskId => createTaskCard(taskId, true));
+                } else {
+                    createTaskCard(); // Create one new task by default
+                }
             }
 
             // Add event listeners for settings

@@ -368,6 +368,10 @@ async def service_get_engin_list():
     if available_packages.get("docling"): engin_list.append("docling")
     return JSONResponse(content=engin_list)
 
+@service_router.get("/task-list", summary="获取所有task-id")
+async def service_get_task_list():
+    return JSONResponse(content=list(tasks_state.keys()))
+
 
 @service_router.get("/default-params", summary="获取默认翻译参数")
 def service_get_default_params():
@@ -477,7 +481,9 @@ async def get_logs_from_queue_for_frontend(request: Request, task_id: str = Quer
 @backend_router.get("/get-engin-list")
 async def get_engin_list_for_frontend(request: Request):
     return await _proxy_request(request, "GET", "/service/engin-list")
-
+@backend_router.get("/get-task-list")
+async def get_task_list_for_frontend(request: Request):
+    return await _proxy_request(request, "GET", "/service/task-list")
 
 @backend_router.get("/translate/default_param")
 async def get_default_param_for_frontend(request: Request):
@@ -500,7 +506,13 @@ async def main_page():
     no_cache_headers = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache",
                         "Expires": "0"}
     return FileResponse(index_path, headers=no_cache_headers)
-
+@app.get("/admin", response_class=HTMLResponse, include_in_schema=False)
+async def main_page_admin():
+    index_path = Path(STATIC_DIR) / "index.html"
+    if not index_path.exists(): raise HTTPException(status_code=404, detail="index.html not found")
+    no_cache_headers = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache",
+                        "Expires": "0"}
+    return FileResponse(index_path, headers=no_cache_headers)
 @app.post("/temp/translate")
 async def temp_translate(base_url: str = Body(...),
                          api_key: str = Body(...),
