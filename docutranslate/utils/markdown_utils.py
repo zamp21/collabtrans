@@ -56,8 +56,13 @@ def uris2placeholder(markdown: str, mask_dict: MaskDict):
     ##只替换uri里的链接部分，保留标题
     def uri2placeholder(match: re.Match):
         id = mask_dict.create_id()
-        mask_dict.set(id, match.group(2))
-        return f"{match.group(1)}(<ph-{id}>)"
+        # 只替换base64数据
+        # mask_dict.set(id, match.group(2))
+        # return f"{match.group(1)}(<ph-{id}>)"
+
+        #整个图片都替换为占位符
+        mask_dict.set(id, match.group())
+        return f"<ph-{id}>"
 
     uri_pattern = r'(!?\[.*?\])\((.*?)\)'
     markdown = re.sub(uri_pattern, uri2placeholder, markdown)
