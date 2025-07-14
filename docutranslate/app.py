@@ -7,21 +7,21 @@ import socket
 import time
 from contextlib import asynccontextmanager, closing
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Literal
 from urllib.parse import quote
 
 import httpx
 import uvicorn
-from fastapi import FastAPI, File, Form, UploadFile, Request, HTTPException, Query, APIRouter, Body
+from fastapi import FastAPI, HTTPException, APIRouter, Body, Path as FastApiPath
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from docutranslate import FileTranslater, __version__
+from docutranslate.global_values import available_packages
 from docutranslate.logger import translater_logger
 from docutranslate.translater import default_params
 from docutranslate.utils.resource_utils import resource_path
-from docutranslate.global_values import available_packages
 
 # --- 全局配置 ---
 tasks_state: Dict[str, Dict[str, Any]] = {}
@@ -226,9 +226,40 @@ def _cancel_translation_logic(task_id: str):
 
 
 # --- FastAPI 应用和路由设置 ---
-app = FastAPI(lifespan=lifespan)
-backend_router = APIRouter(prefix="/backend")
-service_router = APIRouter(prefix="/service")
+tags_metadata = [
+    {
+        "name": "Service API",
+        "description": "核心的服务API，用于提交、管理和下载翻译任务。",
+    },
+    {
+        "name": "Application",
+        "description": "应用本身的相关端点，如元信息和默认参数。",
+    },
+    {
+        "name": "Temp",
+        "description": "测试用接口。",
+    },
+]
+
+app = FastAPI(
+    lifespan=lifespan,
+    title="DocuTranslate API",
+    description=f"""
+DocuTranslate 后端服务 API，提供文档翻译、状态查询、结果下载等功能。
+
+### 主要工作流程:
+1.  **POST /service/translate**: 提交文件和翻译参数，启动一个后台任务，并获取 `task_id`。
+2.  **GET /service/status/{{task_id}}**: 使用 `task_id` 轮询此端点，获取任务的实时状态。
+3.  **GET /service/logs/{{task_id}}**: (可选) 获取实时的翻译日志。
+4.  **GET /service/download/{{task_id}}/{{file_type}}**: 任务完成后 (当 `download_ready` 为 `true` 时)，通过此端点下载结果文件。
+
+**版本**: {__version__}
+""",
+    version=__version__,
+    openapi_tags=tags_metadata,
+)
+
+service_router = APIRouter(prefix="/service", tags=["Service API"])
 
 STATIC_DIR = resource_path("static")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -238,30 +269,66 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 # --- Pydantic Models for Service API ---
 # ===================================================================
 class TranslateServiceRequest(BaseModel):
-    task_id: str = Field("0", description="任务ID，用于跟踪，默认为'0'")
-    base_url: str
-    apikey: str
-    model_id: str
-    to_lang: str = "中文"
-    formula_ocr: bool = False
-    code_ocr: bool = False
-    refine_markdown: bool = False
-    convert_engin: str
-    mineru_token: Optional[str] = None
-    chunk_size: int
-    concurrent: int
-    temperature: float
-    custom_prompt_translate: Optional[str] = None
-    file_name: str = Field(..., description="上传的原始文件名")
-    file_content: str = Field(..., description="Base64编码的文件内容")
+    task_id: str = Field(
+        "0",
+        description="任务的唯一标识符。用于后续跟踪任务状态和结果。默认为 '0'，表示单个任务模式。建议为每个任务提供唯一的ID，例如UUID。",
+        examples=["task-12345"]
+    )
+    base_url: str = Field(..., description="LLM API的基础URL。", examples=["https://api.openai.com/v1"])
+    apikey: str = Field(..., description="LLM API的密钥。注意：请勿在不安全的环境中暴露此密钥。", examples=["sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"])
+    model_id: str = Field(..., description="使用的模型ID。", examples=["gpt-4-turbo"])
+    to_lang: str = Field("中文", description="目标翻译语言。", examples=["中文","英文","English"])
+    formula_ocr: bool = Field(False, description="是否对公式进行OCR识别。")
+    code_ocr: bool = Field(False, description="是否对代码块进行OCR识别。")
+    refine_markdown: bool = Field(False, description="是否使用ai对解析后的文档进行一遍优化（现不推荐使用）")
+    convert_engin: str = Field(..., description="文档解析和转换引擎，可选 'mineru' 或 'docling'。", examples=["mineru"])
+    mineru_token: Optional[str] = Field(None, description="当使用 'mineru' 是必填。", examples=["token-abcdefg"])
+    chunk_size: int = Field(..., description="文本分块的大小。", examples=[2048])
+    concurrent: int = Field(..., description="并发请求的数量。", examples=[5])
+    temperature: float = Field(..., description="LLM的温度参数，控制生成文本的随机性。", examples=[0.7])
+    custom_prompt_translate: Optional[str] = Field(None, description="用户自定义的翻译Prompt。", examples=["人名保持原文不翻译。"])
+    file_name: str = Field(..., description="上传的原始文件名，包含扩展名。", examples=["my_document.pdf"])
+    file_content: str = Field(..., description="Base64编码的文件内容。", examples=["JVBERi0xLjQKJeLjz9MKMSAwIG9iago8PAovVHlwZS..."])
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "task_id": "task-abc-123",
+                "base_url": "https://api.openai.com/v1",
+                "apikey": "sk-your-api-key",
+                "model_id": "gpt-4o",
+                "to_lang": "简体中文",
+                "formula_ocr": True,
+                "code_ocr": True,
+                "refine_markdown": False,
+                "convert_engin": "mineru",
+                "mineru_token": "your-mineru-token",
+                "chunk_size": 2048,
+                "concurrent": 5,
+                "temperature": 0.1,
+                "custom_prompt_translate": "Translate the following technical document into professional Chinese.",
+                "file_name": "example.pdf",
+                "file_content": "JVBERi0xLjQKJ..."
+            }
+        }
 
 
 # ===================================================================
 # --- Service Endpoints (/service) ---
 # ===================================================================
 
-@service_router.post("/translate", summary="提交翻译任务 (JSON/Base64)")
-async def service_translate(request: TranslateServiceRequest = Body(...)):
+@service_router.post(
+    "/translate",
+    summary="提交翻译任务 (Base64)",
+    description="""
+接收一个包含文件内容（Base64编码）和翻译参数的JSON请求，启动一个后台翻译任务。
+
+- **异步处理**: 此端点会立即返回，不会等待翻译完成。
+- **任务ID**: 成功启动后，会返回任务ID (`task_id`)。
+- **后续步骤**: 客户端应使用返回的 `task_id` 轮询 `/service/status/{task_id}` 接口来获取任务进度和结果。
+"""
+)
+async def service_translate(request: TranslateServiceRequest = Body(..., description="翻译任务的详细参数和文件内容。")):
     """
     提交一个文件进行翻译，并启动一个后台任务。
     文件内容需以Base64编码。
@@ -272,7 +339,7 @@ async def service_translate(request: TranslateServiceRequest = Body(...)):
     except (base64.binascii.Error, TypeError) as e:
         raise HTTPException(status_code=400, detail=f"无效的Base64文件内容: {e}")
 
-    params = request.dict(exclude={'file_name', 'file_content', 'task_id'})
+    params = request.model_dump(exclude={'file_name', 'file_content', 'task_id'})
     try:
         response_data = await _start_translation_task(
             task_id=request.task_id,
@@ -285,8 +352,12 @@ async def service_translate(request: TranslateServiceRequest = Body(...)):
         return JSONResponse(status_code=e.status_code, content={"task_started": False, "message": e.detail})
 
 
-@service_router.post("/cancel/{task_id}", summary="取消翻译任务")
-async def service_cancel_translate(task_id: str):
+@service_router.post(
+    "/cancel/{task_id}",
+    summary="取消翻译任务",
+    description="根据任务ID取消一个正在进行的翻译任务。这是一个异步操作，发送取消请求后，任务不会立即停止，需要通过状态接口确认最终状态。"
+)
+async def service_cancel_translate(task_id: str = FastApiPath(..., description="要取消的任务的ID", example="task-12345")):
     """根据任务ID取消一个正在进行的翻译任务。"""
     try:
         response_data = _cancel_translation_logic(task_id)
@@ -295,8 +366,17 @@ async def service_cancel_translate(task_id: str):
         return JSONResponse(status_code=e.status_code, content={"cancelled": False, "message": e.detail})
 
 
-@service_router.get("/status/{task_id}", summary="获取任务状态")
-async def service_get_status(task_id: str):
+@service_router.get(
+    "/status/{task_id}",
+    summary="获取任务状态",
+    description="""
+根据任务ID获取任务的当前状态。
+
+- **轮询**: 此端点设计用于被客户端轮询，以监控后台任务进度。
+- **结果下载**: 当 `download_ready` 字段为 `true` 时，`downloads` 对象中会包含可用的下载链接。
+"""
+)
+async def service_get_status(task_id: str = FastApiPath(..., description="要查询状态的任务的ID", example="task-12345")):
     """根据任务ID获取任务的当前状态和结果下载链接。"""
     task_state = tasks_state.get(task_id)
     if not task_state:
@@ -322,8 +402,12 @@ async def service_get_status(task_id: str):
     })
 
 
-@service_router.get("/logs/{task_id}", summary="获取任务日志")
-async def service_get_logs(task_id: str):
+@service_router.get(
+    "/logs/{task_id}",
+    summary="获取任务增量日志",
+    description="获取指定任务ID自上次查询以来的新日志。这是一个非阻塞的轮询接口，用于实时显示后台任务的日志输出。"
+)
+async def service_get_logs(task_id: str = FastApiPath(..., description="要获取日志的任务的ID", example="task-12345")):
     """获取指定任务ID自上次查询以来的新日志。"""
     if task_id not in tasks_log_queues:
         raise HTTPException(status_code=404, detail=f"找不到任务ID '{task_id}' 的日志队列。")
@@ -338,8 +422,16 @@ async def service_get_logs(task_id: str):
     return JSONResponse(content={"logs": new_logs})
 
 
-@service_router.get("/download/{task_id}/{file_type}", summary="下载结果文件")
-async def service_download_file(task_id: str, file_type: str):
+FileType = Literal["markdown", "markdown_zip", "html"]
+@service_router.get(
+    "/download/{task_id}/{file_type}",
+    summary="下载翻译结果文件",
+    description="根据任务ID和文件类型下载翻译结果。下载前请先通过状态接口确认 `download_ready` 为 `true`。"
+)
+async def service_download_file(
+        task_id: str = FastApiPath(..., description="已完成任务的ID", example="task-12345"),
+        file_type: FileType = FastApiPath(..., description="要下载的文件类型。", example="html")
+):
     """根据任务ID和文件类型下载翻译结果。"""
     task_state = tasks_state.get(task_id)
     if not task_state: raise HTTPException(status_code=404, detail=f"找不到任务ID '{task_id}'。")
@@ -362,137 +454,30 @@ async def service_download_file(task_id: str, file_type: str):
     return StreamingResponse(io.BytesIO(content), media_type=media_type, headers=headers)
 
 
-@service_router.get("/engin-list", summary="获取可用引擎列表")
+@service_router.get("/engin-list", summary="获取可用解析引擎", tags=["Application"],
+                    description="返回当前后端环境支持的文档解析引擎列表。前端可以根据此列表动态展示选项。")
 async def service_get_engin_list():
     engin_list = ["mineru"]
     if available_packages.get("docling"): engin_list.append("docling")
     return JSONResponse(content=engin_list)
 
-@service_router.get("/task-list", summary="获取所有task-id")
+
+@service_router.get("/task-list", summary="获取所有任务ID列表", tags=["Application"],
+                    description="返回当前服务实例中存在的所有任务ID的列表。可用于管理或概览所有已创建的任务。")
 async def service_get_task_list():
     return JSONResponse(content=list(tasks_state.keys()))
 
 
-@service_router.get("/default-params", summary="获取默认翻译参数")
+@service_router.get("/default-params", summary="获取默认翻译参数", tags=["Application"],
+                    description="返回一套默认的翻译参数，可用于填充前端表单的初始值。")
 def service_get_default_params():
     return JSONResponse(content=default_params)
 
 
-@service_router.get("/meta", summary="获取应用版本信息")
+@service_router.get("/meta", summary="获取应用元信息", tags=["Application"],
+                    description="返回应用程序的元数据，例如当前版本号。")
 async def service_get_app_version():
     return JSONResponse(content={"version": __version__})
-
-
-# ===================================================================
-# --- Backend Endpoints for Frontend (/backend) ---
-# --- (Calls /service endpoints) ---
-# ===================================================================
-
-async def _proxy_request(request: Request, method: str, service_path: str, **kwargs):
-    """Helper to proxy requests to the service layer."""
-    service_url = f"{str(request.base_url).rstrip('/')}{service_path}"
-    try:
-        response = await httpx_client.request(method, service_url, timeout=30.0, **kwargs)
-        response.raise_for_status()
-        if "application/json" in response.headers.get("content-type", ""):
-            return JSONResponse(content=response.json(), status_code=response.status_code)
-        # For streaming downloads
-        return StreamingResponse(response.aiter_bytes(), status_code=response.status_code, headers=response.headers)
-    except httpx.HTTPStatusError as e:
-        content = e.response.json() if "application/json" in e.response.headers.get("content-type", "") else {
-            "detail": e.response.text}
-        return JSONResponse(content=content, status_code=e.response.status_code)
-    except httpx.RequestError as e:
-        return JSONResponse(status_code=503, content={"detail": f"服务调用失败: {e}"})
-
-
-@backend_router.post("/translate")
-async def handle_translate_for_frontend(
-        request: Request, task_id: str = Form("0"), base_url: str = Form(...), apikey: str = Form(...),
-        model_id: str = Form(...), to_lang: str = Form("中文"), formula_ocr: bool = Form(False),
-        code_ocr: bool = Form(False), refine_markdown: bool = Form(False), convert_engin: str = Form(...),
-        mineru_token: Optional[str] = Form(None), chunk_size: int = Form(...), concurrent: int = Form(...),
-        temperature: float = Form(...), custom_prompt_translate: Optional[str] = Form(None),
-        file: UploadFile = File(...)
-):
-    file_contents = await file.read()
-    await file.close()
-    file_base64 = base64.b64encode(file_contents).decode('utf-8')
-
-    payload = {
-        "task_id": task_id, "base_url": base_url, "apikey": apikey, "model_id": model_id,
-        "to_lang": to_lang, "formula_ocr": formula_ocr, "code_ocr": code_ocr,
-        "refine_markdown": refine_markdown, "convert_engin": convert_engin, "mineru_token": mineru_token,
-        "chunk_size": chunk_size, "concurrent": concurrent, "temperature": temperature,
-        "custom_prompt_translate": custom_prompt_translate, "file_name": file.filename, "file_content": file_base64,
-    }
-    return await _proxy_request(request, "POST", "/service/translate", json=payload)
-
-
-@backend_router.post("/cancel-translate")
-async def cancel_translate_for_frontend(request: Request, task_id: str = Form("0")):
-    return await _proxy_request(request, "POST", f"/service/cancel/{task_id}")
-
-
-@backend_router.get("/get-status")
-async def get_status_for_frontend(request: Request, task_id: str = Query("0")):
-    service_url = f"{str(request.base_url).rstrip('/')}/service/status/{task_id}"
-    try:
-        response = await httpx_client.get(service_url)
-        if response.status_code == 404:
-            return JSONResponse(content=_create_default_task_state())  # Return default state for UI
-        response.raise_for_status()
-        service_data = response.json()
-    except httpx.RequestError as e:
-        return JSONResponse(status_code=503, content={"detail": f"服务调用失败: {e}"})
-
-    # Adapt service response for the frontend (generate frontend-specific URLs)
-    filename_stem = service_data.get("original_filename_stem")
-
-    def generate_frontend_url(path_prefix, ext):
-        if service_data["download_ready"] and filename_stem:
-            return f"/backend/download/{path_prefix}/{filename_stem}_translated.{ext}?task_id={task_id}"
-        return None
-
-    return JSONResponse(content={
-        "is_processing": service_data["is_processing"], "status_message": service_data["status_message"],
-        "error_flag": service_data["error_flag"], "download_ready": service_data["download_ready"],
-        "original_filename_stem": filename_stem,
-        "markdown_url": generate_frontend_url("markdown", "md"),
-        "markdown_zip_url": generate_frontend_url("markdown_zip", "zip"),
-        "html_url": generate_frontend_url("html", "html"),
-        "task_start_time": service_data.get("task_start_time", 0),
-        "task_end_time": service_data.get("task_end_time", 0),
-    })
-
-
-@backend_router.get("/download/{file_type}/{filename_with_ext}")
-async def download_file_for_frontend(request: Request, file_type: str, filename_with_ext: str,
-                                     task_id: str = Query(...)):
-    # filename_with_ext is for vanity, real identifiers are task_id and file_type
-    return await _proxy_request(request, "GET", f"/service/download/{task_id}/{file_type}")
-
-
-@backend_router.get("/get-logs")
-async def get_logs_from_queue_for_frontend(request: Request, task_id: str = Query("0")):
-    return await _proxy_request(request, "GET", f"/service/logs/{task_id}")
-
-
-@backend_router.get("/get-engin-list")
-async def get_engin_list_for_frontend(request: Request):
-    return await _proxy_request(request, "GET", "/service/engin-list")
-@backend_router.get("/get-task-list")
-async def get_task_list_for_frontend(request: Request):
-    return await _proxy_request(request, "GET", "/service/task-list")
-
-@backend_router.get("/translate/default_param")
-async def get_default_param_for_frontend(request: Request):
-    return await _proxy_request(request, "GET", "/service/default-params")
-
-
-@backend_router.get("/meta")
-async def get_app_version_for_frontend(request: Request):
-    return await _proxy_request(request, "GET", "/service/meta")
 
 
 # ===================================================================
@@ -506,6 +491,8 @@ async def main_page():
     no_cache_headers = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache",
                         "Expires": "0"}
     return FileResponse(index_path, headers=no_cache_headers)
+
+
 @app.get("/admin", response_class=HTMLResponse, include_in_schema=False)
 async def main_page_admin():
     index_path = Path(STATIC_DIR) / "index.html"
@@ -513,41 +500,45 @@ async def main_page_admin():
     no_cache_headers = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache",
                         "Expires": "0"}
     return FileResponse(index_path, headers=no_cache_headers)
-@app.post("/temp/translate")
-async def temp_translate(base_url: str = Body(...),
-                         api_key: str = Body(...),
-                         model_id: str = Body(...),
-                         mineru_token: str = Body(...),
-                         file_name: str = Body(...),
-                         file_content: str = Body(...),
-                         to_lang: str = Body("中文")
+
+
+@app.post("/temp/translate",
+          summary="[内部] 临时同步翻译接口",
+          description="一个简单的、同步的翻译接口，用于快速测试。不涉及后台任务、状态管理或多格式输出。**不建议在生产环境中使用。**",
+          tags=["Internal / UI"])
+async def temp_translate(base_url: str = Body(..., description="LLM API的基础URL。", example="https://api.openai.com/v1"),
+                         api_key: str = Body(..., description="LLM API的密钥。", example="sk-xxxxxxxxxx"),
+                         model_id: str = Body(..., description="使用的模型ID。", example="gpt-4-turbo"),
+                         mineru_token: str = Body(..., description="Mineru引擎的Token。"),
+                         file_name: str = Body(..., description="原始文件名。", example="test.txt"),
+                         file_content: str = Body(..., description="文件内容，可以是纯文本或Base64编码的字符串。"),
+                         to_lang: str = Body("中文", description="目标语言。")
                          ):
-        def is_base64(s):
-            # 尝试解码验证
-            try:
-                base64.b64decode(s)
-                return True
-            except Exception:
-                return False
-        ft=FileTranslater(base_url=base_url,
-                          key=api_key,
-                          model_id=model_id,
-                          mineru_token=mineru_token,
-                          )
-
+    def is_base64(s):
         try:
-            if is_base64(file_content):
-                await ft.translate_bytes_async(name=file_name,file=base64.b64decode(file_content),to_lang=to_lang,save=False)
-            else:
-                await ft.translate_bytes_async(name=file_name,file=file_content.encode(),to_lang=to_lang,save=False)
-            return {"success":True,"content":ft.export_to_markdown()}
-        except Exception as e:
-            print(f"翻译出现错误：{e.__repr__()}")
-            return  {"success":False,"reason":{e.__repr__()}}
+            base64.b64decode(s)
+            return True
+        except Exception:
+            return False
+
+    ft = FileTranslater(base_url=base_url,
+                        key=api_key,
+                        model_id=model_id,
+                        mineru_token=mineru_token,
+                        )
+
+    try:
+        if is_base64(file_content):
+            await ft.translate_bytes_async(name=file_name, file=base64.b64decode(file_content), to_lang=to_lang,
+                                           save=False)
+        else:
+            await ft.translate_bytes_async(name=file_name, file=file_content.encode(), to_lang=to_lang, save=False)
+        return {"success": True, "content": ft.export_to_markdown()}
+    except Exception as e:
+        print(f"翻译出现错误：{e.__repr__()}")
+        return {"success": False, "reason": {e.__repr__()}}
 
 
-# 包含两个路由组
-app.include_router(backend_router)
 app.include_router(service_router)
 
 

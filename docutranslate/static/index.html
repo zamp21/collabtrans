@@ -135,17 +135,17 @@
                             <!-- Parsing Engine Settings -->
                             <div class="accordion-item">
                                 <h2 class="accordion-header" id="headingOne">
-                                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
-                                        <strong><i class="bi bi-file-earmark-binary me-2"></i>解析引擎</strong>
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+                                        <strong><i class="bi bi-file-earmark-binary me-2"></i>解析配置</strong>
                                     </button>
                                 </h2>
-                                <div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne">
+                                <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne">
                                     <div class="accordion-body">
                                         <div class="mb-3">
                                             <label for="convert_engin" class="form-label">解析引擎</label>
                                             <select class="form-select" id="convert_engin" name="convert_engin">
                                                 <option value="mineru">minerU (推荐)</option>
-                                                <option value="docling">Docling (本地翻译)</option>
+                                                <option value="docling">Docling (本地解析)</option>
                                             </select>
                                         </div>
                                         <div class="mb-3" id="mineruTokenGroup">
@@ -162,11 +162,11 @@
                             <!-- AI Settings -->
                             <div class="accordion-item">
                                 <h2 class="accordion-header" id="headingTwo">
-                                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="true" aria-controls="collapseTwo">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
                                         <strong><i class="bi bi-robot me-2"></i>翻译模型</strong>
                                     </button>
                                 </h2>
-                                <div id="collapseTwo" class="accordion-collapse collapse show" aria-labelledby="headingTwo">
+                                <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo">
                                     <div class="accordion-body">
                                         <div class="mb-3">
                                             <label for="platform_select" class="form-label">选择平台</label>
@@ -472,6 +472,19 @@
         const saveToStorage = (key, value) => { try { localStorage.setItem(key, value); } catch (e) { console.warn("Save to storage failed:", e); } };
         const getFromStorage = (key, defaultValue = '') => { try { return localStorage.getItem(key) || defaultValue; } catch (e) { console.warn("Read from storage failed:", e); return defaultValue; } };
 
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => {
+                    // Result is "data:...,base64,XYZ...", we only want "XYZ..."
+                    const base64String = reader.result.split(',')[1];
+                    resolve(base64String);
+                };
+                reader.onerror = error => reject(error);
+            });
+        }
+
         // --- UI Update Functions ---
         function updatePlatformUI() {
             const selectedPlatformValue = platformSelect.value;
@@ -690,17 +703,38 @@
             elements.startBtn.disabled = true;
             elements.startBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 初始化...`;
             elements.logArea.innerHTML = '';
-            elements.statusMessage.textContent = '正在提交任务...';
+            elements.statusMessage.textContent = '正在编码文件并提交任务...';
             elements.statusMessage.className = 'status-message small text-muted';
             elements.downloadButtons.style.display = 'none';
             elements.progress.style.display = 'block';
 
-            const formData = new FormData(settingsForm);
-            formData.append('file', state.file);
-            formData.append('task_id', taskId);
-
             try {
-                const response = await fetch('backend/translate', { method: 'POST', body: formData });
+                const fileContentBase64 = await fileToBase64(state.file);
+
+                const payload = {
+                    task_id: taskId,
+                    base_url: baseUrlInput.value,
+                    apikey: apikeyInput.value,
+                    model_id: modelInput.value,
+                    to_lang: toLangSelect.value,
+                    formula_ocr: formulaCheckbox.checked,
+                    code_ocr: codeCheckbox.checked,
+                    refine_markdown: refineCheckbox.checked,
+                    convert_engin: convertEnginSelect.value,
+                    mineru_token: mineruTokenInput.value || null,
+                    chunk_size: parseInt(chunkSizeSlider.value, 10),
+                    concurrent: parseInt(concurrentSlider.value, 10),
+                    temperature: parseFloat(temperatureSlider.value),
+                    custom_prompt_translate: customPromptTranslateArea.value || null,
+                    file_name: state.file.name,
+                    file_content: fileContentBase64
+                };
+
+                const response = await fetch('/service/translate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
                 const result = await response.json();
 
                 if (response.ok && result.task_started) {
@@ -731,9 +765,7 @@
             elements.startBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 正在取消...`;
 
             try {
-                const formData = new FormData();
-                formData.append('task_id', taskId);
-                const response = await fetch('backend/cancel-translate', { method: 'POST', body: formData });
+                const response = await fetch(`/service/cancel/${taskId}`, { method: 'POST' });
                 const result = await response.json();
 
                 if (response.ok && result.cancelled) {
@@ -771,7 +803,7 @@
         async function pollLogs(taskId) {
             const { elements } = tasks[taskId];
             try {
-                const response = await fetch(`backend/get-logs?task_id=${taskId}`);
+                const response = await fetch(`/service/logs/${taskId}`);
                 if (!response.ok) return;
                 const data = await response.json();
                 if (data.logs && data.logs.length > 0) {
@@ -786,7 +818,7 @@
         async function pollStatus(taskId, isRestore = false) {
             const { elements, state } = tasks[taskId];
             try {
-                const response = await fetch(`backend/get-status?task_id=${taskId}`);
+                const response = await fetch(`/service/status/${taskId}`);
                 if (!response.ok) {
                     // If 404 on restore, it means the task is old and gone from server. Remove it.
                     if (response.status === 404 && isRestore) {
@@ -810,12 +842,13 @@
                     if (status.download_ready && !status.error_flag) {
                         elements.statusMessage.className = 'status-message small text-success';
 
-                        state.htmlUrl = status.html_url;
+                        // Use download URLs directly from the service response
+                        state.htmlUrl = status.downloads.html;
                         state.fileNameStem = status.original_filename_stem;
 
-                        elements.htmlLink.href = status.html_url;
-                        elements.mdLink.href = status.markdown_url;
-                        elements.mdZipLink.href = status.markdown_zip_url;
+                        elements.htmlLink.href = status.downloads.html;
+                        elements.mdLink.href = status.downloads.markdown;
+                        elements.mdZipLink.href = status.downloads.markdown_zip;
 
                         elements.previewBtn.onclick = () => setupPreview(taskId);
                         elements.pdfBtn.onclick = () => downloadPdf(taskId);
@@ -963,9 +996,9 @@
             // Fetch metadata
             try {
                 const [metaRes, enginRes, paramsRes] = await Promise.all([
-                    fetch("backend/meta"),
-                    fetch('backend/get-engin-list'),
-                    fetch("backend/translate/default_param")
+                    fetch("/service/meta"),
+                    fetch('/service/engin-list'),
+                    fetch("/service/default-params")
                 ]);
                 const meta = await metaRes.json();
                 versionDisplay.textContent = `v${meta.version}`;
@@ -1005,7 +1038,7 @@
             if (isAdminMode) {
                 document.title = "DocuTranslate - Admin Panel";
                 try {
-                    const response = await fetch('/backend/get-task-list');
+                    const response = await fetch('/service/task-list');
                     if (!response.ok) throw new Error(`Failed to fetch task list: ${response.statusText}`);
                     const allTaskIds = await response.json();
                     if (allTaskIds && Array.isArray(allTaskIds) && allTaskIds.length > 0) {
@@ -1044,27 +1077,62 @@
             setTranslatedOnlyViewBtn.addEventListener('click', () => setPreviewDisplayMode('translationOnly'));
         }
 
-        // Theme switcher logic
+        // --- MODIFIED: Theme switcher logic ---
         const getPreferredTheme = () => {
             const storedTheme = localStorage.getItem('theme');
-            if (storedTheme) return storedTheme;
-            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            if (storedTheme) {
+                return storedTheme;
+            }
+            // Default to 'auto' if no preference is stored
+            return 'auto';
         };
+
         const setTheme = theme => {
-            if (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                document.documentElement.setAttribute('data-bs-theme', 'dark');
+            if (theme === 'auto') {
+                 // Set theme based on system preference
+                document.documentElement.setAttribute('data-bs-theme', window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
             } else {
+                // Set theme based on user's choice (light/dark)
                 document.documentElement.setAttribute('data-bs-theme', theme);
             }
         };
-        setTheme(getPreferredTheme());
+
+        const showActiveTheme = (theme) => {
+            // Remove active class from all buttons
+            document.querySelectorAll('[data-bs-theme-value]').forEach(element => {
+                element.classList.remove('active');
+            });
+
+            // Add active class to the button corresponding to the current theme
+            const activeButton = document.querySelector(`[data-bs-theme-value="${theme}"]`);
+            if (activeButton) {
+                activeButton.classList.add('active');
+            }
+        };
+
+        // On page load, set theme and update UI
+        const preferredTheme = getPreferredTheme();
+        setTheme(preferredTheme);
+        showActiveTheme(preferredTheme);
+
+        // When system theme changes, update if in 'auto' mode
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+            const storedTheme = localStorage.getItem('theme');
+            if (storedTheme === 'auto' || !storedTheme) {
+                setTheme('auto');
+            }
+        });
+
+        // Add click listeners to theme switch buttons
         document.querySelectorAll('[data-bs-theme-value]').forEach(toggle => {
             toggle.addEventListener('click', () => {
                 const theme = toggle.getAttribute('data-bs-theme-value');
                 localStorage.setItem('theme', theme);
                 setTheme(theme);
+                showActiveTheme(theme);
             });
         });
+
 
         // --- Start the application ---
         document.addEventListener('DOMContentLoaded', init);
