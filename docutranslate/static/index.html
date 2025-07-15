@@ -734,12 +734,13 @@
             }
         }
 
-        function removeTask(taskId) {
+        async function removeTask(taskId) {
             stopPolling(taskId);
             tasks[taskId].elements.card.remove();
             delete tasks[taskId];
             saveTaskIds();
             updateTaskPlaceholderVisibility();
+            await fetch(`service/release/${taskId}`,{method: 'POST'});
         }
 
         function addEventListenersToCard(taskId) {
@@ -963,7 +964,7 @@
                 const response = await fetch(`/service/status/${taskId}`);
                 if (!response.ok) {
                     if (response.status === 404 && isRestore && state.isSubmitted) {
-                        removeTask(taskId);
+                        await removeTask(taskId);
                     }
                     return;
                 }

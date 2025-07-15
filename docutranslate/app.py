@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import binascii
 import io
 import logging
 import os
@@ -42,32 +43,38 @@ def _create_default_task_state() -> Dict[str, Any]:
     }
 
 
-# --- 日志处理器 (无修改) ---
+# --- 日志处理器 (修改：接收task_id用于控制台打印) ---
 class QueueAndHistoryHandler(logging.Handler):
-    def __init__(self, queue_ref: asyncio.Queue, history_list_ref: List[str], max_history_items: int):
+    def __init__(self, queue_ref: asyncio.Queue, history_list_ref: List[str], max_history_items: int, task_id: str):
         super().__init__()
         self.queue = queue_ref
         self.history_list = history_list_ref
         self.max_history = max_history_items
+        self.task_id = task_id
 
     def emit(self, record: logging.LogRecord):
         log_entry = self.format(record)
-        task_id_prefix = f"[{record.task_id}] " if hasattr(record, 'task_id') else ""
-        print(f"{task_id_prefix}{log_entry}")
+        # 打印到控制台，并带上任务ID前缀
+        print(f"[{self.task_id}] {log_entry}")
+
+        # 添加到历史记录
         self.history_list.append(log_entry)
         if len(self.history_list) > self.max_history:
             del self.history_list[:len(self.history_list) - self.max_history]
+
+        # 放入异步队列供API拉取
         if self.queue is not None:
             try:
+                # 使用事件循环来安全地从线程（logging可能在不同线程）放入队列
                 main_loop = getattr(app.state, "main_event_loop", None)
                 if main_loop and main_loop.is_running():
                     main_loop.call_soon_threadsafe(self.queue.put_nowait, log_entry)
                 else:
                     self.queue.put_nowait(log_entry)
             except asyncio.QueueFull:
-                print(f"Log queue is full for task. Log dropped: {log_entry}")
+                print(f"[{self.task_id}] Log queue is full. Log dropped: {log_entry}")
             except Exception as e:
-                print(f"Error putting log to queue for task: {e}. Log: {log_entry}")
+                print(f"[{self.task_id}] Error putting log to queue: {e}. Log: {log_entry}")
 
 
 # --- 应用生命周期事件 ---
@@ -79,39 +86,53 @@ async def lifespan(app: FastAPI):
     tasks_state.clear()
     tasks_log_queues.clear()
     tasks_log_histories.clear()
-    for handler in global_logger.handlers[:]:
-        global_logger.removeHandler(handler)
+
+    # 全局日志器配置（如果需要）
     global_logger.propagate = False
     global_logger.setLevel(logging.INFO)
+
     print("应用启动完成，多任务状态已初始化。")
     yield
     await httpx_client.aclose()
     print("应用关闭，资源已清理。")
 
 
-# --- Background Task Logic (核心业务逻辑, 仅由服务层调用) ---
-# ... (内部函数无需API文档)
+# --- Background Task Logic (核心业务逻辑, 已修改) ---
 async def _perform_translation(task_id: str, params: Dict[str, Any], file_contents: bytes, original_filename: str):
     task_state = tasks_state[task_id]
     log_queue = tasks_log_queues[task_id]
     log_history = tasks_log_histories[task_id]
-    task_handler = QueueAndHistoryHandler(log_queue, log_history, MAX_LOG_HISTORY)
-    task_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-    log_filter = logging.Filter()
-    log_filter.task_id = task_id
-    task_handler.addFilter(log_filter)
-    global_logger.addHandler(task_handler)
 
-    global_logger.info(f"后台翻译任务开始: 文件 '{original_filename}'")
+    # 1. 为此任务创建一个独立的 logger
+    task_logger = logging.getLogger(f"task.{task_id}")
+    task_logger.setLevel(logging.INFO)
+    task_logger.propagate = False  # 关键：防止日志冒泡到 root logger，避免重复输出
+
+    # 如果 logger 已有 handlers (例如任务重试), 先清空
+    if task_logger.hasHandlers():
+        task_logger.handlers.clear()
+
+    # 2. 创建一个 handler，它会处理此任务的日志（打印到控制台 & 放入队列）
+    task_handler = QueueAndHistoryHandler(log_queue, log_history, MAX_LOG_HISTORY, task_id=task_id)
+    task_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+
+    # 3. 将 handler 添加到独立的 task_logger
+    task_logger.addHandler(task_handler)
+
+    task_logger.info(f"后台翻译任务开始: 文件 '{original_filename}'")
     task_state["status_message"] = f"正在处理 '{original_filename}'..."
     try:
-        global_logger.info(f"使用 Base URL: {params['base_url']}, Model: {params['model_id']}")
+        task_logger.info(f"使用 Base URL: {params['base_url']}, Model: {params['model_id']}")
+
+        # 4. 将独立的 task_logger 传递给 FileTranslater
         ft = FileTranslater(
             base_url=params['base_url'], key=params['apikey'], model_id=params['model_id'],
             chunk_size=params['chunk_size'], concurrent=params['concurrent'],
             temperature=params['temperature'], convert_engin=params['convert_engin'],
             mineru_token=params['mineru_token'],
+            logger=task_logger  # <--- 核心修改
         )
+
         await ft.translate_bytes_async(
             name=original_filename, file=file_contents, to_lang=params['to_lang'],
             formula=params['formula_ocr'], code=params['code_ocr'],
@@ -125,8 +146,9 @@ async def _perform_translation(task_id: str, params: Dict[str, Any], file_conten
                                     timeout=3)
             html_content = ft.export_to_html(title=task_state["original_filename_stem"], cdn=True)
         except (httpx.TimeoutException, httpx.RequestError):
-            global_logger.info("CDN连接失败，使用本地JS进行渲染。")
+            task_logger.info("CDN连接失败，使用本地JS进行渲染。")
             html_content = ft.export_to_html(title=task_state["original_filename_stem"], cdn=False)
+
         end_time = time.time()
         duration = end_time - task_state["task_start_time"]
         task_state.update({
@@ -134,35 +156,38 @@ async def _perform_translation(task_id: str, params: Dict[str, Any], file_conten
             "html_content": html_content, "status_message": f"翻译成功！用时 {duration:.2f} 秒。",
             "download_ready": True, "error_flag": False, "task_end_time": end_time,
         })
-        global_logger.info(f"翻译成功完成，用时 {duration:.2f} 秒。")
+        task_logger.info(f"翻译成功完成，用时 {duration:.2f} 秒。")
+
     except asyncio.CancelledError:
         end_time = time.time()
         duration = end_time - task_state["task_start_time"]
-        global_logger.info(f"翻译任务 '{original_filename}' 已被取消 (用时 {duration:.2f} 秒).")
+        task_logger.info(f"翻译任务 '{original_filename}' 已被取消 (用时 {duration:.2f} 秒).")
         task_state.update({
             "status_message": f"翻译任务已取消 (用时 {duration:.2f} 秒).", "error_flag": False,
             "download_ready": False, "markdown_content": None, "md_zip_content": None,
             "html_content": None, "task_end_time": end_time,
         })
+
     except Exception as e:
         end_time = time.time()
         duration = end_time - task_state["task_start_time"]
         error_message = f"翻译失败: {e}"
-        global_logger.error(error_message, exc_info=True)
+        task_logger.error(error_message, exc_info=True)
         task_state.update({
             "status_message": f"翻译过程中发生错误 (用时 {duration:.2f} 秒): {e}",
             "error_flag": True, "download_ready": False, "markdown_content": None,
             "md_zip_content": None, "html_content": None, "task_end_time": end_time,
         })
+
     finally:
         task_state["is_processing"] = False
         task_state["current_task_ref"] = None
-        global_logger.info(f"后台翻译任务 '{original_filename}' 处理结束。")
-        global_logger.removeHandler(task_handler)
+        task_logger.info(f"后台翻译任务 '{original_filename}' 处理结束。")
+        # 清理 handler，释放资源
+        task_logger.removeHandler(task_handler)
 
 
-# --- 核心任务启动与取消逻辑 (仅由服务层调用) ---
-# ... (内部函数无需API文档)
+# --- 核心任务启动与取消逻辑 (无修改) ---
 async def _start_translation_task(
         task_id: str,
         params: Dict[str, Any],
@@ -197,7 +222,7 @@ async def _start_translation_task(
             break
 
     initial_log_msg = f"收到新的翻译请求: {original_filename}"
-    print(f"[{task_id}] {initial_log_msg}")
+    print(f"[{task_id}] {initial_log_msg}")  # 初始消息直接打印
     log_history.append(initial_log_msg)
     await log_queue.put(initial_log_msg)
 
@@ -261,6 +286,7 @@ DocuTranslate 后端服务 API，提供文档翻译、状态查询、结果下�
 3.  **`GET /service/logs/{{task_id}}`**: (可选) 获取实时的翻译日志。
 4.  **`GET /service/download/{{task_id}}/{{file_type}}`**: 任务完成后 (当 `download_ready` 为 `true` 时)，通过此端点下载结果文件。
 5.  **`POST /service/cancel/{{task_id}}`**: (可选) 取消一个正在进行的任务。
+6.  **`POST /service/release/{{task_id}}`**: (可选) 当任务不再需要时，释放其在服务器上占用的所有资源。
 
 **版本**: {__version__}
 """,
@@ -279,48 +305,102 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 # ===================================================================
 class TranslateServiceRequest(BaseModel):
     task_id: str = Field(
-        "0",
-        description="任务的唯一标识符。用于后续跟踪任务状态和结果。默认为 '0'，表示单个任务模式。建议为每个任务提供唯一的ID，例如UUID。",
-        examples=["task-12345"]
+        default="0",
+        description="任务的唯一标识符。用于后续跟踪任务状态和结果。",
+        examples=["task-b2865b93"]
     )
-    base_url: str = Field(..., description="LLM API的基础URL。", examples=["https://api.openai.com/v1"])
-    apikey: str = Field(..., description="LLM API的密钥。注意：请勿在不安全的环境中暴露此密钥。",
-                        examples=["sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"])
-    model_id: str = Field(..., description="使用的模型ID。", examples=["gpt-4-turbo"])
-    to_lang: str = Field("中文", description="目标翻译语言。", examples=["中文", "英文", "English"])
-    formula_ocr: bool = Field(False, description="是否对公式进行OCR识别。")
-    code_ocr: bool = Field(False, description="是否对代码块进行OCR识别。")
-    refine_markdown: bool = Field(False, description="是否使用ai对解析后的文档进行一遍优化（现不推荐使用）")
-    convert_engin: str = Field(..., description="文档解析和转换引擎，可选 'mineru' 或 'docling'。", examples=["mineru"])
-    mineru_token: Optional[str] = Field(None, description="当使用 'mineru' 是必填。", examples=["token-abcdefg"])
-    chunk_size: int = Field(..., description="文本分块的大小。", examples=[2048])
-    concurrent: int = Field(..., description="并发请求的数量。", examples=[5])
-    temperature: float = Field(..., description="LLM的温度参数，控制生成文本的随机性。", examples=[0.7])
-    custom_prompt_translate: Optional[str] = Field(None, description="用户自定义的翻译Prompt。",
-                                                   examples=["人名保持原文不翻译。"])
-    file_name: str = Field(..., description="上传的原始文件名，包含扩展名。", examples=["my_document.pdf"])
-    file_content: str = Field(..., description="Base64编码的文件内容。",
-                              examples=["JVBERi0xLjQKJeLjz9MKMSAwIG9iago8PAovVHlwZS..."])
+    base_url: str = Field(
+        ...,
+        description="LLM API的基础URL，例如 OpenAI, deepseek, 或任何兼容OpenAI的接口。",
+        examples=["https://api.openai.com/v1"]
+    )
+    apikey: str = Field(
+        ...,
+        description="LLM API的密钥。",
+        examples=["sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"]
+    )
+    model_id: str = Field(
+        ...,
+        description="要使用的LLM模型ID。",
+        examples=["gpt-4o", "gpt-4-turbo", "llama3-70b-8192"]
+    )
+    to_lang: str = Field(
+        default="中文",
+        description="目标翻译语言。",
+        examples=["简体中文", "English", "日本語"]
+    )
+    formula_ocr: bool = Field(
+        default=True,
+        description="是否对文档中的公式进行OCR识别和渲染。"
+    )
+    code_ocr: bool = Field(
+        default=True,
+        description="是否对文档中的代码块进行OCR识别。仅在使用 `docling` 引擎时有效。"
+    )
+    refine_markdown: bool = Field(
+        default=False,
+        description="是否在翻译前，使用AI对原始解析出的Markdown进行一次优化，目前不推荐常规使用。"
+    )
+    convert_engin: str = Field(
+        ...,
+        description="文档解析和转换引擎。`mineru` 是默认的在线服务，`docling` 是可选的本地引擎（如果已安装）。",
+        examples=["mineru", "docling"]
+    )
+    mineru_token: Optional[str] = Field(
+        default=None,
+        description="当 `convert_engin` 设置为 'mineru' 时，此项为必填的API令牌。",
+        examples=["your-secret-mineru-token"]
+    )
+    chunk_size: int = Field(
+        ...,
+        description="将文本分割的块大小（以字符为单位）。",
+        examples=[3000]
+    )
+    concurrent: int = Field(
+        ...,
+        description="同时向LLM API发送的并发请求数量。增加此值可以加快翻译速度，但需注意不要超过API的速率限制。",
+        examples=[10]
+    )
+    temperature: float = Field(
+        ...,
+        description="LLM的温度参数，介于0和2之间。较高的值（如0.8）会使输出更随机，而较低的值（如0.2）会使其更具确定性。对于翻译任务，建议使用较低的值。",
+        examples=[0.1]
+    )
+    custom_prompt_translate: Optional[str] = Field(
+        default=None,
+        description="用户自定义的翻译Prompt。可以提供额外的指令，例如要求保留特定术语、指定翻译风格等。它将被附加到默认的系统Prompt之后。",
+        examples=["请将“DocuTranslate”保持原文，不要翻译。"]
+    )
+    file_name: str = Field(
+        ...,
+        description="上传的原始文件名，包含扩展名。用于确定文件类型和生成输出文件名。",
+        examples=["my_research_paper.pdf"]
+    )
+    file_content: str = Field(
+        ...,
+        description="Base64编码的文件内容。",
+        examples=["JVBERi0xLjQKJeLjz9MKMSAwIG9iago8PAovVHlwZXMvUGFnZXM..."]
+    )
 
     class Config:
         json_schema_extra = {
             "example": {
-                "task_id": "task-abc-123",
+                "task_id": "task-b2865b93-85d7-40a8-b118-a61048698585",
                 "base_url": "https://api.openai.com/v1",
-                "apikey": "sk-your-api-key",
+                "apikey": "sk-your-api-key-here",
                 "model_id": "gpt-4o",
                 "to_lang": "简体中文",
                 "formula_ocr": True,
                 "code_ocr": True,
                 "refine_markdown": False,
                 "convert_engin": "mineru",
-                "mineru_token": "your-mineru-token",
-                "chunk_size": 2048,
-                "concurrent": 5,
+                "mineru_token": "your-mineru-token-if-any",
+                "chunk_size": 3000,
+                "concurrent": 10,
                 "temperature": 0.1,
-                "custom_prompt_translate": "Translate the following technical document into professional Chinese.",
-                "file_name": "example.pdf",
-                "file_content": "JVBERi0xLjQKJ..."
+                "custom_prompt_translate": "将所有技术术语翻译为业界公认的中文对应词汇。",
+                "file_name": "annual_report_2023.pdf",
+                "file_content": "JVBERi0xLjcKJeLjz9MKMSAwIG9iago8PC9...(base64编码)"
             }
         }
 
@@ -342,15 +422,18 @@ class TranslateServiceRequest(BaseModel):
     responses={
         200: {
             "description": "翻译任务成功启动。",
-            "content": {"application/json": {"example": {"task_started": True, "task_id": "task-12345",
-                                                          "message": "翻译任务已成功启动，请稍候..."}}}
+            "content": {"application/json": {"example": {"task_started": True, "task_id": "task-b2865b93",
+                                                         "message": "翻译任务已成功启动，请稍候..."}}}
         },
         400: {"description": "请求体中的Base64文件内容无效。",
               "content": {"application/json": {"example": {"detail": "无效的Base64文件内容: Incorrect padding"}}}},
         429: {"description": "同一任务ID已在进行中，无法重复提交。", "content": {
-            "application/json": {"example": {"task_started": False, "message": "任务ID 'task-12345' 正在进行中，请稍后再试。"}}}},
+            "application/json": {
+                "example": {"task_started": False, "message": "任务ID 'task-b2865b93' 正在进行中，请稍后再试。"}}}},
         500: {"description": "服务器内部错误，导致任务启动失败。",
-              "content": {"application/json": {"example": {"task_started": False, "message": "启动翻译任务时出错: ..."}}}},
+              "content": {
+                  "application/json": {
+                      "example": {"task_started": False, "message": "启动翻译任务时出错: [具体错误信息]"}}}},
     }
 )
 async def service_translate(request: TranslateServiceRequest = Body(..., description="翻译任务的详细参数和文件内容。")):
@@ -361,7 +444,7 @@ async def service_translate(request: TranslateServiceRequest = Body(..., descrip
     """
     try:
         file_contents = base64.b64decode(request.file_content)
-    except (base64.binascii.Error, TypeError) as e:
+    except (binascii.Error, TypeError) as e:
         raise HTTPException(status_code=400, detail=f"无效的Base64文件内容: {e}")
 
     params = request.model_dump(exclude={'file_name', 'file_content', 'task_id'})
@@ -389,7 +472,8 @@ async def service_translate(request: TranslateServiceRequest = Body(..., descrip
     responses={
         200: {
             "description": "取消请求已成功发送。",
-            "content": {"application/json": {"example": {"cancelled": True, "message": "取消请求已发送。请等待状态更新。"}}}
+            "content": {
+                "application/json": {"example": {"cancelled": True, "message": "取消请求已发送。请等待状态更新。"}}}
         },
         400: {
             "description": "任务未在进行、已完成或已被取消，无法执行取消操作。",
@@ -397,18 +481,79 @@ async def service_translate(request: TranslateServiceRequest = Body(..., descrip
         },
         404: {
             "description": "指定的任务ID不存在。",
-            "content": {"application/json": {"example": {"cancelled": False, "message": "找不到任务ID 'task-not-exist'。"}}}
+            "content": {
+                "application/json": {"example": {"cancelled": False, "message": "找不到任务ID 'task-not-exist'。"}}}
         },
     }
 )
 async def service_cancel_translate(
-        task_id: str = FastApiPath(..., description="要取消的任务的ID", example="task-12345")):
+        task_id: str = FastApiPath(..., description="要取消的任务的ID", example="task-b2865b93")):
     """根据任务ID取消一个正在进行的翻译任务。"""
     try:
         response_data = _cancel_translation_logic(task_id)
         return JSONResponse(content=response_data)
     except HTTPException as e:
         return JSONResponse(status_code=e.status_code, content={"cancelled": False, "message": e.detail})
+
+
+@service_router.post(
+    "/release/{task_id}",
+    summary="释放任务资源",
+    description="""
+根据任务ID释放其占用的所有服务器资源（状态、日志、结果等）。
+
+- **自动取消**: 如果任务正在进行中，此接口会先尝试取消该任务，然后再释放资源。
+- **资源清理**: 此操作会从服务器内存中彻底删除任务的所有信息。操作不可逆。
+- **使用场景**: 当一个任务完成、失败或不再需要时，调用此接口可以清理内存，避免不必要的资源占用，尤其是在多任务场景下。
+""",
+    responses={
+        200: {
+            "description": "任务资源已成功释放。",
+            "content": {
+                "application/json": {"example": {"released": True, "message": "任务 'task-b2865b93' 的资源已释放。"}}
+            }
+        },
+        404: {
+            "description": "指定的任务ID不存在。",
+            "content": {
+                "application/json": {"example": {"released": False, "message": "找不到任务ID 'task-not-exist'。"}}}
+        },
+    }
+)
+async def service_release_task(
+        task_id: str = FastApiPath(..., description="要释放资源的任务的ID", example="task-b2865b93")
+):
+    """根据任务ID释放其占用的所有服务器资源。"""
+    if task_id not in tasks_state:
+        return JSONResponse(
+            status_code=404,
+            content={"released": False, "message": f"找不到任务ID '{task_id}'。"}
+        )
+
+    task_state = tasks_state.get(task_id)
+    message_parts = []
+
+    # 如果任务正在运行，先取消它
+    if task_state and task_state.get("is_processing") and task_state.get("current_task_ref"):
+        try:
+            print(f"[{task_id}] 任务正在进行中，将在释放前尝试取消。")
+            _cancel_translation_logic(task_id)
+            message_parts.append("任务已被取消。")
+        except HTTPException as e:
+            # 忽略取消失败的异常（例如任务已完成），因为我们的最终目标是释放资源
+            print(f"[{task_id}] 取消任务时出现预期中的情况（可能已完成）: {e.detail}")
+            message_parts.append(f"任务取消步骤已跳过（可能已完成或取消）。")
+
+    # 释放所有相关资源
+    tasks_state.pop(task_id, None)
+    tasks_log_queues.pop(task_id, None)
+    tasks_log_histories.pop(task_id, None)
+
+    print(f"[{task_id}] 资源已成功释放。")
+    message_parts.append(f"任务 '{task_id}' 的资源已释放。")
+
+    final_message = " ".join(message_parts)
+    return JSONResponse(content={"released": True, "message": final_message})
 
 
 @service_router.get(
@@ -425,20 +570,63 @@ async def service_cancel_translate(
             "description": "成功获取任务状态。",
             "content": {
                 "application/json": {
-                    "example": {
-                        "task_id": "task-12345",
-                        "is_processing": False,
-                        "status_message": "翻译成功！用时 123.45 秒。",
-                        "error_flag": False,
-                        "download_ready": True,
-                        "original_filename_stem": "my_document",
-                        "original_filename": "my_document.pdf",
-                        "task_start_time": 1678886400.0,
-                        "task_end_time": 1678886523.45,
-                        "downloads": {
-                            "markdown": "/service/download/task-12345/markdown",
-                            "markdown_zip": "/service/download/task-12345/markdown_zip",
-                            "html": "/service/download/task-12345/html"
+                    "examples": {
+                        "processing": {
+                            "summary": "处理中",
+                            "value": {
+                                "task_id": "task-b2865b93",
+                                "is_processing": True,
+                                "status_message": "正在翻译: 15/50 块",
+                                "error_flag": False,
+                                "download_ready": False,
+                                "original_filename_stem": "annual_report_2023",
+                                "original_filename": "annual_report_2023.pdf",
+                                "task_start_time": 1678886400.123,
+                                "task_end_time": 0,
+                                "downloads": {
+                                    "markdown": None,
+                                    "markdown_zip": None,
+                                    "html": None
+                                }
+                            }
+                        },
+                        "completed": {
+                            "summary": "已完成",
+                            "value": {
+                                "task_id": "task-b2865b93",
+                                "is_processing": False,
+                                "status_message": "翻译成功！用时 123.45 秒。",
+                                "error_flag": False,
+                                "download_ready": True,
+                                "original_filename_stem": "annual_report_2023",
+                                "original_filename": "annual_report_2023.pdf",
+                                "task_start_time": 1678886400.123,
+                                "task_end_time": 1678886523.573,
+                                "downloads": {
+                                    "markdown": "/service/download/task-b2865b93/markdown",
+                                    "markdown_zip": "/service/download/task-b2865b93/markdown_zip",
+                                    "html": "/service/download/task-b2865b93/html"
+                                }
+                            }
+                        },
+                        "error": {
+                            "summary": "出错",
+                            "value": {
+                                "task_id": "task-b2865b93",
+                                "is_processing": False,
+                                "status_message": "翻译过程中发生错误 (用时 45.67 秒): APIConnectionError(...)",
+                                "error_flag": True,
+                                "download_ready": False,
+                                "original_filename_stem": "annual_report_2023",
+                                "original_filename": "annual_report_2023.pdf",
+                                "task_start_time": 1678886400.123,
+                                "task_end_time": 1678886445.793,
+                                "downloads": {
+                                    "markdown": None,
+                                    "markdown_zip": None,
+                                    "html": None
+                                }
+                            }
                         }
                     }
                 }
@@ -450,7 +638,8 @@ async def service_cancel_translate(
         },
     }
 )
-async def service_get_status(task_id: str = FastApiPath(..., description="要查询状态的任务的ID", example="task-12345")):
+async def service_get_status(
+        task_id: str = FastApiPath(..., description="要查询状态的任务的ID", example="task-b2865b93")):
     """根据任务ID获取任务的当前状态和结果下载链接。"""
     task_state = tasks_state.get(task_id)
     if not task_state:
@@ -483,9 +672,17 @@ async def service_get_status(task_id: str = FastApiPath(..., description="要查
     description="获取指定任务ID自上次查询以来的新日志。这是一个非阻塞的轮询接口，用于实时显示后台任务的日志输出。",
     responses={
         200: {
-            "description": "成功获取新的日志条目。",
+            "description": "成功获取新的日志条目。如果没有新日志，将返回一个空列表。",
             "content": {"application/json": {
-                "example": {"logs": ["2023-03-15 12:00:05 - INFO - 任务开始", "2023-03-15 12:00:10 - INFO - 正在处理第1页..."]}}}
+                "example": {
+                    "logs": [
+                        "2023-10-27 10:30:05 - INFO - 后台翻译任务开始: 文件 'annual_report_2023.pdf'",
+                        "2023-10-27 10:30:05 - INFO - 使用 Base URL: https://api.openai.com/v1, Model: gpt-4o",
+                        "2023-10-27 10:30:15 - INFO - 正在转化为markdown",
+                        "2023-10-27 10:30:25 - INFO - markdown分为50块",
+                        "2023-10-27 10:30:30 - INFO - 正在翻译markdown"
+                    ]
+                }}}
         },
         404: {
             "description": "指定的任务ID不存在。",
@@ -493,7 +690,8 @@ async def service_get_status(task_id: str = FastApiPath(..., description="要查
         },
     }
 )
-async def service_get_logs(task_id: str = FastApiPath(..., description="要获取日志的任务的ID", example="task-12345")):
+async def service_get_logs(
+        task_id: str = FastApiPath(..., description="要获取日志的任务的ID", example="task-b2865b93")):
     """获取指定任务ID自上次查询以来的新日志。"""
     if task_id not in tasks_log_queues:
         raise HTTPException(status_code=404, detail=f"找不到任务ID '{task_id}' 的日志队列。")
@@ -519,9 +717,9 @@ FileType = Literal["markdown", "markdown_zip", "html"]
         200: {
             "description": "成功返回文件流。响应头 `Content-Disposition` 会指定文件名。",
             "content": {
-                "text/markdown": {},
-                "application/zip": {},
-                "text/html": {}
+                "text/markdown": {"schema": {"type": "string", "format": "binary"}},
+                "application/zip": {"schema": {"type": "string", "format": "binary"}},
+                "text/html": {"schema": {"type": "string", "format": "binary"}}
             }
         },
         404: {
@@ -531,7 +729,7 @@ FileType = Literal["markdown", "markdown_zip", "html"]
     }
 )
 async def service_download_file(
-        task_id: str = FastApiPath(..., description="已完成任务的ID", example="task-12345"),
+        task_id: str = FastApiPath(..., description="已完成任务的ID", example="task-b2865b93"),
         file_type: FileType = FastApiPath(..., description="要下载的文件类型。", example="html")
 ):
     """根据任务ID和文件类型下载翻译结果。"""
@@ -561,7 +759,13 @@ async def service_download_file(
     summary="获取可用解析引擎",
     tags=["Application"],
     description="返回当前后端环境支持的文档解析引擎列表。前端可以根据此列表动态展示选项。",
-    response_model=List[str]
+    response_model=List[str],
+    responses={
+        200: {
+            "description": "成功返回可用引擎列表。",
+            "content": {"application/json": {"example": ["mineru", "docling"]}}
+        }
+    }
 )
 async def service_get_engin_list():
     """返回可用的文档解析引擎列表。"""
@@ -575,7 +779,13 @@ async def service_get_engin_list():
     summary="获取所有任务ID列表",
     tags=["Application"],
     description="返回当前服务实例中存在的所有任务ID的列表。可用于管理或概览所有已创建的任务。",
-    response_model=List[str]
+    response_model=List[str],
+    responses={
+        200: {
+            "description": "成功返回任务ID列表。",
+            "content": {"application/json": {"example": ["task-b2865b93", "task-another-one", "0"]}}
+        }
+    }
 )
 async def service_get_task_list():
     """返回当前服务中所有任务的ID列表。"""
@@ -587,7 +797,13 @@ async def service_get_task_list():
     summary="获取默认翻译参数",
     tags=["Application"],
     description="返回一套默认的翻译参数，可用于填充前端表单的初始值。",
-    response_model=Dict[str, Union[str, int, float, bool]]
+    response_model=Dict[str, Union[str, int, float, bool]],
+    responses={
+        200: {
+            "description": "成功返回默认参数。",
+            "content": {"application/json": {"example": default_params}}
+        }
+    }
 )
 def service_get_default_params():
     """返回一套默认的翻译参数。"""
@@ -599,7 +815,13 @@ def service_get_default_params():
     summary="获取应用元信息",
     tags=["Application"],
     description="返回应用程序的元数据，例如当前版本号。",
-    response_model=Dict[str, str]
+    response_model=Dict[str, str],
+    responses={
+        200: {
+            "description": "成功返回元信息。",
+            "content": {"application/json": {"example": {"version": "0.1.0"}}}
+        }
+    }
 )
 async def service_get_app_version():
     """返回应用版本号等元信息。"""
@@ -637,8 +859,14 @@ async def main_page_admin():
                   "description": "翻译成功或失败。",
                   "content": {"application/json": {
                       "examples": {
-                          "success": {"value": {"success": True, "content": "# Translated Title..."}},
-                          "failure": {"value": {"success": False, "reason": "Exception('API call failed')"}}
+                          "success": {
+                              "summary": "成功示例",
+                              "value": {"success": True, "content": "# 翻译后的标题\n\n这是翻译后的内容..."}
+                          },
+                          "failure": {
+                              "summary": "失败示例",
+                              "value": {"success": False, "reason": "Exception('API call failed with status 401')"}
+                          }
                       }
                   }}
               }
@@ -648,17 +876,18 @@ async def temp_translate(
         api_key: str = Body(..., description="LLM API的密钥。", example="sk-xxxxxxxxxx"),
         model_id: str = Body(..., description="使用的模型ID。", example="gpt-4-turbo"),
         mineru_token: str = Body(..., description="Mineru引擎的Token。"),
-        file_name: str = Body(..., description="原始文件名。", example="test.txt"),
+        file_name: str = Body(..., description="文件名，用以判断文件类型。当后缀为txt时该接口返回普通文本，为其他后缀时返回翻译后的markdown文本", examples=["test.txt","test.md","test.pdf"]),
         file_content: str = Body(..., description="文件内容，可以是纯文本或Base64编码的字符串。"),
-        to_lang: str = Body("中文", description="目标语言。"),
-        concurrent: int = Body(30, description="ai翻译并发数")
+        to_lang: str = Body("中文", description="目标语言。",examples=["中文","英文","English"]),
+        concurrent: int = Body(30, description="ai翻译请求并发数")
 ):
     """一个用于快速测试的同步翻译接口。"""
+
     def is_base64(s):
         try:
-            base64.b64decode(s)
+            base64.b64decode(s, validate=True)
             return True
-        except Exception:
+        except (ValueError, binascii.Error):
             return False
 
     ft = FileTranslater(base_url=base_url,
@@ -669,15 +898,12 @@ async def temp_translate(
                         )
 
     try:
-        if is_base64(file_content):
-            await ft.translate_bytes_async(name=file_name, file=base64.b64decode(file_content), to_lang=to_lang,
-                                           save=False)
-        else:
-            await ft.translate_bytes_async(name=file_name, file=file_content.encode(), to_lang=to_lang, save=False)
+        decoded_content = base64.b64decode(file_content) if is_base64(file_content) else file_content.encode('utf-8')
+        await ft.translate_bytes_async(name=file_name, file=decoded_content, to_lang=to_lang, save=False)
         return {"success": True, "content": ft.export_to_markdown()}
     except Exception as e:
         print(f"翻译出现错误：{e.__repr__()}")
-        return {"success": False, "reason": {e.__repr__()}}
+        return {"success": False, "reason": e.__repr__()}
 
 
 app.include_router(service_router)
