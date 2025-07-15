@@ -64,7 +64,7 @@ def uris2placeholder(markdown: str, mask_dict: MaskDict):
         mask_dict.set(id, match.group())
         return f"<ph-{id}>"
 
-    uri_pattern = r'(!?\[.*?\])\((.*?)\)'
+    uri_pattern = r'(!\[.*?\])\((.*?)\)'
     markdown = re.sub(uri_pattern, uri2placeholder, markdown)
     return markdown
 
