@@ -1016,9 +1016,9 @@ def run_app(port: int | None = None):
     try:
         port_to_use = find_free_port(initial_port)
         if port_to_use != initial_port: print(f"端口 {initial_port} 被占用，将使用端口 {port_to_use} 代替")
-        print(f"正在启动 DocuTranslate WebUI 版本号：{__version__}")
-        print(f"请用浏览器访问 http://127.0.0.1:{port_to_use}\n")
+        print(f"正在启动 DocuTranslate WebUI 版本号：{__version__}\n")
         print(f"服务接口文档: http://127.0.0.1:{port_to_use}/docs\n")
+        print(f"请用浏览器访问 http://127.0.0.1:{port_to_use}\n")
         uvicorn.run(app, host=None, port=port_to_use, workers=1)
     except Exception as e:
         print(f"启动失败: {e}")
