@@ -38,12 +38,12 @@
 
 # 支持的文件格式
 
-| 输入格式         | 输出格式         |
-|--------------|--------------|
-| PDF      | Markdown（推荐） |
-| Markdown     | HTML         |
-| HTML、XHTML   | PDF(仅交互界面支持) |
-| CSV          |              |
+| 输入格式           | 输出格式         |
+|----------------|--------------|
+| PDF            | Markdown（推荐） |
+| Markdown       | HTML         |
+| HTML、XHTML     | PDF(仅交互界面支持) |
+| CSV            |              |
 | DOC、DOCX（部分支持） |              |
 
 > 如果想不使用交互界面获取pdf，可以先下载HTML文件，用浏览器打开并打印
@@ -113,19 +113,25 @@ os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 - 第一次使用该库读取、翻译非markdown文本
 - 第一次使用该库的公式识别或代码识别功能
 
-## 启动交互式界面
+## 启动翻译服务（及使用交互式界面）
 
-启动交互式界面
+启动服务
 
 ```commandline
 docutranslate -i
 ```
 
-启动交互式界面并指定端口
+启动服务并指定端口
 
 ```commandline
 docutranslate -i -p 8011
 ```
+
+> 可以通过设置`DOCUTRANSLATE_PORT`环境变量指定端口
+
+服务接口文档可以浏览器访问 `http://127.0.0.1:8010/docs` （或指定port）进行查看
+
+交互式界面在启动服务后访问`http://127.0.0.1:8010`（或指定port）
 
 ## 翻译文件
 
@@ -169,18 +175,19 @@ translater.translate_file("<文件路径>", to_lang="中文", refine_agent=refin
 ```
 
 ## 自定义翻译提示词
+
 ```python
 from docutranslate import FileTranslater
 from docutranslate.agents import MDTranslateAgent
 
 translater = FileTranslater()
 
-translate_agent = MDTranslateAgent(baseurl="<baseurl>", 
-                                   key="<key>", 
+translate_agent = MDTranslateAgent(baseurl="<baseurl>",
+                                   key="<key>",
                                    model_id="<model-id>",
-                                   custom_prompt="Ordering Node全部翻译为排序节点")#这里必须指定baseurl\api-key\model_id
+                                   custom_prompt="Ordering Node全部翻译为排序节点")  # 这里必须指定baseurl\api-key\model_id
 
-translater.translate_file("<文件路径>", to_lang="中文",translate_agent=translate_agent)
+translater.translate_file("<文件路径>", to_lang="中文", translate_agent=translate_agent)
 ```
 
 ## 文件转换(pdf/markdown/HTML/Doc等->markdown/html)
@@ -255,23 +262,22 @@ translater.translate_file(r"<要翻译的文件路径>",
 | DMXAPI     | [点击获取](https://www.dmxapi.cn/token)                                                   | https://www.dmxapi.cn/v1                          |
 
 # FAQ
-
-1. 8010端口被占用了怎么办
+### 8010端口被占用了怎么办
 
 > 可以通过设置系统环境变量`DOCUTRANSLATE_PORT=<port>`来指定启动端口
 
-2. 是否支持扫描件
+### 是否支持扫描件
 
 > mineru解析引擎支持，docling不支持
 
-3. 第一次使用很慢是怎么回事
+### 第一次使用很慢是怎么回事
 
 > 第一次是使用时docling需要从huggingface下载转换输入文件为markdown的模型  
 > 通过设置环境变量换源或科学上网可能有助于提高下载速度
 
 > huggingface换源，请设置环境变量：`HF_ENDPOINT=https://hf-mirror.com`
 
-4如何内网使用（不联网）
+### 如何内网使用（不联网）
 
 > 可以，对于docling提供的解析pdf、html等功能，可以使用以下方式提前下载所需的模型
 
@@ -296,3 +302,7 @@ translater = FileTranslater(base_url="<baseurl>",
 ```
 
 > 对于本地ai翻译功能，可以使用ollama或lm studio等方式本地部署。
+
+### Filetranslater的解析缓存机制
+
+工具默认会缓存最近10条（全局）解析记录存于内存中，可以通过`DOCUTRANSLATE_CACHE_NUM`环境变量进行修改
