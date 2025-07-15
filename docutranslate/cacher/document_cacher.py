@@ -1,5 +1,8 @@
+import os
+
 from docutranslate.converter import Document
 
+# DOCUTRANSLATE_CHACHE_NUM=os.getenv("DOCUTRANSLATE_CHACHE_NUM")
 
 class DocumentCacher:
     def __init__(self):
@@ -16,6 +19,9 @@ class DocumentCacher:
         hash_code = self._get_hashcode(document, formula, code, convert_engin)
         self.cache_dict[hash_code] = result
         return result
+
+    def clear(self):
+        self.cache_dict.clear()
 
 
 document_cacher_global = DocumentCacher()
