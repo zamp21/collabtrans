@@ -16,45 +16,30 @@
             background-color: var(--bs-body-bg);
         }
 
-        /* --- 响应式布局修改 --- */
-
-        /* 桌面端 (lg及以上): 保持左右分栏固定高度布局 */
-        @media (min-width: 992px) {
-            .main-container {
-                display: flex;
-                flex-direction: column;
-                height: 100vh;
-                padding-top: 1rem;
-                padding-bottom: 1rem;
-            }
-
-            .settings-panel, .task-area {
-                height: calc(100vh - 2rem);
-                overflow-y: auto;
-            }
-
-            .settings-panel {
-                padding-right: 15px; /* for scrollbar */
-            }
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding-top: 1rem;
+            padding-bottom: 1rem;
         }
 
-        /* 移动端 (lg以下): 布局变为自然文档流，可滚动 */
-        @media (max-width: 991.98px) {
-            .main-container {
-                padding-top: 1rem;
-                padding-bottom: 1rem;
-            }
-            .settings-panel {
-                margin-bottom: 2rem; /* 在移动端堆叠时增加间距 */
-            }
+        .settings-panel {
+            height: calc(100vh - 2rem);
+            overflow-y: auto;
+            padding-right: 15px; /* for scrollbar */
         }
-        /* --- 结束响应式布局修改 --- */
 
+        .task-area {
+            height: calc(100vh - 2rem);
+            overflow-y: auto;
+        }
 
         .task-card {
             transition: all 0.3s ease-in-out;
         }
 
+        /* === 修改点: 为等待ID的状态添加样式 === */
         .task-id-placeholder {
             color: var(--bs-secondary-color);
             font-style: italic;
@@ -103,13 +88,11 @@
             font-weight: bold;
         }
 
-        #printFrame {
+        #printFrame, #translatedPreviewFrame {
             border: none;
             width: 100%;
-            display: none; /* 保持隐藏 */
         }
 
-        /* --- 预览侧边栏样式 --- */
         #previewOffcanvas {
             --bs-offcanvas-width: 95vw;
             max-width: 1600px;
@@ -117,14 +100,14 @@
 
         .preview-split-container {
             display: flex;
-            flex-direction: row; /* 桌面端默认为行 */
+            flex-direction: row;
             height: 100%;
         }
 
         .preview-pane-wrapper {
             display: flex;
             flex-direction: column;
-            overflow: hidden; /* 对Split.js很重要 */
+            overflow: hidden; /* Important for split.js */
         }
 
         .preview-pane-wrapper h6 {
@@ -133,42 +116,35 @@
         }
 
         .preview-pane-wrapper .preview-pane {
-             flex-grow: 1;
+             flex-grow: 1; /* Make the inner pane grow */
              border: 1px solid var(--bs-border-color);
              border-radius: .375rem;
-             overflow: auto;
+            overflow: auto;
         }
 
+        /* MODIFIED: Redefined gutter styles for both directions */
         .gutter {
             background-color: var(--bs-tertiary-bg);
             background-repeat: no-repeat;
             background-position: 50%;
         }
+
         .gutter.gutter-horizontal {
             cursor: col-resize;
             border-left: 1px solid var(--bs-border-color);
             border-right: 1px solid var(--bs-border-color);
         }
+
         .gutter.gutter-vertical {
             cursor: row-resize;
             border-top: 1px solid var(--bs-border-color);
             border-bottom: 1px solid var(--bs-border-color);
         }
 
-        /* 移动端预览: 上下分栏 */
-        @media (max-width: 767.98px) {
-            .preview-split-container {
-                flex-direction: column;
-            }
-            .preview-pane-wrapper {
-                /* 当Split.js不活动时，让每个面板占据一半高度 */
-                height: 50%;
-            }
-        }
 
         .preview-pane iframe, .preview-pane pre {
             width: 100%;
-            height: 100%; /* 占满其容器 */
+            height: 95%;
             border: none;
             margin: 0;
             padding: 0;
@@ -186,6 +162,40 @@
             left: 1rem;
             z-index: 1050;
         }
+
+        /* === MODIFIED: Added Responsive Styles === */
+
+        /* Make the main layout responsive for mobile (stacks below lg breakpoint) */
+        @media (max-width: 991.98px) {
+            .main-container {
+                height: auto; /* Allow natural page height */
+                padding-bottom: 6rem; /* Add padding at the bottom for floating theme switch */
+            }
+
+            .settings-panel, .task-area {
+                height: auto; /* Remove fixed height to allow natural flow */
+                overflow-y: visible;
+            }
+
+            .settings-panel {
+                padding-right: 0; /* No scrollbar space needed */
+                margin-bottom: 2rem; /* Add space when panels stack */
+            }
+        }
+
+        /* Adjustments for smaller screens (tablets and phones) */
+        @media (max-width: 767.98px) {
+            /* Add space between file area and log area when they stack on mobile */
+            .task-card .col-md-7 {
+                margin-top: 1.5rem;
+            }
+
+            /* Make preview offcanvas full width on mobile */
+            #previewOffcanvas {
+                --bs-offcanvas-width: 100vw;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -196,7 +206,7 @@
         <div class="col-lg-4">
             <div class="settings-panel">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h4 class="mb-0"><i class="bi bi-translate me-2"></i>DocuTranslate</h4>
+                    <h4 class="mb-0"><i class="bi me-2"></i>Docutranslate</h4>
                     <span id="versionDisplay" class="badge bg-success"></span>
                 </div>
 
@@ -208,7 +218,7 @@
                             <h2 class="accordion-header" id="headingOne">
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                                         data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
-                                    <i class="bi bi-file-earmark-binary me-2"></i>解析配置
+                                    <strong><i class="bi bi-file-earmark-binary me-2"></i>解析配置</strong>
                                 </button>
                             </h2>
                             <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne">
@@ -238,7 +248,7 @@
                             <h2 class="accordion-header" id="headingTwo">
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                                         data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
-                                    <i class="bi bi-robot me-2"></i>翻译模型
+                                    <strong><i class="bi bi-robot me-2"></i>翻译模型</strong>
                                 </button>
                             </h2>
                             <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo">
@@ -287,7 +297,7 @@
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                                         data-bs-target="#collapseThree" aria-expanded="false"
                                         aria-controls="collapseThree">
-                                    <i class="bi bi-translate me-2"></i>翻译配置
+                                    <strong><i class="bi bi-translate me-2"></i>翻译配置</strong>
                                 </button>
                             </h2>
                             <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree">
@@ -337,7 +347,7 @@
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                                         data-bs-target="#collapseFour" aria-expanded="false"
                                         aria-controls="collapseFour">
-                                    <i class="bi bi-sliders me-2"></i>高级参数
+                                    <strong><i class="bi bi-sliders me-2"></i>高级参数</strong>
                                 </button>
                             </h2>
                             <div id="collapseFour" class="accordion-collapse collapse" aria-labelledby="headingFour">
@@ -385,9 +395,9 @@
                 </form>
 
                 <!-- 项目信息 -->
-                <div class="mt-4 text-start text-muted small">
+                <div class="mt-4 text-left text-muted small">
                     <p class="mb-1">
-                        项目主页 (欢迎star❤): <br/>
+                        项目主页(欢迎star❤): <br/>
                         <a href="https://github.com/xunbu/docutranslate" target="_blank" rel="noopener noreferrer">https://github.com/xunbu/docutranslate</a>
                     </p>
                     <p class="mb-0">
@@ -422,6 +432,7 @@
 <template id="taskCardTemplate">
     <div class="card mb-3 task-card">
         <div class="card-header d-flex justify-content-between align-items-center">
+            <!-- === 修改点: 初始显示占位符，而不是ID === -->
             <span class="fw-bold">任务 ID: <code class="task-id-display"><span class="task-id-placeholder">等待提交...</span></code></span>
             <button type="button" class="btn-close remove-task-btn" aria-label="Close"></button>
         </div>
@@ -459,7 +470,7 @@
                 </div>
             </div>
         </div>
-        <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="card-footer d-flex justify-content-between align-items-center">
             <div class="download-buttons" style="display: none;">
                 <button class="btn btn-sm btn-success preview-html-btn"><i class="bi bi-eye-fill me-1"></i>预览</button>
                 <button class="btn btn-sm btn-info download-pdf-btn"><i class="bi bi-file-earmark-pdf-fill me-1"></i>下载
@@ -486,7 +497,7 @@
     </div>
 </template>
 
-<!-- Preview Offcanvas -->
+<!-- Preview Offcanvas with Resizable Panes -->
 <div class="offcanvas offcanvas-end" data-bs-scroll="true" tabindex="-1" id="previewOffcanvas" aria-labelledby="previewOffcanvasLabel">
     <div class="offcanvas-header border-bottom">
         <h5 class="offcanvas-title" id="previewOffcanvasLabel">预览</h5>
@@ -509,7 +520,7 @@
                 </div>
             </div>
         </div>
-        <div class="offcanvas-footer mt-2 pt-2 border-top d-flex justify-content-end align-items-center">
+        <div class="offcanvas-footer mt-2 pt-3 border-top d-flex justify-content-end align-items-center">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="offcanvas">关闭</button>
             <button type="button" class="btn btn-primary ms-2" id="printFromPreview">
                 <i class="bi bi-printer-fill me-2"></i>打印/保存为PDF
@@ -519,7 +530,7 @@
 </div>
 
 <!-- Hidden iframe for direct PDF printing -->
-<iframe id="printFrame"></iframe>
+<iframe id="printFrame" style="display: none;"></iframe>
 
 <!-- Theme Switcher -->
 <div class="dropdown theme-switch">
@@ -549,13 +560,11 @@
 <!-- Bootstrap JS -->
 <script src="/static/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
 <!-- Split.js for resizable panes -->
-<script src="https://unpkg.com/split.js/dist/split.min.js"></script>
+<script src="/static/split.min.js"></script>
 
 <script type="module">
-        // --- Initialize Bootstrap Tooltips ---
         const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
         const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
-
         // --- DOM Elements ---
         const settingsForm = document.getElementById('translateForm');
         const platformSelect = document.getElementById('platform_select');
@@ -649,8 +658,12 @@
                 baseUrlGroup.classList.add('d-none');
                 baseUrlInput.required = false;
                 baseUrlInput.value = selectedPlatformValue;
-                apiHref.href = apiHrefMap[baseUrlInput.value] || '#';
-                apiHref.classList.toggle('d-none', !apiHrefMap[baseUrlInput.value]);
+                if (apiHrefMap[baseUrlInput.value]) {
+                    apiHref.href = apiHrefMap[baseUrlInput.value];
+                    apiHref.classList.remove('d-none');
+                } else {
+                    apiHref.classList.add('d-none');
+                }
             }
             saveToStorage('translator_last_platform', selectedPlatformValue);
         }
@@ -665,30 +678,25 @@
             saveToStorage('translator_convert_engin', selectedEngin);
         }
 
-        /**
-         * REFINED: Helper function to set up a slider with its display and reset button.
-         * @param {HTMLInputElement} slider
-         * @param {HTMLElement} display
-         * @param {HTMLButtonElement} resetBtn
-         * @param {string} key The key for localStorage and defaultParams.
-         * @param {object} params The default parameters object.
-         */
-        function setupSlider(slider, display, resetBtn, key, params) {
-            slider.value = getFromStorage(key, params[key]);
-            const updater = () => {
+        function createSliderUpdater(slider, display, resetBtn, key, params) {
+            return () => {
                 const value = slider.value;
                 display.textContent = value;
                 resetBtn.style.visibility = value !== String(params[key]) ? 'visible' : 'hidden';
                 saveToStorage(key, value);
             };
+        }
+
+        function setupSlider(slider, display, resetBtn, key, params) {
+            slider.value = getFromStorage(key, params[key]);
+            const updater = createSliderUpdater(slider, display, resetBtn, key, params);
             slider.addEventListener('input', updater);
             resetBtn.addEventListener('click', () => {
                 slider.value = params[key];
                 updater();
             });
-            updater(); // Initial call to set value
+            updater(); // Initial call
         }
-
 
         function updateTaskPlaceholderVisibility() {
             noTaskPlaceholder.style.display = Object.keys(tasks).length === 0 ? 'block' : 'none';
@@ -705,6 +713,7 @@
         // --- Task Card Management ---
         function createTaskCard(backendTaskId = null, restoreState = false) {
             const cardId = backendTaskId || generateCardId();
+
             const cardFragment = taskCardTemplate.content.cloneNode(true);
             const cardElement = cardFragment.querySelector('.task-card');
             cardElement.dataset.cardId = cardId;
@@ -737,11 +746,22 @@
 
             tasks[cardId] = {
                 elements,
-                state: { backendTaskId, isTranslating: false, file: null, htmlUrl: null, fileNameStem: null, isSubmitted: restoreState },
-                intervals: { log: null, status: null }
+                state: {
+                    backendTaskId: backendTaskId,
+                    isTranslating: false,
+                    file: null,
+                    htmlUrl: null,
+                    fileNameStem: null,
+                    isSubmitted: restoreState
+                },
+                intervals: {
+                    log: null,
+                    status: null
+                }
             };
 
             addEventListenersToCard(cardId);
+
             taskContainer.prepend(cardElement);
             updateTaskPlaceholderVisibility();
 
@@ -770,11 +790,17 @@
             const { elements } = tasks[cardId];
 
             elements.removeBtn.addEventListener('click', () => removeTask(cardId));
+
             elements.fileDropArea.addEventListener('click', () => elements.fileInput.click());
             elements.fileInput.addEventListener('change', () => handleFileSelect(cardId));
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
                 elements.fileDropArea.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); }, false);
-                elements.fileDropArea.addEventListener(eventName, () => elements.fileDropArea.classList.toggle('drag-over', ['dragenter', 'dragover'].includes(eventName)), false);
+            });
+            ['dragenter', 'dragover'].forEach(eventName => {
+                elements.fileDropArea.addEventListener(eventName, () => elements.fileDropArea.classList.add('drag-over'), false);
+            });
+            ['dragleave', 'drop'].forEach(eventName => {
+                elements.fileDropArea.addEventListener(eventName, () => elements.fileDropArea.classList.remove('drag-over'), false);
             });
             elements.fileDropArea.addEventListener('drop', e => {
                 if (e.dataTransfer.files.length > 0) {
@@ -819,8 +845,7 @@
             }
             const requiredInputs = [apikeyInput, modelInput];
             if (platformSelect.value === 'custom') requiredInputs.push(baseUrlInput);
-            const fileExt = state.file.name.split('.').pop().toLowerCase();
-            if (convertEnginSelect.value === 'mineru' && !mineruTokenInput.value.trim() && !["md", "txt"].includes(fileExt)) {
+            if (convertEnginSelect.value === 'mineru' && !mineruTokenInput.value.trim() && (!["md", "txt"].includes(state.file.name.split('.').pop()))) {
                 requiredInputs.push(mineruTokenInput);
             }
 
@@ -880,26 +905,29 @@
                     state.isSubmitted = true;
                     elements.taskIdDisplay.textContent = backendTaskId;
                     elements.taskIdDisplay.classList.remove('task-id-placeholder');
+
                     saveTaskIds();
+
                     elements.statusMessage.textContent = result.message || '任务已开始，正在处理...';
                     elements.statusMessage.className = 'status-message small text-info';
                     elements.startBtn.innerHTML = `<i class="bi bi-stop-circle-fill me-1"></i>取消翻译`;
                     elements.startBtn.classList.replace('btn-primary', 'btn-danger');
                     elements.startBtn.disabled = false;
+
                     startPolling(backendTaskId);
                 } else {
                     throw new Error(result.message || `请求失败 (${response.status})`);
                 }
             } catch (error) {
-                console.error('请求失败:', error);
                 state.isSubmitted = false;
-                state.isTranslating = false;
+                console.error('请求失败:', error);
                 elements.statusMessage.textContent = `启动失败: ${error.message}`;
                 elements.statusMessage.className = 'status-message small text-danger';
                 elements.startBtn.innerHTML = `<i class="bi bi-play-fill me-1"></i>开始翻译`;
                 elements.startBtn.classList.replace('btn-danger', 'btn-primary');
                 elements.startBtn.disabled = false;
                 elements.progress.style.display = 'none';
+                state.isTranslating = false;
             }
         }
 
@@ -909,12 +937,14 @@
 
             const { elements } = task;
             const backendTaskId = task.state.backendTaskId;
+
             elements.startBtn.disabled = true;
             elements.startBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 正在取消...`;
 
             try {
                 const response = await fetch(`/service/cancel/${backendTaskId}`, { method: 'POST' });
                 const result = await response.json();
+
                 if (response.ok && result.cancelled) {
                     elements.statusMessage.textContent = result.message || '取消请求已发送。';
                     elements.statusMessage.className = 'status-message small text-warning';
@@ -931,9 +961,10 @@
 
         // --- Polling ---
         function startPolling(backendTaskId) {
+            stopPolling(backendTaskId);
             const card = Object.values(tasks).find(t => t.state.backendTaskId === backendTaskId);
             if (!card) return;
-            stopPolling(backendTaskId);
+
             card.intervals.log = setInterval(() => pollLogs(backendTaskId), 2000);
             card.intervals.status = setInterval(() => pollStatus(backendTaskId), 1500);
             pollLogs(backendTaskId);
@@ -943,6 +974,7 @@
         function stopPolling(backendTaskId) {
             const card = Object.values(tasks).find(t => t.state.backendTaskId === backendTaskId);
             if (!card) return;
+
             const { intervals } = card;
             if (intervals.log) clearInterval(intervals.log);
             if (intervals.status) clearInterval(intervals.status);
@@ -953,13 +985,15 @@
         async function pollLogs(backendTaskId) {
             const card = Object.values(tasks).find(t => t.state.backendTaskId === backendTaskId);
             if (!card) return;
+            const { elements } = card;
+
             try {
                 const response = await fetch(`/service/logs/${backendTaskId}`);
                 if (!response.ok) return;
                 const data = await response.json();
                 if (data.logs && data.logs.length > 0) {
-                    card.elements.logArea.innerHTML += data.logs.map(log => log.replace(/</g, "<").replace(/>/g, ">") + '<br>').join('');
-                    card.elements.logArea.scrollTop = card.elements.logArea.scrollHeight;
+                    elements.logArea.innerHTML += data.logs.map(log => log.replace(/</g, "<").replace(/>/g, ">") + '<br>').join('');
+                    elements.logArea.scrollTop = elements.logArea.scrollHeight;
                 }
             } catch (error) {
                 console.warn(`[${backendTaskId}] Error polling logs:`, error);
@@ -970,8 +1004,10 @@
             const card = Object.values(tasks).find(t => t.state.backendTaskId === backendTaskId);
             if (!card) {
                 if (isRestore) {
+                    console.warn(`Restored task ${backendTaskId} not found in UI, removing from storage.`);
                     const savedTaskIds = JSON.parse(getFromStorage('active_task_ids', '[]'));
-                    saveToStorage('active_task_ids', JSON.stringify(savedTaskIds.filter(id => id !== backendTaskId)));
+                    const newIds = savedTaskIds.filter(id => id !== backendTaskId);
+                    saveToStorage('active_task_ids', JSON.stringify(newIds));
                 }
                 return;
             }
@@ -981,7 +1017,9 @@
             try {
                 const response = await fetch(`/service/status/${backendTaskId}`);
                 if (!response.ok) {
-                    if (response.status === 404 && isRestore) await removeTask(cardId);
+                    if (response.status === 404 && isRestore) {
+                        await removeTask(cardId);
+                    }
                     return;
                 }
                 const status = await response.json();
@@ -1006,11 +1044,14 @@
                         elements.statusMessage.className = 'status-message small text-success';
                         state.htmlUrl = status.downloads.html;
                         state.fileNameStem = status.original_filename_stem;
+
                         elements.htmlLink.href = status.downloads.html;
                         elements.mdLink.href = status.downloads.markdown;
                         elements.mdZipLink.href = status.downloads.markdown_zip;
+
                         elements.previewBtn.onclick = () => setupPreview(cardId);
                         elements.pdfBtn.onclick = () => downloadPdf(cardId);
+
                         elements.downloadButtons.style.display = 'flex';
                     } else {
                         elements.downloadButtons.style.display = 'none';
@@ -1022,6 +1063,7 @@
                     elements.startBtn.disabled = false;
                     elements.progress.style.display = 'block';
                     elements.downloadButtons.style.display = 'none';
+
                     if (isRestore && !card.intervals.status) {
                         startPolling(backendTaskId);
                     }
@@ -1039,32 +1081,36 @@
             const { state } = tasks[cardId];
             if (!state.htmlUrl) return;
 
-            // Clear previous content
-            originalPreviewPane.innerHTML = '';
+            const existingOriginalContent = originalPreviewPane.querySelector('iframe, pre, p');
+            if (existingOriginalContent) existingOriginalContent.remove();
             translatedPreviewFrame.src = 'about:blank';
 
-            // Show original file content
             if (state.file) {
                 const fileType = state.file.type;
-                const fileExt = state.file.name.split('.').pop().toLowerCase();
-                const textLikeExts = ['md', 'json', 'xml', 'log', 'py', 'js', 'css', 'java', 'c', 'cpp', 'h', 'hpp', 'cs', 'rb', 'php', 'swift', 'kt', 'go', 'rs', 'ts', 'txt'];
+                const fileExtension = state.file.name.split('.').pop().toLowerCase();
+                const textLikeExtensions = ['md', 'json', 'xml', 'log', 'py', 'js', 'css', 'java', 'c', 'cpp', 'h', 'hpp', 'cs', 'rb', 'php', 'swift', 'kt', 'go', 'rs', 'ts', 'txt'];
 
-                if (fileType.startsWith('text/') || textLikeExts.includes(fileExt)) {
+                if (fileType.startsWith('text/') || textLikeExtensions.includes(fileExtension)) {
                     const pre = document.createElement('pre');
-                    state.file.text().then(text => pre.textContent = text).catch(() => pre.textContent = '无法读取原文。');
+                    state.file.text().then(text => pre.textContent = text).catch(() => pre.textContent = '无法读取原文内容。');
                     originalPreviewPane.appendChild(pre);
-                } else if (['application/pdf', 'text/html'].includes(fileType) || ['html', 'htm'].includes(fileExt)) {
+                } else if (['application/pdf', 'text/html'].includes(fileType) || ['html', 'htm'].includes(fileExtension)) {
                     const iframe = document.createElement('iframe');
                     iframe.src = URL.createObjectURL(state.file);
                     originalPreviewPane.appendChild(iframe);
                 } else {
-                    originalPreviewPane.innerHTML = `<p class="p-3 text-muted">无法直接预览此文件类型 (${fileType || '未知: ' + fileExt})。</p>`;
+                    const p = document.createElement('p');
+                    p.className = 'p-3 text-muted';
+                    p.textContent = `无法直接预览此文件类型 (${fileType || '未知: ' + fileExtension})。`;
+                    originalPreviewPane.appendChild(p);
                 }
             } else {
-                originalPreviewPane.innerHTML = '<p class="p-3 text-muted">未找到原文文件缓存。</p>';
+                const p = document.createElement('p');
+                p.className = 'p-3 text-muted';
+                p.textContent = '未找到原文文件缓存。';
+                originalPreviewPane.appendChild(p);
             }
 
-            // Fetch and show translated content
             fetch(state.htmlUrl)
                 .then(resp => resp.ok ? resp.text() : Promise.reject(`HTTP error ${resp.status}`))
                 .then(html => {
@@ -1108,7 +1154,6 @@
                                 elements.pdfBtn.disabled = false;
                                 elements.pdfBtn.innerHTML = `<i class="bi bi-file-earmark-pdf-fill me-1"></i>下载 PDF`;
                                 printFrameEl.onload = null;
-                                printFrameEl.srcdoc = 'about:blank'; // Clean up
                             }
                         }, 500);
                     };
@@ -1121,27 +1166,68 @@
                 });
         }
 
+        // MODIFIED: This function now handles responsive layout for the preview panes.
         function setPreviewDisplayMode(mode) {
+            if (previewSplitInstance) {
+                previewSplitInstance.destroy();
+                previewSplitInstance = null;
+            }
+
+            // Check screen size to determine layout (true for mobile, false for desktop)
+            const isMobileView = window.innerWidth < 992; // Using Bootstrap's 'lg' breakpoint
+
+            const splitContainer = document.querySelector('.preview-split-container');
+
+            // Reset element styles
             originalPreviewContainer.style.display = 'flex';
-            originalPreviewContainer.style.width = '';
-            translatedPreviewContainer.style.width = '';
-            // Reset inline styles from Split.js if any
-            originalPreviewContainer.style.height = '';
-            translatedPreviewContainer.style.height = '';
+            translatedPreviewContainer.style.display = 'flex';
+            [originalPreviewContainer, translatedPreviewContainer].forEach(el => {
+                el.style.width = '';
+                el.style.height = '';
+            });
+            splitContainer.style.flexDirection = isMobileView ? 'column' : 'row';
 
             if (mode === 'bilingual') {
                 previewOffcanvasLabel.textContent = '双语预览';
-                setBilingualViewBtn.classList.add('btn-primary', 'active');
+
+                if (isMobileView) {
+                    // Mobile: Vertical Split
+                    previewSplitInstance = Split(['#originalPreviewContainer', '#translatedPreviewContainer'], {
+                        direction: 'vertical',
+                        sizes: [50, 50],
+                        minSize: 150, // Smaller min-size for vertical layout
+                        gutterSize: 10,
+                        cursor: 'row-resize',
+                    });
+                } else {
+                    // Desktop: Horizontal Split
+                    previewSplitInstance = Split(['#originalPreviewContainer', '#translatedPreviewContainer'], {
+                        direction: 'horizontal',
+                        sizes: [50, 50],
+                        minSize: 200,
+                        gutterSize: 10,
+                        cursor: 'col-resize',
+                    });
+                }
+
+                setBilingualViewBtn.classList.add('btn-primary');
                 setBilingualViewBtn.classList.remove('btn-outline-primary');
-                setTranslatedOnlyViewBtn.classList.remove('btn-primary', 'active');
+                setTranslatedOnlyViewBtn.classList.remove('btn-primary');
                 setTranslatedOnlyViewBtn.classList.add('btn-outline-primary');
-            } else { // 'translationOnly'
+
+            } else { // mode === 'translatedOnly'
                 previewOffcanvasLabel.textContent = '译文预览';
                 originalPreviewContainer.style.display = 'none';
-                translatedPreviewContainer.style.width = '100%';
-                setTranslatedOnlyViewBtn.classList.add('btn-primary', 'active');
+
+                if (isMobileView) {
+                    translatedPreviewContainer.style.height = '100%';
+                } else {
+                    translatedPreviewContainer.style.width = '100%';
+                }
+
+                setTranslatedOnlyViewBtn.classList.add('btn-primary');
                 setTranslatedOnlyViewBtn.classList.remove('btn-outline-primary');
-                setBilingualViewBtn.classList.remove('btn-primary', 'active');
+                setBilingualViewBtn.classList.remove('btn-primary');
                 setBilingualViewBtn.classList.add('btn-outline-primary');
             }
         }
@@ -1173,12 +1259,11 @@
             convertEnginSelect.value = getFromStorage('translator_convert_engin', 'mineru');
             updateConvertEnginUI();
             toLangSelect.value = getFromStorage('translator_to_lang', '中文');
-            formulaCheckbox.checked = getFromStorage('translator_formula_ocr', 'true') === 'true';
-            codeCheckbox.checked = getFromStorage('translator_code_ocr', 'true') === 'true';
+            formulaCheckbox.checked = getFromStorage('translator_formula_ocr') === 'true';
+            codeCheckbox.checked = getFromStorage('translator_code_ocr') === 'true';
             refineCheckbox.checked = getFromStorage('translator_refine_markdown') === 'true';
             customPromptTranslateArea.value = getFromStorage("custom_prompt_translate");
 
-            // REFINED: Use helper function for sliders
             setupSlider(chunkSizeSlider, chunkSizeDisplay, chunkSizeReset, 'chunk_size', defaultParams);
             setupSlider(concurrentSlider, concurrentDisplay, concurrentReset, 'concurrent', defaultParams);
             setupSlider(temperatureSlider, temperatureDisplay, temperatureReset, 'temperature', defaultParams);
@@ -1186,13 +1271,15 @@
             if (isAdminMode) {
                 document.title = "DocuTranslate - Admin Panel";
                 try {
-                    const allTaskIds = await (await fetch('/service/task-list')).json();
-                    if (Array.isArray(allTaskIds) && allTaskIds.length > 0) {
+                    const response = await fetch('/service/task-list');
+                    if (!response.ok) throw new Error(`Failed to fetch task list: ${response.statusText}`);
+                    const allTaskIds = await response.json();
+                    if (allTaskIds && Array.isArray(allTaskIds) && allTaskIds.length > 0) {
                         allTaskIds.reverse().forEach(taskId => createTaskCard(taskId, true));
                     }
                 } catch (error) {
-                    console.error("Admin mode: Failed to load task list.", error);
-                    alert("无法从服务器加载任务列表。");
+                    console.error("Admin mode: Failed to load task list from server.", error);
+                    alert("无法从服务器加载任务列表，请检查后台连接。");
                 }
                 updateTaskPlaceholderVisibility();
             } else {
@@ -1204,7 +1291,6 @@
                 }
             }
 
-            // Event Listeners for settings
             platformSelect.addEventListener('change', updatePlatformUI);
             apikeyInput.addEventListener('input', e => saveToStorage(`translator_platform_${platformSelect.value}_apikey`, e.target.value));
             modelInput.addEventListener('input', e => saveToStorage(`translator_platform_${platformSelect.value}_model_id`, e.target.value));
@@ -1217,52 +1303,20 @@
             refineCheckbox.addEventListener('change', e => saveToStorage('translator_refine_markdown', e.target.checked));
             customPromptTranslateArea.addEventListener('input', () => saveToStorage("custom_prompt_translate", customPromptTranslateArea.value));
 
-            // Event Listeners for actions
             addNewTaskBtn.addEventListener('click', () => createTaskCard());
             setBilingualViewBtn.addEventListener('click', () => setPreviewDisplayMode('bilingual'));
-            setTranslatedOnlyViewBtn.addEventListener('click', () => setPreviewDisplayMode('translationOnly'));
-
-            // NEW: Responsive Split.js initialization
-            previewOffcanvasEl.addEventListener('shown.bs.offcanvas', () => {
-                if (previewSplitInstance) previewSplitInstance.destroy();
-                if (window.innerWidth >= 768 && setBilingualViewBtn.classList.contains('active')) {
-                    previewSplitInstance = Split(['#originalPreviewContainer', '#translatedPreviewContainer'], {
-                        sizes: [50, 50], minSize: 100, gutterSize: 10, direction: 'horizontal',
-                    });
-                }
-            });
-            previewOffcanvasEl.addEventListener('hide.bs.offcanvas', () => {
-                if (previewSplitInstance) {
-                    previewSplitInstance.destroy();
-                    previewSplitInstance = null;
-                }
-            });
+            setTranslatedOnlyViewBtn.addEventListener('click', () => setPreviewDisplayMode('translatedOnly'));
         }
 
         // --- Theme switcher logic ---
-        const getPreferredTheme = () => localStorage.getItem('theme') || 'auto';
-        const setTheme = theme => {
-            const themeToSet = theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme;
-            document.documentElement.setAttribute('data-bs-theme', themeToSet);
-        };
-        const showActiveTheme = (theme) => {
-            document.querySelectorAll('[data-bs-theme-value]').forEach(el => el.classList.remove('active'));
-            document.querySelector(`[data-bs-theme-value="${theme}"]`)?.classList.add('active');
-        };
-
-        setTheme(getPreferredTheme());
-        showActiveTheme(getPreferredTheme());
-        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-            if (getPreferredTheme() === 'auto') setTheme('auto');
-        });
-        document.querySelectorAll('[data-bs-theme-value]').forEach(toggle => {
-            toggle.addEventListener('click', () => {
-                const theme = toggle.getAttribute('data-bs-theme-value');
-                localStorage.setItem('theme', theme);
-                setTheme(theme);
-                showActiveTheme(theme);
-            });
-        });
+        const getPreferredTheme = () => { const storedTheme = localStorage.getItem('theme'); if (storedTheme) { return storedTheme; } return 'auto'; };
+        const setTheme = theme => { if (theme === 'auto') { document.documentElement.setAttribute('data-bs-theme', window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); } else { document.documentElement.setAttribute('data-bs-theme', theme); } };
+        const showActiveTheme = (theme) => { document.querySelectorAll('[data-bs-theme-value]').forEach(element => { element.classList.remove('active'); }); const activeButton = document.querySelector(`[data-bs-theme-value="${theme}"]`); if (activeButton) { activeButton.classList.add('active'); } };
+        const preferredTheme = getPreferredTheme();
+        setTheme(preferredTheme);
+        showActiveTheme(preferredTheme);
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { const storedTheme = localStorage.getItem('theme'); if (storedTheme === 'auto' || !storedTheme) { setTheme('auto'); } });
+        document.querySelectorAll('[data-bs-theme-value]').forEach(toggle => { toggle.addEventListener('click', () => { const theme = toggle.getAttribute('data-bs-theme-value'); localStorage.setItem('theme', theme); setTheme(theme); showActiveTheme(theme); }); });
 
         // --- Start the application ---
         document.addEventListener('DOMContentLoaded', init);
