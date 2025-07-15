@@ -39,7 +39,6 @@
             transition: all 0.3s ease-in-out;
         }
 
-        /* === 修改点: 为等待ID的状态添加样式 === */
         .task-id-placeholder {
             color: var(--bs-secondary-color);
             font-style: italic;
@@ -122,7 +121,6 @@
             overflow: auto;
         }
 
-        /* MODIFIED: Redefined gutter styles for both directions */
         .gutter {
             background-color: var(--bs-tertiary-bg);
             background-repeat: no-repeat;
@@ -163,39 +161,32 @@
             z-index: 1050;
         }
 
-        /* === MODIFIED: Added Responsive Styles === */
-
-        /* Make the main layout responsive for mobile (stacks below lg breakpoint) */
         @media (max-width: 991.98px) {
             .main-container {
-                height: auto; /* Allow natural page height */
-                padding-bottom: 6rem; /* Add padding at the bottom for floating theme switch */
+                height: auto;
+                padding-bottom: 6rem;
             }
 
             .settings-panel, .task-area {
-                height: auto; /* Remove fixed height to allow natural flow */
+                height: auto;
                 overflow-y: visible;
             }
 
             .settings-panel {
-                padding-right: 0; /* No scrollbar space needed */
-                margin-bottom: 2rem; /* Add space when panels stack */
+                padding-right: 0;
+                margin-bottom: 2rem;
             }
         }
 
-        /* Adjustments for smaller screens (tablets and phones) */
         @media (max-width: 767.98px) {
-            /* Add space between file area and log area when they stack on mobile */
             .task-card .col-md-7 {
                 margin-top: 1.5rem;
             }
 
-            /* Make preview offcanvas full width on mobile */
             #previewOffcanvas {
                 --bs-offcanvas-width: 100vw;
             }
         }
-
     </style>
 </head>
 <body>
@@ -432,7 +423,6 @@
 <template id="taskCardTemplate">
     <div class="card mb-3 task-card">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <!-- === 修改点: 初始显示占位符，而不是ID === -->
             <span class="fw-bold">任务 ID: <code class="task-id-display"><span class="task-id-placeholder">等待提交...</span></code></span>
             <button type="button" class="btn-close remove-task-btn" aria-label="Close"></button>
         </div>
@@ -741,7 +731,7 @@
             };
 
             if (restoreState && backendTaskId) {
-                elements.taskIdDisplay.textContent = backendTaskId;
+                elements.taskIdDisplay.innerHTML = `<code>${backendTaskId}</code>`;
             }
 
             tasks[cardId] = {
@@ -770,6 +760,23 @@
             }
         }
 
+        /**
+         * Notifies the backend to release a task's resources.
+         * @param {string} backendTaskId - The ID of the task to release.
+         */
+        async function releaseTask(backendTaskId) {
+            try {
+                fetch(`/service/release/${backendTaskId}`, { method: 'POST' });
+                console.log(`[${backendTaskId}] Release request sent to backend.`);
+            } catch (error) {
+                console.error(`[${backendTaskId}] Failed to send release request:`, error);
+            }
+        }
+
+        /**
+         * Removes a task card from the UI and releases its backend resources.
+         * @param {string} cardId - The local ID of the card to remove.
+         */
         async function removeTask(cardId) {
             const task = tasks[cardId];
             if (!task) return;
@@ -777,11 +784,12 @@
             const backendTaskId = task.state.backendTaskId;
             if (backendTaskId) {
                 stopPolling(backendTaskId);
-                await fetch(`/service/release/${backendTaskId}`,{method: 'POST'});
+                await releaseTask(backendTaskId);
             }
 
             task.elements.card.remove();
             delete tasks[cardId];
+
             saveTaskIds();
             updateTaskPlaceholderVisibility();
         }
@@ -863,6 +871,17 @@
                 return;
             }
 
+            // ======================== FIX: RELEASE OLD TASK ON RETRY ========================
+            // If a previous backend task exists for this card, release it before starting a new one.
+            const oldBackendTaskId = state.backendTaskId;
+            if (oldBackendTaskId) {
+                console.log(`[${oldBackendTaskId}] Re-translating. Releasing resources for the old task.`);
+                await releaseTask(oldBackendTaskId);
+                // Immediately reset the backend ID in the state.
+                state.backendTaskId = null;
+            }
+            // ==============================================================================
+
             state.isTranslating = true;
             elements.startBtn.disabled = true;
             elements.startBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 初始化...`;
@@ -901,9 +920,9 @@
 
                 if (response.ok && result.task_started) {
                     const backendTaskId = result.task_id;
-                    state.backendTaskId = backendTaskId;
+                    state.backendTaskId = backendTaskId; // Store the NEW task ID
                     state.isSubmitted = true;
-                    elements.taskIdDisplay.textContent = backendTaskId;
+                    elements.taskIdDisplay.innerHTML = `<code>${backendTaskId}</code>`;
                     elements.taskIdDisplay.classList.remove('task-id-placeholder');
 
                     saveTaskIds();
@@ -1012,12 +1031,13 @@
                 return;
             }
             const { elements, state } = card;
-            const cardId = card.elements.card.dataset.cardId;
+            const cardId = elements.card.dataset.cardId;
 
             try {
                 const response = await fetch(`/service/status/${backendTaskId}`);
                 if (!response.ok) {
                     if (response.status === 404 && isRestore) {
+                        console.warn(`Task ${backendTaskId} not found on server (404). Removing from UI.`);
                         await removeTask(cardId);
                     }
                     return;
@@ -1166,19 +1186,14 @@
                 });
         }
 
-        // MODIFIED: This function now handles responsive layout for the preview panes.
         function setPreviewDisplayMode(mode) {
             if (previewSplitInstance) {
                 previewSplitInstance.destroy();
                 previewSplitInstance = null;
             }
 
-            // Check screen size to determine layout (true for mobile, false for desktop)
-            const isMobileView = window.innerWidth < 992; // Using Bootstrap's 'lg' breakpoint
-
+            const isMobileView = window.innerWidth < 992;
             const splitContainer = document.querySelector('.preview-split-container');
-
-            // Reset element styles
             originalPreviewContainer.style.display = 'flex';
             translatedPreviewContainer.style.display = 'flex';
             [originalPreviewContainer, translatedPreviewContainer].forEach(el => {
@@ -1191,22 +1206,12 @@
                 previewOffcanvasLabel.textContent = '双语预览';
 
                 if (isMobileView) {
-                    // Mobile: Vertical Split
                     previewSplitInstance = Split(['#originalPreviewContainer', '#translatedPreviewContainer'], {
-                        direction: 'vertical',
-                        sizes: [50, 50],
-                        minSize: 150, // Smaller min-size for vertical layout
-                        gutterSize: 10,
-                        cursor: 'row-resize',
+                        direction: 'vertical', sizes: [50, 50], minSize: 150, gutterSize: 10, cursor: 'row-resize',
                     });
                 } else {
-                    // Desktop: Horizontal Split
                     previewSplitInstance = Split(['#originalPreviewContainer', '#translatedPreviewContainer'], {
-                        direction: 'horizontal',
-                        sizes: [50, 50],
-                        minSize: 200,
-                        gutterSize: 10,
-                        cursor: 'col-resize',
+                        direction: 'horizontal', sizes: [50, 50], minSize: 200, gutterSize: 10, cursor: 'col-resize',
                     });
                 }
 
