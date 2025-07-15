@@ -3,7 +3,7 @@ from collections import OrderedDict
 
 from docutranslate.converter import Document
 
-CACHE_NUM=os.getenv("DOCUTRANSLATE_CACHE_NUM",default=10)
+CACHE_NUM=os.getenv("DOCUTRANSLATE_CACHE_NUM",default="10")
 
 class DocumentCacher:
     def __init__(self):
@@ -18,7 +18,7 @@ class DocumentCacher:
 
     def cache_result(self, result: str, document: Document, formula: bool, code: bool, convert_engin: str):
         hash_code = self._get_hashcode(document, formula, code, convert_engin)
-        if len(self.cache_dict)>=CACHE_NUM:
+        if len(self.cache_dict)>=int(CACHE_NUM):
             self.cache_dict.popitem(last=False)
         self.cache_dict[hash_code] = result
         return result

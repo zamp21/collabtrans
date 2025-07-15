@@ -969,8 +969,10 @@ async def temp_translate(
                               examples=["test.txt", "test.md", "test.pdf"]),
         file_content: str = Body(..., description="文件内容，可以是纯文本或Base64编码的字符串。"),
         to_lang: str = Body("中文", description="目标语言。", examples=["中文", "英文", "English"]),
-        concurrent: int = Body(30, description="ai翻译请求并发数"),
-        custom_prompt_translate: str | None = Body(None, description="翻译自定义提示词")
+        concurrent: int = Body(default_params["concurrent"], description="ai翻译请求并发数"),
+        temperature:float|None = Body(default_params["temperature"], description="ai翻译请求温度"),
+        chunk_size:int =Body(default_params["chunk_size"],description="文本分块大小（bytes）"),
+        custom_prompt_translate: str | None = Body(None, description="翻译自定义提示词",example="人名保持原文不翻译"),
 ):
     """一个用于快速测试的同步翻译接口。"""
 
@@ -986,6 +988,8 @@ async def temp_translate(
                         model_id=model_id,
                         mineru_token=mineru_token,
                         concurrent=concurrent,
+                        temperature=temperature,
+                        chunk_size=chunk_size,
                         )
 
     try:
