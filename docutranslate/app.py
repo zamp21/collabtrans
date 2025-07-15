@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 
 from docutranslate import FileTranslater, __version__
 from docutranslate.global_values import available_packages
-from docutranslate.logger import translater_logger
+from docutranslate.logger import global_logger
 from docutranslate.translater import default_params
 from docutranslate.utils.resource_utils import resource_path
 
@@ -79,10 +79,10 @@ async def lifespan(app: FastAPI):
     tasks_state.clear()
     tasks_log_queues.clear()
     tasks_log_histories.clear()
-    for handler in translater_logger.handlers[:]:
-        translater_logger.removeHandler(handler)
-    translater_logger.propagate = False
-    translater_logger.setLevel(logging.INFO)
+    for handler in global_logger.handlers[:]:
+        global_logger.removeHandler(handler)
+    global_logger.propagate = False
+    global_logger.setLevel(logging.INFO)
     print("应用启动完成，多任务状态已初始化。")
     yield
     await httpx_client.aclose()
@@ -100,12 +100,12 @@ async def _perform_translation(task_id: str, params: Dict[str, Any], file_conten
     log_filter = logging.Filter()
     log_filter.task_id = task_id
     task_handler.addFilter(log_filter)
-    translater_logger.addHandler(task_handler)
+    global_logger.addHandler(task_handler)
 
-    translater_logger.info(f"后台翻译任务开始: 文件 '{original_filename}'")
+    global_logger.info(f"后台翻译任务开始: 文件 '{original_filename}'")
     task_state["status_message"] = f"正在处理 '{original_filename}'..."
     try:
-        translater_logger.info(f"使用 Base URL: {params['base_url']}, Model: {params['model_id']}")
+        global_logger.info(f"使用 Base URL: {params['base_url']}, Model: {params['model_id']}")
         ft = FileTranslater(
             base_url=params['base_url'], key=params['apikey'], model_id=params['model_id'],
             chunk_size=params['chunk_size'], concurrent=params['concurrent'],
@@ -125,7 +125,7 @@ async def _perform_translation(task_id: str, params: Dict[str, Any], file_conten
                                     timeout=3)
             html_content = ft.export_to_html(title=task_state["original_filename_stem"], cdn=True)
         except (httpx.TimeoutException, httpx.RequestError):
-            translater_logger.info("CDN连接失败，使用本地JS进行渲染。")
+            global_logger.info("CDN连接失败，使用本地JS进行渲染。")
             html_content = ft.export_to_html(title=task_state["original_filename_stem"], cdn=False)
         end_time = time.time()
         duration = end_time - task_state["task_start_time"]
@@ -134,11 +134,11 @@ async def _perform_translation(task_id: str, params: Dict[str, Any], file_conten
             "html_content": html_content, "status_message": f"翻译成功！用时 {duration:.2f} 秒。",
             "download_ready": True, "error_flag": False, "task_end_time": end_time,
         })
-        translater_logger.info(f"翻译成功完成，用时 {duration:.2f} 秒。")
+        global_logger.info(f"翻译成功完成，用时 {duration:.2f} 秒。")
     except asyncio.CancelledError:
         end_time = time.time()
         duration = end_time - task_state["task_start_time"]
-        translater_logger.info(f"翻译任务 '{original_filename}' 已被取消 (用时 {duration:.2f} 秒).")
+        global_logger.info(f"翻译任务 '{original_filename}' 已被取消 (用时 {duration:.2f} 秒).")
         task_state.update({
             "status_message": f"翻译任务已取消 (用时 {duration:.2f} 秒).", "error_flag": False,
             "download_ready": False, "markdown_content": None, "md_zip_content": None,
@@ -148,7 +148,7 @@ async def _perform_translation(task_id: str, params: Dict[str, Any], file_conten
         end_time = time.time()
         duration = end_time - task_state["task_start_time"]
         error_message = f"翻译失败: {e}"
-        translater_logger.error(error_message, exc_info=True)
+        global_logger.error(error_message, exc_info=True)
         task_state.update({
             "status_message": f"翻译过程中发生错误 (用时 {duration:.2f} 秒): {e}",
             "error_flag": True, "download_ready": False, "markdown_content": None,
@@ -157,8 +157,8 @@ async def _perform_translation(task_id: str, params: Dict[str, Any], file_conten
     finally:
         task_state["is_processing"] = False
         task_state["current_task_ref"] = None
-        translater_logger.info(f"后台翻译任务 '{original_filename}' 处理结束。")
-        translater_logger.removeHandler(task_handler)
+        global_logger.info(f"后台翻译任务 '{original_filename}' 处理结束。")
+        global_logger.removeHandler(task_handler)
 
 
 # --- 核心任务启动与取消逻辑 (仅由服务层调用) ---

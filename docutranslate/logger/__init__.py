@@ -1,1 +1,1 @@
-from .logger import translater_logger
+from .logger import global_logger

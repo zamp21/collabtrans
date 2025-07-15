@@ -1,9 +1,10 @@
 import asyncio
+import logging
 import time
 import zipfile
 import httpx
 from docutranslate.converter import Converter, Document
-from docutranslate.logger import translater_logger
+from docutranslate.logger import global_logger
 from docutranslate.utils.markdown_utils import embed_inline_image_from_zip
 
 URL = 'https://mineru.net/api/v4/file-urls/batch'
@@ -21,10 +22,11 @@ client = httpx.Client(trust_env=False,timeout=timeout,proxy=None,verify=False)
 
 # TODO: 提供更详细的logger
 class ConverterMineru(Converter):
-    def __init__(self, token: str, formula=True):
+    def __init__(self, token: str, formula=True,logger:logging.Logger|None=None):
         self.mineru_token = token.strip()
         self.client_async = httpx.AsyncClient(timeout=timeout)
         self.formula = formula
+        self.logger=logger if logger else global_logger
 
     def _get_header(self):
         return {
@@ -74,12 +76,12 @@ class ConverterMineru(Converter):
                 time.sleep(3)
 
     def convert(self, document: Document) -> str:
-        translater_logger.info(f"正在将文档转换为markdown")
+        self.logger.info(f"正在将文档转换为markdown")
         time1 = time.time()
         batch_id = self.upload(document)
         file_url = self.get_file_url(batch_id)
         result = get_md_from_zip_url_with_inline_images(zip_url=file_url)
-        translater_logger.info(f"已转换为markdown，耗时{time.time() - time1}秒")
+        self.logger.info(f"已转换为markdown，耗时{time.time() - time1}秒")
         return result
 
     # TODO: 实现细粒度更高的协程

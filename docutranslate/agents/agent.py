@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
@@ -6,7 +7,7 @@ from typing import TypedDict
 
 import httpx
 
-from docutranslate.logger import translater_logger
+from docutranslate.logger import global_logger
 
 MAX_RETRY_COUNT = 2
 MAX_TOTAL_ERROR_COUNT = 10
@@ -20,18 +21,20 @@ class AgentArgs(TypedDict, total=False):
     temperature: float
     max_concurrent: int
     timeout: int
+    logger:logging.Logger
 
 
 class TotalErrorCounter:
-    def __init__(self, ):
+    def __init__(self,logger:logging.Logger):
         self.lock = Lock()
         self.count = 0
+        self.logger=logger
 
     def add(self):
         self.lock.acquire()
         self.count += 1
         if self.count>MAX_TOTAL_ERROR_COUNT:
-            translater_logger.info(f"错误响应过多")
+            self.logger.info(f"错误响应过多")
         self.lock.release()
         return self.reach_limit()
 
@@ -39,20 +42,19 @@ class TotalErrorCounter:
         return self.count > MAX_TOTAL_ERROR_COUNT
 
 
-total_error_counter = TotalErrorCounter()
-
 
 # 仅使用多线程时用以计数
 class PromptsCounter:
-    def __init__(self, total: int):
+    def __init__(self, total: int,logger:logging.Logger):
         self.lock = Lock()
         self.count = 0
         self.total = total
+        self.logger=logger
 
     def add(self):
         self.lock.acquire()
         self.count += 1
-        translater_logger.info(f"多线程-已完成：{self.count}/{self.total}")
+        self.logger.info(f"多线程-已完成：{self.count}/{self.total}")
         self.lock.release()
 
 
@@ -61,7 +63,7 @@ TIMEOUT = 600
 
 class Agent:
     def __init__(self, baseurl: str = "", key: str = "xx", model_id: str = "", system_prompt: str = "", temperature=0.7,
-                 max_concurrent=15, timeout: int = TIMEOUT):
+                 max_concurrent=15, timeout: int = TIMEOUT,logger:logging.Logger|None=None):
         self.baseurl = baseurl.strip()
         if self.baseurl.endswith("/"):
             self.baseurl = self.baseurl[:-1]
@@ -74,6 +76,8 @@ class Agent:
         self.max_concurrent = max_concurrent
         self.timeout = timeout
 
+        self.logger=logger if logger else global_logger
+        self.total_error_counter = TotalErrorCounter(logger=self.logger)
     def _prepare_request_data(self, prompt: str, system_prompt: str, temperature=None, top_p=0.9):
         if temperature is None:
             temperature = self.temperature
@@ -109,23 +113,23 @@ class Agent:
             result = response.json()["choices"][0]["message"]["content"]
             return result
         except httpx.HTTPStatusError as e:
-            translater_logger.warning(f"AI请求错误 (async): {e.response.status_code} - {e.response.text}")
+            self.logger.warning(f"AI请求错误 (async): {e.response.status_code} - {e.response.text}")
             print(f"prompt:\n{prompt}")
-            total_error_counter.add()
+            self.total_error_counter.add()
             return prompt
         except httpx.RequestError as e:
-            translater_logger.warning(f"AI请求连接错误 (async): {repr(e)}")
+            self.logger.warning(f"AI请求连接错误 (async): {repr(e)}")
         except (KeyError, IndexError) as e:
             raise Exception(f"AI响应格式错误 (async): {repr(e)}")
         # 如果没有正常获取结果则重试
         if retry and retry_count < MAX_RETRY_COUNT:
-            if total_error_counter.add():
+            if self.total_error_counter.add():
                 return prompt
-            translater_logger.info(f"正在重试，重试次数{retry_count}")
+            self.logger.info(f"正在重试，重试次数{retry_count}")
             await asyncio.sleep(0.5)
             return await self.send_async(prompt, system_prompt, retry=True, retry_count=retry_count + 1)
         else:
-            translater_logger.error(f"达到重试次数上限")
+            self.logger.error(f"达到重试次数上限")
             return prompt
 
     async def send_prompts_async(
@@ -149,7 +153,7 @@ class Agent:
                 )
                 nonlocal count
                 count += 1
-                translater_logger.info(f"协程-已完成{count}/{total}")
+                self.logger.info(f"协程-已完成{count}/{total}")
                 return result
 
         for p_text in prompts:
@@ -176,23 +180,23 @@ class Agent:
             result = response.json()["choices"][0]["message"]["content"]
             return result
         except httpx.HTTPStatusError as e:
-            translater_logger.warning(f"AI请求错误 (async): {e.response.status_code} - {e.response.text}")
+            self.logger.warning(f"AI请求错误 (async): {e.response.status_code} - {e.response.text}")
             print(f"prompt:\n{prompt}")
-            total_error_counter.add()
+            self.total_error_counter.add()
             return prompt
         except httpx.RequestError as e:
-            translater_logger.warning(f"AI请求连接错误 (sync): {repr(e)}\nprompt:{prompt}")
+            self.logger.warning(f"AI请求连接错误 (sync): {repr(e)}\nprompt:{prompt}")
         except (KeyError, IndexError) as e:
             raise Exception(f"AI响应格式错误 (sync): {repr(e)}")
         # 如果没有正常获取结果则重试
         if retry and retry_count < MAX_RETRY_COUNT:
-            if total_error_counter.add():
+            if self.total_error_counter.add():
                 return prompt
-            translater_logger.info(f"正在重试，重试次数{retry_count}")
+            self.logger.info(f"正在重试，重试次数{retry_count}")
             time.sleep(0.5)
             return self.send(prompt, system_prompt, retry=True, retry_count=retry_count + 1)
         else:
-            translater_logger.error(f"达到重试次数上限")
+            self.logger.error(f"达到重试次数上限")
             return prompt
 
     def _send_prompt_count(self, prompt: str, system_prompt: None | str, count: PromptsCounter) -> str:
@@ -206,7 +210,7 @@ class Agent:
             system_prompt: str | None = None,
     ) -> list[str]:
         system_prompts = [system_prompt] * len(prompts)
-        counts = [PromptsCounter(len(prompts))] * len(prompts)
+        counts = [PromptsCounter(len(prompts),self.logger)] * len(prompts)
         output_list = []
         with ThreadPoolExecutor(max_workers=self.max_concurrent) as executor:
             results_iterator = executor.map(self._send_prompt_count, prompts, system_prompts, counts)

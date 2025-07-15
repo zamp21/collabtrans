@@ -1,20 +1,23 @@
 import asyncio
 import html
 import io
+import logging
 import zipfile
 from pathlib import Path
 from typing import Literal
-import markdown2
+
 import jinja2
+import markdown2
+
 from docutranslate.agents import Agent, AgentArgs
 from docutranslate.agents import MDRefineAgent, MDTranslateAgent
 from docutranslate.cacher import document_cacher_global
 from docutranslate.converter import Document, ConverterMineru
+from docutranslate.global_values import available_packages
+from docutranslate.logger import global_logger
 from docutranslate.utils.markdown_splitter import split_markdown_text, join_markdown_texts
 from docutranslate.utils.markdown_utils import uris2placeholder, placeholder2_uris, MaskDict, clean_markdown_math_block, \
     unembed_base64_images_to_zip, embed_inline_image_from_zip, find_markdown_in_zip
-from docutranslate.logger import translater_logger
-from docutranslate.global_values import available_packages
 from docutranslate.utils.resource_utils import resource_path
 
 DOCLING_FLAG = True if available_packages.get("docling") else False
@@ -35,7 +38,10 @@ class FileTranslater:
                  concurrent: int = default_params["concurrent"], timeout=2000,
                  convert_engin: Literal["docling", "mineru"] = "mineru",
                  docling_artifact: Path | str | None = None,
-                 mineru_token: str = None, cache=True):
+                 mineru_token: str = None, cache=True,
+                 logger: logging.Logger | None = None):
+        self.logger = logger if logger else global_logger
+
         self.convert_engin = convert_engin
         self.mineru_token = mineru_token.strip() if mineru_token is not None else None
         self._mask_dict = MaskDict()
@@ -51,7 +57,7 @@ class FileTranslater:
             artifact_path = Path("./docling_artifact")
             print(f"artifact_path:{artifact_path.resolve()}，existed：{artifact_path.is_dir()}")
             if artifact_path.is_dir():
-                translater_logger.info("检测到docling_artifact文件夹")
+                self.logger.info("检测到docling_artifact文件夹")
                 self.docling_artifact = artifact_path
         self.timeout = timeout
         self.document: Document | None = None
@@ -78,7 +84,7 @@ class FileTranslater:
 
     def _split_markdown_into_chunks(self) -> list[str]:
         chunks: list[str] = split_markdown_text(self.markdown, self.chunk_size)
-        translater_logger.info(f"markdown分为{len(chunks)}块")
+        self.logger.info(f"markdown分为{len(chunks)}块")
         return chunks
 
     def _default_agent_params(self) -> AgentArgs:
@@ -92,7 +98,8 @@ class FileTranslater:
             "model_id": self.model_id,
             "temperature": self.temperature,
             "max_concurrent": self.concurrent,
-            "timeout": self.timeout
+            "timeout": self.timeout,
+            "logger":self.logger
         }
         return result
 
@@ -105,26 +112,26 @@ class FileTranslater:
     def _convert2markdown(self, document: Document, formula: bool, code: bool, artifact: Path = None) -> str:
         cached_result = self.cacher.get_cached_result(document, formula, code, convert_engin=self.convert_engin)
         if cached_result:
-            translater_logger.info("正在获取缓存结果")
+            self.logger.info("正在获取缓存结果")
             return cached_result
         if document.suffix in [".md", ".txt"]:
             return document.filebytes.decode("utf-8")
         if document.suffix in ['.zip']:
-            #寻找zip内的filename
-            filename=find_markdown_in_zip(document.filebytes)
-            return embed_inline_image_from_zip(document.filebytes,filename)
-        translater_logger.info("正在转化为markdown")
+            # 寻找zip内的filename
+            filename = find_markdown_in_zip(document.filebytes)
+            return embed_inline_image_from_zip(document.filebytes, filename)
+        self.logger.info("正在转化为markdown")
         if self.convert_engin == "docling":
             if artifact is None:
                 artifact = self.docling_artifact
-            mdconverter = ConverterDocling(formula=formula, code=code, artifact=artifact)
+            mdconverter = ConverterDocling(formula=formula, code=code, artifact=artifact,logger=self.logger)
             result = mdconverter.convert(document)
         else:
             if self.mineru_token is None:
                 raise Exception("mineru_token未配置")
             if code:
-                translater_logger.info("mineru暂不支持code识别")
-            mdconverter = ConverterMineru(token=self.mineru_token, formula=formula)
+                self.logger.info("mineru暂不支持code识别")
+            mdconverter = ConverterMineru(token=self.mineru_token, formula=formula,logger=self.logger)
             result = mdconverter.convert(document)
         return self.cacher.cache_result(result, document, formula, code, convert_engin=self.convert_engin)
 
@@ -132,26 +139,26 @@ class FileTranslater:
                                       artifact: Path = None) -> str:
         cached_result = self.cacher.get_cached_result(document, formula, code, convert_engin=self.convert_engin)
         if cached_result:
-            translater_logger.info("解析结果已缓存，获取缓存结果")
+            self.logger.info("解析结果已缓存，获取缓存结果")
             return cached_result
         if document.suffix in [".md", ".txt"]:
             return document.filebytes.decode("utf-8")
         if document.suffix in ['.zip']:
-            #寻找zip内的filename
-            filename=find_markdown_in_zip(document.filebytes)
-            return embed_inline_image_from_zip(document.filebytes,filename)
-        translater_logger.info("正在转化为markdown")
+            # 寻找zip内的filename
+            filename = find_markdown_in_zip(document.filebytes)
+            return embed_inline_image_from_zip(document.filebytes, filename)
+        self.logger.info("正在转化为markdown")
         if self.convert_engin == "docling":
             if artifact is None:
                 artifact = self.docling_artifact
-            mdconverter = ConverterDocling(formula=formula, code=code, artifact=artifact)
+            mdconverter = ConverterDocling(formula=formula, code=code, artifact=artifact,logger=self.logger)
             result = await mdconverter.convert_async(document)
         else:
             if self.mineru_token is None:
                 raise Exception("mineru_token未配置")
             if code:
-                translater_logger.info("mineru暂不支持code识别")
-            mdconverter = ConverterMineru(token=self.mineru_token, formula=formula)
+                self.logger.info("mineru暂不支持code识别")
+            mdconverter = ConverterMineru(token=self.mineru_token, formula=formula,logger=self.logger)
             result = await mdconverter.convert_async(document)
         return self.cacher.cache_result(result, document, formula, code, convert_engin=self.convert_engin)
 
@@ -209,7 +216,7 @@ class FileTranslater:
             document = self.document
         if document is None:
             raise Exception("未读取文件")
-        translater_logger.info(f"读取文件：{document.filename}")
+        self.logger.info(f"读取文件：{document.filename}")
         self.read_document(document, formula=formula, code=code, save=save, save_format=save_format, refine=refine,
                            refine_agent=refine_agent)
         return self
@@ -223,14 +230,14 @@ class FileTranslater:
             document = self.document
         if document is None:
             raise Exception("未读取文件")
-        translater_logger.info(f"读取文件：{document.filename}")
+        self.logger.info(f"读取文件：{document.filename}")
         # 如果是markdown，直接读取
         await self.read_document_async(document, formula=formula, code=code, save=save, save_format=save_format,
                                        refine=refine, refine_agent=refine_agent)
         return self
 
     def refine_markdown_by_agent(self, refine_agent: Agent | None = None, custom_prompt=None) -> str:
-        translater_logger.info("正在修正markdown")
+        self.logger.info("正在修正markdown")
         self._mask_uris_in_markdown()
         chuncks = self._split_markdown_into_chunks()
         if refine_agent is None:
@@ -241,11 +248,11 @@ class FileTranslater:
         else:
             self.markdown = join_markdown_texts(result)
         self._unmask_uris_in_markdown()
-        translater_logger.info("markdown已修正")
+        self.logger.info("markdown已修正")
         return self.markdown
 
     def translate_markdown_by_agent(self, translate_agent: Agent | None = None, to_lang="中文", custom_prompt=None):
-        translater_logger.info("正在翻译markdown")
+        self.logger.info("正在翻译markdown")
         self._mask_uris_in_markdown()
         chuncks = self._split_markdown_into_chunks()
         if translate_agent is None:
@@ -256,11 +263,11 @@ class FileTranslater:
         else:
             self.markdown = join_markdown_texts(result)
         self._unmask_uris_in_markdown()
-        translater_logger.info("翻译完成")
+        self.logger.info("翻译完成")
         return self.markdown
 
     async def refine_markdown_by_agent_async(self, refine_agent: Agent | None = None, custom_prompt=None) -> str:
-        translater_logger.info("正在修正markdown")
+        self.logger.info("正在修正markdown")
         self._mask_uris_in_markdown()
         chuncks = self._split_markdown_into_chunks()
         if refine_agent is None:
@@ -271,12 +278,12 @@ class FileTranslater:
         else:
             self.markdown = join_markdown_texts(result)
         self._unmask_uris_in_markdown()
-        translater_logger.info("markdown已修正")
+        self.logger.info("markdown已修正")
         return self.markdown
 
     async def translate_markdown_by_agent_async(self, translate_agent: Agent | None = None, to_lang="中文",
                                                 custom_prompt=None):
-        translater_logger.info("正在翻译markdown")
+        self.logger.info("正在翻译markdown")
         self._mask_uris_in_markdown()
         chuncks = self._split_markdown_into_chunks()
         if translate_agent is None:
@@ -287,7 +294,7 @@ class FileTranslater:
         else:
             self.markdown = join_markdown_texts(result)
         self._unmask_uris_in_markdown()
-        translater_logger.info("翻译完成")
+        self.logger.info("翻译完成")
         return self.markdown
 
     def save_as_markdown(self, filename: str | Path | None = None, output_dir: str | Path = "./output", embeded=True):
@@ -303,9 +310,9 @@ class FileTranslater:
             full_name = output_dir / filename.name
             with open(full_name, "w", encoding="utf-8") as file:
                 file.write(self.export_to_markdown())
-            translater_logger.info(f"文件已写入{full_name.resolve()}")
+            self.logger.info(f"文件已写入{full_name.resolve()}")
         else:
-            output_dir=output_dir/filename.stem
+            output_dir = output_dir / filename.stem
             output_dir.mkdir(parents=True, exist_ok=True)
             with zipfile.ZipFile(io.BytesIO(self.export_to_unembed_markdown())) as zip_ref:
                 zip_ref.extractall(output_dir)
@@ -336,9 +343,9 @@ class FileTranslater:
         output_dir.mkdir(parents=True, exist_ok=True)
         full_name = output_dir / filename
         html_content = self.export_to_html(title=str(full_name.resolve().stem))
-        with open(full_name, "w",encoding="utf-8") as file:
+        with open(full_name, "w", encoding="utf-8") as file:
             file.write(html_content)
-        translater_logger.info(f"文件已写入{full_name.resolve()}")
+        self.logger.info(f"文件已写入{full_name.resolve()}")
         return self
 
     def export_to_html(self, title="title", cdn=True) -> str:
@@ -463,7 +470,8 @@ class FileTranslater:
                                     formula=True,
                                     code=True, output_format: Literal["markdown", "html"] = "markdown",
                                     custom_prompt_translate=None, refine=False,
-                                    refine_agent: Agent | None = None, translate_agent: Agent | None = None, save=False):
+                                    refine_agent: Agent | None = None, translate_agent: Agent | None = None,
+                                    save=False):
         await self.read_bytes_async(name=name, file=file, formula=formula, code=code)
 
         if refine:
