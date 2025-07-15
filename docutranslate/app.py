@@ -285,8 +285,9 @@ DocuTranslate 后端服务 API，提供文档翻译、状态查询、结果下�
 2.  **`GET /service/status/{{task_id}}`**: 使用 `task_id` 轮询此端点，获取任务的实时状态。
 3.  **`GET /service/logs/{{task_id}}`**: (可选) 获取实时的翻译日志。
 4.  **`GET /service/download/{{task_id}}/{{file_type}}`**: 任务完成后 (当 `download_ready` 为 `true` 时)，通过此端点下载结果文件。
-5.  **`POST /service/cancel/{{task_id}}`**: (可选) 取消一个正在进行的任务。
-6.  **`POST /service/release/{{task_id}}`**: (可选) 当任务不再需要时，释放其在服务器上占用的所有资源。
+5.  **`GET /service/download_content/{{task_id}}/{{file_type}}`**: 任务完成后，以JSON格式获取文件内容。
+6.  **`POST /service/cancel/{{task_id}}`**: (可选) 取消一个正在进行的任务。
+7.  **`POST /service/release/{{task_id}}`**: (可选) 当任务不再需要时，释放其在服务器上占用的所有资源。
 
 **版本**: {__version__}
 """,
@@ -755,6 +756,93 @@ async def service_download_file(
 
 
 @service_router.get(
+    "/download_content/{task_id}/{file_type}",
+    summary="下载翻译结果内容 (JSON)",
+    description="""
+根据任务ID和文件类型，以JSON格式返回翻译结果的内容。该接口总是返回一个JSON对象。
+
+- **返回结构**: JSON对象包含 `file_type`, `filename`, 和 `content` 三个字段。
+- **内容编码**:
+  - 对于 `html` 和 `markdown` 类型, `content` 字段包含原始的文本内容。
+  - 对于 `markdown_zip` 类型, `content` 字段包含Base64编码后的字符串。
+- **使用场景**: 适用于需要以编程方式处理文件内容及其元数据（如建议的文件名）的客户端。
+- **下载就绪**: 调用前请通过状态接口确认 `download_ready` 为 `true`。
+""",
+    responses={
+        200: {
+            "description": "成功返回文件内容。",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "markdown": {
+                            "summary": "Markdown 内容",
+                            "value": {
+                                "file_type": "markdown",
+                                "filename": "my_doc_translated.md",
+                                "content": "# 标题\n\n这是翻译后的Markdown内容..."
+                            }
+                        },
+                        "html": {
+                            "summary": "HTML 内容",
+                            "value": {
+                                "file_type": "html",
+                                "filename": "my_doc_translated.html",
+                                "content": "<h1>标题</h1><p>这是翻译后的HTML内容...</p>"
+                            }
+                        },
+                        "markdown_zip_base64": {
+                            "summary": "ZIP 内容 (Base64)",
+                            "value": {
+                                "file_type": "markdown_zip",
+                                "filename": "my_doc_translated.zip",
+                                "content": "UEsDBBQAAAAIA... (base64-encoded string)"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        404: {
+            "description": "资源未找到。可能的原因包括：任务ID不存在、任务结果尚未就绪、或请求了无效的文件类型。",
+            "content": {"application/json": {"example": {"detail": "内容尚未准备好。"}}}
+        },
+    }
+)
+async def service_download_content(
+        task_id: str = FastApiPath(..., description="已完成任务的ID", example="task-b2865b93"),
+        file_type: FileType = FastApiPath(..., description="要获取内容的文件类型。", example="html")
+):
+    """根据任务ID和文件类型，以JSON格式返回内容。zip文件会进行Base64编码。"""
+    task_state = tasks_state.get(task_id)
+    if not task_state:
+        raise HTTPException(status_code=404, detail=f"找不到任务ID '{task_id}'。")
+
+    if not task_state["download_ready"]:
+        raise HTTPException(status_code=404, detail="内容尚未准备好。")
+
+    content_map = {
+        "markdown": (task_state.get("markdown_content"), f"{task_state['original_filename_stem']}_translated.md"),
+        "markdown_zip": (task_state.get("markdown_zip_content"),
+                         f"{task_state['original_filename_stem']}_translated.zip"),
+        "html": (task_state.get("html_content"), f"{task_state['original_filename_stem']}_translated.html"),
+    }
+
+    raw_content, filename = content_map.get(file_type, (None, None))
+
+    if raw_content is None:
+        raise HTTPException(status_code=404, detail=f"'{file_type}' 类型的内容不可用或生成失败。")
+
+    # 如果内容是字节串 (zip)，则进行Base64编码；否则直接使用字符串。
+    final_content = base64.b64encode(raw_content).decode('utf-8') if isinstance(raw_content, bytes) else raw_content
+
+    return JSONResponse(content={
+        "file_type": file_type,
+        "filename": filename,
+        "content": final_content
+    })
+
+
+@service_router.get(
     "/engin-list",
     summary="获取可用解析引擎",
     tags=["Application"],
@@ -876,10 +964,13 @@ async def temp_translate(
         api_key: str = Body(..., description="LLM API的密钥。", example="sk-xxxxxxxxxx"),
         model_id: str = Body(..., description="使用的模型ID。", example="gpt-4-turbo"),
         mineru_token: str = Body(..., description="Mineru引擎的Token。"),
-        file_name: str = Body(..., description="文件名，用以判断文件类型。当后缀为txt时该接口返回普通文本，为其他后缀时返回翻译后的markdown文本", examples=["test.txt","test.md","test.pdf"]),
+        file_name: str = Body(...,
+                              description="文件名，用以判断文件类型。当后缀为txt时该接口返回普通文本，为其他后缀时返回翻译后的markdown文本",
+                              examples=["test.txt", "test.md", "test.pdf"]),
         file_content: str = Body(..., description="文件内容，可以是纯文本或Base64编码的字符串。"),
-        to_lang: str = Body("中文", description="目标语言。",examples=["中文","英文","English"]),
-        concurrent: int = Body(30, description="ai翻译请求并发数")
+        to_lang: str = Body("中文", description="目标语言。", examples=["中文", "英文", "English"]),
+        concurrent: int = Body(30, description="ai翻译请求并发数"),
+        custom_prompt_translate: str | None = Body(None, description="翻译自定义提示词")
 ):
     """一个用于快速测试的同步翻译接口。"""
 
@@ -894,12 +985,13 @@ async def temp_translate(
                         key=api_key,
                         model_id=model_id,
                         mineru_token=mineru_token,
-                        concurrent=concurrent
+                        concurrent=concurrent,
                         )
 
     try:
         decoded_content = base64.b64decode(file_content) if is_base64(file_content) else file_content.encode('utf-8')
-        await ft.translate_bytes_async(name=file_name, file=decoded_content, to_lang=to_lang, save=False)
+        await ft.translate_bytes_async(name=file_name, file=decoded_content, to_lang=to_lang, save=False,
+                                       custom_prompt_translate=custom_prompt_translate)
         return {"success": True, "content": ft.export_to_markdown()}
     except Exception as e:
         print(f"翻译出现错误：{e.__repr__()}")
