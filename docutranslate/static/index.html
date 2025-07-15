@@ -227,8 +227,13 @@
                                             <a href="https://mineru.net/apiManage/token" target="_blank" class="ms-1"
                                                title="获取Mineru Token"><i class="bi bi-box-arrow-up-right"></i></a>
                                         </label>
-                                        <input type="password" class="form-control" id="mineru_token"
-                                               name="mineru_token" placeholder="使用Mineru引擎时需要">
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" id="mineru_token"
+                                                   name="mineru_token" placeholder="使用Mineru引擎时需要">
+                                            <button class="btn btn-outline-secondary toggle-password" type="button" data-target="mineru_token">
+                                                <i class="bi bi-eye-slash"></i>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -270,8 +275,13 @@
                                             <a href="#" target="_blank" class="ms-1" id="api_href"
                                                title="获取API Key"><i class="bi bi-box-arrow-up-right"></i></a>
                                         </label>
-                                        <input type="password" class="form-control" id="apikey" name="apikey" required
-                                               placeholder="请输入您的API Key">
+                                        <div class="input-group">
+                                            <input type="password" class="form-control" id="apikey" name="apikey" required
+                                                   placeholder="请输入您的API Key">
+                                            <button class="btn btn-outline-secondary toggle-password" type="button" data-target="apikey">
+                                                <i class="bi bi-eye-slash"></i>
+                                            </button>
+                                        </div>
                                     </div>
                                     <div class="mb-3">
                                         <label for="model_id" class="form-label">模型 ID</label>
@@ -853,7 +863,10 @@
             }
             const requiredInputs = [apikeyInput, modelInput];
             if (platformSelect.value === 'custom') requiredInputs.push(baseUrlInput);
-            if (convertEnginSelect.value === 'mineru' && !mineruTokenInput.value.trim() && (!["md", "txt"].includes(state.file.name.split('.').pop()))) {
+            // 只有当文件不是markdown或txt时，才需要mineru_token
+            const fileExtension = state.file.name.split('.').pop().toLowerCase();
+            const isTextFile = ['md', 'txt'].includes(fileExtension);
+            if (convertEnginSelect.value === 'mineru' && !mineruTokenInput.value.trim() && !isTextFile) {
                 requiredInputs.push(mineruTokenInput);
             }
 
@@ -1237,6 +1250,26 @@
             }
         }
 
+        // --- Password Toggle Functionality ---
+        function setupPasswordToggle(button) {
+            const targetId = button.dataset.target;
+            const passwordInput = document.getElementById(targetId);
+            const icon = button.querySelector('i');
+
+            button.addEventListener('click', () => {
+                if (passwordInput.type === 'password') {
+                    passwordInput.type = 'text';
+                    icon.classList.remove('bi-eye-slash');
+                    icon.classList.add('bi-eye');
+                } else {
+                    passwordInput.type = 'password';
+                    icon.classList.remove('bi-eye');
+                    icon.classList.add('bi-eye-slash');
+                }
+            });
+        }
+
+
         // --- Initialization ---
         async function init() {
             isAdminMode = window.location.pathname === '/admin';
@@ -1272,6 +1305,11 @@
             setupSlider(chunkSizeSlider, chunkSizeDisplay, chunkSizeReset, 'chunk_size', defaultParams);
             setupSlider(concurrentSlider, concurrentDisplay, concurrentReset, 'concurrent', defaultParams);
             setupSlider(temperatureSlider, temperatureDisplay, temperatureReset, 'temperature', defaultParams);
+
+            // Setup password toggles
+            document.querySelectorAll('.toggle-password').forEach(button => {
+                setupPasswordToggle(button);
+            });
 
             if (isAdminMode) {
                 document.title = "DocuTranslate - Admin Panel";
