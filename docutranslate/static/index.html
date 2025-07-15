@@ -39,6 +39,12 @@
             transition: all 0.3s ease-in-out;
         }
 
+        /* === 修改点: 为等待ID的状态添加样式 === */
+        .task-id-placeholder {
+            color: var(--bs-secondary-color);
+            font-style: italic;
+        }
+
         .log-area {
             height: 150px;
             background-color: var(--bs-tertiary-bg);
@@ -67,7 +73,6 @@
             background-color: var(--bs-secondary-bg);
         }
 
-        /* --- 修改点: 添加了文件选中后的样式 --- */
         .file-drop-area.file-selected {
             border-style: solid;
             border-color: var(--bs-success);
@@ -88,7 +93,6 @@
             width: 100%;
         }
 
-        /* --- MODIFIED: Styles for the new Offcanvas Preview --- */
         #previewOffcanvas {
             --bs-offcanvas-width: 95vw;
             max-width: 1600px;
@@ -118,7 +122,6 @@
             overflow: auto;
         }
 
-        /* split.js gutter style */
         .gutter {
             background-color: var(--bs-tertiary-bg);
             border-left: 1px solid var(--bs-border-color);
@@ -127,7 +130,6 @@
         .gutter.gutter-horizontal {
             cursor: col-resize;
         }
-        /* --- END OF MODIFICATION --- */
 
 
         .preview-pane iframe, .preview-pane pre {
@@ -386,14 +388,14 @@
 <template id="taskCardTemplate">
     <div class="card mb-3 task-card">
         <div class="card-header d-flex justify-content-between align-items-center">
-            <span class="fw-bold">任务 ID: <code class="task-id-display"></code></span>
+            <!-- === 修改点: 初始显示占位符，而不是ID === -->
+            <span class="fw-bold">任务 ID: <code class="task-id-display"><span class="task-id-placeholder">等待提交...</span></code></span>
             <button type="button" class="btn-close remove-task-btn" aria-label="Close"></button>
         </div>
         <div class="card-body">
             <div class="row">
                 <div class="col-md-5">
                     <input type="file" class="d-none file-input">
-                    <!-- --- 修改点: 更新拖放区域的内部结构以支持两种状态 --- -->
                     <div class="file-drop-area">
                         <div class="file-drop-default">
                             <i class="bi bi-cloud-arrow-up fs-1"></i>
@@ -517,6 +519,7 @@
 <script src="https://unpkg.com/split.js/dist/split.min.js"></script>
 
 <script type="module">
+        // === 以下是修改后的 JavaScript 代码 ===
 
         const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
         const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
@@ -553,7 +556,6 @@
         const noTaskPlaceholder = document.getElementById('no-task-placeholder');
         const taskCardTemplate = document.getElementById('taskCardTemplate');
 
-        // MODIFIED: Offcanvas and preview elements
         const previewOffcanvasEl = document.getElementById('previewOffcanvas');
         const previewOffcanvas = new bootstrap.Offcanvas(previewOffcanvasEl);
         const previewOffcanvasLabel = document.getElementById('previewOffcanvasLabel');
@@ -568,9 +570,10 @@
 
         // --- Global State ---
         let defaultParams = {};
-        const tasks = {}; // { taskId: { elements: {...}, state: {...}, intervals: {...} } }
-        let isAdminMode = false; // Flag for admin view
-        let previewSplitInstance = null; // To hold the Split.js instance
+        // === 修改点: tasks对象的键现在是前端生成的cardId, 用于管理UI。后端返回的taskId将存在state中。
+        const tasks = {}; // { cardId: { elements: {...}, state: {...}, intervals: {...} } }
+        let isAdminMode = false;
+        let previewSplitInstance = null;
 
         const apiHrefMap = {
             "https://openrouter.ai/api/v1": "https://openrouter.ai/settings/keys",
@@ -584,7 +587,8 @@
         };
 
         // --- Utility Functions ---
-        const generateTaskId = () => Math.random().toString(36).substring(2, 10);
+        // === 修改点: 此函数现在生成的是临时的UI卡片ID (cardId)
+        const generateCardId = () => `card_${Math.random().toString(36).substring(2, 10)}`;
         const saveToStorage = (key, value) => { try { localStorage.setItem(key, value); } catch (e) { console.warn("Save to storage failed:", e); } };
         const getFromStorage = (key, defaultValue = '') => { try { return localStorage.getItem(key) || defaultValue; } catch (e) { console.warn("Read from storage failed:", e); return defaultValue; } };
 
@@ -593,7 +597,6 @@
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
                 reader.onload = () => {
-                    // Result is "data:...,base64,XYZ...", we only want "XYZ..."
                     const base64String = reader.result.split(',')[1];
                     resolve(base64String);
                 };
@@ -660,25 +663,23 @@
         }
 
         function saveTaskIds() {
-            if (isAdminMode) return; // In admin mode, do not save task list to localStorage
-            // === 修改点: 只保存已提交到后端的任务ID ===
-            // 这是解决问题的核心。通过只持久化那些已经成功提交给后端处理的任务，
-            // 我们可以防止未提交的任务（这些任务在后端不存在）在页面刷新后被恢复。
-            // 如果一个未提交的任务是页面上唯一的任务，刷新后 `localStorage` 中的任务列表会是空的，
-            // `init`函数在初始化时会发现没有任务，从而新建一个空白任务，符合预期。
-            const submittedTaskIds = Object.keys(tasks).filter(taskId => tasks[taskId].state.isSubmitted);
+            if (isAdminMode) return;
+            // === 修改点: 保存的是已经从后端获取到ID的任务
+            const submittedTaskIds = Object.values(tasks)
+                                           .map(task => task.state.backendTaskId)
+                                           .filter(id => id); // 过滤掉null或undefined
             saveToStorage('active_task_ids', JSON.stringify(submittedTaskIds));
         }
 
         // --- Task Card Management ---
-        function createTaskCard(taskId = null, restoreState = false) {
-            if (!taskId) {
-                taskId = generateTaskId();
-            }
+        // === 修改点: taskId现在是后端ID, cardId是前端ID。恢复时taskId就是cardId。
+        function createTaskCard(backendTaskId = null, restoreState = false) {
+            // cardId是用于在前端tasks对象中唯一标识一个卡片的ID
+            const cardId = backendTaskId || generateCardId();
 
             const cardFragment = taskCardTemplate.content.cloneNode(true);
             const cardElement = cardFragment.querySelector('.task-card');
-            cardElement.dataset.taskId = taskId;
+            cardElement.dataset.cardId = cardId; // 使用cardId作为标识
 
             const elements = {
                 card: cardElement,
@@ -702,17 +703,19 @@
                 startBtn: cardElement.querySelector('.start-translate-btn'),
             };
 
-            elements.taskIdDisplay.textContent = taskId;
+            // === 修改点: 如果是恢复任务，直接显示ID，否则显示占位符
+            if (restoreState && backendTaskId) {
+                elements.taskIdDisplay.textContent = backendTaskId;
+            }
 
-            tasks[taskId] = {
+            tasks[cardId] = {
                 elements,
                 state: {
+                    backendTaskId: backendTaskId, // 存储从后端获取的真实ID
                     isTranslating: false,
                     file: null,
                     htmlUrl: null,
                     fileNameStem: null,
-                    // 如果任务是从之前的会话中恢复的（restoreState为true），
-                    // 那么它一定是一个已经提交过的任务。
                     isSubmitted: restoreState
                 },
                 intervals: {
@@ -721,41 +724,42 @@
                 }
             };
 
-            addEventListenersToCard(taskId);
+            addEventListenersToCard(cardId);
 
             taskContainer.prepend(cardElement);
             updateTaskPlaceholderVisibility();
 
-            if (!restoreState) {
-                saveTaskIds();
-            } else {
-                // If restoring, immediately check status
-                pollStatus(taskId, true);
+            if (restoreState && backendTaskId) {
+                // 如果是恢复任务，立即用backendTaskId检查状态
+                pollStatus(backendTaskId, true);
             }
         }
 
-        async function removeTask(taskId) {
-            stopPolling(taskId);
-            tasks[taskId].elements.card.remove();
-            delete tasks[taskId];
+        async function removeTask(cardId) {
+            const task = tasks[cardId];
+            if (!task) return;
+
+            const backendTaskId = task.state.backendTaskId;
+            if (backendTaskId) {
+                stopPolling(backendTaskId);
+                await fetch(`/service/release/${backendTaskId}`,{method: 'POST'});
+            }
+
+            task.elements.card.remove();
+            delete tasks[cardId];
             saveTaskIds();
             updateTaskPlaceholderVisibility();
-            await fetch(`service/release/${taskId}`,{method: 'POST'});
         }
 
-        function addEventListenersToCard(taskId) {
-            const { elements, state } = tasks[taskId];
+        function addEventListenersToCard(cardId) {
+            const { elements } = tasks[cardId];
 
-            elements.removeBtn.addEventListener('click', () => removeTask(taskId));
+            elements.removeBtn.addEventListener('click', () => removeTask(cardId));
 
-            // File Drop/Select Logic
             elements.fileDropArea.addEventListener('click', () => elements.fileInput.click());
-            elements.fileInput.addEventListener('change', () => handleFileSelect(taskId));
+            elements.fileInput.addEventListener('change', () => handleFileSelect(cardId));
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                elements.fileDropArea.addEventListener(eventName, e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                }, false);
+                elements.fileDropArea.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); }, false);
             });
             ['dragenter', 'dragover'].forEach(eventName => {
                 elements.fileDropArea.addEventListener(eventName, () => elements.fileDropArea.classList.add('drag-over'), false);
@@ -766,46 +770,38 @@
             elements.fileDropArea.addEventListener('drop', e => {
                 if (e.dataTransfer.files.length > 0) {
                     elements.fileInput.files = e.dataTransfer.files;
-                    handleFileSelect(taskId);
+                    handleFileSelect(cardId);
                 }
             }, false);
 
-            // Main Action Button
             elements.startBtn.addEventListener('click', () => {
-                if (state.isTranslating) {
-                    cancelTranslation(taskId);
+                if (tasks[cardId].state.isTranslating) {
+                    cancelTranslation(cardId);
                 } else {
-                    startTranslation(taskId);
+                    startTranslation(cardId);
                 }
             });
         }
 
-        function handleFileSelect(taskId) {
-            const { elements, state } = tasks[taskId];
+        function handleFileSelect(cardId) {
+            const { elements, state } = tasks[cardId];
             const file = elements.fileInput.files[0];
             if (file) {
                 state.file = file;
-
-                // 更新外部文件名显示
                 elements.fileNameDisplay.textContent = file.name;
                 elements.fileNameDisplayWrapper.style.display = 'block';
-
-                // 更新拖放区外观为“已选择”状态
                 elements.fileDropArea.classList.add('file-selected');
                 elements.fileDropDefault.style.display = 'none';
                 elements.fileDropSelected.style.display = 'block';
-
-                // 清除任何之前的错误状态
                 elements.fileDropArea.classList.remove('input-error');
                 elements.fileNameDisplay.classList.remove('input-error-text');
             }
         }
 
         // --- Core Translation Logic ---
-        async function startTranslation(taskId) {
-            const { elements, state } = tasks[taskId];
+        async function startTranslation(cardId) {
+            const { elements, state } = tasks[cardId];
 
-            // --- Validation ---
             if (!state.file) {
                 elements.statusMessage.textContent = '请先选择一个文件。';
                 elements.statusMessage.className = 'status-message small text-danger';
@@ -832,7 +828,6 @@
                 return;
             }
 
-            // --- UI Update for Starting ---
             state.isTranslating = true;
             elements.startBtn.disabled = true;
             elements.startBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 初始化...`;
@@ -845,10 +840,8 @@
             try {
                 const fileContentBase64 = await fileToBase64(state.file);
 
-                state.isSubmitted = true;
-
+                // === 修改点: payload不再包含task_id ===
                 const payload = {
-                    task_id: taskId,
                     base_url: baseUrlInput.value,
                     apikey: apikeyInput.value,
                     model_id: modelInput.value,
@@ -874,22 +867,29 @@
                 const result = await response.json();
 
                 if (response.ok && result.task_started) {
-                    // === 修改点: 任务成功提交后，保存其ID ===
-                    // 由于 saveTaskIds 只保存 isSubmitted 为 true 的任务，
-                    // 在这里调用它可以确保这个新提交的任务ID被持久化。
-                    saveTaskIds();
+                    // === 修改点: 从后端响应中获取 task_id ===
+                    const backendTaskId = result.task_id;
+                    state.backendTaskId = backendTaskId;
+                    state.isSubmitted = true;
+
+                    // === 修改点: 更新UI显示 task_id ===
+                    elements.taskIdDisplay.textContent = backendTaskId;
+                    elements.taskIdDisplay.classList.remove('task-id-placeholder');
+
+                    saveTaskIds(); // 保存已提交的任务ID
+
                     elements.statusMessage.textContent = result.message || '任务已开始，正在处理...';
                     elements.statusMessage.className = 'status-message small text-info';
                     elements.startBtn.innerHTML = `<i class="bi bi-stop-circle-fill me-1"></i>取消翻译`;
                     elements.startBtn.classList.replace('btn-primary', 'btn-danger');
                     elements.startBtn.disabled = false;
-                    startPolling(taskId);
+
+                    // === 修改点: 使用从后端获取的ID开始轮询 ===
+                    startPolling(backendTaskId);
                 } else {
                     throw new Error(result.message || `请求失败 (${response.status})`);
                 }
             } catch (error) {
-                // === 修改点: 如果提交失败或过程中出现任何异常，将任务状态重置为未提交 ===
-                // 这样可以防止一个失败的任务被错误地标记为“已提交”，从而避免了刷新后出现问题。
                 state.isSubmitted = false;
                 console.error('请求失败:', error);
                 elements.statusMessage.textContent = `启动失败: ${error.message}`;
@@ -902,13 +902,18 @@
             }
         }
 
-        async function cancelTranslation(taskId) {
-            const { elements } = tasks[taskId];
+        async function cancelTranslation(cardId) {
+            const task = tasks[cardId];
+            if (!task || !task.state.backendTaskId) return;
+
+            const { elements } = task;
+            const backendTaskId = task.state.backendTaskId;
+
             elements.startBtn.disabled = true;
             elements.startBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 正在取消...`;
 
             try {
-                const response = await fetch(`/service/cancel/${taskId}`, { method: 'POST' });
+                const response = await fetch(`/service/cancel/${backendTaskId}`, { method: 'POST' });
                 const result = await response.json();
 
                 if (response.ok && result.cancelled) {
@@ -926,27 +931,37 @@
         }
 
         // --- Polling ---
-        function startPolling(taskId) {
-            stopPolling(taskId);
-            const { intervals } = tasks[taskId];
-            intervals.log = setInterval(() => pollLogs(taskId), 2000);
-            intervals.status = setInterval(() => pollStatus(taskId), 1500);
-            pollLogs(taskId);
-            pollStatus(taskId);
+        // === 修改点: taskId参数现在总是后端的ID
+        function startPolling(backendTaskId) {
+            stopPolling(backendTaskId);
+            // 找到对应的卡片
+            const card = Object.values(tasks).find(t => t.state.backendTaskId === backendTaskId);
+            if (!card) return;
+
+            card.intervals.log = setInterval(() => pollLogs(backendTaskId), 2000);
+            card.intervals.status = setInterval(() => pollStatus(backendTaskId), 1500);
+            pollLogs(backendTaskId);
+            pollStatus(backendTaskId);
         }
 
-        function stopPolling(taskId) {
-            const { intervals } = tasks[taskId];
+        function stopPolling(backendTaskId) {
+            const card = Object.values(tasks).find(t => t.state.backendTaskId === backendTaskId);
+            if (!card) return;
+
+            const { intervals } = card;
             if (intervals.log) clearInterval(intervals.log);
             if (intervals.status) clearInterval(intervals.status);
             intervals.log = null;
             intervals.status = null;
         }
 
-        async function pollLogs(taskId) {
-            const { elements } = tasks[taskId];
+        async function pollLogs(backendTaskId) {
+            const card = Object.values(tasks).find(t => t.state.backendTaskId === backendTaskId);
+            if (!card) return;
+            const { elements } = card;
+
             try {
-                const response = await fetch(`/service/logs/${taskId}`);
+                const response = await fetch(`/service/logs/${backendTaskId}`);
                 if (!response.ok) return;
                 const data = await response.json();
                 if (data.logs && data.logs.length > 0) {
@@ -954,23 +969,35 @@
                     elements.logArea.scrollTop = elements.logArea.scrollHeight;
                 }
             } catch (error) {
-                console.warn(`[${taskId}] Error polling logs:`, error);
+                console.warn(`[${backendTaskId}] Error polling logs:`, error);
             }
         }
 
-        async function pollStatus(taskId, isRestore = false) {
-            const { elements, state } = tasks[taskId];
+        async function pollStatus(backendTaskId, isRestore = false) {
+            const card = Object.values(tasks).find(t => t.state.backendTaskId === backendTaskId);
+            if (!card) {
+                 // 如果是恢复任务时找不到卡片，可能是在其他地方被删除了
+                if (isRestore) {
+                    console.warn(`Restored task ${backendTaskId} not found in UI, removing from storage.`);
+                    const savedTaskIds = JSON.parse(getFromStorage('active_task_ids', '[]'));
+                    const newIds = savedTaskIds.filter(id => id !== backendTaskId);
+                    saveToStorage('active_task_ids', JSON.stringify(newIds));
+                }
+                return;
+            }
+            const { elements, state } = card;
+            const cardId = card.elements.card.dataset.cardId;
+
             try {
-                const response = await fetch(`/service/status/${taskId}`);
+                const response = await fetch(`/service/status/${backendTaskId}`);
                 if (!response.ok) {
-                    if (response.status === 404 && isRestore && state.isSubmitted) {
-                        await removeTask(taskId);
+                    if (response.status === 404 && isRestore) {
+                        await removeTask(cardId);
                     }
                     return;
                 }
                 const status = await response.json();
 
-                // 页面刷新时，从后端状态恢复文件名显示
                 if (status.original_filename && (!state.file || isRestore)) {
                     elements.fileNameDisplay.textContent = status.original_filename;
                     elements.fileNameDisplayWrapper.style.display = 'block';
@@ -980,7 +1007,7 @@
                 elements.statusMessage.className = `status-message small ${status.error_flag ? 'text-danger' : 'text-info'}`;
 
                 if (!status.is_processing) {
-                    stopPolling(taskId);
+                    stopPolling(backendTaskId);
                     state.isTranslating = false;
                     elements.startBtn.disabled = false;
                     elements.startBtn.innerHTML = `<i class="bi bi-play-fill me-1"></i>重新翻译`;
@@ -989,8 +1016,6 @@
 
                     if (status.download_ready && !status.error_flag) {
                         elements.statusMessage.className = 'status-message small text-success';
-
-                        // Use download URLs directly from the service response
                         state.htmlUrl = status.downloads.html;
                         state.fileNameStem = status.original_filename_stem;
 
@@ -998,8 +1023,8 @@
                         elements.mdLink.href = status.downloads.markdown;
                         elements.mdZipLink.href = status.downloads.markdown_zip;
 
-                        elements.previewBtn.onclick = () => setupPreview(taskId);
-                        elements.pdfBtn.onclick = () => downloadPdf(taskId);
+                        elements.previewBtn.onclick = () => setupPreview(cardId);
+                        elements.pdfBtn.onclick = () => downloadPdf(cardId);
 
                         elements.downloadButtons.style.display = 'flex';
                     } else {
@@ -1013,29 +1038,27 @@
                     elements.progress.style.display = 'block';
                     elements.downloadButtons.style.display = 'none';
 
-                    if (isRestore && !tasks[taskId].intervals.status) {
-                        startPolling(taskId);
+                    if (isRestore && !card.intervals.status) {
+                        startPolling(backendTaskId);
                     }
                 }
 
             } catch (error) {
-                console.error(`[${taskId}] Error polling status:`, error);
+                console.error(`[${backendTaskId}] Error polling status:`, error);
                 elements.statusMessage.textContent = '状态更新出错。';
                 elements.statusMessage.className = 'status-message small text-danger';
             }
         }
 
-        // --- MODIFIED: Download and Preview ---
-        function setupPreview(taskId) {
-            const { state } = tasks[taskId];
+        // --- Download and Preview (No changes needed here, they use cardId to get state) ---
+        function setupPreview(cardId) {
+            const { state } = tasks[cardId];
             if (!state.htmlUrl) return;
 
-            // Clear previous content
             const existingOriginalContent = originalPreviewPane.querySelector('iframe, pre, p');
             if (existingOriginalContent) existingOriginalContent.remove();
             translatedPreviewFrame.src = 'about:blank';
 
-            // Render original file preview
             if (state.file) {
                 const fileType = state.file.type;
                 const fileExtension = state.file.name.split('.').pop().toLowerCase();
@@ -1062,7 +1085,6 @@
                 originalPreviewPane.appendChild(p);
             }
 
-            // Fetch and render translated HTML
             fetch(state.htmlUrl)
                 .then(resp => resp.ok ? resp.text() : Promise.reject(`HTTP error ${resp.status}`))
                 .then(html => {
@@ -1085,8 +1107,8 @@
             };
         }
 
-        function downloadPdf(taskId) {
-            const { elements, state } = tasks[taskId];
+        function downloadPdf(cardId) {
+            const { elements, state } = tasks[cardId];
             if (!state.htmlUrl) return;
 
             elements.pdfBtn.disabled = true;
@@ -1119,73 +1141,50 @@
         }
 
         function setPreviewDisplayMode(mode) {
-            // Always destroy the previous split instance to avoid errors
             if (previewSplitInstance) {
                 previewSplitInstance.destroy();
                 previewSplitInstance = null;
             }
 
-            // Ensure containers are visible and reset styles before applying new ones
             originalPreviewContainer.style.display = 'flex';
             originalPreviewContainer.style.width = '';
             translatedPreviewContainer.style.width = '';
 
             if (mode === 'bilingual') {
                 previewOffcanvasLabel.textContent = '双语预览';
-
-                // Re-initialize Split.js for resizable panes
                 previewSplitInstance = Split(['#originalPreviewContainer', '#translatedPreviewContainer'], {
-                    sizes: [50, 50],
-                    minSize: 200, // Minimum pane size in pixels
-                    gutterSize: 10,
-                    cursor: 'col-resize',
+                    sizes: [50, 50], minSize: 200, gutterSize: 10, cursor: 'col-resize',
                 });
-
-                // Update button states
                 setBilingualViewBtn.classList.add('btn-primary');
                 setBilingualViewBtn.classList.remove('btn-outline-primary');
                 setTranslatedOnlyViewBtn.classList.remove('btn-primary');
                 setTranslatedOnlyViewBtn.classList.add('btn-outline-primary');
-
-            } else { // translationOnly
+            } else {
                 previewOffcanvasLabel.textContent = '译文预览';
-
-                // Hide original, make translated pane full-width
                 originalPreviewContainer.style.display = 'none';
                 translatedPreviewContainer.style.width = '100%';
-
-                // Update button states
                 setTranslatedOnlyViewBtn.classList.add('btn-primary');
                 setTranslatedOnlyViewBtn.classList.remove('btn-outline-primary');
                 setBilingualViewBtn.classList.remove('btn-primary');
                 setBilingualViewBtn.classList.add('btn-outline-primary');
             }
         }
-        // --- End of MODIFICATION ---
 
         // --- Initialization ---
         async function init() {
-            // Determine if in admin mode
             isAdminMode = window.location.pathname === '/admin';
-
-            // Fetch metadata
             try {
                 const [metaRes, enginRes, paramsRes] = await Promise.all([
-                    fetch("/service/meta"),
-                    fetch('/service/engin-list'),
-                    fetch("/service/default-params")
+                    fetch("/service/meta"), fetch('/service/engin-list'), fetch("/service/default-params")
                 ]);
                 const meta = await metaRes.json();
                 versionDisplay.textContent = `v${meta.version}`;
-
                 const enginList = await enginRes.json();
                 Array.from(convertEnginSelect.options).forEach(option => {
                     if (!enginList.includes(option.value)) {
-                        option.disabled = true;
-                        option.textContent += " (不可用)";
+                        option.disabled = true; option.textContent += " (不可用)";
                     }
                 });
-
                 defaultParams = await paramsRes.json();
             } catch (error) {
                 console.error("Initialization failed:", error);
@@ -1193,7 +1192,6 @@
                 return;
             }
 
-            // Load settings
             platformSelect.value = getFromStorage('translator_last_platform', 'https://api.openai.com/v1');
             updatePlatformUI();
             convertEnginSelect.value = getFromStorage('translator_convert_engin', 'mineru');
@@ -1204,12 +1202,10 @@
             refineCheckbox.checked = getFromStorage('translator_refine_markdown') === 'true';
             customPromptTranslateArea.value = getFromStorage("custom_prompt_translate");
 
-            // Setup sliders
             setupSlider(chunkSizeSlider, chunkSizeDisplay, chunkSizeReset, 'chunk_size', defaultParams);
             setupSlider(concurrentSlider, concurrentDisplay, concurrentReset, 'concurrent', defaultParams);
             setupSlider(temperatureSlider, temperatureDisplay, temperatureReset, 'temperature', defaultParams);
 
-            // Restore tasks based on mode
             if (isAdminMode) {
                 document.title = "DocuTranslate - Admin Panel";
                 try {
@@ -1225,16 +1221,14 @@
                 }
                 updateTaskPlaceholderVisibility();
             } else {
-                // Normal mode: Restore from localStorage
                 const savedTaskIds = JSON.parse(getFromStorage('active_task_ids', '[]'));
                 if (savedTaskIds.length > 0) {
                     savedTaskIds.forEach(taskId => createTaskCard(taskId, true));
                 } else {
-                    createTaskCard(); // Create one new task by default
+                    createTaskCard();
                 }
             }
 
-            // Add event listeners for settings
             platformSelect.addEventListener('change', updatePlatformUI);
             apikeyInput.addEventListener('input', e => saveToStorage(`translator_platform_${platformSelect.value}_apikey`, e.target.value));
             modelInput.addEventListener('input', e => saveToStorage(`translator_platform_${platformSelect.value}_model_id`, e.target.value));
@@ -1253,53 +1247,14 @@
         }
 
         // --- Theme switcher logic ---
-        const getPreferredTheme = () => {
-            const storedTheme = localStorage.getItem('theme');
-            if (storedTheme) {
-                return storedTheme;
-            }
-            return 'auto';
-        };
-
-        const setTheme = theme => {
-            if (theme === 'auto') {
-                document.documentElement.setAttribute('data-bs-theme', window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-            } else {
-                document.documentElement.setAttribute('data-bs-theme', theme);
-            }
-        };
-
-        const showActiveTheme = (theme) => {
-            document.querySelectorAll('[data-bs-theme-value]').forEach(element => {
-                element.classList.remove('active');
-            });
-
-            const activeButton = document.querySelector(`[data-bs-theme-value="${theme}"]`);
-            if (activeButton) {
-                activeButton.classList.add('active');
-            }
-        };
-
+        const getPreferredTheme = () => { const storedTheme = localStorage.getItem('theme'); if (storedTheme) { return storedTheme; } return 'auto'; };
+        const setTheme = theme => { if (theme === 'auto') { document.documentElement.setAttribute('data-bs-theme', window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); } else { document.documentElement.setAttribute('data-bs-theme', theme); } };
+        const showActiveTheme = (theme) => { document.querySelectorAll('[data-bs-theme-value]').forEach(element => { element.classList.remove('active'); }); const activeButton = document.querySelector(`[data-bs-theme-value="${theme}"]`); if (activeButton) { activeButton.classList.add('active'); } };
         const preferredTheme = getPreferredTheme();
         setTheme(preferredTheme);
         showActiveTheme(preferredTheme);
-
-        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-            const storedTheme = localStorage.getItem('theme');
-            if (storedTheme === 'auto' || !storedTheme) {
-                setTheme('auto');
-            }
-        });
-
-        document.querySelectorAll('[data-bs-theme-value]').forEach(toggle => {
-            toggle.addEventListener('click', () => {
-                const theme = toggle.getAttribute('data-bs-theme-value');
-                localStorage.setItem('theme', theme);
-                setTheme(theme);
-                showActiveTheme(theme);
-            });
-        });
-
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { const storedTheme = localStorage.getItem('theme'); if (storedTheme === 'auto' || !storedTheme) { setTheme('auto'); } });
+        document.querySelectorAll('[data-bs-theme-value]').forEach(toggle => { toggle.addEventListener('click', () => { const theme = toggle.getAttribute('data-bs-theme-value'); localStorage.setItem('theme', theme); setTheme(theme); showActiveTheme(theme); }); });
 
         // --- Start the application ---
         document.addEventListener('DOMContentLoaded', init);

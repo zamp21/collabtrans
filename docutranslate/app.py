@@ -6,6 +6,7 @@ import logging
 import os
 import socket
 import time
+import uuid
 from contextlib import asynccontextmanager, closing
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Literal, Union
@@ -281,11 +282,11 @@ DocuTranslate 后端服务 API，提供文档翻译、状态查询、结果下�
 **注意**: 所有任务状态都保存在服务进程的内存中，服务重启将导致所有任务信息丢失。
 
 ### 主要工作流程:
-1.  **`POST /service/translate`**: 提交文件和翻译参数，启动一个后台任务，并获取 `task_id`。
-2.  **`GET /service/status/{{task_id}}`**: 使用 `task_id` 轮询此端点，获取任务的实时状态。
+1.  **`POST /service/translate`**: 提交文件和翻译参数，启动一个后台任务。服务会自动生成并返回一个唯一的 `task_id`。
+2.  **`GET /service/status/{{task_id}}`**: 使用获取到的 `task_id` 轮询此端点，获取任务的实时状态。
 3.  **`GET /service/logs/{{task_id}}`**: (可选) 获取实时的翻译日志。
 4.  **`GET /service/download/{{task_id}}/{{file_type}}`**: 任务完成后 (当 `download_ready` 为 `true` 时)，通过此端点下载结果文件。
-5.  **`GET /service/download_content/{{task_id}}/{{file_type}}`**: 任务完成后，以JSON格式获取文件内容。
+5.  **`GET /service/content/{{task_id}}/{{file_type}}`**: 任务完成后(当 `download_ready` 为 `true` 时)，以JSON格式获取文件内容。
 6.  **`POST /service/cancel/{{task_id}}`**: (可选) 取消一个正在进行的任务。
 7.  **`POST /service/release/{{task_id}}`**: (可选) 当任务不再需要时，释放其在服务器上占用的所有资源。
 
@@ -302,14 +303,9 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 # ===================================================================
-# --- Pydantic Models for Service API ---
+# --- Pydantic Models for Service API (MODIFIED) ---
 # ===================================================================
 class TranslateServiceRequest(BaseModel):
-    task_id: str = Field(
-        default="0",
-        description="任务的唯一标识符。用于后续跟踪任务状态和结果。",
-        examples=["task-b2865b93"]
-    )
     base_url: str = Field(
         ...,
         description="LLM API的基础URL，例如 OpenAI, deepseek, 或任何兼容OpenAI的接口。",
@@ -386,7 +382,6 @@ class TranslateServiceRequest(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "task_id": "task-b2865b93-85d7-40a8-b118-a61048698585",
                 "base_url": "https://api.openai.com/v1",
                 "apikey": "sk-your-api-key-here",
                 "model_id": "gpt-4o",
@@ -407,7 +402,7 @@ class TranslateServiceRequest(BaseModel):
 
 
 # ===================================================================
-# --- Service Endpoints (/service) ---
+# --- Service Endpoints (/service) (MODIFIED) ---
 # ===================================================================
 
 @service_router.post(
@@ -417,20 +412,20 @@ class TranslateServiceRequest(BaseModel):
 接收一个包含文件内容（Base64编码）和翻译参数的JSON请求，启动一个后台翻译任务。
 
 - **异步处理**: 此端点会立即返回，不会等待翻译完成。
-- **任务ID**: 成功启动后，会返回任务ID (`task_id`)。
+- **任务ID**: 成功启动后，服务会自动生成并返回任务ID (`task_id`)。
 - **后续步骤**: 客户端应使用返回的 `task_id` 轮询 `/service/status/{task_id}` 接口来获取任务进度和结果。
 """,
     responses={
         200: {
             "description": "翻译任务成功启动。",
-            "content": {"application/json": {"example": {"task_started": True, "task_id": "task-b2865b93",
+            "content": {"application/json": {"example": {"task_started": True, "task_id": "b2865b93",
                                                          "message": "翻译任务已成功启动，请稍候..."}}}
         },
         400: {"description": "请求体中的Base64文件内容无效。",
               "content": {"application/json": {"example": {"detail": "无效的Base64文件内容: Incorrect padding"}}}},
-        429: {"description": "同一任务ID已在进行中，无法重复提交。", "content": {
+        429: {"description": "服务器内部任务冲突，请重试。", "content": {
             "application/json": {
-                "example": {"task_started": False, "message": "任务ID 'task-b2865b93' 正在进行中，请稍后再试。"}}}},
+                "example": {"task_started": False, "message": "任务ID 'b2865b93' 正在进行中，请稍后再试。"}}}},
         500: {"description": "服务器内部错误，导致任务启动失败。",
               "content": {
                   "application/json": {
@@ -440,25 +435,27 @@ class TranslateServiceRequest(BaseModel):
 async def service_translate(request: TranslateServiceRequest = Body(..., description="翻译任务的详细参数和文件内容。")):
     """
     提交一个文件进行翻译，并启动一个后台任务。
-    文件内容需以Base64编码。
-    返回任务ID，后续可凭此ID查询状态和下载结果。
+    文件内容需以Base64编码，任务ID将由后端自动生成并返回。
+    后续可凭此ID查询状态和下载结果。
     """
+    task_id = uuid.uuid4().hex[:8]
+
     try:
         file_contents = base64.b64decode(request.file_content)
     except (binascii.Error, TypeError) as e:
         raise HTTPException(status_code=400, detail=f"无效的Base64文件内容: {e}")
 
-    params = request.model_dump(exclude={'file_name', 'file_content', 'task_id'})
+    params = request.model_dump(exclude={'file_name', 'file_content'})
     try:
         response_data = await _start_translation_task(
-            task_id=request.task_id,
+            task_id=task_id,
             params=params,
             file_contents=file_contents,
             original_filename=request.file_name
         )
         return JSONResponse(content=response_data)
     except HTTPException as e:
-        # Re-raise as JSONResponse to fit the documented response model
+        # 重新包装为JSONResponse以匹配文档中的响应模型
         if e.status_code == 429:
             return JSONResponse(status_code=e.status_code, content={"task_started": False, "message": e.detail})
         if e.status_code == 500:
@@ -488,7 +485,7 @@ async def service_translate(request: TranslateServiceRequest = Body(..., descrip
     }
 )
 async def service_cancel_translate(
-        task_id: str = FastApiPath(..., description="要取消的任务的ID", example="task-b2865b93")):
+        task_id: str = FastApiPath(..., description="要取消的任务的ID", example="b2865b93")):
     """根据任务ID取消一个正在进行的翻译任务。"""
     try:
         response_data = _cancel_translation_logic(task_id)
@@ -511,7 +508,7 @@ async def service_cancel_translate(
         200: {
             "description": "任务资源已成功释放。",
             "content": {
-                "application/json": {"example": {"released": True, "message": "任务 'task-b2865b93' 的资源已释放。"}}
+                "application/json": {"example": {"released": True, "message": "任务 'b2865b93' 的资源已释放。"}}
             }
         },
         404: {
@@ -522,7 +519,7 @@ async def service_cancel_translate(
     }
 )
 async def service_release_task(
-        task_id: str = FastApiPath(..., description="要释放资源的任务的ID", example="task-b2865b93")
+        task_id: str = FastApiPath(..., description="要释放资源的任务的ID", example="b2865b93")
 ):
     """根据任务ID释放其占用的所有服务器资源。"""
     if task_id not in tasks_state:
@@ -575,7 +572,7 @@ async def service_release_task(
                         "processing": {
                             "summary": "处理中",
                             "value": {
-                                "task_id": "task-b2865b93",
+                                "task_id": "b2865b93",
                                 "is_processing": True,
                                 "status_message": "正在翻译: 15/50 块",
                                 "error_flag": False,
@@ -594,7 +591,7 @@ async def service_release_task(
                         "completed": {
                             "summary": "已完成",
                             "value": {
-                                "task_id": "task-b2865b93",
+                                "task_id": "b2865b93",
                                 "is_processing": False,
                                 "status_message": "翻译成功！用时 123.45 秒。",
                                 "error_flag": False,
@@ -604,16 +601,16 @@ async def service_release_task(
                                 "task_start_time": 1678886400.123,
                                 "task_end_time": 1678886523.573,
                                 "downloads": {
-                                    "markdown": "/service/download/task-b2865b93/markdown",
-                                    "markdown_zip": "/service/download/task-b2865b93/markdown_zip",
-                                    "html": "/service/download/task-b2865b93/html"
+                                    "markdown": "/service/download/b2865b93/markdown",
+                                    "markdown_zip": "/service/download/b2865b93/markdown_zip",
+                                    "html": "/service/download/b2865b93/html"
                                 }
                             }
                         },
                         "error": {
                             "summary": "出错",
                             "value": {
-                                "task_id": "task-b2865b93",
+                                "task_id": "b2865b93",
                                 "is_processing": False,
                                 "status_message": "翻译过程中发生错误 (用时 45.67 秒): APIConnectionError(...)",
                                 "error_flag": True,
@@ -640,7 +637,7 @@ async def service_release_task(
     }
 )
 async def service_get_status(
-        task_id: str = FastApiPath(..., description="要查询状态的任务的ID", example="task-b2865b93")):
+        task_id: str = FastApiPath(..., description="要查询状态的任务的ID", example="b2865b93")):
     """根据任务ID获取任务的当前状态和结果下载链接。"""
     task_state = tasks_state.get(task_id)
     if not task_state:
@@ -692,7 +689,7 @@ async def service_get_status(
     }
 )
 async def service_get_logs(
-        task_id: str = FastApiPath(..., description="要获取日志的任务的ID", example="task-b2865b93")):
+        task_id: str = FastApiPath(..., description="要获取日志的任务的ID", example="b2865b93")):
     """获取指定任务ID自上次查询以来的新日志。"""
     if task_id not in tasks_log_queues:
         raise HTTPException(status_code=404, detail=f"找不到任务ID '{task_id}' 的日志队列。")
@@ -730,7 +727,7 @@ FileType = Literal["markdown", "markdown_zip", "html"]
     }
 )
 async def service_download_file(
-        task_id: str = FastApiPath(..., description="已完成任务的ID", example="task-b2865b93"),
+        task_id: str = FastApiPath(..., description="已完成任务的ID", example="b2865b93"),
         file_type: FileType = FastApiPath(..., description="要下载的文件类型。", example="html")
 ):
     """根据任务ID和文件类型下载翻译结果。"""
@@ -756,7 +753,7 @@ async def service_download_file(
 
 
 @service_router.get(
-    "/download_content/{task_id}/{file_type}",
+    "/content/{task_id}/{file_type}",
     summary="下载翻译结果内容 (JSON)",
     description="""
 根据任务ID和文件类型，以JSON格式返回翻译结果的内容。该接口总是返回一个JSON对象。
@@ -778,7 +775,7 @@ async def service_download_file(
                             "summary": "Markdown 内容",
                             "value": {
                                 "file_type": "markdown",
-                                "filename": "my_doc_translated.md",
+                                "original_filename": "my_doc.pdf",
                                 "content": "# 标题\n\n这是翻译后的Markdown内容..."
                             }
                         },
@@ -786,7 +783,7 @@ async def service_download_file(
                             "summary": "HTML 内容",
                             "value": {
                                 "file_type": "html",
-                                "filename": "my_doc_translated.html",
+                                "original_filename": "my_doc.pdf",
                                 "content": "<h1>标题</h1><p>这是翻译后的HTML内容...</p>"
                             }
                         },
@@ -794,7 +791,7 @@ async def service_download_file(
                             "summary": "ZIP 内容 (Base64)",
                             "value": {
                                 "file_type": "markdown_zip",
-                                "filename": "my_doc_translated.zip",
+                                "filename": "my_doc.pdf",
                                 "content": "UEsDBBQAAAAIA... (base64-encoded string)"
                             }
                         }
@@ -808,8 +805,8 @@ async def service_download_file(
         },
     }
 )
-async def service_download_content(
-        task_id: str = FastApiPath(..., description="已完成任务的ID", example="task-b2865b93"),
+async def service_content(
+        task_id: str = FastApiPath(..., description="已完成任务的ID", example="b2865b93"),
         file_type: FileType = FastApiPath(..., description="要获取内容的文件类型。", example="html")
 ):
     """根据任务ID和文件类型，以JSON格式返回内容。zip文件会进行Base64编码。"""
@@ -821,10 +818,9 @@ async def service_download_content(
         raise HTTPException(status_code=404, detail="内容尚未准备好。")
 
     content_map = {
-        "markdown": (task_state.get("markdown_content"), f"{task_state['original_filename_stem']}_translated.md"),
-        "markdown_zip": (task_state.get("markdown_zip_content"),
-                         f"{task_state['original_filename_stem']}_translated.zip"),
-        "html": (task_state.get("html_content"), f"{task_state['original_filename_stem']}_translated.html"),
+        "markdown": (task_state.get("markdown_content"), task_state['original_filename']),
+        "markdown_zip": (task_state.get("markdown_zip_content"),task_state['original_filename']),
+        "html": (task_state.get("html_content"), task_state['original_filename']),
     }
 
     raw_content, filename = content_map.get(file_type, (None, None))
@@ -837,7 +833,7 @@ async def service_download_content(
 
     return JSONResponse(content={
         "file_type": file_type,
-        "filename": filename,
+        "original_filename": filename,
         "content": final_content
     })
 
@@ -871,7 +867,7 @@ async def service_get_engin_list():
     responses={
         200: {
             "description": "成功返回任务ID列表。",
-            "content": {"application/json": {"example": ["task-b2865b93", "task-another-one", "0"]}}
+            "content": {"application/json": {"example": ["b2865b93", "f4e2a1c8"]}}
         }
     }
 )
@@ -1021,6 +1017,7 @@ def run_app(port: int | None = None):
         if port_to_use != initial_port: print(f"端口 {initial_port} 被占用，将使用端口 {port_to_use} 代替")
         print(f"正在启动 DocuTranslate WebUI 版本号：{__version__}")
         print(f"请用浏览器访问 http://127.0.0.1:{port_to_use}")
+        print(f"服务接口文档: http://127.0.0.1:{port_to_use}/docs")
         uvicorn.run(app, host=None, port=port_to_use, workers=1)
     except Exception as e:
         print(f"启动失败: {e}")
