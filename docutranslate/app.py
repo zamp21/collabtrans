@@ -339,7 +339,7 @@ class TranslateServiceRequest(BaseModel):
         description="是否在翻译前，使用AI对原始解析出的Markdown进行一次优化，目前不推荐常规使用。"
     )
     convert_engin: str = Field(
-        ...,
+        "mineru",
         description="文档解析和转换引擎。`mineru` 是默认的在线服务，`docling` 是可选的本地引擎（如果已安装）。",
         examples=["mineru", "docling"]
     )
@@ -349,17 +349,17 @@ class TranslateServiceRequest(BaseModel):
         examples=["your-secret-mineru-token"]
     )
     chunk_size: int = Field(
-        ...,
+        default_params["chunk_size"],
         description="将文本分割的块大小（以字符为单位）。",
         examples=[3000]
     )
     concurrent: int = Field(
-        ...,
+        default_params["concurrent"],
         description="同时向LLM API发送的并发请求数量。增加此值可以加快翻译速度，但需注意不要超过API的速率限制。",
         examples=[10]
     )
     temperature: float = Field(
-        ...,
+        default_params["temperature"],
         description="LLM的温度参数，介于0和2之间。较高的值（如0.8）会使输出更随机，而较低的值（如0.2）会使其更具确定性。对于翻译任务，建议使用较低的值。",
         examples=[0.1]
     )
@@ -485,7 +485,7 @@ async def service_translate(request: TranslateServiceRequest = Body(..., descrip
     }
 )
 async def service_cancel_translate(
-        task_id: str = FastApiPath(..., description="要取消的任务的ID", example="b2865b93")):
+        task_id: str = FastApiPath(..., description="要取消的任务的ID", examples=["b2865b93"])):
     """根据任务ID取消一个正在进行的翻译任务。"""
     try:
         response_data = _cancel_translation_logic(task_id)
@@ -519,7 +519,7 @@ async def service_cancel_translate(
     }
 )
 async def service_release_task(
-        task_id: str = FastApiPath(..., description="要释放资源的任务的ID", example="b2865b93")
+        task_id: str = FastApiPath(..., description="要释放资源的任务的ID", examples=["b2865b93"])
 ):
     """根据任务ID释放其占用的所有服务器资源。"""
     if task_id not in tasks_state:
@@ -637,7 +637,7 @@ async def service_release_task(
     }
 )
 async def service_get_status(
-        task_id: str = FastApiPath(..., description="要查询状态的任务的ID", example="b2865b93")):
+        task_id: str = FastApiPath(..., description="要查询状态的任务的ID", examples=["b2865b93"])):
     """根据任务ID获取任务的当前状态和结果下载链接。"""
     task_state = tasks_state.get(task_id)
     if not task_state:
@@ -689,7 +689,7 @@ async def service_get_status(
     }
 )
 async def service_get_logs(
-        task_id: str = FastApiPath(..., description="要获取日志的任务的ID", example="b2865b93")):
+        task_id: str = FastApiPath(..., description="要获取日志的任务的ID", examples=["b2865b93"])):
     """获取指定任务ID自上次查询以来的新日志。"""
     if task_id not in tasks_log_queues:
         raise HTTPException(status_code=404, detail=f"找不到任务ID '{task_id}' 的日志队列。")
@@ -727,8 +727,8 @@ FileType = Literal["markdown", "markdown_zip", "html"]
     }
 )
 async def service_download_file(
-        task_id: str = FastApiPath(..., description="已完成任务的ID", example="b2865b93"),
-        file_type: FileType = FastApiPath(..., description="要下载的文件类型。", example="html")
+        task_id: str = FastApiPath(..., description="已完成任务的ID", examples=["b2865b93"]),
+        file_type: FileType = FastApiPath(..., description="要下载的文件类型。", examples=["html"])
 ):
     """根据任务ID和文件类型下载翻译结果。"""
     task_state = tasks_state.get(task_id)
@@ -806,8 +806,8 @@ async def service_download_file(
     }
 )
 async def service_content(
-        task_id: str = FastApiPath(..., description="已完成任务的ID", example="b2865b93"),
-        file_type: FileType = FastApiPath(..., description="要获取内容的文件类型。", example="html")
+        task_id: str = FastApiPath(..., description="已完成任务的ID", examples=["b2865b93"]),
+        file_type: FileType = FastApiPath(..., description="要获取内容的文件类型。", examples=["html"])
 ):
     """根据任务ID和文件类型，以JSON格式返回内容。zip文件会进行Base64编码。"""
     task_state = tasks_state.get(task_id)
@@ -819,7 +819,7 @@ async def service_content(
 
     content_map = {
         "markdown": (task_state.get("markdown_content"), task_state['original_filename']),
-        "markdown_zip": (task_state.get("markdown_zip_content"),task_state['original_filename']),
+        "markdown_zip": (task_state.get("markdown_zip_content"), task_state['original_filename']),
         "html": (task_state.get("html_content"), task_state['original_filename']),
     }
 
@@ -956,9 +956,9 @@ async def main_page_admin():
               }
           })
 async def temp_translate(
-        base_url: str = Body(..., description="LLM API的基础URL。", example="https://api.openai.com/v1"),
-        api_key: str = Body(..., description="LLM API的密钥。", example="sk-xxxxxxxxxx"),
-        model_id: str = Body(..., description="使用的模型ID。", example="gpt-4-turbo"),
+        base_url: str = Body(..., description="LLM API的基础URL。", examples=["https://api.openai.com/v1"]),
+        api_key: str = Body(..., description="LLM API的密钥。", examples=["sk-xxxxxxxxxx"]),
+        model_id: str = Body(..., description="使用的模型ID。", examples=["gpt-4-turbo"]),
         mineru_token: str = Body(..., description="Mineru引擎的Token。"),
         file_name: str = Body(...,
                               description="文件名，用以判断文件类型。当后缀为txt时该接口返回普通文本，为其他后缀时返回翻译后的markdown文本",
@@ -966,9 +966,10 @@ async def temp_translate(
         file_content: str = Body(..., description="文件内容，可以是纯文本或Base64编码的字符串。"),
         to_lang: str = Body("中文", description="目标语言。", examples=["中文", "英文", "English"]),
         concurrent: int = Body(default_params["concurrent"], description="ai翻译请求并发数"),
-        temperature:float|None = Body(default_params["temperature"], description="ai翻译请求温度"),
-        chunk_size:int =Body(default_params["chunk_size"],description="文本分块大小（bytes）"),
-        custom_prompt_translate: str | None = Body(None, description="翻译自定义提示词",example="人名保持原文不翻译"),
+        temperature: float | None = Body(default_params["temperature"], description="ai翻译请求温度"),
+        chunk_size: int = Body(default_params["chunk_size"], description="文本分块大小（bytes）"),
+        custom_prompt_translate: str | None = Body(None, description="翻译自定义提示词",
+                                                   examples=["人名保持原文不翻译"]),
 ):
     """一个用于快速测试的同步翻译接口。"""
 
@@ -1016,8 +1017,8 @@ def run_app(port: int | None = None):
         port_to_use = find_free_port(initial_port)
         if port_to_use != initial_port: print(f"端口 {initial_port} 被占用，将使用端口 {port_to_use} 代替")
         print(f"正在启动 DocuTranslate WebUI 版本号：{__version__}")
-        print(f"请用浏览器访问 http://127.0.0.1:{port_to_use}")
-        print(f"服务接口文档: http://127.0.0.1:{port_to_use}/docs")
+        print(f"请用浏览器访问 http://127.0.0.1:{port_to_use}\n")
+        print(f"服务接口文档: http://127.0.0.1:{port_to_use}/docs\n")
         uvicorn.run(app, host=None, port=port_to_use, workers=1)
     except Exception as e:
         print(f"启动失败: {e}")
