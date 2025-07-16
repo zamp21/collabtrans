@@ -1,4 +1,3 @@
-import asyncio
 import html
 import io
 import logging
@@ -428,12 +427,8 @@ class FileTranslater:
                                    code=True, output_format: Literal["markdown", "html"] = "markdown",
                                    custom_prompt_translate=None, refine=False,
                                    refine_agent: Agent | None = None, translate_agent: Agent | None = None, save=True):
-        await asyncio.to_thread(
-            self.read_file,
-            file_path,
-            formula=formula,
-            code=code
-        )
+
+        await self.read_file_async(file_path, formula=formula, code=code)
         if refine:
             await self.refine_markdown_by_agent_async(refine_agent)
         await self.translate_markdown_by_agent_async(translate_agent, to_lang=to_lang,

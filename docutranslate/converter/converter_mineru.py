@@ -120,7 +120,7 @@ class ConverterMineru(Converter):
         time1 = time.time()
         batch_id = await self.upload_async(document)
         file_url = await self.get_file_url_async(batch_id)
-        result = await asyncio.to_thread(get_md_from_zip_url_with_inline_images,file_url)
+        result = await get_md_from_zip_url_with_inline_images_async(file_url)
         self.logger.info(f"已转换为markdown，耗时{time.time() - time1}秒")
         return result
 
@@ -170,6 +170,45 @@ def get_md_from_zip_url_with_inline_images(
         traceback.print_exc()  # 打印完整的堆栈跟踪，便于调试
         raise Exception(f"发生未知错误: {e}")
 
+
+async def get_md_from_zip_url_with_inline_images_async(
+        zip_url: str,
+        filename_in_zip: str = "full.md",
+        encoding: str = "utf-8"
+) -> str | None:
+    """
+    从给定的ZIP文件URL中下载并提取指定文件的内容，
+    并将Markdown文件中的相对路径图片转换为内联Base64图片。
+
+    Args:
+        zip_url (str): ZIP文件的下载链接。
+        filename_in_zip (str): ZIP压缩包内目标Markdown文件的名称（包括路径）。
+                               默认为 "full.md"。
+        encoding (str): 目标文件的预期编码。默认为 "utf-8"。
+
+    Returns:
+        str | None: 如果成功，返回处理后的Markdown文本内容；否则返回 None。
+    """
+    try:
+        print(f"正在从 {zip_url} 下载ZIP文件 (使用 httpx.get)...")
+        response = await client_async.get(zip_url)  # 增加超时
+        response.raise_for_status()
+        print("ZIP文件下载完成。")
+        return await asyncio.to_thread(embed_inline_image_from_zip(response.content, filename_in_zip=filename_in_zip, encoding=encoding))
+
+
+    except httpx.HTTPStatusError as e:
+        raise Exception(f"HTTP 错误 (httpx): {e.response.status_code} - {e.request.url}\n响应内容: {e.response.text[:200]}...")
+    except httpx.RequestError as e:
+        raise Exception(f"下载ZIP文件时发生错误 (httpx): {e}")
+    except zipfile.BadZipFile:
+        raise Exception("错误: 下载的文件不是一个有效的ZIP压缩文件或已损坏。")
+    except UnicodeDecodeError:
+        raise Exception(f"错误: 无法使用 '{encoding}' 编码解码文件 '{filename_in_zip}' 的内容。")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()  # 打印完整的堆栈跟踪，便于调试
+        raise Exception(f"发生未知错误: {e}")
 
 if __name__ == '__main__':
     pass
