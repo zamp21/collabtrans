@@ -11,20 +11,19 @@ URL = 'https://mineru.net/api/v4/file-urls/batch'
 
 timeout = httpx.Timeout(
     connect=5.0,      # 连接超时 (建立连接的最长时间)
-    read=120.0,        # 读取超时 (等待服务器响应的最长时间)
-    write=120.0,       # 写入超时 (发送数据的最长时间)
+    read=200.0,        # 读取超时 (等待服务器响应的最长时间)
+    write=200.0,       # 写入超时 (发送数据的最长时间)
     pool=1.0          # 从连接池获取连接的超时时间
 )
 
 
 client = httpx.Client(trust_env=False,timeout=timeout,proxy=None,verify=False)
-
+client_async=httpx.AsyncClient(trust_env=False,timeout=timeout,proxy=None,verify=False)
 
 # TODO: 提供更详细的logger
 class ConverterMineru(Converter):
     def __init__(self, token: str, formula=True,logger:logging.Logger|None=None):
         self.mineru_token = token.strip()
-        self.client_async = httpx.AsyncClient(timeout=timeout)
         self.formula = formula
         self.logger=logger if logger else global_logger
 
@@ -62,6 +61,24 @@ class ConverterMineru(Converter):
         else:
             raise Exception('apply upload url failed,reason:{}'.format(result))
 
+    async def upload_async(self, document: Document):
+        # 获取上传链接
+        response = await client_async.post(URL, headers=self._get_header(), json=self._get_upload_data(document))
+        response.raise_for_status()
+        result = response.json()
+        # print('response success. result:{}'.format(result))
+        if result["code"] == 0:
+            batch_id = result["data"]["batch_id"]
+            urls = result["data"]["file_urls"]
+            # print('batch_id:{},urls:{}'.format(batch_id, urls))
+            # 获取
+            res_upload = await client_async.put(urls[0], content=document.filebytes)
+            res_upload.raise_for_status()
+            # print(f"{urls[0]} upload success")
+            return batch_id
+        else:
+            raise Exception('apply upload url failed,reason:{}'.format(result))
+
     def get_file_url(self, batch_id: str) -> str:
         while True:
             url = f'https://mineru.net/api/v4/extract-results/batch/{batch_id}'
@@ -75,6 +92,19 @@ class ConverterMineru(Converter):
             else:
                 time.sleep(3)
 
+    async def get_file_url_async(self, batch_id: str) -> str:
+        while True:
+            url = f'https://mineru.net/api/v4/extract-results/batch/{batch_id}'
+            header = self._get_header()
+            res = await client_async.get(url, headers=header)
+            res.raise_for_status()
+            fileinfo = res.json()["data"]["extract_result"][0]
+            if fileinfo["state"] == "done":
+                fileurl = fileinfo["full_zip_url"]
+                return fileurl
+            else:
+                await asyncio.sleep(3)
+
     def convert(self, document: Document) -> str:
         self.logger.info(f"正在将文档转换为markdown")
         time1 = time.time()
@@ -84,13 +114,15 @@ class ConverterMineru(Converter):
         self.logger.info(f"已转换为markdown，耗时{time.time() - time1}秒")
         return result
 
-    # TODO: 实现细粒度更高的协程
     async def convert_async(self, document: Document) -> str:
         # 待优化
-        return await asyncio.to_thread(
-            self.convert,
-            document
-        )
+        self.logger.info(f"正在将文档转换为markdown")
+        time1 = time.time()
+        batch_id = await self.upload_async(document)
+        file_url = await self.get_file_url_async(batch_id)
+        result = await asyncio.to_thread(get_md_from_zip_url_with_inline_images,file_url)
+        self.logger.info(f"已转换为markdown，耗时{time.time() - time1}秒")
+        return result
 
     def set_config(self, cofig: dict):
         pass
