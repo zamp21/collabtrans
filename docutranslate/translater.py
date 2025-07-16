@@ -1,3 +1,4 @@
+import asyncio
 import html
 import io
 import logging
@@ -330,6 +331,9 @@ class FileTranslater:
         self._markdown_format()
         return unembed_base64_images_to_zip(self.markdown, markdown_name=filename.name)
 
+    async def export_to_unembed_markdown_async(self, filename: str | Path | None = None) -> bytes:
+        return await asyncio.to_thread(self.export_to_unembed_markdown,filename)
+
     def save_as_html(self, filename: str | Path | None = None, output_dir: str | Path = "./output"):
         if isinstance(filename, str):
             filename = Path(filename)
@@ -403,7 +407,8 @@ class FileTranslater:
             mermaid=mermaid,
         )
         return render
-
+    async def export_to_html_async(self, title="title", cdn=True):
+        return await asyncio.to_thread(self.export_to_html,title,cdn)
     def translate_file(self, file_path: Path | str | None = None, to_lang="中文", output_dir="./output",
                        formula=True,
                        code=True, output_format: Literal["markdown", "html"] = "markdown", refine=False,

@@ -120,7 +120,7 @@ class ConverterMineru(Converter):
         time1 = time.time()
         batch_id = await self.upload_async(document)
         file_url = await self.get_file_url_async(batch_id)
-        result = await get_md_from_zip_url_with_inline_images_async(file_url)
+        result = await get_md_from_zip_url_with_inline_images_async(zip_url=file_url)
         self.logger.info(f"已转换为markdown，耗时{time.time() - time1}秒")
         return result
 
@@ -194,7 +194,7 @@ async def get_md_from_zip_url_with_inline_images_async(
         response = await client_async.get(zip_url)  # 增加超时
         response.raise_for_status()
         print("ZIP文件下载完成。")
-        return await asyncio.to_thread(embed_inline_image_from_zip(response.content, filename_in_zip=filename_in_zip, encoding=encoding))
+        return await asyncio.to_thread(embed_inline_image_from_zip,response.content, filename_in_zip=filename_in_zip, encoding=encoding)
 
 
     except httpx.HTTPStatusError as e:

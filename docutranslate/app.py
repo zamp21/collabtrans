@@ -141,14 +141,14 @@ async def _perform_translation(task_id: str, params: Dict[str, Any], file_conten
             refine=params['refine_markdown'], save=False
         )
         md_content = ft.export_to_markdown()
-        md_zip_content = ft.export_to_unembed_markdown()
+        md_zip_content = await ft.export_to_unembed_markdown_async()
         try:
             await httpx_client.head("https://s4.zstatic.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js",
                                     timeout=3)
-            html_content = ft.export_to_html(title=task_state["original_filename_stem"], cdn=True)
+            html_content = await ft.export_to_html_async(title=task_state["original_filename_stem"], cdn=True)
         except (httpx.TimeoutException, httpx.RequestError):
             task_logger.info("CDN连接失败，使用本地JS进行渲染。")
-            html_content = ft.export_to_html(title=task_state["original_filename_stem"], cdn=False)
+            html_content = await ft.export_to_html_async(title=task_state["original_filename_stem"], cdn=False)
 
         end_time = time.time()
         duration = end_time - task_state["task_start_time"]
