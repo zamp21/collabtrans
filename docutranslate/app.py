@@ -15,6 +15,10 @@ from urllib.parse import quote
 import httpx
 import uvicorn
 from fastapi import FastAPI, HTTPException, APIRouter, Body, Path as FastApiPath
+from fastapi.openapi.docs import (
+    get_swagger_ui_html,
+    get_swagger_ui_oauth2_redirect_html, get_redoc_html,
+)
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -271,9 +275,12 @@ tags_metadata = [
         "name": "Temp",
         "description": "测试用接口。",
     },
+
 ]
 
 app = FastAPI(
+    docs_url=None,
+    redoc_url=None,
     lifespan=lifespan,
     title="DocuTranslate API",
     description=f"""
@@ -933,6 +940,30 @@ async def main_page_admin():
                         "Expires": "0"}
     return FileResponse(index_path, headers=no_cache_headers)
 
+
+###文档服务
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title=app.title + " - Swagger UI",
+        oauth2_redirect_url=app.swagger_ui_oauth2_redirect_url,
+        swagger_js_url="/static/swagger/swagger.js",
+        swagger_css_url="/static/swagger/swagger.css",
+    )
+
+@app.get(app.swagger_ui_oauth2_redirect_url, include_in_schema=False)
+async def swagger_ui_redirect():
+    return get_swagger_ui_oauth2_redirect_html()
+
+@app.get("/redoc", include_in_schema=False)
+async def redoc_html():
+    return get_redoc_html(
+        openapi_url=app.openapi_url,
+        title=app.title + " - ReDoc",
+        redoc_js_url="/static/redoc/redoc.js",
+    )
+###
 
 @app.post("/temp/translate",
           summary="[临时]同步翻译接口",
