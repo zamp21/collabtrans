@@ -197,8 +197,21 @@
         <div class="col-lg-4">
             <div class="settings-panel">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h4 class="mb-0"><i class="bi me-2"></i>Docutranslate</h4>
-                    <span id="versionDisplay" class="badge bg-success"></span>
+                    <div class="d-flex align-items-center">
+                        <h4 class="mb-0 me-3"><i class="bi"></i>DocuTranslate</h4>
+                        <span id="versionDisplay" class="badge bg-success me-4"></span>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal"
+                                    data-bs-target="#tutorialModal">
+                                <i class="bi bi-question-circle-fill me-1"></i>教程
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal"
+                                    data-bs-target="#contributorsModal">
+                                <i class="bi bi-people-fill me-1"></i>项目协作
+                            </button>
+                        </div>
+                    </div>
+
                 </div>
 
                 <form id="translateForm">
@@ -407,7 +420,7 @@
                 <!-- 项目信息 -->
                 <div class="mt-4 text-left text-muted small">
                     <p class="mb-1">
-                        项目主页(欢迎star❤): <br/>
+                        GitHub主页(欢迎star❤): <br/>
                         <a href="https://github.com/xunbu/docutranslate" target="_blank" rel="noopener noreferrer">https://github.com/xunbu/docutranslate</a>
                     </p>
                     <p class="mb-0">
@@ -566,6 +579,135 @@
             </button>
         </li>
     </ul>
+</div>
+
+<!-- Tutorial Modal -->
+<div class="modal fade" id="tutorialModal" tabindex="-1" aria-labelledby="tutorialModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="tutorialModalLabel"><i class="bi bi-book-half me-2"></i>使用教程</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>欢迎使用 DocuTranslate！请按照以下步骤完成文档翻译：</p>
+                <ol>
+                    <li>
+                        <strong><i class="bi bi-gear-fill me-2"></i>配置参数</strong>
+                        <p class="mt-2">在左侧的配置面板中，完成以下设置：</p>
+                        <ul>
+                            <li><strong>解析配置</strong>:
+                                <ul>
+                                    <li>选择一个解析引擎。推荐使用 <code>minerU</code>
+                                        进行云端解析（支持PDF/Word/PPT/jpg等），如果需要本地解析，可以选择
+                                        <code>Docling</code>。
+                                    </li>
+                                    <li>如果使用 <code>minerU</code>，请填入您的 <a
+                                            href="https://mineru.net/apiManage/token">Mineru Token</a>。
+                                    </li>
+                                    <li>如果输入文件是txt或markdown文件，该部分可以不进行设置</li>
+                                </ul>
+                            </li>
+                            <li><strong>翻译模型</strong>:
+                                <ul>
+                                    <li>选择您的AI服务提供商平台，或选择 <code>自定义接口</code>。</li>
+                                    <li>填入您的 <code>API Key</code> 和 <code>模型 ID</code>（例如
+                                        glm-4-flash、deepseek-chat）。
+                                    </li>
+                                    <li>API-KEY和模型ID参见对应平台文档。</li>
+                                    <li>建议使用非推理模型进行翻译。</li>
+                                </ul>
+                            </li>
+                            <li><strong>翻译配置</strong>:
+                                <ul>
+                                    <li>选择您希望翻译的 <strong>目标语言</strong>。</li>
+                                    <li>可以填写自定义Prompt，指导AI进行特定翻译，例如“人名保持原文不翻译”。</li>
+                                </ul>
+                            </li>
+                            <li><strong>高级参数</strong>:
+                                <ul>
+                                    <li>通常保持默认即可。</li>
+                                    <li>并发数指的是每个任务允许多少个并发AI翻译请求，需参照平台模型速率限制进行设置</li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                    <li>
+                        <strong><i class="bi bi-file-earmark-arrow-up-fill me-2"></i>上传文件</strong>
+                        <p class="mt-2">在右侧的任务列表中，点击或拖拽您的文档（如PDF, Markdown等）到文件上传区域。</p>
+                    </li>
+                    <li>
+                        <strong><i class="bi bi-play-circle-fill me-2"></i>开始翻译</strong>
+                        <p class="mt-2">文件选择成功后，点击任务卡片右下角的 <span
+                                class="badge bg-primary">开始翻译</span> 按钮。系统将开始处理任务，您可以在日志区域查看实时进度。
+                        </p>
+                    </li>
+                    <li>
+                        <strong><i class="bi bi-check-circle-fill me-2"></i>查看与下载</strong>
+                        <p class="mt-2">翻译完成后，任务卡片下方会出现操作按钮：</p>
+                        <ul>
+                            <li><span class="badge bg-success"><i class="bi bi-eye-fill me-1"></i>预览</span>:
+                                在右侧滑出的面板中进行原文和译文的对照预览。
+                            </li>
+                            <li><span class="badge bg-info"><i
+                                    class="bi bi-file-earmark-pdf-fill me-1"></i>下载 PDF</span>: 将译文直接保存为PDF格式。
+                            </li>
+                            <li><span class="badge bg-secondary"><i class="bi bi-download me-1"></i>下载其他格式</span>:
+                                下载HTML或Markdown格式的译文。
+                            </li>
+                        </ul>
+                    </li>
+                </ol>
+                <div class="alert alert-info mt-3" role="alert">
+                    <i class="bi bi-info-circle-fill me-2"></i><strong>提示</strong>: 所有配置都会自动保存在您的浏览器本地，方便下次使用。
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">我明白了</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Contributors Modal -->
+<div class="modal fade" id="contributorsModal" tabindex="-1" aria-labelledby="contributorsModalLabel"
+     aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="contributorsModalLabel"><i class="bi bi-heart-fill me-2 text-danger"></i>感谢贡献
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>DocuTranslate是一个开源项目！大家的需求与使用是项目进步的动力。</p>
+                <p>感谢所有资助项目、提交代码与宝贵建议及给项目star的朋友们！</p>
+                <div class="alert alert-success mt-4" role="alert">
+                    <p>欢迎通过以下方式参与贡献：</p>
+                    <hr>
+                    <p class="mb-0">
+                        <a href="https://github.com/xunbu/docutranslate" target="_blank"
+                           class="btn btn-info btn-sm ms-2">
+                            <i class="bi bi-github me-1"></i>github 主页
+                        </a>
+                        <a href="https://github.com/xunbu/docutranslate/pulls" target="_blank"
+                           class="btn btn-success btn-sm ms-2">
+                            <i class="bi bi-git me-1"></i>提交 Pull Request
+                        </a>
+                        <a href="https://github.com/xunbu/docutranslate/issues" target="_blank"
+                           class="btn btn-warning btn-sm ms-2">
+                            <i class="bi bi-bug-fill me-1"></i>报告 Issue
+                        </a>
+                    </p>
+                    <hr>
+                    <p>或者通过QQ群联系作者：<span>1047781902</span></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Bootstrap JS -->
@@ -1093,6 +1235,7 @@
             elements.statusMessage.className = `status-message small ${status.error_flag ? 'text-danger' : 'text-info'}`;
 
             if (!status.is_processing) {
+                pollLogs(backendTaskId);//获取最后未获取的logs
                 stopPolling(backendTaskId);
                 state.isTranslating = false;
                 elements.startBtn.disabled = false;

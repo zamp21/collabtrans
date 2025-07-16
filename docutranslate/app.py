@@ -324,7 +324,7 @@ class TranslateServiceRequest(BaseModel):
     to_lang: str = Field(
         default="中文",
         description="目标翻译语言。",
-        examples=["简体中文", "English", "日本語"]
+        examples=["简体中文", "English", "英语"]
     )
     formula_ocr: bool = Field(
         default=True,
@@ -396,7 +396,7 @@ class TranslateServiceRequest(BaseModel):
                 "temperature": 0.1,
                 "custom_prompt_translate": "将所有技术术语翻译为业界公认的中文对应词汇。",
                 "file_name": "annual_report_2023.pdf",
-                "file_content": "JVBERi0xLjcKJeLjz9MKMSAwIG9iago8PC9...(base64编码)"
+                "file_content": "JVBERi0xLjcKJeLjz9MKMSAwIG9iago8PC9..."
             }
         }
 
