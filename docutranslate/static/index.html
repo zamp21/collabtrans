@@ -1477,8 +1477,8 @@
         convertEnginSelect.value = getFromStorage('translator_convert_engin', 'mineru');
         updateConvertEnginUI();
         toLangSelect.value = getFromStorage('translator_to_lang', '中文');
-        formulaCheckbox.checked = getFromStorage('translator_formula_ocr') === 'true';
-        codeCheckbox.checked = getFromStorage('translator_code_ocr') === 'true';
+        formulaCheckbox.checked = getFromStorage('translator_formula_ocr','true') === 'true';
+        codeCheckbox.checked = getFromStorage('translator_code_ocr','true') === 'true';
         refineCheckbox.checked = getFromStorage('translator_refine_markdown') === 'true';
         customPromptTranslateArea.value = getFromStorage("custom_prompt_translate");
 
