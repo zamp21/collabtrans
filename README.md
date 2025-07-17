@@ -1,10 +1,13 @@
-# 简介
+# DocuTranslate
 
-## DocuTranslate
-
-[![image](https://img.shields.io/badge/github-DocuTranslate-blue)](https://github.com/xunbu/docutranslate)
+[![GitHub stars](https://img.shields.io/github/stars/xunbu/docutranslate?style=flat&label=Stars&logo=github&color=blue)](https://github.com/xunbu/docutranslate)
+[![PyPI version](https://img.shields.io/pypi/v/docutranslate)](https://github.com/xunbu/docutranslate)
 
 文件翻译工具，借助[docling](https://github.com/docling-project/docling)、[minerU](https://mineru.net/)与大语言模型实现多种格式文件的翻译
+
+- 提供了用于文档解析、翻译的代码实现
+- 提供了一套用于文档翻译的服务api和交互式界面
+- 支持多用户、多任务使用
 
 > QQ交流群：1047781902
 
@@ -30,11 +33,11 @@
 2. `uv add docutranslate`
 3. `uv add docutranslate[docling]`#如果需要使用docling进行文档解析
 
-使用git（需下载uv）
+使用git
 
 1. `git clone https://github.com/xunbu/docutranslate.git`
-2. `uv sync`
-3. `uv pip install -e .`
+2. `pip install -e .`
+3. `uv pip install -e .`#使用uv
 
 # 支持的文件格式
 
@@ -262,6 +265,7 @@ translater.translate_file(r"<要翻译的文件路径>",
 | DMXAPI     | [点击获取](https://www.dmxapi.cn/token)                                                   | https://www.dmxapi.cn/v1                          |
 
 # FAQ
+
 ### 8010端口被占用了怎么办
 
 > 可以通过设置系统环境变量`DOCUTRANSLATE_PORT=<port>`来指定启动端口
