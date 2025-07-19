@@ -1,7 +1,10 @@
 # DocuTranslate
 
-[![GitHub stars](https://img.shields.io/github/stars/xunbu/docutranslate?style=flat&label=Stars&logo=github&color=blue)](https://github.com/xunbu/docutranslate)
-[![PyPI version](https://img.shields.io/pypi/v/docutranslate)](https://github.com/xunbu/docutranslate)
+[![GitHub stars](https://img.shields.io/github/stars/xunbu/docutranslate?style=flats&logo=github&color=blue)](https://github.com/xunbu/docutranslate)
+[![github下载数](https://img.shields.io/github/downloads/xunbu/docutranslate/total?logo=github)](https://github.com/xunbu/docutranslate/releases)
+[![PyPI version](https://img.shields.io/pypi/v/docutranslate)](https://pypi.org/project/docutranslate/)
+![python版本](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
+![开源协议](https://img.shields.io/github/license/xunbu/docutranslate)  
 
 文件翻译工具，借助[docling](https://github.com/docling-project/docling)、[minerU](https://mineru.net/)与大语言模型实现多种格式文件的翻译
 

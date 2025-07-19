@@ -248,6 +248,18 @@
                                                 <i class="bi bi-eye-slash"></i>
                                             </button>
                                         </div>
+
+                                    </div>
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" role="switch"
+                                               id="formula_ocr"
+                                               name="formula_ocr" checked>
+                                        <label class="form-check-label" for="formula_ocr">公式识别</label>
+                                    </div>
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="code_ocr"
+                                               name="code_ocr" checked>
+                                        <label class="form-check-label" for="code_ocr">代码识别</label>
                                     </div>
                                 </div>
                             </div>
@@ -339,16 +351,6 @@
                                         <textarea class="form-control" id="custom_prompt_translate"
                                                   name="custom_prompt_translate" rows="3"
                                                   placeholder="可选，如“人名保持原文不翻译”"></textarea>
-                                    </div>
-                                    <div class="form-check form-switch mb-2">
-                                        <input class="form-check-input" type="checkbox" role="switch" id="formula_ocr"
-                                               name="formula_ocr" checked>
-                                        <label class="form-check-label" for="formula_ocr">公式识别</label>
-                                    </div>
-                                    <div class="form-check form-switch mb-2">
-                                        <input class="form-check-input" type="checkbox" role="switch" id="code_ocr"
-                                               name="code_ocr" checked>
-                                        <label class="form-check-label" for="code_ocr">代码识别</label>
                                     </div>
                                     <div class="form-check form-switch mb-2">
                                         <input class="form-check-input" type="checkbox" role="switch"
@@ -590,7 +592,9 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p><i class="bi bi-camera-video me-2"></i>视频教程可以在b站搜索 <a href="https://search.bilibili.com/all?keyword=docutranslate" target="_blank">docutranslate</a> 获取</p>
+                <p><i class="bi bi-camera-video me-2"></i>视频教程可以在b站搜索 <a
+                        href="https://search.bilibili.com/all?keyword=docutranslate" target="_blank">docutranslate</a>
+                    获取</p>
                 <p>欢迎使用 DocuTranslate！请按照以下步骤完成文档翻译：</p>
                 <ol>
                     <li>
@@ -1478,8 +1482,8 @@
         convertEnginSelect.value = getFromStorage('translator_convert_engin', 'mineru');
         updateConvertEnginUI();
         toLangSelect.value = getFromStorage('translator_to_lang', '中文');
-        formulaCheckbox.checked = getFromStorage('translator_formula_ocr','true') === 'true';
-        codeCheckbox.checked = getFromStorage('translator_code_ocr','true') === 'true';
+        formulaCheckbox.checked = getFromStorage('translator_formula_ocr', 'true') === 'true';
+        codeCheckbox.checked = getFromStorage('translator_code_ocr', 'true') === 'true';
         refineCheckbox.checked = getFromStorage('translator_refine_markdown') === 'true';
         customPromptTranslateArea.value = getFromStorage("custom_prompt_translate");
 
