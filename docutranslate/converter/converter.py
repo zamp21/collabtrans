@@ -25,9 +25,3 @@ class Converter(Protocol):
 
     async def convert_async(self,document:Document)->str:
         ...
-
-    def set_config(self,cofig:dict):
-        ...
-
-    def get_config_list(self)->list[str]|None:
-        ...

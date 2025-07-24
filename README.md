@@ -313,3 +313,13 @@ translater = FileTranslater(base_url="<baseurl>",
 ### Filetranslater的解析缓存机制
 
 工具默认会缓存最近10条（全局）解析记录存于内存中，可以通过`DOCUTRANSLATE_CACHE_NUM`环境变量进行修改
+
+## Star History
+
+<a href="https://star-history.com/#xunbu/docutranslate&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=xunbu/docutranslate&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=xunbu/docutranslate&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=xunbu/docutranslate&type=Date"/>
+ </picture>
+</a>

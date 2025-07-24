@@ -72,12 +72,6 @@ class ConverterDocling(Converter):
             # translater_logger.info(f"docling转换耗时: {conversion_result.timings["pipeline_total"].times}")
         return result
 
-    def set_config(self, cofig: dict):
-        pass
-
-    def get_config_list(self) -> list[str] | None:
-        pass
-
 
 if __name__ == '__main__':
     pass

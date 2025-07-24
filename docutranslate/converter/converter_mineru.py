@@ -124,12 +124,6 @@ class ConverterMineru(Converter):
         self.logger.info(f"已转换为markdown，耗时{time.time() - time1}秒")
         return result
 
-    def set_config(self, cofig: dict):
-        pass
-
-    def get_config_list(self) -> list[str] | None:
-        pass
-
 
 def get_md_from_zip_url_with_inline_images(
         zip_url: str,
