@@ -1,7 +1,10 @@
-from typing import Unpack
+from typing import Unpack, NotRequired
 
-from .agent import (Agent, AgentArgs)
+from .agent import Agent, AgentArgs
 
+class MDTranslateAgentArgs(AgentArgs, total=True):
+    to_lang:str
+    custom_prompt:NotRequired[str]
 
 class MDRefineAgent(Agent):
     def __init__(self, custom_prompt=None, **kwargs: Unpack[AgentArgs]):

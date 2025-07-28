@@ -1,1 +1,1 @@
-from .document_cacher import DocumentCacher, document_cacher_global
+from .md_based_convert_cacher import MDBasedCovertCacher, md_based_convert_cacher

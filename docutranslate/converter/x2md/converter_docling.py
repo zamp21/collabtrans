@@ -1,8 +1,9 @@
 import asyncio
-import logging
 import os
 import time
+from dataclasses import dataclass
 from io import BytesIO
+from logging import Logger
 from pathlib import Path
 
 from docling.datamodel.base_models import InputFormat
@@ -13,33 +14,48 @@ from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling_core.types.doc import ImageRefMode
 from huggingface_hub.errors import LocalEntryNotFoundError
 
-from docutranslate.converter import Converter, Document
+from docutranslate.converter.x2md.interfaces import X2MarkdownConverter
+from docutranslate.ir.document import Document
+from docutranslate.ir.markdown_document import MarkdownDocument
 from docutranslate.logger import global_logger
 
 IMAGE_RESOLUTION_SCALE = 4
 
 
-class ConverterDocling(Converter):
-    def __init__(self, code=True, formula=True, artifact=None, logger: logging.Logger | None = None):
-        self.code = code
-        self.formula = formula
-        self.artifact = artifact
-        self.logger = logger if logger else global_logger
+@dataclass(frozen=True)
+class ConverterDoclingConfig:
+    code: bool = True
+    formula: bool = True
+    artifact: Path | None = None
 
-    def convert(self, document):
-        assert isinstance(document.filename, str)
+
+class ConverterDocling(X2MarkdownConverter):
+    def __init__(self, config: ConverterDoclingConfig, logger: Logger = global_logger):
+        self.config = config
+        self.code = config.code
+        self.formula = config.formula
+        self.artifact = config.artifact
+        self.logger = logger
+
+    def convert(self, document) -> MarkdownDocument:
+        assert isinstance(document.name, str)
         self.logger.info(f"正在将文档转换为markdown")
         time1 = time.time()
-        document_stream = DocumentStream(name=document.filename, stream=BytesIO(document.filebytes))
-        result = self.file2markdown_embed_images(document_stream)
+        document_stream = DocumentStream(name=document.name, stream=BytesIO(document.content))
+        content = self.file2markdown_embed_images(document_stream)
         self.logger.info(f"已转换为markdown，耗时{time.time() - time1}秒")
-        return result
+        md_document = MarkdownDocument.from_bytes(content=content.encode("utf-8"), suffix=".md", stem=document.stem)
+        return md_document
 
-    async def convert_async(self, document: Document) -> str:
+    async def convert_async(self, document: Document) -> MarkdownDocument:
         return await asyncio.to_thread(
             self.convert,
             document
         )
+
+    def support_format(self) -> list[str]:
+        return [".pdf", ".docx", ".pptx", ".xlsx", ".md", "html", "xhtml", "csv", ".png", ".jpg", ".jpeg", ".tiff",
+                ".bmp", ".webp"]
 
     def file2markdown_embed_images(self, file_path: Path | str | DocumentStream) -> str:
         pipeline_options = PdfPipelineOptions(artifacts_path=self.artifact)

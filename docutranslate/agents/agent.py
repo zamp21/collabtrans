@@ -17,23 +17,23 @@ class AgentArgs(TypedDict, total=False):
     baseurl: str
     key: str
     model_id: str
-    system_prompt: str
+    system_prompt: str | None
     temperature: float
     max_concurrent: int
     timeout: int
-    logger:logging.Logger
+    logger: logging.Logger
 
 
 class TotalErrorCounter:
-    def __init__(self,logger:logging.Logger):
+    def __init__(self, logger: logging.Logger):
         self.lock = Lock()
         self.count = 0
-        self.logger=logger
+        self.logger = logger
 
     def add(self):
         self.lock.acquire()
         self.count += 1
-        if self.count>MAX_TOTAL_ERROR_COUNT:
+        if self.count > MAX_TOTAL_ERROR_COUNT:
             self.logger.info(f"错误响应过多")
         self.lock.release()
         return self.reach_limit()
@@ -42,14 +42,13 @@ class TotalErrorCounter:
         return self.count > MAX_TOTAL_ERROR_COUNT
 
 
-
 # 仅使用多线程时用以计数
 class PromptsCounter:
-    def __init__(self, total: int,logger:logging.Logger):
+    def __init__(self, total: int, logger: logging.Logger):
         self.lock = Lock()
         self.count = 0
         self.total = total
-        self.logger=logger
+        self.logger = logger
 
     def add(self):
         self.lock.acquire()
@@ -62,22 +61,23 @@ TIMEOUT = 600
 
 
 class Agent:
-    def __init__(self, baseurl: str = "", key: str = "xx", model_id: str = "", system_prompt: str = "", temperature=0.7,
-                 max_concurrent=15, timeout: int = TIMEOUT,logger:logging.Logger|None=None):
+    def __init__(self, baseurl: str, key: str | None, model_id: str, system_prompt: str | None = None, temperature=0.7,
+                 max_concurrent=15, timeout: int = TIMEOUT, logger: logging.Logger | None = None):
         self.baseurl = baseurl.strip()
         if self.baseurl.endswith("/"):
             self.baseurl = self.baseurl[:-1]
-        self.key = key.strip()
+        self.key = key.strip() or "xx"
         self.model_id = model_id.strip()
-        self.system_prompt = system_prompt
+        self.system_prompt = system_prompt or ""
         self.temperature = temperature
         self.client = httpx.Client(trust_env=False, proxy=None, verify=False)
         self.client_async = httpx.AsyncClient(trust_env=False, proxy=None, verify=False)
         self.max_concurrent = max_concurrent
         self.timeout = timeout
 
-        self.logger=logger if logger else global_logger
+        self.logger = logger if logger else global_logger
         self.total_error_counter = TotalErrorCounter(logger=self.logger)
+
     def _prepare_request_data(self, prompt: str, system_prompt: str, temperature=None, top_p=0.9):
         if temperature is None:
             temperature = self.temperature
@@ -210,7 +210,7 @@ class Agent:
             system_prompt: str | None = None,
     ) -> list[str]:
         system_prompts = [system_prompt] * len(prompts)
-        counts = [PromptsCounter(len(prompts),self.logger)] * len(prompts)
+        counts = [PromptsCounter(len(prompts), self.logger)] * len(prompts)
         output_list = []
         with ThreadPoolExecutor(max_workers=self.max_concurrent) as executor:
             results_iterator = executor.map(self._send_prompt_count, prompts, system_prompts, counts)

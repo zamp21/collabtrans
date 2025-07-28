@@ -218,7 +218,7 @@ class MarkdownBlockSplitter:
         return result
 
 
-def split_markdown_text(markdown_text, max_block_size=5000):
+def split_markdown_text(markdown_text:str, max_block_size=5000):
     """
     将Markdown字符串分割成不超过max_block_size的块
     可以通过简单拼接重建原始文本（分割的代码块除外）

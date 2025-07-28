@@ -11,12 +11,12 @@ import markdown2
 
 from docutranslate.agents import Agent, AgentArgs
 from docutranslate.agents import MDRefineAgent, MDTranslateAgent
-from docutranslate.cacher import document_cacher_global
-from docutranslate.converter import Document, ConverterMineru
+from docutranslate.cacher import md_based_convert_cacher
+from docutranslate.ir.document import Document
 from docutranslate.global_values import available_packages
 from docutranslate.logger import global_logger
 from docutranslate.utils.markdown_splitter import split_markdown_text, join_markdown_texts
-from docutranslate.utils.markdown_utils import uris2placeholder, placeholder2_uris, MaskDict, clean_markdown_math_block, \
+from docutranslate.utils.markdown_utils import uris2placeholder, placeholder2uris, MaskDict, clean_markdown_math_block, \
     unembed_base64_images_to_zip, embed_inline_image_from_zip, find_markdown_in_zip
 from docutranslate.utils.resource_utils import resource_path
 
@@ -62,7 +62,7 @@ class FileTranslater:
         self.timeout = timeout
         self.document: Document | None = None
         self.cache = cache
-        self.cacher = document_cacher_global
+        self.cacher = md_based_convert_cacher
         if file_path:
             self.read_file(file_path=file_path)
 
@@ -79,7 +79,7 @@ class FileTranslater:
         return self
 
     def _unmask_uris_in_markdown(self):
-        self.markdown = placeholder2_uris(self.markdown, self._mask_dict)
+        self.markdown = placeholder2uris(self.markdown, self._mask_dict)
         return self
 
     def _split_markdown_into_chunks(self) -> list[str]:

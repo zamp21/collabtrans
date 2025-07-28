@@ -69,7 +69,7 @@ def uris2placeholder(markdown: str, mask_dict: MaskDict):
     return markdown
 
 
-def placeholder2_uris(markdown: str, mask_dict: MaskDict):
+def placeholder2uris(markdown: str, mask_dict: MaskDict):
     def placeholder2uri(match: re.Match):
         id = match.group(1)
         uri = mask_dict.get(id)
