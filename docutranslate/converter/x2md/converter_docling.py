@@ -31,11 +31,17 @@ class ConverterDoclingConfig:
 
 class ConverterDocling(X2MarkdownConverter):
     def __init__(self, config: ConverterDoclingConfig, logger: Logger = global_logger):
+        self.logger = logger
         self.config = config
         self.code = config.code
         self.formula = config.formula
-        self.artifact = config.artifact
-        self.logger = logger
+        artifact=Path("./docling_artifact")
+        if artifact.is_dir():
+            self.logger.info("使用./docling_artifact的本地模型")
+            self.artifact=artifact
+        else:
+            self.artifact=config.artifact
+
 
     def convert(self, document) -> MarkdownDocument:
         assert isinstance(document.name, str)
