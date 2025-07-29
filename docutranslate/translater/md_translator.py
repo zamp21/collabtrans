@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Self
 
 from docutranslate.agents import MDTranslateAgent
-from docutranslate.document_context.md_mask_context import MDMaskUrisContext
+from docutranslate.context.md_mask_context import MDMaskUrisContext
 from docutranslate.ir.markdown_document import MarkdownDocument
 from docutranslate.logger import global_logger
 from docutranslate.translater.base import AiTranslateConfig
