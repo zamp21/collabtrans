@@ -5,7 +5,6 @@ import jinja2
 from docutranslate.exporter.export_config import ExportConfig
 from docutranslate.exporter.txt2x.interfaces import TXTExporter
 from docutranslate.ir.document import Document
-from docutranslate.ir.markdown_document import MarkdownDocument
 from docutranslate.utils.resource_utils import resource_path
 
 
@@ -19,7 +18,7 @@ class TXT2HTMLExporter(TXTExporter):
         export_config = export_config or TXT2HTMLExportConfig()
         self.cdn = export_config.cdn
 
-    def export(self, document: MarkdownDocument) -> Document:
+    def export(self, document: Document) -> Document:
         cdn = self.cdn
         html_template = resource_path("template/txt.html").read_text(encoding="utf-8")
 

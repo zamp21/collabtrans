@@ -1,3 +1,4 @@
+import copy
 import dataclasses
 from pathlib import Path
 
@@ -22,3 +23,6 @@ class Document:
     @classmethod
     def from_bytes(cls,content:bytes,suffix:str,stem:str|None):
         return cls(content=content,suffix=suffix,stem=stem)
+
+    def copy(self):
+        return copy.copy(self)

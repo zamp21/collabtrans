@@ -16,13 +16,15 @@ class BaseManager(ABC, Generic[T_Translated]):
         self.document_original: Document | None = None
         self.document_translated: T_Translated | None = None
 
-    def read_path(self, path: Path | str):
+    def read_path(self, path: Path | str) -> Self:
         document = Document.from_path(path)
         self.document_original = document
+        return self
 
-    def read_bytes(self, content: bytes, stem: str, suffix: str):
+    def read_bytes(self, content: bytes, stem: str, suffix: str) -> Self:
         document = Document.from_bytes(content=content, stem=stem, suffix=suffix)
         self.document_original = document
+        return self
 
     @abstractmethod
     def translate(self, *args, **kwargs) -> Self:
@@ -38,14 +40,11 @@ class BaseManager(ABC, Generic[T_Translated]):
         docu = exporter.export(self.document_translated)
         return docu
 
-    def _save(self, exporter: Exporter, name: str = None, out_put_dir: Path | str = "./output"):
+    def _save(self, exporter: Exporter, name: str = None, output_dir: Path | str = "./output"):
         docu = self._export(exporter)
         name = name or docu.name
-        output_path = Path(out_put_dir) / Path(name)
+        output_path = Path(output_dir) / Path(name)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(docu.content)
         self.logger.info(f"文件已保存到{output_path.resolve()}")
         return self
-    @abstractmethod
-    def support_export_format(self)->list[str]:
-        ...

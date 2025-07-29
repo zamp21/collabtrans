@@ -15,3 +15,5 @@ def conditional_import(packagename,alias=None):
         # print(f"package:{packagename}不存在")
         available_packages[packagename]=False
         return False
+
+conditional_import("docling")
