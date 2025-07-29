@@ -49,8 +49,8 @@ httpx_client: httpx.AsyncClient
 
 # --- [NEW] 工作流到 Manager 的映射 ---
 WORKFLOW_TO_MANAGER: Dict[str, type[BaseManager]] = {
-    "markdown": MarkdownBasedManager,
-    "text": TXTManager,
+    "markdown_based": MarkdownBasedManager,
+    "txt": TXTManager,
 }
 
 
@@ -190,7 +190,7 @@ class BaseWorkflowParams(BaseModel):
 
 # 2. 为每个工作流创建独立的参数模型
 class MarkdownWorkflowParams(BaseWorkflowParams):
-    workflow_type: Literal['markdown'] = Field(..., description="指定使用基于Markdown的翻译工作流。")
+    workflow_type: Literal['markdown_based'] = Field(..., description="指定使用基于Markdown的翻译工作流。")
 
     # --- Markdown-specific Converter Params ---
     convert_engin: Optional[Literal["mineru", "docling"]] = Field(
@@ -204,7 +204,7 @@ class MarkdownWorkflowParams(BaseWorkflowParams):
 
 
 class TextWorkflowParams(BaseWorkflowParams):
-    workflow_type: Literal['text'] = Field(..., description="指定使用纯文本的翻译工作流。")
+    workflow_type: Literal['txt'] = Field(..., description="指定使用纯文本的翻译工作流。")
     # TXT 工作流没有额外的参数
 
 
@@ -227,7 +227,7 @@ class TranslateServiceRequest(BaseModel):
                 "file_name": "annual_report_2023.pdf",
                 "file_content": "JVBERi0xLjcKJeLjz9MKMSAwIG9iago8PC9...",
                 "payload": {
-                    "workflow_type": "markdown",
+                    "workflow_type": "markdown_based",
                     "base_url": "https://api.openai.com/v1",
                     "apikey": "sk-your-api-key-here",
                     "model_id": "gpt-4o",
@@ -1106,7 +1106,7 @@ def run_app(port: int | None = None):
         print(f"正在启动 DocuTranslate WebUI 版本号：{__version__}\n")
         print(f"服务接口文档: http://127.0.0.1:{port_to_use}/docs\n")
         print(f"请用浏览器访问 http://127.0.0.1:{port_to_use}\n")
-        uvicorn.run(app, host="0.0.0.0", port=port_to_use, workers=1)
+        uvicorn.run(app, host=None, port=port_to_use, workers=1)
     except Exception as e:
         print(f"启动失败: {e}")
 
