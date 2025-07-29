@@ -9,13 +9,14 @@ from docutranslate.converter.x2md.converter_mineru import ConverterMineruConfig,
 from docutranslate.converter.x2md.interfaces import X2MarkdownConverter
 from docutranslate.exporter.md2x.md2html_exporter import MD2HTMLExportConfig, MD2HTMLExporter
 from docutranslate.exporter.md2x.md2md_exporter import MD2MDExportConfig, MD2MDExporter
+from docutranslate.exporter.md2x.md2mdzip_exporter import MD2MDZIPExportConfig, MD2MDZipExporter
 from docutranslate.exporter.md2x.types import x2md_convert_config_type, convert_engin_type
 from docutranslate.manager.base_manager import BaseManager
-from docutranslate.manager.interfaces import HTMLExportable, MDExportable
+from docutranslate.manager.interfaces import MDFormatsExportable, HTMLExportable
 from docutranslate.translater.md_translator import MDTranslateConfig, MDTranslator
 
 
-class MarkdownBasedManager(BaseManager, HTMLExportable, MDExportable):
+class MarkdownBasedManager(BaseManager, HTMLExportable, MDFormatsExportable):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._converter_factory: dict[str:tuple[X2MarkdownConverter, x2md_convert_config_type]] = {
@@ -39,7 +40,8 @@ class MarkdownBasedManager(BaseManager, HTMLExportable, MDExportable):
             elif convert_engin in self._converter_factory:
                 converter_class, config_class = self._converter_factory[convert_engin]
                 if not isinstance(convert_config, config_class):
-                    raise TypeError(f"未传入正确的convert_config，应传入{config_class.__name__}类型")
+                    raise TypeError(
+                        f"未传入正确的convert_config，应传入{config_class.__name__}类型，现为{type(convert_config).__name__}类型")
                 converter = converter_class(convert_config, logger=self.logger)
             else:
                 raise ValueError(f"不存在{convert_engin}解析引擎")
@@ -89,16 +91,26 @@ class MarkdownBasedManager(BaseManager, HTMLExportable, MDExportable):
         return docu.content.decode()
 
     def export_to_markdown(self, export_config: MD2MDExportConfig | None = None) -> str:
-        docu = self._export(MD2MDExporter(export_config))
+        docu = self._export(MD2MDExporter())
         return docu.content.decode()
+
+    def export_to_markdown_zip(self, export_config: MD2MDZIPExportConfig | None = None) -> bytes:
+        docu = self._export(MD2MDZipExporter())
+        return docu.content
 
     def save_as_html(self, name: str = None, output_dir: Path | str = "./output",
                      export_config: MD2HTMLExportConfig | None = None) -> Self:
-        self._save(exporter=MD2HTMLExporter(export_config), name=name, output_dir=output_dir)
+        self._save(exporter=MD2HTMLExporter(), name=name, output_dir=output_dir)
         return self
 
     def save_as_markdown(self, name: str = None, output_dir: Path | str = "./output",
                          export_config: MD2MDExportConfig | None = None) -> Self:
 
-        self._save(exporter=MD2MDExporter(export_config), name=name, output_dir=output_dir)
+        self._save(exporter=MD2MDExporter(), name=name, output_dir=output_dir)
+        return self
+
+    def save_as_markdown_zip(self, name: str = None, output_dir: Path | str = "./output",
+                             export_config: MD2MDZIPExportConfig | None = None) -> Self:
+
+        self._save(exporter=MD2MDZipExporter(), name=name, output_dir=output_dir)
         return self

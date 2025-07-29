@@ -1,6 +1,5 @@
 import asyncio
 from dataclasses import dataclass
-from logging import Logger
 from typing import Self
 
 from docutranslate.agents import MDTranslateAgent

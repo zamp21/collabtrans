@@ -27,7 +27,7 @@ class TXTManager(BaseManager, HTMLExportable,TXTExportable):
         self.document_translated = document
         return self
 
-    def export_to_html(self, export_config: TXT2HTMLExportConfig) -> str:
+    def export_to_html(self, export_config: TXT2HTMLExportConfig=None) -> str:
         docu = self._export(TXT2HTMLExporter(export_config))
         return docu.content.decode()
 
