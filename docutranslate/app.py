@@ -9,16 +9,13 @@ import time
 import uuid
 from contextlib import asynccontextmanager, closing
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Literal, Union
+from typing import List, Dict, Any, Optional, Literal, Union, Annotated
 from urllib.parse import quote
 
 import httpx
 import uvicorn
 from fastapi import FastAPI, HTTPException, APIRouter, Body, Path as FastApiPath
-from fastapi.openapi.docs import (
-    get_swagger_ui_html,
-    get_swagger_ui_oauth2_redirect_html, get_redoc_html,
-)
+from fastapi.openapi.docs import get_swagger_ui_html, get_swagger_ui_oauth2_redirect_html, get_redoc_html
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -50,6 +47,12 @@ tasks_log_histories: Dict[str, List[str]] = {}
 MAX_LOG_HISTORY = 200
 httpx_client: httpx.AsyncClient
 
+# --- [NEW] 工作流到 Manager 的映射 ---
+WORKFLOW_TO_MANAGER: Dict[str, type[BaseManager]] = {
+    "markdown": MarkdownBasedManager,
+    "text": TXTManager,
+}
+
 
 # --- 辅助函数 (MODIFIED) ---
 def _create_default_task_state() -> Dict[str, Any]:
@@ -64,7 +67,7 @@ def _create_default_task_state() -> Dict[str, Any]:
     }
 
 
-# --- Manager 工厂函数 (NEW) ---
+# --- [KEPT FOR TEMP ENDPOINT] Manager 工厂函数 (旧逻辑，仅为临时接口保留) ---
 def _get_manager_for_file(filename: str, logger: logging.Logger) -> BaseManager:
     """根据文件名后缀选择并返回合适的 Manager 实例。这是扩展点。"""
     suffix = Path(filename).suffix.lower()
@@ -122,8 +125,133 @@ async def lifespan(app: FastAPI):
     print("应用关闭，资源已清理。")
 
 
-# --- Background Task Logic (核心业务逻辑, 已重构) ---
-async def _perform_translation(task_id: str, params: Dict[str, Any], file_contents: bytes, original_filename: str):
+# --- FastAPI 应用和路由设置 (保持不变) ---
+tags_metadata = [
+    {
+        "name": "Service API",
+        "description": "核心的服务API，用于提交、管理和下载翻译任务。",
+    },
+    {
+        "name": "Application",
+        "description": "应用本身的相关端点，如元信息和默认参数。",
+    },
+    {
+        "name": "Temp",
+        "description": "测试用接口。",
+    },
+
+]
+
+app = FastAPI(
+    docs_url=None,
+    redoc_url=None,
+    lifespan=lifespan,
+    title="DocuTranslate API",
+    description=f"""
+DocuTranslate 后端服务 API，提供文档翻译、状态查询、结果下载等功能。
+
+**注意**: 所有任务状态都保存在服务进程的内存中，服务重启将导致所有任务信息丢失。
+
+### 主要工作流程:
+1.  **`POST /service/translate`**: 提交文件和包含`workflow_type`的翻译参数，启动一个后台任务。服务会自动生成并返回一个唯一的 `task_id`。
+2.  **`GET /service/status/{{task_id}}`**: 使用获取到的 `task_id` 轮询此端点，获取任务的实时状态。
+3.  **`GET /service/logs/{{task_id}}`**: (可选) 获取实时的翻译日志。
+4.  **`GET /service/download/{{task_id}}/{{file_type}}`**: 任务完成后 (当 `download_ready` 为 `true` 时)，通过此端点下载结果文件。
+5.  **`GET /service/content/{{task_id}}/{{file_type}}`**: 任务完成后(当 `download_ready` 为 `true` 时)，以JSON格式获取文件内容。
+6.  **`POST /service/cancel/{{task_id}}`**: (可选) 取消一个正在进行的任务。
+7.  **`POST /service/release/{{task_id}}`**: (可选) 当任务不再需要时，释放其在服务器上占用的所有资源。
+
+**版本**: {__version__}
+""",
+    version=__version__,
+    openapi_tags=tags_metadata,
+)
+
+service_router = APIRouter(prefix="/service", tags=["Service API"])
+STATIC_DIR = resource_path("static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+# ===================================================================
+# --- [NEW/MODIFIED] Pydantic Models for Service API ---
+# ===================================================================
+
+# 1. 定义所有工作流共享的基础参数
+class BaseWorkflowParams(BaseModel):
+    base_url: str = Field(..., description="LLM API的基础URL。", examples=["https://api.openai.com/v1"])
+    apikey: str = Field(..., description="LLM API的密钥。", examples=["sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"])
+    model_id: str = Field(..., description="要使用的LLM模型ID。", examples=["gpt-4o"])
+    to_lang: str = Field(default="中文", description="目标翻译语言。", examples=["简体中文", "English"])
+    chunk_size: int = Field(default_params["chunk_size"], description="文本分割的块大小（字符）。")
+    concurrent: int = Field(default_params["concurrent"], description="并发请求数。")
+    temperature: float = Field(default_params["temperature"], description="LLM温度参数。")
+    custom_prompt_translate: Optional[str] = Field(None, description="用户自定义的翻译Prompt。")
+
+
+# 2. 为每个工作流创建独立的参数模型
+class MarkdownWorkflowParams(BaseWorkflowParams):
+    workflow_type: Literal['markdown'] = Field(..., description="指定使用基于Markdown的翻译工作流。")
+
+    # --- Markdown-specific Converter Params ---
+    convert_engin: Optional[Literal["mineru", "docling"]] = Field(
+        None,
+        description="文档解析引擎。`mineru`在线服务, `docling`本地引擎。如果输入文件是.md，此项可为`null`或不传。",
+        examples=["mineru", "docling"]
+    )
+    mineru_token: Optional[str] = Field(None, description="当 `convert_engin` 为 'mineru' 时必填的API令牌。")
+    formula_ocr: bool = Field(True, description="是否对公式进行OCR识别。对 `mineru` 和 `docling` 均有效。")
+    code_ocr: bool = Field(True, description="是否对代码块进行OCR识别。仅 `docling` 引擎有效。")
+
+
+class TextWorkflowParams(BaseWorkflowParams):
+    workflow_type: Literal['text'] = Field(..., description="指定使用纯文本的翻译工作流。")
+    # TXT 工作流没有额外的参数
+
+
+# 3. 使用可辨识联合类型（Discriminated Union）将它们组合起来
+TranslatePayload = Annotated[
+    Union[MarkdownWorkflowParams, TextWorkflowParams],
+    Field(discriminator='workflow_type')
+]
+
+
+# 4. 创建最终的请求体模型
+class TranslateServiceRequest(BaseModel):
+    file_name: str = Field(..., description="上传的原始文件名，含扩展名。", examples=["my_paper.pdf", "chapter1.txt"])
+    file_content: str = Field(..., description="Base64编码的文件内容。", examples=["JVBERi0xLjQK..."])
+    payload: TranslatePayload = Field(..., description="包含工作流类型和相应参数的载荷。")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "file_name": "annual_report_2023.pdf",
+                "file_content": "JVBERi0xLjcKJeLjz9MKMSAwIG9iago8PC9...",
+                "payload": {
+                    "workflow_type": "markdown",
+                    "base_url": "https://api.openai.com/v1",
+                    "apikey": "sk-your-api-key-here",
+                    "model_id": "gpt-4o",
+                    "to_lang": "简体中文",
+                    "convert_engin": "mineru",
+                    "mineru_token": "your-mineru-token-if-any",
+                    "formula_ocr": True,
+                    "code_ocr": True,
+                    "chunk_size": 3000,
+                    "concurrent": 10,
+                    "temperature": 0.1,
+                    "custom_prompt_translate": "将所有技术术语翻译为业界公认的中文对应词汇。"
+                }
+            }
+        }
+
+
+# --- [MODIFIED] Background Task Logic ---
+async def _perform_translation(
+        task_id: str,
+        payload: TranslatePayload,
+        file_contents: bytes,
+        original_filename: str
+):
     task_state = tasks_state[task_id]
     log_queue = tasks_log_queues[task_id]
     log_history = tasks_log_histories[task_id]
@@ -137,24 +265,27 @@ async def _perform_translation(task_id: str, params: Dict[str, Any], file_conten
     task_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
     task_logger.addHandler(task_handler)
 
-    task_logger.info(f"后台翻译任务开始: 文件 '{original_filename}'")
+    task_logger.info(f"后台翻译任务开始: 文件 '{original_filename}', 工作流: '{payload.workflow_type}'")
     task_state["status_message"] = f"正在处理 '{original_filename}'..."
 
     try:
-        # 1. 选择合适的 Manager
-        manager = _get_manager_for_file(original_filename, task_logger)
+        # 1. 根据工作流类型选择合适的 Manager
+        manager_class = WORKFLOW_TO_MANAGER.get(payload.workflow_type)
+        if not manager_class:
+            raise ValueError(f"不支持的工作流类型: '{payload.workflow_type}'")
+        manager = manager_class(logger=task_logger)
 
-        # 2. 从扁平化的 params 构建结构化的 Config 对象
+        # 2. 从 payload 构建通用的 AiTranslateConfig
         ai_config = AiTranslateConfig(
-            base_url=params['base_url'],
-            api_key=params['apikey'],
-            model_id=params['model_id'],
-            to_lang=params['to_lang'],
-            custom_prompt=params['custom_prompt_translate'],
-            temperature=params['temperature'],
-            timeout=2000,  # 保持默认或从params获取
-            chunk_size=params['chunk_size'],
-            concurrent=params['concurrent'],
+            base_url=payload.base_url,
+            api_key=payload.apikey,
+            model_id=payload.model_id,
+            to_lang=payload.to_lang,
+            custom_prompt=payload.custom_prompt_translate,
+            temperature=payload.temperature,
+            timeout=2000,
+            chunk_size=payload.chunk_size,
+            concurrent=payload.concurrent,
             logger=task_logger
         )
 
@@ -163,44 +294,45 @@ async def _perform_translation(task_id: str, params: Dict[str, Any], file_conten
         file_suffix = Path(original_filename).suffix
         manager.read_bytes(content=file_contents, stem=file_stem, suffix=file_suffix)
 
-        # 4. 根据 Manager 类型执行不同的翻译流程
-        if isinstance(manager, MarkdownBasedManager):
-            task_logger.info("使用 Markdown 翻译流程。")
+        # 4. 根据 payload 的具体类型执行不同的翻译流程 (类型安全!)
+        if isinstance(payload, MarkdownWorkflowParams) and isinstance(manager, MarkdownBasedManager):
+            task_logger.info("执行 Markdown 翻译流程。")
             translate_config = MDTranslateConfig(**ai_config.__dict__)
-            convert_engin = params['convert_engin']
+
             convert_config = None
-            if convert_engin == 'mineru':
-                if not params.get('mineru_token'):
+            if payload.convert_engin == 'mineru':
+                if not payload.mineru_token:
                     raise ValueError("使用 'mineru' 引擎需要提供 'mineru_token'。")
                 convert_config = ConverterMineruConfig(
-                    mineru_token=params['mineru_token'],
-                    formula=params['formula_ocr']
+                    mineru_token=payload.mineru_token,
+                    formula=payload.formula_ocr
                 )
-            elif convert_engin == 'docling':
+            elif payload.convert_engin == 'docling':
                 convert_config = ConverterDoclingConfig(
-                    code=params['code_ocr'],
-                    formula=params['formula_ocr']
+                    code=payload.code_ocr,
+                    formula=payload.formula_ocr
                 )
 
             await manager.translate_async(
-                convert_engin=convert_engin,
+                convert_engin=payload.convert_engin,
                 convert_config=convert_config,
                 translate_config=translate_config
             )
 
-        elif isinstance(manager, TXTManager):
-            task_logger.info("使用 TXT 翻译流程。")
+        elif isinstance(payload, TextWorkflowParams) and isinstance(manager, TXTManager):
+            task_logger.info("执行 TXT 翻译流程。")
             translate_config = TXTTranslateConfig(**ai_config.__dict__)
             await manager.translate_async(translate_config=translate_config)
 
         else:
-            raise TypeError(f"不支持的 Manager 类型: {type(manager).__name__}")
+            raise TypeError(
+                f"工作流类型 '{payload.workflow_type}'与Manager类型 '{type(manager).__name__}' 不匹配或未实现。")
 
         # 5. 任务成功，存储 manager 实例并更新状态
         end_time = time.time()
         duration = end_time - task_state["task_start_time"]
         task_state.update({
-            "manager_instance": manager,  # <--- 存储实例
+            "manager_instance": manager,
             "status_message": f"翻译成功！用时 {duration:.2f} 秒。",
             "download_ready": True,
             "error_flag": False,
@@ -240,10 +372,10 @@ async def _perform_translation(task_id: str, params: Dict[str, Any], file_conten
         task_logger.removeHandler(task_handler)
 
 
-# --- 核心任务启动与取消逻辑 (保持不变) ---
+# --- [MODIFIED] 核心任务启动逻辑 ---
 async def _start_translation_task(
         task_id: str,
-        params: Dict[str, Any],
+        payload: TranslatePayload,
         file_contents: bytes,
         original_filename: str
 ):
@@ -259,7 +391,7 @@ async def _start_translation_task(
     task_state["is_processing"] = True
     task_state.update({
         "status_message": "任务初始化中...", "error_flag": False, "download_ready": False,
-        "manager_instance": None,  # 重置
+        "manager_instance": None,
         "original_filename_stem": Path(original_filename).stem,
         "original_filename": original_filename,
         "task_start_time": time.time(), "task_end_time": 0, "current_task_ref": None,
@@ -281,7 +413,7 @@ async def _start_translation_task(
 
     try:
         loop = asyncio.get_running_loop()
-        task = loop.create_task(_perform_translation(task_id, params, file_contents, original_filename))
+        task = loop.create_task(_perform_translation(task_id, payload, file_contents, original_filename))
         task_state["current_task_ref"] = task
         return {"task_started": True, "task_id": task_id, "message": "翻译任务已成功启动，请稍候..."}
     except Exception as e:
@@ -309,118 +441,19 @@ def _cancel_translation_logic(task_id: str):
     return {"cancelled": True, "message": "取消请求已发送。请等待状态更新。"}
 
 
-# --- FastAPI 应用和路由设置 (保持不变) ---
-tags_metadata = [
-    {
-        "name": "Service API",
-        "description": "核心的服务API，用于提交、管理和下载翻译任务。",
-    },
-    {
-        "name": "Application",
-        "description": "应用本身的相关端点，如元信息和默认参数。",
-    },
-    {
-        "name": "Temp",
-        "description": "测试用接口。",
-    },
-
-]
-
-app = FastAPI(
-    docs_url=None,
-    redoc_url=None,
-    lifespan=lifespan,
-    title="DocuTranslate API",
-    description=f"""
-DocuTranslate 后端服务 API，提供文档翻译、状态查询、结果下载等功能。
-
-**注意**: 所有任务状态都保存在服务进程的内存中，服务重启将导致所有任务信息丢失。
-
-### 主要工作流程:
-1.  **`POST /service/translate`**: 提交文件和翻译参数，启动一个后台任务。服务会自动生成并返回一个唯一的 `task_id`。
-2.  **`GET /service/status/{{task_id}}`**: 使用获取到的 `task_id` 轮询此端点，获取任务的实时状态。
-3.  **`GET /service/logs/{{task_id}}`**: (可选) 获取实时的翻译日志。
-4.  **`GET /service/download/{{task_id}}/{{file_type}}`**: 任务完成后 (当 `download_ready` 为 `true` 时)，通过此端点下载结果文件。
-5.  **`GET /service/content/{{task_id}}/{{file_type}}`**: 任务完成后(当 `download_ready` 为 `true` 时)，以JSON格式获取文件内容。
-6.  **`POST /service/cancel/{{task_id}}`**: (可选) 取消一个正在进行的任务。
-7.  **`POST /service/release/{{task_id}}`**: (可选) 当任务不再需要时，释放其在服务器上占用的所有资源。
-
-**版本**: {__version__}
-""",
-    version=__version__,
-    openapi_tags=tags_metadata,
-)
-
-service_router = APIRouter(prefix="/service", tags=["Service API"])
-STATIC_DIR = resource_path("static")
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
-
-
-# ===================================================================
-# --- Pydantic Models for Service API (MODIFIED) ---
-# ===================================================================
-class TranslateServiceRequest(BaseModel):
-    base_url: str = Field(..., description="LLM API的基础URL。", examples=["https://api.openai.com/v1"])
-    apikey: str = Field(..., description="LLM API的密钥。", examples=["sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"])
-    model_id: str = Field(..., description="要使用的LLM模型ID。", examples=["gpt-4o"])
-    to_lang: str = Field(default="中文", description="目标翻译语言。", examples=["简体中文", "English"])
-
-    # --- Converter Params ---
-    convert_engin: Literal["mineru", "docling", "auto"] = Field(
-        "auto",
-        description="文档解析引擎。`mineru`在线服务, `docling`本地引擎, `auto`自动选择(优先mineru)。",
-        examples=["mineru", "docling", "auto"]
-    )
-    mineru_token: Optional[str] = Field(None, description="当 `convert_engin` 为 'mineru' 时必填的API令牌。")
-    formula_ocr: bool = Field(True, description="是否对公式进行OCR识别。对 `mineru` 和 `docling` 均有效。")
-    code_ocr: bool = Field(True, description="是否对代码块进行OCR识别。仅 `docling` 引擎有效。")
-
-    # --- Translator Params ---
-    chunk_size: int = Field(default_params["chunk_size"], description="文本分割的块大小（字符）。")
-    concurrent: int = Field(default_params["concurrent"], description="并发请求数。")
-    temperature: float = Field(default_params["temperature"], description="LLM温度参数。")
-    custom_prompt_translate: Optional[str] = Field(None, description="用户自定义的翻译Prompt。")
-
-    # --- File Info ---
-    file_name: str = Field(..., description="上传的原始文件名，含扩展名。", examples=["my_paper.pdf"])
-    file_content: str = Field(..., description="Base64编码的文件内容。", examples=["JVBERi0xLjQK..."])
-
-    # refine_markdown: bool = Field(False, description="[已废弃] 此功能在新版中已移除。")
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "base_url": "https://api.openai.com/v1",
-                "apikey": "sk-your-api-key-here",
-                "model_id": "gpt-4o",
-                "to_lang": "简体中文",
-                "convert_engin": "mineru",
-                "mineru_token": "your-mineru-token-if-any",
-                "formula_ocr": True,
-                "code_ocr": True,
-                "chunk_size": 3000,
-                "concurrent": 10,
-                "temperature": 0.1,
-                "custom_prompt_translate": "将所有技术术语翻译为业界公认的中文对应词汇。",
-                "file_name": "annual_report_2023.pdf",
-                "file_content": "JVBERi0xLjcKJeLjz9MKMSAwIG9iago8PC9..."
-            }
-        }
-
-
 # ===================================================================
 # --- Service Endpoints (/service) (部分已重构) ---
 # ===================================================================
 
 @service_router.post(
     "/translate",
-    summary="提交翻译任务 (Base64)",
+    summary="提交翻译任务 (统一入口)",
     description="""
-接收一个包含文件内容（Base64编码）和翻译参数的JSON请求，启动一个后台翻译任务。
+接收一个包含文件内容（Base64编码）和工作流参数的JSON请求，启动一个后台翻译任务。
 
-- **异步处理**: 此端点会立即返回，不会等待翻译完成。
-- **任务ID**: 成功启动后，服务会自动生成并返回任务ID (`task_id`)。
-- **后续步骤**: 客户端应使用返回的 `task_id` 轮询 `/service/status/{task_id}` 接口来获取任务进度和结果。
+- **工作流选择**: 请求体中的 `payload.workflow_type` 字段决定了本次任务的类型（如 `markdown` 或 `text`）。
+- **动态参数**: 根据所选工作流，API需要不同的参数集。请参考下面的Schema或示例。
+- **异步处理**: 此端点会立即返回任务ID，客户端需轮询状态接口获取进度。
 """,
     responses={
         200: {
@@ -430,6 +463,8 @@ class TranslateServiceRequest(BaseModel):
         },
         400: {"description": "请求体中的Base64文件内容无效。",
               "content": {"application/json": {"example": {"detail": "无效的Base64文件内容: Incorrect padding"}}}},
+        422: {"description": "请求体验证失败，例如为错误的工作流提供了无效的参数。",
+              "content": {"application/json": {"example": {"detail": "[Validation Error Details]"}}}},
         429: {"description": "服务器内部任务冲突，请重试。", "content": {
             "application/json": {
                 "example": {"task_started": False, "message": "任务ID 'b2865b93' 正在进行中，请稍后再试。"}}}},
@@ -440,11 +475,6 @@ class TranslateServiceRequest(BaseModel):
     }
 )
 async def service_translate(request: TranslateServiceRequest = Body(..., description="翻译任务的详细参数和文件内容。")):
-    """
-    提交一个文件进行翻译，并启动一个后台任务。
-    文件内容需以Base64编码，任务ID将由后端自动生成并返回。
-    后续可凭此ID查询状态和下载结果。
-    """
     task_id = uuid.uuid4().hex[:8]
 
     try:
@@ -452,17 +482,10 @@ async def service_translate(request: TranslateServiceRequest = Body(..., descrip
     except (binascii.Error, TypeError) as e:
         raise HTTPException(status_code=400, detail=f"无效的Base64文件内容: {e}")
 
-    params = request.model_dump(exclude={'file_name', 'file_content'})
-
-    # 自动选择引擎逻辑
-    if params['convert_engin'] == 'auto':
-        params['convert_engin'] = 'mineru' if params.get('mineru_token') else 'docling'
-        print(f"[{task_id}] 自动选择解析引擎: {params['convert_engin']}")
-
     try:
         response_data = await _start_translation_task(
             task_id=task_id,
-            params=params,
+            payload=request.payload,
             file_contents=file_contents,
             original_filename=request.file_name
         )
@@ -593,8 +616,8 @@ async def service_release_task(
                                 "downloads": {}
                             }
                         },
-                        "completed": {
-                            "summary": "已完成",
+                        "completed_md": {
+                            "summary": "已完成 (Markdown)",
                             "value": {
                                 "task_id": "b2865b93",
                                 "is_processing": False,
@@ -612,21 +635,24 @@ async def service_release_task(
                                 }
                             }
                         },
-                        "error": {
-                            "summary": "出错",
+                        "completed_txt": {
+                            "summary": "已完成 (TXT)",
                             "value": {
-                                "task_id": "b2865b93",
+                                "task_id": "c3976ca4",
                                 "is_processing": False,
-                                "status_message": "翻译过程中发生错误 (用时 45.67 秒): APIConnectionError(...)",
-                                "error_flag": True,
-                                "download_ready": False,
-                                "original_filename_stem": "annual_report_2023",
-                                "original_filename": "annual_report_2023.pdf",
-                                "task_start_time": 1678886400.123,
-                                "task_end_time": 1678886445.793,
-                                "downloads": {}
+                                "status_message": "翻译成功！用时 23.45 秒。",
+                                "error_flag": False,
+                                "download_ready": True,
+                                "original_filename_stem": "my_notes",
+                                "original_filename": "my_notes.txt",
+                                "task_start_time": 1678887400.123,
+                                "task_end_time": 1678887423.573,
+                                "downloads": {
+                                    "txt": "/service/download/c3976ca4/txt",
+                                    "html": "/service/download/c3976ca4/html"
+                                }
                             }
-                        }
+                        },
                     }
                 }
             }
@@ -644,7 +670,7 @@ async def service_get_status(
     if not task_state:
         raise HTTPException(status_code=404, detail=f"找不到任务ID '{task_id}'。")
 
-    # (MODIFIED) 动态生成可用的下载链接
+    # [MODIFIED] 动态生成可用的下载链接
     downloads = {}
     if task_state.get("download_ready") and task_state.get("manager_instance"):
         manager = task_state["manager_instance"]
@@ -680,8 +706,8 @@ async def service_get_status(
             "content": {"application/json": {
                 "example": {
                     "logs": [
-                        "2023-10-27 10:30:05 - INFO - 后台翻译任务开始: 文件 'annual_report_2023.pdf'",
-                        "2023-10-27 10:30:05 - INFO - 使用 Base URL: https://api.openai.com/v1, Model: gpt-4o",
+                        "2023-10-27 10:30:05 - INFO - 后台翻译任务开始: 文件 'annual_report_2023.pdf', 工作流: 'markdown'",
+                        "2023-10-27 10:30:05 - INFO - 执行 Markdown 翻译流程。",
                         "2023-10-27 10:30:15 - INFO - 正在转化为markdown",
                         "2023-10-27 10:30:25 - INFO - markdown分为50块",
                         "2023-10-27 10:30:30 - INFO - 正在翻译markdown"
@@ -713,7 +739,7 @@ async def service_get_logs(
 FileType = Literal["markdown", "markdown_zip", "html", "txt"]
 
 
-async def _get_content_from_manager(task_id: str, file_type: FileType) -> tuple[bytes | str, str, str]:
+async def _get_content_from_manager(task_id: str, file_type: FileType) -> tuple[bytes, str, str]:
     """辅助函数，从 manager 获取内容、媒体类型和文件名"""
     task_state = tasks_state.get(task_id)
     if not task_state:
@@ -725,35 +751,46 @@ async def _get_content_from_manager(task_id: str, file_type: FileType) -> tuple[
     filename_stem = task_state['original_filename_stem']
 
     try:
+        content_bytes: bytes
+        media_type: str
+        filename: str
+
         if file_type == 'html' and isinstance(manager, HTMLExportable):
-            # 自动判断使用哪种 HTML Export Config
-            config = MD2HTMLExportConfig(cdn=True) if isinstance(manager, MarkdownBasedManager) else TXT2HTMLExportConfig(cdn=True)
+            config = MD2HTMLExportConfig(cdn=True) if isinstance(manager,
+                                                                 MarkdownBasedManager) else TXT2HTMLExportConfig(
+                cdn=True)
             try:
-                # 尝试连接CDN，失败则回退
-                await httpx_client.head("https://s4.zstatic.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js", timeout=3)
+                await httpx_client.head("https://s4.zstatic.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js",
+                                        timeout=3)
             except (httpx.TimeoutException, httpx.RequestError):
-                manager.logger.info("CDN连接失败，使用本地JS进行渲染。")
+                manager.logger.warning("CDN连接失败，使用本地JS进行渲染。")
                 if hasattr(config, 'cdn'):
                     config.cdn = False
-            content = manager.export_to_html(config)
-            return content.encode('utf-8'), "text/html; charset=utf-8", f"{filename_stem}_translated.html"
+            content_str = manager.export_to_html(config)
+            content_bytes, media_type, filename = content_str.encode(
+                'utf-8'), "text/html; charset=utf-8", f"{filename_stem}_translated.html"
 
-        if file_type == 'markdown' and isinstance(manager, MDFormatsExportable):
+        elif file_type == 'markdown' and isinstance(manager, MDFormatsExportable):
             md_content = manager.export_to_markdown()
-            return md_content.encode('utf-8'), "text/markdown; charset=utf-8", f"{filename_stem}_translated.md"
+            content_bytes, media_type, filename = md_content.encode(
+                'utf-8'), "text/markdown; charset=utf-8", f"{filename_stem}_translated.md"
 
-        if file_type == 'markdown_zip' and isinstance(manager, MDFormatsExportable):
-            return manager.export_to_markdown_zip(), "application/zip", f"{filename_stem}_translated.zip"
+        elif file_type == 'markdown_zip' and isinstance(manager, MDFormatsExportable):
+            content_bytes, media_type, filename = manager.export_to_markdown_zip(), "application/zip", f"{filename_stem}_translated.zip"
 
-        if file_type == 'txt' and isinstance(manager, TXTExportable):
+        elif file_type == 'txt' and isinstance(manager, TXTExportable):
             txt_content = manager.export_to_txt()
-            return txt_content.encode('utf-8'), "text/plain; charset=utf-8", f"{filename_stem}_translated.txt"
+            content_bytes, media_type, filename = txt_content.encode(
+                'utf-8'), "text/plain; charset=utf-8", f"{filename_stem}_translated.txt"
+
+        else:
+            raise HTTPException(status_code=404, detail=f"此任务不支持导出 '{file_type}' 类型的文件。")
+
+        return content_bytes, media_type, filename
 
     except Exception as e:
         manager.logger.error(f"导出 {file_type} 时出错: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"导出 {file_type} 时发生内部错误: {e}")
-
-    raise HTTPException(status_code=404, detail=f"此任务不支持导出 '{file_type}' 类型的文件。")
 
 
 @service_router.get(
@@ -810,7 +847,7 @@ async def service_download_file(
                             "summary": "HTML 内容",
                             "value": {
                                 "file_type": "html",
-                                "original_filename": "my_doc_translated.html",
+                                "filename": "my_doc_translated.html",
                                 "content": "<h1>标题</h1><p>这是翻译后的HTML内容...</p>"
                             }
                         },
@@ -839,16 +876,11 @@ async def service_content(
     """根据任务ID和文件类型，以JSON格式返回内容。zip文件会进行Base64编码。"""
     content, _, filename = await _get_content_from_manager(task_id, file_type)
 
-    if isinstance(content, bytes):
-        try:
-            # For text-based formats, decode to string
-            final_content = content.decode('utf-8')
-        except UnicodeDecodeError:
-            # For binary formats (like zip), encode to Base64
-            final_content = base64.b64encode(content).decode('utf-8')
-    else: # Should not happen with current _get_content_from_manager, but for safety
-        final_content = content
-
+    final_content: str
+    if file_type == 'markdown_zip':
+        final_content = base64.b64encode(content).decode('utf-8')
+    else:
+        final_content = content.decode('utf-8')
 
     return JSONResponse(content={
         "file_type": file_type,
@@ -866,13 +898,13 @@ async def service_content(
     responses={
         200: {
             "description": "成功返回可用引擎列表。",
-            "content": {"application/json": {"example": ["auto", "mineru", "docling"]}}
+            "content": {"application/json": {"example": ["mineru", "docling"]}}
         }
     }
 )
 async def service_get_engin_list():
     """返回可用的文档解析引擎列表。"""
-    engin_list = ["auto", "mineru"]
+    engin_list = ["mineru"]
     if available_packages.get("docling"):
         engin_list.append("docling")
     return JSONResponse(content=engin_list)
@@ -1017,7 +1049,7 @@ async def temp_translate(
         temperature: float = Body(default_params["temperature"], description="ai翻译请求温度"),
         chunk_size: int = Body(default_params["chunk_size"], description="文本分块大小（bytes）"),
         custom_prompt_translate: Optional[str] = Body(None, description="翻译自定义提示词",
-                                                   examples=["人名保持原文不翻译"]),
+                                                      examples=["人名保持原文不翻译"]),
 ):
     """一个用于快速测试的同步翻译接口。"""
     try:
@@ -1026,6 +1058,7 @@ async def temp_translate(
         decoded_content = file_content.encode('utf-8')
 
     try:
+        # [MODIFIED] 使用旧的辅助函数，仅为这个临时接口服务
         manager = _get_manager_for_file(file_name, global_logger)
 
         ai_config = AiTranslateConfig(
@@ -1041,7 +1074,7 @@ async def temp_translate(
             convert_config = ConverterMineruConfig(mineru_token=mineru_token) if mineru_token else None
             convert_engin = 'mineru' if mineru_token else None
             await manager.translate_async(convert_engin, convert_config, translate_config)
-            return {"success": True, "content": manager.document_translated.get_text()}
+            return {"success": True, "content": manager.export_to_markdown()}
 
         elif isinstance(manager, TXTManager):
             translate_config = TXTTranslateConfig(**ai_config.__dict__)
