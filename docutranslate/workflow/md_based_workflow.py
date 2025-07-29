@@ -14,12 +14,12 @@ from docutranslate.exporter.md2x.md2html_exporter import MD2HTMLExportConfig, MD
 from docutranslate.exporter.md2x.md2md_exporter import MD2MDExportConfig, MD2MDExporter
 from docutranslate.exporter.md2x.md2mdzip_exporter import MD2MDZIPExportConfig, MD2MDZipExporter
 from docutranslate.exporter.md2x.types import x2md_convert_config_type, convert_engin_type
-from docutranslate.manager.base_manager import BaseManager
-from docutranslate.manager.interfaces import MDFormatsExportable, HTMLExportable
+from docutranslate.workflow.base_workflow import BaseWorkflow
+from docutranslate.workflow.interfaces import MDFormatsExportable, HTMLExportable
 from docutranslate.translater.md_translator import MDTranslateConfig, MDTranslator
 
 
-class MarkdownBasedManager(BaseManager, HTMLExportable, MDFormatsExportable):
+class MarkdownBasedWorkflow(BaseWorkflow, HTMLExportable, MDFormatsExportable):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

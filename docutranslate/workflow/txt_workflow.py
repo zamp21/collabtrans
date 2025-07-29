@@ -3,13 +3,13 @@ from typing import Self
 
 from docutranslate.exporter.txt2x.txt2html_exporter import TXT2HTMLExportConfig, TXT2HTMLExporter
 from docutranslate.exporter.txt2x.txt2txt_exporter import TXT2TXTExporter
-from docutranslate.manager.base_manager import BaseManager
-from docutranslate.manager.interfaces import HTMLExportable, TXTExportable
+from docutranslate.workflow.base_workflow import BaseWorkflow
+from docutranslate.workflow.interfaces import HTMLExportable, TXTExportable
 from docutranslate.translater.txt_translator import TXTTranslateConfig, TXTTranslator
 
 
 
-class TXTManager(BaseManager, HTMLExportable,TXTExportable):
+class TXTWorkflow(BaseWorkflow, HTMLExportable, TXTExportable):
 
     def translate(self, translate_config: TXTTranslateConfig) -> Self:
         document = self.document_original.copy()

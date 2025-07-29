@@ -10,7 +10,7 @@ from docutranslate.logger import global_logger
 T_Translated = TypeVar('T_Translated', bound=Document)
 
 
-class BaseManager(ABC, Generic[T_Translated]):
+class BaseWorkflow(ABC, Generic[T_Translated]):
     def __init__(self, logger: Logger = global_logger):
         self.logger = logger
         self.document_original: Document | None = None

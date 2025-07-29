@@ -22,10 +22,10 @@ from pydantic import BaseModel, Field
 
 from docutranslate.global_values.conditional_import import DOCLING_EXIST
 # --- 核心代码重构后的新 Imports ---
-from docutranslate.manager.base_manager import BaseManager
-from docutranslate.manager.interfaces import HTMLExportable, MDFormatsExportable, TXTExportable
-from docutranslate.manager.md_based_manager import MarkdownBasedManager
-from docutranslate.manager.txt_manager import TXTManager
+from docutranslate.workflow.base_workflow import BaseWorkflow
+from docutranslate.workflow.interfaces import HTMLExportable, MDFormatsExportable, TXTExportable
+from docutranslate.workflow.md_based_workflow import MarkdownBasedWorkflow
+from docutranslate.workflow.txt_workflow import TXTWorkflow
 
 if DOCLING_EXIST or TYPE_CHECKING:
     from docutranslate.converter.x2md.converter_docling import ConverterDoclingConfig
@@ -49,37 +49,37 @@ tasks_log_histories: Dict[str, List[str]] = {}
 MAX_LOG_HISTORY = 200
 httpx_client: httpx.AsyncClient
 
-# --- [NEW] 工作流到 Manager 的映射 ---
-WORKFLOW_TO_MANAGER: Dict[str, type[BaseManager]] = {
-    "markdown_based": MarkdownBasedManager,
-    "txt": TXTManager,
+# --- [NEW] Workflow字典 ---
+WORKFLOW_DICT: Dict[str, type[BaseWorkflow]] = {
+    "markdown_based": MarkdownBasedWorkflow,
+    "txt": TXTWorkflow,
 }
 
 
 # --- 辅助函数 (MODIFIED) ---
 def _create_default_task_state() -> Dict[str, Any]:
-    """创建新的默认任务状态，存储 manager 实例而不是具体内容"""
+    """创建新的默认任务状态，存储 workflow 实例而不是具体内容"""
     return {
         "is_processing": False, "status_message": "空闲", "error_flag": False,
         "download_ready": False,
-        "manager_instance": None,  # <--- 核心改动：存储翻译后的 Manager 实例
+        "workflow_instance": None,  # <--- 核心改动：存储翻译后的 Workflow 实例
         "original_filename_stem": None, "task_start_time": 0,
         "task_end_time": 0, "current_task_ref": None,
         "original_filename": None,
     }
 
 
-# --- [KEPT FOR TEMP ENDPOINT] Manager 工厂函数 (旧逻辑，仅为临时接口保留) ---
-def _get_manager_for_file(filename: str, logger: logging.Logger) -> BaseManager:
-    """根据文件名后缀选择并返回合适的 Manager 实例。这是扩展点。"""
+# --- [KEPT FOR TEMP ENDPOINT] Workflow 工厂函数 (旧逻辑，仅为临时接口保留) ---
+def _get_workflow_for_file(filename: str, logger: logging.Logger) -> BaseWorkflow:
+    """根据文件名后缀选择并返回合适的 Workflow 实例。这是扩展点。"""
     suffix = Path(filename).suffix.lower()
     if suffix == '.txt':
-        logger.info("检测到 .txt 文件，使用 TXTManager。")
-        return TXTManager(logger=logger)
+        logger.info("检测到 .txt 文件，使用 Workflow。")
+        return TXTWorkflow(logger=logger)
     else:
         # 默认为基于 Markdown 的流程（处理 .pdf, .docx, .md 等）
-        logger.info(f"检测到 {suffix} 文件，使用 MarkdownBasedManager。")
-        return MarkdownBasedManager(logger=logger)
+        logger.info(f"检测到 {suffix} 文件，使用 MarkdownBasedWorkflow。")
+        return MarkdownBasedWorkflow(logger=logger)
 
 
 # --- 日志处理器 (保持不变) ---
@@ -271,11 +271,11 @@ async def _perform_translation(
     task_state["status_message"] = f"正在处理 '{original_filename}'..."
 
     try:
-        # 1. 根据工作流类型选择合适的 Manager
-        manager_class = WORKFLOW_TO_MANAGER.get(payload.workflow_type)
-        if not manager_class:
+        # 1. 根据工作流类型选择合适的 Workflow
+        workflow_class = WORKFLOW_DICT.get(payload.workflow_type)
+        if not workflow_class:
             raise ValueError(f"不支持的工作流类型: '{payload.workflow_type}'")
-        manager = manager_class(logger=task_logger)
+        workflow = workflow_class(logger=task_logger)
 
         # 2. 从 payload 构建通用的 AiTranslateConfig
         ai_config = AiTranslateConfig(
@@ -294,11 +294,11 @@ async def _perform_translation(
         # 3. 读取文件内容
         file_stem = Path(original_filename).stem
         file_suffix = Path(original_filename).suffix
-        manager.read_bytes(content=file_contents, stem=file_stem, suffix=file_suffix)
+        workflow.read_bytes(content=file_contents, stem=file_stem, suffix=file_suffix)
 
         # 4. 根据 payload 的具体类型执行不同的翻译流程 (类型安全!)
-        if isinstance(payload, MarkdownWorkflowParams) and isinstance(manager, MarkdownBasedManager):
-            task_logger.info("执行 Markdown 翻译流程。")
+        if isinstance(payload, MarkdownWorkflowParams) and isinstance(workflow, MarkdownBasedWorkflow):
+            task_logger.info("执行 MarkdownBased 翻译流程。")
             translate_config = MDTranslateConfig(**ai_config.__dict__)
 
             convert_config = None
@@ -315,26 +315,26 @@ async def _perform_translation(
                     formula=payload.formula_ocr
                 )
 
-            await manager.translate_async(
+            await workflow.translate_async(
                 convert_engin=payload.convert_engin,
                 convert_config=convert_config,
                 translate_config=translate_config
             )
 
-        elif isinstance(payload, TextWorkflowParams) and isinstance(manager, TXTManager):
+        elif isinstance(payload, TextWorkflowParams) and isinstance(workflow, TXTWorkflow):
             task_logger.info("执行 TXT 翻译流程。")
             translate_config = TXTTranslateConfig(**ai_config.__dict__)
-            await manager.translate_async(translate_config=translate_config)
+            await workflow.translate_async(translate_config=translate_config)
 
         else:
             raise TypeError(
-                f"工作流类型 '{payload.workflow_type}'与Manager类型 '{type(manager).__name__}' 不匹配或未实现。")
+                f"工作流类型 '{payload.workflow_type}'与Workflow类型 '{type(workflow).__name__}' 不匹配或未实现。")
 
-        # 5. 任务成功，存储 manager 实例并更新状态
+        # 5. 任务成功，存储 workflow 实例并更新状态
         end_time = time.time()
         duration = end_time - task_state["task_start_time"]
         task_state.update({
-            "manager_instance": manager,
+            "workflow_instance": workflow,
             "status_message": f"翻译成功！用时 {duration:.2f} 秒。",
             "download_ready": True,
             "error_flag": False,
@@ -350,7 +350,7 @@ async def _perform_translation(
             "status_message": f"翻译任务已取消 (用时 {duration:.2f} 秒).",
             "error_flag": False,
             "download_ready": False,
-            "manager_instance": None,
+            "workflow_instance": None,
             "task_end_time": end_time,
         })
 
@@ -363,7 +363,7 @@ async def _perform_translation(
             "status_message": f"翻译过程中发生错误 (用时 {duration:.2f} 秒): {e}",
             "error_flag": True,
             "download_ready": False,
-            "manager_instance": None,
+            "workflow_instance": None,
             "task_end_time": end_time,
         })
 
@@ -393,7 +393,7 @@ async def _start_translation_task(
     task_state["is_processing"] = True
     task_state.update({
         "status_message": "任务初始化中...", "error_flag": False, "download_ready": False,
-        "manager_instance": None,
+        "workflow_instance": None,
         "original_filename_stem": Path(original_filename).stem,
         "original_filename": original_filename,
         "task_start_time": time.time(), "task_end_time": 0, "current_task_ref": None,
@@ -675,14 +675,14 @@ async def service_get_status(
 
     # [MODIFIED] 动态生成可用的下载链接
     downloads = {}
-    if task_state.get("download_ready") and task_state.get("manager_instance"):
-        manager = task_state["manager_instance"]
-        if isinstance(manager, HTMLExportable):
+    if task_state.get("download_ready") and task_state.get("workflow_instance"):
+        workflow = task_state["workflow_instance"]
+        if isinstance(workflow, HTMLExportable):
             downloads["html"] = f"/service/download/{task_id}/html"
-        if isinstance(manager, MDFormatsExportable):
+        if isinstance(workflow, MDFormatsExportable):
             downloads["markdown"] = f"/service/download/{task_id}/markdown"
             downloads["markdown_zip"] = f"/service/download/{task_id}/markdown_zip"
-        if isinstance(manager, TXTExportable):
+        if isinstance(workflow, TXTExportable):
             downloads["txt"] = f"/service/download/{task_id}/txt"
 
     return JSONResponse(content={
@@ -710,7 +710,7 @@ async def service_get_status(
                 "example": {
                     "logs": [
                         "2023-10-27 10:30:05 - INFO - 后台翻译任务开始: 文件 'annual_report_2023.pdf', 工作流: 'markdown'",
-                        "2023-10-27 10:30:05 - INFO - 执行 Markdown 翻译流程。",
+                        "2023-10-27 10:30:05 - INFO - 执行 MarkdownBased 翻译流程。",
                         "2023-10-27 10:30:15 - INFO - 正在转化为markdown",
                         "2023-10-27 10:30:25 - INFO - markdown分为50块",
                         "2023-10-27 10:30:30 - INFO - 正在翻译markdown"
@@ -742,15 +742,15 @@ async def service_get_logs(
 FileType = Literal["markdown", "markdown_zip", "html", "txt"]
 
 
-async def _get_content_from_manager(task_id: str, file_type: FileType) -> tuple[bytes, str, str]:
-    """辅助函数，从 manager 获取内容、媒体类型和文件名"""
+async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple[bytes, str, str]:
+    """辅助函数，从 workflow 获取内容、媒体类型和文件名"""
     task_state = tasks_state.get(task_id)
     if not task_state:
         raise HTTPException(status_code=404, detail=f"找不到任务ID '{task_id}'。")
-    if not task_state.get("download_ready") or not task_state.get("manager_instance"):
+    if not task_state.get("download_ready") or not task_state.get("workflow_instance"):
         raise HTTPException(status_code=404, detail="内容尚未准备好。")
 
-    manager: BaseManager = task_state["manager_instance"]
+    workflow: BaseWorkflow = task_state["workflow_instance"]
     filename_stem = task_state['original_filename_stem']
 
     try:
@@ -758,31 +758,31 @@ async def _get_content_from_manager(task_id: str, file_type: FileType) -> tuple[
         media_type: str
         filename: str
 
-        if file_type == 'html' and isinstance(manager, HTMLExportable):
-            config = MD2HTMLExportConfig(cdn=True) if isinstance(manager,
-                                                                 MarkdownBasedManager) else TXT2HTMLExportConfig(
+        if file_type == 'html' and isinstance(workflow, HTMLExportable):
+            config = MD2HTMLExportConfig(cdn=True) if isinstance(workflow,
+                                                                 MarkdownBasedWorkflow) else TXT2HTMLExportConfig(
                 cdn=True)
             try:
                 await httpx_client.head("https://s4.zstatic.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js",
                                         timeout=3)
             except (httpx.TimeoutException, httpx.RequestError):
-                manager.logger.warning("CDN连接失败，使用本地JS进行渲染。")
+                workflow.logger.warning("CDN连接失败，使用本地JS进行渲染。")
                 if hasattr(config, 'cdn'):
                     config.cdn = False
-            content_str = manager.export_to_html(config)
+            content_str = workflow.export_to_html(config)
             content_bytes, media_type, filename = content_str.encode(
                 'utf-8'), "text/html; charset=utf-8", f"{filename_stem}_translated.html"
 
-        elif file_type == 'markdown' and isinstance(manager, MDFormatsExportable):
-            md_content = manager.export_to_markdown()
+        elif file_type == 'markdown' and isinstance(workflow, MDFormatsExportable):
+            md_content = workflow.export_to_markdown()
             content_bytes, media_type, filename = md_content.encode(
                 'utf-8'), "text/markdown; charset=utf-8", f"{filename_stem}_translated.md"
 
-        elif file_type == 'markdown_zip' and isinstance(manager, MDFormatsExportable):
-            content_bytes, media_type, filename = manager.export_to_markdown_zip(), "application/zip", f"{filename_stem}_translated.zip"
+        elif file_type == 'markdown_zip' and isinstance(workflow, MDFormatsExportable):
+            content_bytes, media_type, filename = workflow.export_to_markdown_zip(), "application/zip", f"{filename_stem}_translated.zip"
 
-        elif file_type == 'txt' and isinstance(manager, TXTExportable):
-            txt_content = manager.export_to_txt()
+        elif file_type == 'txt' and isinstance(workflow, TXTExportable):
+            txt_content = workflow.export_to_txt()
             content_bytes, media_type, filename = txt_content.encode(
                 'utf-8'), "text/plain; charset=utf-8", f"{filename_stem}_translated.txt"
 
@@ -792,7 +792,7 @@ async def _get_content_from_manager(task_id: str, file_type: FileType) -> tuple[
         return content_bytes, media_type, filename
 
     except Exception as e:
-        manager.logger.error(f"导出 {file_type} 时出错: {e}", exc_info=True)
+        workflow.logger.error(f"导出 {file_type} 时出错: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"导出 {file_type} 时发生内部错误: {e}")
 
 
@@ -821,7 +821,7 @@ async def service_download_file(
         file_type: FileType = FastApiPath(..., description="要下载的文件类型。", examples=["html"])
 ):
     """根据任务ID和文件类型下载翻译结果。"""
-    content, media_type, filename = await _get_content_from_manager(task_id, file_type)
+    content, media_type, filename = await _get_content_from_workflow(task_id, file_type)
 
     headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename, safe='', encoding='utf-8')}"}
     return StreamingResponse(io.BytesIO(content), media_type=media_type, headers=headers)
@@ -877,7 +877,7 @@ async def service_content(
         file_type: FileType = FastApiPath(..., description="要获取内容的文件类型。", examples=["html"])
 ):
     """根据任务ID和文件类型，以JSON格式返回内容。zip文件会进行Base64编码。"""
-    content, _, filename = await _get_content_from_manager(task_id, file_type)
+    content, _, filename = await _get_content_from_workflow(task_id, file_type)
 
     final_content: str
     if file_type == 'markdown_zip':
@@ -1062,7 +1062,7 @@ async def temp_translate(
 
     try:
         # [MODIFIED] 使用旧的辅助函数，仅为这个临时接口服务
-        manager = _get_manager_for_file(file_name, global_logger)
+        workflow = _get_workflow_for_file(file_name, global_logger)
 
         ai_config = AiTranslateConfig(
             base_url=base_url, api_key=api_key, model_id=model_id, to_lang=to_lang,
@@ -1070,19 +1070,19 @@ async def temp_translate(
             chunk_size=chunk_size, concurrent=concurrent, logger=global_logger, timeout=2000
         )
 
-        manager.read_bytes(decoded_content, Path(file_name).stem, Path(file_name).suffix)
+        workflow.read_bytes(decoded_content, Path(file_name).stem, Path(file_name).suffix)
 
-        if isinstance(manager, MarkdownBasedManager):
+        if isinstance(workflow, MarkdownBasedWorkflow):
             translate_config = MDTranslateConfig(**ai_config.__dict__)
             convert_config = ConverterMineruConfig(mineru_token=mineru_token) if mineru_token else None
             convert_engin = 'mineru' if mineru_token else None
-            await manager.translate_async(convert_engin, convert_config, translate_config)
-            return {"success": True, "content": manager.export_to_markdown()}
+            await workflow.translate_async(convert_engin, convert_config, translate_config)
+            return {"success": True, "content": workflow.export_to_markdown()}
 
-        elif isinstance(manager, TXTManager):
+        elif isinstance(workflow, TXTWorkflow):
             translate_config = TXTTranslateConfig(**ai_config.__dict__)
-            await manager.translate_async(translate_config)
-            return {"success": True, "content": manager.export_to_txt()}
+            await workflow.translate_async(translate_config)
+            return {"success": True, "content": workflow.export_to_txt()}
 
     except Exception as e:
         print(f"临时翻译接口出现错误：{e.__repr__()}")
