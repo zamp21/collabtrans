@@ -9,7 +9,7 @@ import time
 import uuid
 from contextlib import asynccontextmanager, closing
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Literal, Union, Annotated
+from typing import List, Dict, Any, Optional, Literal, Union, Annotated, TYPE_CHECKING
 from urllib.parse import quote
 
 import httpx
@@ -20,12 +20,14 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, Fil
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from docutranslate.global_values.conditional_import import DOCLING_FLAG
 # --- 核心代码重构后的新 Imports ---
 from docutranslate.manager.base_manager import BaseManager
 from docutranslate.manager.md_based_manager import MarkdownBasedManager
 from docutranslate.manager.txt_manager import TXTManager
 from docutranslate.manager.interfaces import HTMLExportable, MDFormatsExportable, TXTExportable
-from docutranslate.converter.x2md.converter_docling import ConverterDoclingConfig
+if DOCLING_FLAG or TYPE_CHECKING:
+    from docutranslate.converter.x2md.converter_docling import ConverterDoclingConfig
 from docutranslate.converter.x2md.converter_mineru import ConverterMineruConfig
 from docutranslate.exporter.md2x.md2html_exporter import MD2HTMLExportConfig
 from docutranslate.exporter.txt2x.txt2html_exporter import TXT2HTMLExportConfig
@@ -451,9 +453,10 @@ def _cancel_translation_logic(task_id: str):
     description="""
 接收一个包含文件内容（Base64编码）和工作流参数的JSON请求，启动一个后台翻译任务。
 
-- **工作流选择**: 请求体中的 `payload.workflow_type` 字段决定了本次任务的类型（如 `markdown` 或 `text`）。
+- **工作流选择**: 请求体中的 `payload.workflow_type` 字段决定了本次任务的类型（如 `markdown_based` 或 `txt`）。
 - **动态参数**: 根据所选工作流，API需要不同的参数集。请参考下面的Schema或示例。
 - **异步处理**: 此端点会立即返回任务ID，客户端需轮询状态接口获取进度。
+
 """,
     responses={
         200: {

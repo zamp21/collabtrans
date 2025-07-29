@@ -16,4 +16,4 @@ def conditional_import(packagename,alias=None):
         available_packages[packagename]=False
         return False
 
-conditional_import("docling")
+DOCLING_FLAG=conditional_import("docling")

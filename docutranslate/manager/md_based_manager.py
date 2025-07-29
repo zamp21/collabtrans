@@ -1,9 +1,12 @@
 import asyncio
 from pathlib import Path
-from typing import Self, Literal, overload
+from typing import Self, Literal, overload, TYPE_CHECKING
 
 from docutranslate.cacher import md_based_convert_cacher
-from docutranslate.converter.x2md.converter_docling import ConverterDoclingConfig, ConverterDocling
+from docutranslate.global_values.conditional_import import DOCLING_FLAG
+
+if DOCLING_FLAG or TYPE_CHECKING:
+    from docutranslate.converter.x2md.converter_docling import ConverterDoclingConfig, ConverterDocling
 from docutranslate.converter.x2md.converter_identity import ConverterIdentity
 from docutranslate.converter.x2md.converter_mineru import ConverterMineruConfig, ConverterMineru
 from docutranslate.converter.x2md.interfaces import X2MarkdownConverter
@@ -19,10 +22,16 @@ from docutranslate.translater.md_translator import MDTranslateConfig, MDTranslat
 class MarkdownBasedManager(BaseManager, HTMLExportable, MDFormatsExportable):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._converter_factory: dict[str:tuple[X2MarkdownConverter, x2md_convert_config_type]] = {
-            "mineru": (ConverterMineru, ConverterMineruConfig),
-            "docling": (ConverterDocling, ConverterDoclingConfig),
-        }
+
+        if DOCLING_FLAG or TYPE_CHECKING:
+            self._converter_factory: dict[str:tuple[X2MarkdownConverter, x2md_convert_config_type]] = {
+                "mineru": (ConverterMineru, ConverterMineruConfig),
+                "docling": (ConverterDocling, ConverterDoclingConfig)
+            }
+        else:
+            self._converter_factory: dict[str:tuple[X2MarkdownConverter, x2md_convert_config_type]] = {
+                "mineru": (ConverterMineru, ConverterMineruConfig),
+            }
 
     def _get_document_md(self, convert_engin: convert_engin_type | None,
                          convert_config: x2md_convert_config_type | None):
@@ -57,7 +66,7 @@ class MarkdownBasedManager(BaseManager, HTMLExportable, MDFormatsExportable):
 
     @overload
     def translate(self, convert_engin: Literal["docling"],
-                  convert_config: ConverterDoclingConfig, translate_config: MDTranslateConfig) -> Self:
+                  convert_config: "ConverterDoclingConfig", translate_config: MDTranslateConfig) -> Self:
         ...
 
     @overload

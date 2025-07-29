@@ -1,10 +1,8 @@
 from dataclasses import dataclass
-from typing import runtime_checkable
 
 from docutranslate.exporter.export_config import ExportConfig
 from docutranslate.exporter.md2x.interfaces import MDExporter
 from docutranslate.ir.markdown_document import MarkdownDocument,Document
-from docutranslate.utils.markdown_utils import unembed_base64_images_to_zip
 
 
 @dataclass

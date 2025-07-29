@@ -1,4 +1,4 @@
-from typing import runtime_checkable, Protocol, TypeVar
+from typing import Protocol, TypeVar
 
 from docutranslate.agents import Agent
 from docutranslate.ir.document import Document
@@ -6,7 +6,6 @@ from docutranslate.ir.document import Document
 T=TypeVar('T',bound=Document)
 V=TypeVar('V',bound=Agent)
 
-@runtime_checkable
 class Translator(Protocol[T,V]):
     """
     翻译中间文本（原地替换），Translator不做格式转换

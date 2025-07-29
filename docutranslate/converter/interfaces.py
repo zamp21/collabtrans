@@ -1,9 +1,8 @@
-from typing import Protocol, runtime_checkable
+from typing import Protocol
 
 from docutranslate.ir.document import Document
 
 
-@runtime_checkable
 class Converter(Protocol):
     def convert(self, document: Document) -> Document:
         ...
