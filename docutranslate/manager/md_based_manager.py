@@ -3,9 +3,9 @@ from pathlib import Path
 from typing import Self, Literal, overload, TYPE_CHECKING
 
 from docutranslate.cacher import md_based_convert_cacher
-from docutranslate.global_values.conditional_import import DOCLING_FLAG
+from docutranslate.global_values.conditional_import import DOCLING_EXIST
 
-if DOCLING_FLAG or TYPE_CHECKING:
+if DOCLING_EXIST or TYPE_CHECKING:
     from docutranslate.converter.x2md.converter_docling import ConverterDoclingConfig, ConverterDocling
 from docutranslate.converter.x2md.converter_identity import ConverterIdentity
 from docutranslate.converter.x2md.converter_mineru import ConverterMineruConfig, ConverterMineru
@@ -23,7 +23,7 @@ class MarkdownBasedManager(BaseManager, HTMLExportable, MDFormatsExportable):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        if DOCLING_FLAG or TYPE_CHECKING:
+        if DOCLING_EXIST or TYPE_CHECKING:
             self._converter_factory: dict[str:tuple[X2MarkdownConverter, x2md_convert_config_type]] = {
                 "mineru": (ConverterMineru, ConverterMineruConfig),
                 "docling": (ConverterDocling, ConverterDoclingConfig)

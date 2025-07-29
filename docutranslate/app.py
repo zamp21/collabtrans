@@ -20,13 +20,14 @@ from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, Fil
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from docutranslate.global_values.conditional_import import DOCLING_FLAG
+from docutranslate.global_values.conditional_import import DOCLING_EXIST
 # --- 核心代码重构后的新 Imports ---
 from docutranslate.manager.base_manager import BaseManager
+from docutranslate.manager.interfaces import HTMLExportable, MDFormatsExportable, TXTExportable
 from docutranslate.manager.md_based_manager import MarkdownBasedManager
 from docutranslate.manager.txt_manager import TXTManager
-from docutranslate.manager.interfaces import HTMLExportable, MDFormatsExportable, TXTExportable
-if DOCLING_FLAG or TYPE_CHECKING:
+
+if DOCLING_EXIST or TYPE_CHECKING:
     from docutranslate.converter.x2md.converter_docling import ConverterDoclingConfig
 from docutranslate.converter.x2md.converter_mineru import ConverterMineruConfig
 from docutranslate.exporter.md2x.md2html_exporter import MD2HTMLExportConfig
@@ -37,7 +38,6 @@ from docutranslate.translater.txt_translator import TXTTranslateConfig
 # ------------------------------------
 
 from docutranslate import __version__
-from docutranslate.global_values import available_packages
 from docutranslate.logger import global_logger
 from docutranslate.translater import default_params
 from docutranslate.utils.resource_utils import resource_path
@@ -908,7 +908,7 @@ async def service_content(
 async def service_get_engin_list():
     """返回可用的文档解析引擎列表。"""
     engin_list = ["mineru"]
-    if available_packages.get("docling"):
+    if DOCLING_EXIST:
         engin_list.append("docling")
     return JSONResponse(content=engin_list)
 

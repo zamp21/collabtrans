@@ -12,8 +12,7 @@ def conditional_import(packagename,alias=None):
         available_packages[packagename]=True
         return True
     except ImportError:
-        # print(f"package:{packagename}不存在")
         available_packages[packagename]=False
         return False
 
-DOCLING_FLAG=conditional_import("docling")
+DOCLING_EXIST=conditional_import("docling")
