@@ -1,9 +1,9 @@
 from pathlib import Path
 from typing import Protocol, Self, TypeVar, runtime_checkable
 
-from docutranslate.exporter.export_config import ExportConfig
+from docutranslate.exporter.export_config import ExporterConfig
 
-T = TypeVar("T", bound=ExportConfig)
+T = TypeVar("T", bound=ExporterConfig)
 
 @runtime_checkable
 class HTMLExportable(Protocol[T]):

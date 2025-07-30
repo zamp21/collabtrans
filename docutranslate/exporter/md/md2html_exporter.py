@@ -3,20 +3,20 @@ from dataclasses import dataclass
 import jinja2
 import markdown2
 
-from docutranslate.exporter.export_config import ExportConfig
-from docutranslate.exporter.md2x.interfaces import MDExporter
+from docutranslate.exporter.md.base import MDExporter, MDExporterConfig
 from docutranslate.ir.document import Document
 from docutranslate.ir.markdown_document import MarkdownDocument
 from docutranslate.utils.resource_utils import resource_path
 
 @dataclass
-class MD2HTMLExportConfig(ExportConfig):
+class MD2HTMLExporterConfig(MDExporterConfig):
     cdn: bool = True
 
 class MD2HTMLExporter(MDExporter):
-    def __init__(self, export_config: MD2HTMLExportConfig = None):
-        export_config = export_config or MD2HTMLExportConfig()
-        self.cdn=export_config.cdn
+    def __init__(self, config: MD2HTMLExporterConfig = None):
+        config = config or MD2HTMLExporterConfig()
+        super().__init__(config=config)
+        self.cdn=config.cdn
 
     def export(self, document: MarkdownDocument) -> Document:
         cdn = self.cdn

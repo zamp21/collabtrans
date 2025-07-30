@@ -3,20 +3,19 @@ from typing import Self
 
 from docutranslate.agents.txt_agent import TXTTranslateAgent
 from docutranslate.ir.document import Document
-from docutranslate.logger import global_logger
-from docutranslate.translater.base import AiTranslateConfig
-from docutranslate.translater.interfaces import Translator
+from docutranslate.translator.ai_translator.base import AiTranslatorConfig
+from docutranslate.translator.base import Translator
 from docutranslate.utils.markdown_splitter import split_markdown_text
 
 
 @dataclass
-class TXTTranslateConfig(AiTranslateConfig):
+class TXTTranslatorConfig(AiTranslatorConfig):
     ...
 
 
 class TXTTranslator(Translator):
-    def __init__(self, config: TXTTranslateConfig):
-        self.logger = config.logger or global_logger
+    def __init__(self, config: TXTTranslatorConfig):
+        super().__init__(config=config)
         self.chunk_size = config.chunk_size
         self.translate_agent = TXTTranslateAgent(custom_prompt=config.custom_prompt,
                                                  to_lang=config.to_lang,

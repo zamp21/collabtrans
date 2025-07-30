@@ -3,7 +3,6 @@ import os
 import time
 from dataclasses import dataclass
 from io import BytesIO
-from logging import Logger
 from pathlib import Path
 
 from docling.datamodel.base_models import InputFormat
@@ -14,34 +13,34 @@ from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling_core.types.doc import ImageRefMode
 from huggingface_hub.errors import LocalEntryNotFoundError
 
-from docutranslate.converter.x2md.interfaces import X2MarkdownConverter
+from docutranslate.converter.x2md.base import X2MarkdownConverter, X2MarkdownConverterConfig
 from docutranslate.ir.document import Document
 from docutranslate.ir.markdown_document import MarkdownDocument
-from docutranslate.logger import global_logger
 
 IMAGE_RESOLUTION_SCALE = 4
 
 
-@dataclass(frozen=True)
-class ConverterDoclingConfig:
+@dataclass(kw_only=True)
+class ConverterDoclingConfig(X2MarkdownConverterConfig):
     code: bool = True
     formula: bool = True
     artifact: Path | None = None
 
+    def gethash(self):
+        return self.code,self.formula
+
 
 class ConverterDocling(X2MarkdownConverter):
-    def __init__(self, config: ConverterDoclingConfig, logger: Logger = global_logger):
-        self.logger = logger
-        self.config = config
+    def __init__(self, config: ConverterDoclingConfig):
+        super().__init__(config=config)
         self.code = config.code
         self.formula = config.formula
-        artifact=Path("./docling_artifact")
+        artifact = Path("./docling_artifact")
         if artifact.is_dir():
             self.logger.info("使用./docling_artifact的本地模型")
-            self.artifact=artifact
+            self.artifact = artifact
         else:
-            self.artifact=config.artifact
-
+            self.artifact = config.artifact
 
     def convert(self, document) -> MarkdownDocument:
         assert isinstance(document.name, str)

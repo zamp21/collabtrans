@@ -5,22 +5,21 @@ from typing import Self
 from docutranslate.agents import MDTranslateAgent
 from docutranslate.context.md_mask_context import MDMaskUrisContext
 from docutranslate.ir.markdown_document import MarkdownDocument
-from docutranslate.logger import global_logger
-from docutranslate.translater.base import AiTranslateConfig
-from docutranslate.translater.interfaces import Translator
+from docutranslate.translator.ai_translator.base import AiTranslatorConfig
+from docutranslate.translator.base import Translator
 from docutranslate.utils.markdown_splitter import split_markdown_text, join_markdown_texts
 from docutranslate.utils.markdown_utils import clean_markdown_math_block
 
 
 @dataclass
-class MDTranslateConfig(AiTranslateConfig):
+class MDTranslatorConfig(AiTranslatorConfig):
     ...
 
 
 
 class MDTranslator(Translator):
-    def __init__(self, config: MDTranslateConfig):
-        self.logger = config.logger or global_logger
+    def __init__(self, config: MDTranslatorConfig):
+        super().__init__(config=config)
         self.chunk_size = config.chunk_size
         self.translate_agent = MDTranslateAgent(custom_prompt=config.custom_prompt,
                                                 to_lang=config.to_lang,

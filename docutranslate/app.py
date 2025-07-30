@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 
 from docutranslate.global_values.conditional_import import DOCLING_EXIST
 # --- 核心代码重构后的新 Imports ---
-from docutranslate.workflow.base_workflow import BaseWorkflow
+from docutranslate.workflow.base import Workflow
 from docutranslate.workflow.interfaces import HTMLExportable, MDFormatsExportable, TXTExportable
 from docutranslate.workflow.md_based_workflow import MarkdownBasedWorkflow
 from docutranslate.workflow.txt_workflow import TXTWorkflow
@@ -30,16 +30,16 @@ from docutranslate.workflow.txt_workflow import TXTWorkflow
 if DOCLING_EXIST or TYPE_CHECKING:
     from docutranslate.converter.x2md.converter_docling import ConverterDoclingConfig
 from docutranslate.converter.x2md.converter_mineru import ConverterMineruConfig
-from docutranslate.exporter.md2x.md2html_exporter import MD2HTMLExportConfig
-from docutranslate.exporter.txt2x.txt2html_exporter import TXT2HTMLExportConfig
-from docutranslate.translater.base import AiTranslateConfig
-from docutranslate.translater.md_translator import MDTranslateConfig
-from docutranslate.translater.txt_translator import TXTTranslateConfig
+from docutranslate.exporter.md.md2html_exporter import MD2HTMLExporterConfig
+from docutranslate.exporter.txt.txt2html_exporter import TXT2HTMLExporterConfig
+from docutranslate.translator.base import AiTranslateConfig
+from docutranslate.translator.ai_translator.md_translator import MDTranslatorConfig
+from docutranslate.translator.ai_translator.txt_translator import TXTTranslatorConfig
 # ------------------------------------
 
 from docutranslate import __version__
 from docutranslate.logger import global_logger
-from docutranslate.translater import default_params
+from docutranslate.translator import default_params
 from docutranslate.utils.resource_utils import resource_path
 
 # --- 全局配置 (MODIFIED) ---
@@ -50,7 +50,7 @@ MAX_LOG_HISTORY = 200
 httpx_client: httpx.AsyncClient
 
 # --- [NEW] Workflow字典 ---
-WORKFLOW_DICT: Dict[str, type[BaseWorkflow]] = {
+WORKFLOW_DICT: Dict[str, type[Workflow]] = {
     "markdown_based": MarkdownBasedWorkflow,
     "txt": TXTWorkflow,
 }
@@ -70,7 +70,7 @@ def _create_default_task_state() -> Dict[str, Any]:
 
 
 # --- [KEPT FOR TEMP ENDPOINT] Workflow 工厂函数 (旧逻辑，仅为临时接口保留) ---
-def _get_workflow_for_file(filename: str, logger: logging.Logger) -> BaseWorkflow:
+def _get_workflow_for_file(filename: str, logger: logging.Logger) -> Workflow:
     """根据文件名后缀选择并返回合适的 Workflow 实例。这是扩展点。"""
     suffix = Path(filename).suffix.lower()
     if suffix == '.txt':
@@ -299,7 +299,7 @@ async def _perform_translation(
         # 4. 根据 payload 的具体类型执行不同的翻译流程 (类型安全!)
         if isinstance(payload, MarkdownWorkflowParams) and isinstance(workflow, MarkdownBasedWorkflow):
             task_logger.info("执行 MarkdownBased 翻译流程。")
-            translate_config = MDTranslateConfig(**ai_config.__dict__)
+            translate_config = MDTranslatorConfig(**ai_config.__dict__)
 
             convert_config = None
             if payload.convert_engin == 'mineru':
@@ -323,7 +323,7 @@ async def _perform_translation(
 
         elif isinstance(payload, TextWorkflowParams) and isinstance(workflow, TXTWorkflow):
             task_logger.info("执行 TXT 翻译流程。")
-            translate_config = TXTTranslateConfig(**ai_config.__dict__)
+            translate_config = TXTTranslatorConfig(**ai_config.__dict__)
             await workflow.translate_async(translate_config=translate_config)
 
         else:
@@ -750,7 +750,7 @@ async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple
     if not task_state.get("download_ready") or not task_state.get("workflow_instance"):
         raise HTTPException(status_code=404, detail="内容尚未准备好。")
 
-    workflow: BaseWorkflow = task_state["workflow_instance"]
+    workflow: Workflow = task_state["workflow_instance"]
     filename_stem = task_state['original_filename_stem']
 
     try:
@@ -759,8 +759,8 @@ async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple
         filename: str
 
         if file_type == 'html' and isinstance(workflow, HTMLExportable):
-            config = MD2HTMLExportConfig(cdn=True) if isinstance(workflow,
-                                                                 MarkdownBasedWorkflow) else TXT2HTMLExportConfig(
+            config = MD2HTMLExporterConfig(cdn=True) if isinstance(workflow,
+                                                                   MarkdownBasedWorkflow) else TXT2HTMLExporterConfig(
                 cdn=True)
             try:
                 await httpx_client.head("https://s4.zstatic.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js",
@@ -1073,14 +1073,14 @@ async def temp_translate(
         workflow.read_bytes(decoded_content, Path(file_name).stem, Path(file_name).suffix)
 
         if isinstance(workflow, MarkdownBasedWorkflow):
-            translate_config = MDTranslateConfig(**ai_config.__dict__)
+            translate_config = MDTranslatorConfig(**ai_config.__dict__)
             convert_config = ConverterMineruConfig(mineru_token=mineru_token) if mineru_token else None
             convert_engin = 'mineru' if mineru_token else None
             await workflow.translate_async(convert_engin, convert_config, translate_config)
             return {"success": True, "content": workflow.export_to_markdown()}
 
         elif isinstance(workflow, TXTWorkflow):
-            translate_config = TXTTranslateConfig(**ai_config.__dict__)
+            translate_config = TXTTranslatorConfig(**ai_config.__dict__)
             await workflow.translate_async(translate_config)
             return {"success": True, "content": workflow.export_to_txt()}
 

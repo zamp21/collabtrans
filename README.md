@@ -4,7 +4,7 @@
 [![github下载数](https://img.shields.io/github/downloads/xunbu/docutranslate/total?logo=github)](https://github.com/xunbu/docutranslate/releases)
 [![PyPI version](https://img.shields.io/pypi/v/docutranslate)](https://pypi.org/project/docutranslate/)
 [![python版本](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![开源协议](https://img.shields.io/github/license/xunbu/docutranslate)](./LICENSE) 
+[![开源协议](https://img.shields.io/github/license/xunbu/docutranslate)](./LICENSE)
 
 文件翻译工具，借助[docling](https://github.com/docling-project/docling)、[minerU](https://mineru.net/)与大语言模型实现多种格式文件的翻译
 
@@ -43,15 +43,14 @@
 2. `pip install -e .`
 3. `uv pip install -e .`#使用uv
 
-# 支持的文件格式
+# 翻译工作流
 
-| 输入格式           | 输出格式         |
-|----------------|--------------|
-| PDF            | Markdown（推荐） |
-| Markdown       | HTML         |
-| HTML、XHTML     | PDF(仅交互界面支持) |
-| CSV            |              |
-| DOC、DOCX（部分支持） |              |
+| 工作流                     | 代码               | 输入格式                                   | 输出格式                 |
+|-------------------------|------------------|----------------------------------------|----------------------|
+| `MarkdownBasedWorkflow` | `markdown_based` | `.pdf ` `.md`  `.png` `.jpeg` `.docx`等 | `.md` `.html` `.pdf` |
+| `TXTWorkflow`           | `txt`            | `.txt `                                | `.txt` `.html` `.pdf` |
+
+> 所有.pdf的输出只能通过交互式界面获取
 
 > 如果想不使用交互界面获取pdf，可以先下载HTML文件，用浏览器打开并打印
 
@@ -143,7 +142,7 @@ docutranslate -i -p 8011
 ## 翻译文件
 
 ```python
-from docutranslate.translater import FileTranslater
+from docutranslate.translator import FileTranslater
 
 translater = FileTranslater(base_url="<baseurl>",  # 大模型的baseurl
                             key="<api-key>",  # 大模型的api-key

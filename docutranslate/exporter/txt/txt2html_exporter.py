@@ -2,21 +2,22 @@ from dataclasses import dataclass
 
 import jinja2
 
-from docutranslate.exporter.export_config import ExportConfig
-from docutranslate.exporter.txt2x.interfaces import TXTExporter
+from docutranslate.exporter.base import ExporterConfig
+from docutranslate.exporter.txt.base import TXTExporter
 from docutranslate.ir.document import Document
 from docutranslate.utils.resource_utils import resource_path
 
 
 @dataclass
-class TXT2HTMLExportConfig(ExportConfig):
+class TXT2HTMLExporterConfig(ExporterConfig):
     cdn: bool = True
 
 
 class TXT2HTMLExporter(TXTExporter):
-    def __init__(self, export_config: TXT2HTMLExportConfig = None):
-        export_config = export_config or TXT2HTMLExportConfig()
-        self.cdn = export_config.cdn
+    def __init__(self, config: TXT2HTMLExporterConfig = None):
+        config = config or TXT2HTMLExporterConfig()
+        super().__init__(config=config)
+        self.cdn = config.cdn
 
     def export(self, document: Document) -> Document:
         cdn = self.cdn

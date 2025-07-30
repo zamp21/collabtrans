@@ -3,10 +3,11 @@ import time
 import zipfile
 from dataclasses import dataclass
 from logging import Logger
+from typing import Hashable
 
 import httpx
 
-from docutranslate.converter.x2md.interfaces import X2MarkdownConverter
+from docutranslate.converter.x2md.base import X2MarkdownConverter, X2MarkdownConverterConfig
 from docutranslate.ir.document import Document
 from docutranslate.ir.markdown_document import MarkdownDocument
 from docutranslate.logger import global_logger
@@ -15,10 +16,13 @@ from docutranslate.utils.markdown_utils import embed_inline_image_from_zip
 URL = 'https://mineru.net/api/v4/file-urls/batch'
 
 
-@dataclass(frozen=True)
-class ConverterMineruConfig:
+@dataclass(kw_only=True)
+class ConverterMineruConfig(X2MarkdownConverterConfig):
     mineru_token: str
     formula: bool = True
+
+    def gethash(self) ->Hashable:
+        return self.formula
 
 
 timeout = httpx.Timeout(
@@ -34,7 +38,7 @@ client_async = httpx.AsyncClient(trust_env=False, timeout=timeout, proxy=None, v
 
 class ConverterMineru(X2MarkdownConverter):
     def __init__(self, config: ConverterMineruConfig, logger: Logger = global_logger):
-        self.config = config
+        super().__init__(config=config)
         self.mineru_token = config.mineru_token.strip()
         self.formula = config.formula
         self.logger = logger

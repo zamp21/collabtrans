@@ -1,19 +1,27 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from logging import Logger
 from pathlib import Path
 from typing import Self, Generic, TypeVar
 
-from docutranslate.exporter.interfaces import Exporter
+from docutranslate.exporter.base import Exporter
 from docutranslate.ir.document import Document
 from docutranslate.logger import global_logger
 
+
+@dataclass(kw_only=True)
+class WorkflowConfig:
+    logger: Logger | None = None
+
+
+T_original = TypeVar('T_original', bound=Document)
 T_Translated = TypeVar('T_Translated', bound=Document)
 
 
-class BaseWorkflow(ABC, Generic[T_Translated]):
+class Workflow(ABC, Generic[T_original, T_Translated]):
     def __init__(self, logger: Logger = global_logger):
         self.logger = logger
-        self.document_original: Document | None = None
+        self.document_original: T_original | None = None
         self.document_translated: T_Translated | None = None
 
     def read_path(self, path: Path | str) -> Self:
