@@ -6,21 +6,21 @@ from typing import Self, Generic, TypeVar
 
 from docutranslate.exporter.base import Exporter
 from docutranslate.ir.document import Document
-from docutranslate.logger import global_logger
 
 
 @dataclass(kw_only=True)
 class WorkflowConfig:
     logger: Logger | None = None
 
-
+T_Config = TypeVar("T_Config", bound=WorkflowConfig)
 T_original = TypeVar('T_original', bound=Document)
 T_Translated = TypeVar('T_Translated', bound=Document)
 
 
-class Workflow(ABC, Generic[T_original, T_Translated]):
-    def __init__(self, logger: Logger = global_logger):
-        self.logger = logger
+class Workflow(ABC, Generic[T_Config,T_original, T_Translated]):
+    def __init__(self, config:T_Config):
+        self.config=config
+        self.logger=self.config.logger
         self.document_original: T_original | None = None
         self.document_translated: T_Translated | None = None
 

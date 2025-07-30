@@ -19,11 +19,11 @@ class MDBasedCovertCacher:
 
     def get_cached_result(self, document: Document, convert_engin: str,
                           convert_config: ConverterConfig) -> MarkdownDocument | None:
-        return self.cache_dict.get(self._get_hashcode(document, convert_engin, convert_config.gethash()))
+        return self.cache_dict.get(self._get_hashcode(document, convert_engin, convert_config))
 
     def cache_result(self, convert_result: MarkdownDocument, document: Document, convert_engin: str,
                      convert_config: ConverterConfig) -> MarkdownDocument:
-        hash_code = self._get_hashcode(document, convert_engin, convert_config.gethash())
+        hash_code = self._get_hashcode(document, convert_engin, convert_config)
         if len(self.cache_dict) > int(CACHE_NUM):
             self.cache_dict.popitem(last=False)
         self.cache_dict[hash_code] = convert_result

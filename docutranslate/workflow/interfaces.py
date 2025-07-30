@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Protocol, Self, TypeVar, runtime_checkable
 
-from docutranslate.exporter.export_config import ExporterConfig
+from docutranslate.exporter.base import ExporterConfig
 
 T = TypeVar("T", bound=ExporterConfig)
 
