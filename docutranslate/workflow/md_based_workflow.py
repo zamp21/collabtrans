@@ -53,7 +53,7 @@ class MarkdownBasedWorkflow(Workflow[MarkdownBasedWorkflowConfig, Document, Mark
 
     def _get_document_md(self, convert_engin: ConvertEngineType, convert_config: X2MarkdownConverterConfig):
         if self.document_original is None:
-            raise RuntimeError("file has not been read yet. Call read_path or read_bytes first.")
+            raise RuntimeError("File has not been read yet. Call read_path or read_bytes first.")
 
         # 获取缓存的解析后文件
         document_cached = md_based_convert_cacher.get_cached_result(self.document_original, convert_engin,
@@ -66,7 +66,7 @@ class MarkdownBasedWorkflow(Workflow[MarkdownBasedWorkflowConfig, Document, Mark
             converter_class, config_class = self._converter_factory[convert_engin]
             if config_class and not isinstance(convert_config, config_class):
                 raise TypeError(
-                    f"未传入正确的convert_config，应为{config_class.__name__}类型，现为{type(convert_config).__name__}类型")
+                    f"The correct convert_config was not passed. It should be of type {config_class.__name__}, but it is currently of type {type(convert_config).__name__}.")
             converter = converter_class(convert_config)
         else:
             raise ValueError(f"不存在{convert_engin}解析引擎")
@@ -76,22 +76,22 @@ class MarkdownBasedWorkflow(Workflow[MarkdownBasedWorkflowConfig, Document, Mark
         return document_md
 
     def _pre_translate(self, document: Document):
-        convert_engin: ConvertEngineType = "identity" if document.suffix == ".md" else self.convert_engine
+        convert_engine: ConvertEngineType = "identity" if document.suffix == ".md" else self.convert_engine
         convert_config = self.config.converter_config
         translator_config = self.config.translator_config
         translator = MDTranslator(translator_config)
-        return convert_engin, convert_config, translator_config, translator
+        return convert_engine, convert_config, translator_config, translator
 
     def translate(self) -> Self:
-        convert_engin, convert_config, translator_config, translator = self._pre_translate(self.document_original)
-        document_md = self._get_document_md(convert_engin, convert_config)
+        convert_engine, convert_config, translator_config, translator = self._pre_translate(self.document_original)
+        document_md = self._get_document_md(convert_engine, convert_config)
         translator.translate(document_md)
         self.document_translated = document_md
         return self
 
     async def translate_async(self) -> Self:
-        convert_engin, convert_config, translator_config, translator = self._pre_translate(self.document_original)
-        document_md = await asyncio.to_thread(self._get_document_md, convert_engin, convert_config)
+        convert_engine, convert_config, translator_config, translator = self._pre_translate(self.document_original)
+        document_md = await asyncio.to_thread(self._get_document_md, convert_engine, convert_config)
         await translator.translate_async(document_md)
         self.document_translated = document_md
         return self
