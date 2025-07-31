@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from dataclasses import dataclass
+from typing import Hashable
 
 from docutranslate.converter.base import Converter, ConverterConfig
 from docutranslate.ir.document import Document
@@ -8,7 +9,9 @@ from docutranslate.ir.markdown_document import MarkdownDocument
 @dataclass(kw_only=True)
 class X2MarkdownConverterConfig(ConverterConfig):
     ...
-
+    @abstractmethod
+    def gethash(self) ->Hashable:
+        ...
 
 class X2MarkdownConverter(Converter):
     """

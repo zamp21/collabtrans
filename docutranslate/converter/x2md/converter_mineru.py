@@ -19,10 +19,10 @@ URL = 'https://mineru.net/api/v4/file-urls/batch'
 @dataclass(kw_only=True)
 class ConverterMineruConfig(X2MarkdownConverterConfig):
     mineru_token: str
-    formula: bool = True
+    formula_ocr: bool = True
 
     def gethash(self) ->Hashable:
-        return self.formula
+        return self.formula_ocr
 
 
 timeout = httpx.Timeout(
@@ -40,7 +40,7 @@ class ConverterMineru(X2MarkdownConverter):
     def __init__(self, config: ConverterMineruConfig, logger: Logger = global_logger):
         super().__init__(config=config)
         self.mineru_token = config.mineru_token.strip()
-        self.formula = config.formula
+        self.formula = config.formula_ocr
         self.logger = logger
 
     def _get_header(self):

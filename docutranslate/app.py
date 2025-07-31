@@ -307,12 +307,12 @@ async def _perform_translation(
                     raise ValueError("使用 'mineru' 引擎需要提供 'mineru_token'。")
                 convert_config = ConverterMineruConfig(
                     mineru_token=payload.mineru_token,
-                    formula=payload.formula_ocr
+                    formula_ocr=payload.formula_ocr
                 )
             elif payload.convert_engin == 'docling':
                 convert_config = ConverterDoclingConfig(
-                    code=payload.code_ocr,
-                    formula=payload.formula_ocr
+                    code_ocr=payload.code_ocr,
+                    formula_ocr=payload.formula_ocr
                 )
 
             await workflow.translate_async(

@@ -26,20 +26,21 @@ class TXTWorkflow(Workflow[TXTWorkflowConfig, Document, Document], HTMLExportabl
                 if sub_config:
                     sub_config.logger = config.logger
 
-    def translate(self) -> Self:
+    def _pre_translate(self,document_original:Document):
+        document = document_original.copy()
         translate_config = self.config.translator_config
-        document = self.document_original.copy()
-        # 翻译解析后文件
         translator = TXTTranslator(translate_config)
+        return document,translator
+
+
+    def translate(self) -> Self:
+        document, translator=self._pre_translate(self.document_original)
         translator.translate(document)
         self.document_translated = document
         return self
 
     async def translate_async(self) -> Self:
-        translate_config = self.config.translator_config
-        document = self.document_original.copy()
-        # 翻译解析后文件
-        translator = TXTTranslator(translate_config)
+        document, translator = self._pre_translate(self.document_original)
         await translator.translate_async(document)
         self.document_translated = document
         return self

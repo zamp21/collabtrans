@@ -22,19 +22,19 @@ IMAGE_RESOLUTION_SCALE = 4
 
 @dataclass(kw_only=True)
 class ConverterDoclingConfig(X2MarkdownConverterConfig):
-    code: bool = True
-    formula: bool = True
+    code_ocr: bool = True
+    formula_ocr: bool = True
     artifact: Path | None = None
 
     def gethash(self):
-        return self.code,self.formula
+        return self.code_ocr,self.formula_ocr
 
 
 class ConverterDocling(X2MarkdownConverter):
     def __init__(self, config: ConverterDoclingConfig):
         super().__init__(config=config)
-        self.code = config.code
-        self.formula = config.formula
+        self.code = config.code_ocr
+        self.formula = config.formula_ocr
         artifact = Path("./docling_artifact")
         if artifact.is_dir():
             self.logger.info("使用./docling_artifact的本地模型")
