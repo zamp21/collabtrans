@@ -1,6 +1,5 @@
 import asyncio
 from dataclasses import dataclass
-from logging import Logger
 from pathlib import Path
 from typing import Self, Tuple, Type
 
@@ -26,7 +25,6 @@ from docutranslate.translator.ai_translator.md_translator import MDTranslatorCon
 
 @dataclass(kw_only=True)
 class MarkdownBasedWorkflowConfig(WorkflowConfig):
-    logger: Logger | None = None
     convert_engine: ConvertEnginType
     converter_config: X2MarkdownConverterConfig | None
     translator_config: MDTranslatorConfig
@@ -45,11 +43,10 @@ class MarkdownBasedWorkflow(Workflow[MarkdownBasedWorkflowConfig, Document, Mark
         if DOCLING_EXIST:
             self._converter_factory["docling"] = (ConverterDocling, ConverterDoclingConfig)
         self.convert_engine = config.convert_engine
-        self.logger = config.logger
-        if self.logger:
-            for config in [self.config.converter_config, self.config.translator_config, self.config.html_exporter_config]:
-                if config is not None:
-                    config.logger = self.logger
+        if config.logger:
+            for sub_config in [self.config.converter_config, self.config.translator_config, self.config.html_exporter_config]:
+                if sub_config and sub_config.logger is not None:
+                    sub_config.logger = config.logger
 
     def _get_document_md(self, convert_engin: ConvertEnginType, convert_config: X2MarkdownConverterConfig):
         if self.document_original is None:

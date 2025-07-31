@@ -1,17 +1,29 @@
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Self
 
 from docutranslate.exporter.txt.txt2html_exporter import TXT2HTMLExporterConfig, TXT2HTMLExporter
 from docutranslate.exporter.txt.txt2txt_exporter import TXT2TXTExporter
-from docutranslate.workflow.base import Workflow
+from docutranslate.ir.document import Document
+from docutranslate.workflow.base import Workflow, WorkflowConfig
 from docutranslate.workflow.interfaces import HTMLExportable, TXTExportable
 from docutranslate.translator.ai_translator.txt_translator import TXTTranslatorConfig, TXTTranslator
 
+@dataclass(kw_only=True)
+class TXTWorkflowConfig(WorkflowConfig):
+    translator_config: TXTTranslatorConfig
+    html_exporter_config: TXT2HTMLExporterConfig
 
+class TXTWorkflow(Workflow[TXTWorkflowConfig,Document,Document], HTMLExportable, TXTExportable):
+    def __init__(self,config:TXTWorkflowConfig):
+        super().__init__(config=config)
+        if config.logger:
+            for sub_config in [self.config.translator_config]:
+                if sub_config and sub_config.logger is not None:
+                    sub_config.logger=config.logger
 
-class TXTWorkflow(Workflow, HTMLExportable, TXTExportable):
-
-    def translate(self, translate_config: TXTTranslatorConfig) -> Self:
+    def translate(self) -> Self:
+        translate_config=self.config.translator_config
         document = self.document_original.copy()
         # 翻译解析后文件
         translator = TXTTranslator(translate_config)
@@ -19,7 +31,8 @@ class TXTWorkflow(Workflow, HTMLExportable, TXTExportable):
         self.document_translated = document
         return self
 
-    async def translate_async(self, translate_config: TXTTranslatorConfig) -> Self:
+    async def translate_async(self) -> Self:
+        translate_config=self.config.translator_config
         document = self.document_original.copy()
         # 翻译解析后文件
         translator = TXTTranslator(translate_config)
@@ -28,6 +41,7 @@ class TXTWorkflow(Workflow, HTMLExportable, TXTExportable):
         return self
 
     def export_to_html(self, export_config: TXT2HTMLExporterConfig=None) -> str:
+        export_config=export_config or self.config.html_exporter_config
         docu = self._export(TXT2HTMLExporter(export_config))
         return docu.content.decode()
 
@@ -37,6 +51,7 @@ class TXTWorkflow(Workflow, HTMLExportable, TXTExportable):
 
     def save_as_html(self, name: str = None, output_dir: Path | str = "./output",
                      export_config: TXT2HTMLExporterConfig | None = None) -> Self:
+        export_config=export_config or self.config.html_exporter_config
         self._save(exporter=TXT2HTMLExporter(export_config), name=name, output_dir=output_dir)
         return self
 

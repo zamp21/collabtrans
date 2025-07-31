@@ -3,40 +3,40 @@ from typing import Protocol, Self, TypeVar, runtime_checkable
 
 from docutranslate.exporter.base import ExporterConfig
 
-T = TypeVar("T", bound=ExporterConfig)
+T_ExporterConfig = TypeVar("T_ExporterConfig", bound=ExporterConfig)
 
 @runtime_checkable
-class HTMLExportable(Protocol[T]):
-    def export_to_html(self, export_config: T | None = None) -> str:
+class HTMLExportable(Protocol[T_ExporterConfig]):
+    def export_to_html(self, config: T_ExporterConfig | None = None) -> str:
         ...
 
-    def save_as_html(self, name: str, output_dir: Path | str, export_config: T | None = None) -> Self:
-        ...
-
-@runtime_checkable
-class MDExportable(Protocol[T]):
-
-    def export_to_markdown(self, export_config: T | None = None) -> str:
-        ...
-
-    def save_as_markdown(self, name: str, output_dir: Path | str, export_config: T | None = None) -> Self:
+    def save_as_html(self, name: str, output_dir: Path | str, config: T_ExporterConfig | None = None) -> Self:
         ...
 
 @runtime_checkable
-class MDZIPExportable(Protocol[T]):
+class MDExportable(Protocol[T_ExporterConfig]):
 
-    def export_to_markdown_zip(self, export_config: T | None = None) -> bytes:
+    def export_to_markdown(self, config: T_ExporterConfig | None = None) -> str:
         ...
 
-    def save_as_markdown_zip(self, name: str, output_dir: Path | str, export_config: T | None = None) -> Self:
+    def save_as_markdown(self, name: str, output_dir: Path | str, config: T_ExporterConfig | None = None) -> Self:
         ...
 
 @runtime_checkable
-class MDFormatsExportable(MDZIPExportable[T], MDExportable[T], Protocol):
+class MDZIPExportable(Protocol[T_ExporterConfig]):
+
+    def export_to_markdown_zip(self, config: T_ExporterConfig | None = None) -> bytes:
+        ...
+
+    def save_as_markdown_zip(self, name: str, output_dir: Path | str, config: T_ExporterConfig | None = None) -> Self:
+        ...
+
+@runtime_checkable
+class MDFormatsExportable(MDZIPExportable[T_ExporterConfig], MDExportable[T_ExporterConfig]):
     ...
 
 @runtime_checkable
-class TXTExportable(Protocol[T]):
+class TXTExportable(Protocol[T_ExporterConfig]):
     def export_to_txt(self) -> str:
         ...
 
