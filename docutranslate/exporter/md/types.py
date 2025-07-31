@@ -1,3 +1,3 @@
 from typing import Literal
 
-ConvertEnginType = Literal["mineru", "docling","identity"]
+ConvertEngineType = Literal["mineru", "docling", "identity"]

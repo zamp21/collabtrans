@@ -5,6 +5,7 @@ from docutranslate.exporter.base import ExporterConfig
 
 T_ExporterConfig = TypeVar("T_ExporterConfig", bound=ExporterConfig)
 
+
 @runtime_checkable
 class HTMLExportable(Protocol[T_ExporterConfig]):
     def export_to_html(self, config: T_ExporterConfig | None = None) -> str:
@@ -12,6 +13,7 @@ class HTMLExportable(Protocol[T_ExporterConfig]):
 
     def save_as_html(self, name: str, output_dir: Path | str, config: T_ExporterConfig | None = None) -> Self:
         ...
+
 
 @runtime_checkable
 class MDExportable(Protocol[T_ExporterConfig]):
@@ -22,6 +24,7 @@ class MDExportable(Protocol[T_ExporterConfig]):
     def save_as_markdown(self, name: str, output_dir: Path | str, config: T_ExporterConfig | None = None) -> Self:
         ...
 
+
 @runtime_checkable
 class MDZIPExportable(Protocol[T_ExporterConfig]):
 
@@ -31,14 +34,16 @@ class MDZIPExportable(Protocol[T_ExporterConfig]):
     def save_as_markdown_zip(self, name: str, output_dir: Path | str, config: T_ExporterConfig | None = None) -> Self:
         ...
 
+
 @runtime_checkable
 class MDFormatsExportable(MDZIPExportable[T_ExporterConfig], MDExportable[T_ExporterConfig]):
     ...
 
+
 @runtime_checkable
 class TXTExportable(Protocol[T_ExporterConfig]):
-    def export_to_txt(self) -> str:
+    def export_to_txt(self, config: T_ExporterConfig | None = None) -> str:
         ...
 
-    def save_as_txt(self, name: str, output_dir: Path | str) -> Self:
+    def save_as_txt(self, name: str, output_dir: Path | str, config: T_ExporterConfig | None = None) -> Self:
         ...
