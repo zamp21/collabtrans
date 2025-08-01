@@ -18,17 +18,24 @@
 
 新版架构采用 **工作流(Workflow)** 为核心，为不同类型的翻译任务提供了高度可配置和可扩展的解决方案。
 
-- ✅ **支持多种格式**：无缝处理 `.pdf`, `.docx`, `.md`, `.txt`, `.jpg` 等多种文件。
-- ✅ **灵活的工作流**：针对不同文件类型（如富文本、纯文本）提供专属翻译流程。
-- ✅ **高度可配置**：用户可以精细控制翻译的每一个环节，包括文档解析、AI模型、导出格式等。
-- ✅ **异步优先**：专为高性能场景设计，提供完整的异步支持。
+- ✅ **支持多种格式**：能翻译 `.pdf`, `.docx`, `.md`, `.txt`, `.jpg` 等多种文件。
+- ✅ **表格、公式、代码识别**：凭借`docling`、`mineru`实现对学术论文中经常出现的表格、公式、代码的识别与翻译
+- ✅ **多ai平台支持**：支持绝大部分的ai平台，可以实现自定义提示词的并发高性能ai翻译。
+- ✅ **异步支持**：专为高性能场景设计，提供完整的异步支持，实现了可以多任务并行的服务接口。
 - ✅ **交互式Web界面**：提供开箱即用的 Web UI 和 RESTful API，方便集成与使用。
+
+> 在翻译`.pdf`、`.docx`等文件时会先转换为markdown，这会**丢失**原先的排版，对排版有要求的用户请注意
 
 > QQ交流群：1047781902
 
-![翻译效果](/images/双语对照.png)
+UI界面：
+![翻译效果](/images/UI界面.png)
 
-> DocuTranslate在翻译pdf等文件时会先转换为markdown，这会**丢失**原先的排版，对排版有要求的用户请注意
+论文翻译：
+![翻译效果](/images/论文翻译.png)
+
+小说翻译：
+![翻译效果](/images/小说翻译.png)
 
 ## 整合包
 
@@ -131,14 +138,14 @@ async def main():
     print("开始读取和翻译文件...")
     workflow.read_path("path/to/your/document.pdf")
     await workflow.translate_async()
-    #或者使用同步的方式
-    #workflow.translate()
+    # 或者使用同步的方式
+    # workflow.translate()
     print("翻译完成！")
 
     # 6. 保存结果
     workflow.save_as_html(name="translated_document.html")
     workflow.save_as_markdown_zip(name="translated_document.zip")
-    workflow.save_as_markdown(name="translated_document.md")#嵌入图片的markdown
+    workflow.save_as_markdown(name="translated_document.md")  # 嵌入图片的markdown
     print("文件已保存到 ./output 文件夹。")
 
     # 或者直接获取内容字符串
@@ -183,7 +190,7 @@ async def main():
     # 4. 读取文件并执行翻译
     workflow.read_path("path/to/your/notes.txt")
     await workflow.translate_async()
-    #或者使用同步的方法
+    # 或者使用同步的方法
     workflow.translate()
 
     # 5. 保存结果
@@ -192,8 +199,7 @@ async def main():
     print("TXT 文件已保存。")
 
     # 也可以导出翻译后的纯文本
-    text=workflow.export_to_txt()
-    
+    text = workflow.export_to_txt()
 
 
 if __name__ == "__main__":
