@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field, field_validator
 from docutranslate import __version__
 from docutranslate.agents.agent import ThinkingMode
 from docutranslate.cacher import md_based_convert_cacher
+from docutranslate.exporter.md.types import ConvertEngineType
 # --- 核心代码 Imports ---
 from docutranslate.global_values.conditional_import import DOCLING_EXIST
 from docutranslate.workflow.base import Workflow
@@ -68,23 +69,6 @@ def _create_default_task_state() -> Dict[str, Any]:
         "task_end_time": 0, "current_task_ref": None,
         "original_filename": None,
     }
-
-
-# --- [KEPT FOR TEMP ENDPOINT] 旧的 Workflow 工厂函数 (仅为临时接口保留) ---
-def _get_workflow_for_file(filename: str, logger: logging.Logger) -> Workflow:
-    """根据文件名后缀选择并返回合适的 Workflow 实例。这是扩展点。"""
-    suffix = Path(filename).suffix.lower()
-    if suffix == '.txt':
-        logger.info("检测到 .txt 文件，使用 TXTWorkflow。")
-        # 为临时接口创建虚拟config
-        return TXTWorkflow(config=TXTWorkflowConfig(translator_config=None, html_exporter_config=None, logger=logger))
-    else:
-        # 默认为基于 Markdown 的流程（处理 .pdf, .docx, .md 等）
-        logger.info(f"检测到 {suffix} 文件，使用 MarkdownBasedWorkflow。")
-        # 为临时接口创建虚拟config
-        return MarkdownBasedWorkflow(config=MarkdownBasedWorkflowConfig(
-            convert_engine=None, converter_config=None, translator_config=None, html_exporter_config=None, logger=logger
-        ))
 
 
 # --- 日志处理器 (保持不变) ---
@@ -192,6 +176,8 @@ class BaseWorkflowParams(BaseModel):
     chunk_size: int = Field(default=default_params["chunk_size"], description="文本分割的块大小（字符）。")
     concurrent: int = Field(default=default_params["concurrent"], description="并发请求数。")
     temperature: float = Field(default=default_params["temperature"], description="LLM温度参数。")
+    thinking: ThinkingMode = Field(default_params["thinking"], description="是否启用深度思考",
+                                   examples=["default", "enable", "disable"]),
     custom_prompt: Optional[str] = Field(None, description="用户自定义的翻译Prompt。", alias="custom_prompt")
 
 
@@ -200,10 +186,10 @@ class MarkdownWorkflowParams(BaseWorkflowParams):
     workflow_type: Literal['markdown_based'] = Field(..., description="指定使用基于Markdown的翻译工作流。")
 
     # --- Markdown-specific Converter Params ---
-    convert_engine: Optional[Literal["mineru", "docling"]] = Field(
-        None,
-        description="文档解析引擎。`mineru`在线服务, `docling`本地引擎。如果输入文件是.md，此项可为`null`或不传。",
-        examples=["mineru", "docling"]
+    convert_engine: ConvertEngineType = Field(
+        "identity",
+        description="文档解析引擎。`identity`处理markdown文件,`mineru`在线服务, `docling`本地引擎。如果输入文件是.md，此项可为`null`或不传。",
+        examples=["identity", "mineru", "docling"]
     )
     mineru_token: Optional[str] = Field(None, description="当 `convert_engine` 为 'mineru' 时必填的API令牌。")
     formula_ocr: bool = Field(True, description="是否对公式进行OCR识别。对 `mineru` 和 `docling` 均有效。")
@@ -251,6 +237,7 @@ class TranslateServiceRequest(BaseModel):
                     "chunk_size": 3000,
                     "concurrent": 10,
                     "temperature": 0.1,
+                    "thinking": "enable",
                     "custom_prompt": "将所有技术术语翻译为业界公认的中文对应词汇。"
                 }
             }
@@ -294,7 +281,7 @@ async def _perform_translation(
             translator_config = MDTranslatorConfig(
                 **payload.model_dump(include={
                     'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
-                    'temperature', 'timeout', 'chunk_size', 'concurrent'
+                    'temperature', 'thinking', 'timeout', 'chunk_size', 'concurrent'
                 }, exclude_none=True)
             )
 
@@ -328,7 +315,7 @@ async def _perform_translation(
             translator_config = TXTTranslatorConfig(
                 **payload.model_dump(include={
                     'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
-                    'temperature', 'timeout', 'chunk_size', 'concurrent'
+                    'temperature', 'thinking', 'timeout', 'chunk_size', 'concurrent'
                 }, exclude_none=True)
             )
 
@@ -1076,62 +1063,41 @@ async def temp_translate(
         model_id: str = Body(..., description="使用的模型ID。", examples=["gpt-4-turbo"]),
         mineru_token: Optional[str] = Body(None, description="Mineru引擎的Token。"),
         file_name: str = Body(...,
-                              description="文件名，用以判断文件类型。当后缀为txt时该接口返回普通文本，为其他后缀时返回翻译后的markdown文本",
+                              description="文件名，用以判断文件类型。",
                               examples=["test.txt", "test.md", "test.pdf"]),
         file_content: str = Body(..., description="文件内容，可以是纯文本或Base64编码的字符串。"),
         to_lang: str = Body("中文", description="目标语言。", examples=["中文", "英文", "English"]),
         concurrent: int = Body(default_params["concurrent"], description="ai翻译请求并发数"),
         temperature: float = Body(default_params["temperature"], description="ai翻译请求温度"),
-        thinking: ThinkingMode = Body(default_params["thinking"], description="是否启用深度思考", examples=["default", "enable", "disable"]),
+        thinking: ThinkingMode = Body(default_params["thinking"], description="是否启用深度思考",
+                                      examples=["default", "enable", "disable"]),
         chunk_size: int = Body(default_params["chunk_size"], description="文本分块大小（bytes）"),
         custom_prompt: Optional[str] = Body(None, description="翻译自定义提示词",
-                                                      examples=["人名保持原文不翻译"]),
+                                            examples=["人名保持原文不翻译"]),
 ):
     """一个用于快速测试的同步翻译接口。"""
+    file_name = Path(file_name)
     try:
         decoded_content = base64.b64decode(file_content)
     except (ValueError, binascii.Error):
         decoded_content = file_content.encode('utf-8')
 
     try:
-        # [MODIFIED] 使用旧的辅助函数，仅为这个临时接口服务
-        workflow = _get_workflow_for_file(file_name, global_logger)
-        workflow.read_bytes(decoded_content, Path(file_name).stem, Path(file_name).suffix)
-
-        # Manually set up configs for the workflow instance for this temp endpoint
-        if isinstance(workflow, MarkdownBasedWorkflow):
-            translator_config = MDTranslatorConfig(
-                base_url=base_url, api_key=api_key, model_id=model_id, to_lang=to_lang,
-                custom_prompt=custom_prompt, temperature=temperature,thinking=thinking,
-                chunk_size=chunk_size, concurrent=concurrent, logger=global_logger, timeout=2000
-            )
-            convert_config = ConverterMineruConfig(mineru_token=mineru_token,
-                                                   formula_ocr=True) if mineru_token else None
-
-            # Update workflow's internal config for translate() to work
-            workflow.config.translator_config = translator_config
-            workflow.config.converter_config = convert_config
-            workflow.config.convert_engine = 'mineru' if mineru_token and convert_config else 'identity'
-
-            await workflow.translate_async()
-            return {"success": True, "content": workflow.export_to_markdown()}
-
-        elif isinstance(workflow, TXTWorkflow):
-            translator_config = TXTTranslatorConfig(
-                base_url=base_url, api_key=api_key, model_id=model_id, to_lang=to_lang,
-                custom_prompt=custom_prompt, temperature=temperature,thinking=thinking,
-                chunk_size=chunk_size, concurrent=concurrent, logger=global_logger, timeout=2000
-            )
-
-            # Update workflow's internal config
-            workflow.config.translator_config = translator_config
-
-            await workflow.translate_async()
-            return {"success": True, "content": workflow.export_to_txt()}
-
-        else:
-            raise NotImplementedError(f"Temp endpoint does not support workflow type {type(workflow).__name__}")
-
+        workflow_config = MarkdownBasedWorkflowConfig(convert_engine="mineru",
+                                                      converter_config=ConverterMineruConfig(mineru_token=mineru_token),
+                                                      translator_config=MDTranslatorConfig(base_url=base_url,
+                                                                                           api_key=api_key,
+                                                                                           model_id=model_id,
+                                                                                           to_lang=to_lang,
+                                                                                           custom_prompt=custom_prompt,
+                                                                                           temperature=temperature,
+                                                                                           thinking=thinking,
+                                                                                           chunk_size=chunk_size,
+                                                                                           concurrent=concurrent),
+                                                      html_exporter_config=MD2HTMLExporterConfig())
+        workflow = MarkdownBasedWorkflow(workflow_config)
+        workflow.read_bytes(content=decoded_content, stem=file_name.stem, suffix=file_name.stem)
+        return {"success": True, "content": workflow.export_to_markdown()}
     except Exception as e:
         global_logger.error(f"临时翻译接口出现错误：{e.__repr__()}", exc_info=True)
         return {"success": False, "reason": e.__repr__()}

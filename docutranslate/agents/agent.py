@@ -68,7 +68,7 @@ TIMEOUT = 600
 
 class Agent:
     _think_factory = {
-        "open.bigmodel.cn": ("thinking", "enable", "disabled")
+        "open.bigmodel.cn": ("thinking", {"type":"enabled"}, {"type":"disabled"})
     }
 
     def __init__(self, config: AgentConfig):

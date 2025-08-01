@@ -27,4 +27,3 @@ class TXTTranslateAgent(Agent):
 """
         if config.custom_prompt:
             self.system_prompt += "\n# 重要规则或背景【非常重要】\n" + config.custom_prompt + '\n'
-        self.system_prompt += r'\no_think'

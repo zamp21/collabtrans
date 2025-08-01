@@ -18,15 +18,16 @@ class TXTTranslator(Translator):
         super().__init__(config=config)
         self.chunk_size = config.chunk_size
         agent_config = TXTTranslateAgentConfig(custom_prompt=config.custom_prompt,
-                                              to_lang=config.to_lang,
-                                              baseurl=config.base_url,
-                                              key=config.api_key,
-                                              model_id=config.model_id,
-                                              system_prompt=None,
-                                              temperature=config.temperature,
-                                              max_concurrent=config.concurrent,
-                                              timeout=config.timeout,
-                                              logger=self.logger)
+                                               to_lang=config.to_lang,
+                                               baseurl=config.base_url,
+                                               key=config.api_key,
+                                               model_id=config.model_id,
+                                               system_prompt=None,
+                                               temperature=config.temperature,
+                                               thinking=config.thinking,
+                                               max_concurrent=config.concurrent,
+                                               timeout=config.timeout,
+                                               logger=self.logger)
         self.translate_agent = TXTTranslateAgent(agent_config)
 
     def translate(self, document: Document) -> Self:
