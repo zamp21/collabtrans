@@ -28,6 +28,7 @@ class MDTranslator(Translator):
                                               model_id=config.model_id,
                                               system_prompt=None,
                                               temperature=config.temperature,
+                                              thinking=config.thinking,
                                               max_concurrent=config.concurrent,
                                               timeout=config.timeout,
                                               logger=self.logger)

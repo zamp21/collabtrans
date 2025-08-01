@@ -21,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
 from docutranslate import __version__
+from docutranslate.agents.agent import ThinkingMode
 from docutranslate.cacher import md_based_convert_cacher
 # --- 核心代码 Imports ---
 from docutranslate.global_values.conditional_import import DOCLING_EXIST
@@ -1081,6 +1082,7 @@ async def temp_translate(
         to_lang: str = Body("中文", description="目标语言。", examples=["中文", "英文", "English"]),
         concurrent: int = Body(default_params["concurrent"], description="ai翻译请求并发数"),
         temperature: float = Body(default_params["temperature"], description="ai翻译请求温度"),
+        thinking: ThinkingMode = Body(default_params["thinking"], description="是否启用深度思考", examples=["default", "enable", "disable"]),
         chunk_size: int = Body(default_params["chunk_size"], description="文本分块大小（bytes）"),
         custom_prompt: Optional[str] = Body(None, description="翻译自定义提示词",
                                                       examples=["人名保持原文不翻译"]),
@@ -1100,7 +1102,7 @@ async def temp_translate(
         if isinstance(workflow, MarkdownBasedWorkflow):
             translator_config = MDTranslatorConfig(
                 base_url=base_url, api_key=api_key, model_id=model_id, to_lang=to_lang,
-                custom_prompt=custom_prompt, temperature=temperature,
+                custom_prompt=custom_prompt, temperature=temperature,thinking=thinking,
                 chunk_size=chunk_size, concurrent=concurrent, logger=global_logger, timeout=2000
             )
             convert_config = ConverterMineruConfig(mineru_token=mineru_token,
@@ -1117,7 +1119,7 @@ async def temp_translate(
         elif isinstance(workflow, TXTWorkflow):
             translator_config = TXTTranslatorConfig(
                 base_url=base_url, api_key=api_key, model_id=model_id, to_lang=to_lang,
-                custom_prompt=custom_prompt, temperature=temperature,
+                custom_prompt=custom_prompt, temperature=temperature,thinking=thinking,
                 chunk_size=chunk_size, concurrent=concurrent, logger=global_logger, timeout=2000
             )
 
