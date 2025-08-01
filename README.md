@@ -1,10 +1,3 @@
-好的，我已经仔细分析了您提供的最新代码和旧版 `README`，并理解了架构上的核心变化：从一个统一的 `FileTranslater`
-类转变为一个更灵活、更明确的基于 `Workflow` 的模块化系统。
-
-以下是根据您的要求重写的全新 `README.md` 文档。它旨在结构清晰、说明详细，并能有效引导新老用户理解和使用新架构。
-
----
-
 # DocuTranslate
 
 [![GitHub stars](https://img.shields.io/github/stars/xunbu/docutranslate?style=flats&logo=github&color=blue)](https://github.com/xunbu/docutranslate)
