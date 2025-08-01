@@ -2,8 +2,8 @@ import asyncio
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from threading import Lock
-from typing import TypedDict
 
 import httpx
 
@@ -13,15 +13,16 @@ MAX_RETRY_COUNT = 2
 MAX_TOTAL_ERROR_COUNT = 10
 
 
-class AgentArgs(TypedDict, total=False):
+@dataclass(kw_only=True)
+class AgentConfig:
+    logger: logging.Logger
     baseurl: str
     key: str
     model_id: str
     system_prompt: str | None
-    temperature: float
-    max_concurrent: int
-    timeout: int
-    logger: logging.Logger
+    temperature: float = 0.7
+    max_concurrent: int = 30
+    timeout: int = 2000
 
 
 class TotalErrorCounter:
@@ -61,21 +62,20 @@ TIMEOUT = 600
 
 
 class Agent:
-    def __init__(self, baseurl: str, key: str | None, model_id: str, system_prompt: str | None = None, temperature=0.7,
-                 max_concurrent=15, timeout: int = TIMEOUT, logger: logging.Logger | None = None):
-        self.baseurl = baseurl.strip()
+    def __init__(self, config: AgentConfig):
+        self.baseurl = config.baseurl.strip()
         if self.baseurl.endswith("/"):
             self.baseurl = self.baseurl[:-1]
-        self.key = key.strip() or "xx"
-        self.model_id = model_id.strip()
-        self.system_prompt = system_prompt or ""
-        self.temperature = temperature
+        self.key = config.key.strip() or "xx"
+        self.model_id = config.model_id.strip()
+        self.system_prompt = config.system_prompt or ""
+        self.temperature = config.temperature
         self.client = httpx.Client(trust_env=False, proxy=None, verify=False)
         self.client_async = httpx.AsyncClient(trust_env=False, proxy=None, verify=False)
-        self.max_concurrent = max_concurrent
-        self.timeout = timeout
+        self.max_concurrent = config.max_concurrent
+        self.timeout = config.timeout
 
-        self.logger = logger if logger else global_logger
+        self.logger = config.logger or global_logger
         self.total_error_counter = TotalErrorCounter(logger=self.logger)
 
     def _prepare_request_data(self, prompt: str, system_prompt: str, temperature=None, top_p=0.9):

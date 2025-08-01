@@ -1,23 +1,23 @@
-from typing import NotRequired, Unpack
+from dataclasses import dataclass
 
-from docutranslate.agents import AgentArgs, Agent
+from docutranslate.agents import AgentConfig, Agent
 
 
-class TXTTranslateAgentArgs(AgentArgs, total=True):
+@dataclass
+class TXTTranslateAgentConfig(AgentConfig):
     to_lang: str
-    custom_prompt: NotRequired[str]
+    custom_prompt: str | None = None
 
 
 class TXTTranslateAgent(Agent):
-    def __init__(self, custom_prompt=None, to_lang="中文", **kwargs: Unpack[AgentArgs]):
-        print(f"custom_prompt:{custom_prompt}")
-        super().__init__(**kwargs)
+    def __init__(self, config: TXTTranslateAgentConfig):
+        super().__init__(config)
         self.system_prompt = f"""
 # 角色
 你是一个专业的机器翻译引擎
 # 工作
 翻译输入的txt文本
-目标语言{to_lang}
+目标语言{config.to_lang}
 # 要求
 翻译要求专业准确
 不输出任何解释和注释
@@ -25,6 +25,6 @@ class TXTTranslateAgent(Agent):
 # 输出
 翻译后的txt译文纯文本
 """
-        if custom_prompt:
-            self.system_prompt += "\n# 重要规则或背景【非常重要】\n" + custom_prompt + '\n'
+        if config.custom_prompt:
+            self.system_prompt += "\n# 重要规则或背景【非常重要】\n" + config.custom_prompt + '\n'
         self.system_prompt += r'\no_think'
