@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from threading import Lock
 from typing import Literal
 from urllib.parse import urlparse
-from enum import Enum
+
 import httpx
 
 from docutranslate.logger import global_logger
@@ -14,8 +14,8 @@ from docutranslate.logger import global_logger
 MAX_RETRY_COUNT = 2
 MAX_TOTAL_ERROR_COUNT = 10
 
+ThinkingMode = Literal["enable", "disable", "default"]
 
-ThinkingMode=Literal["enable", "disable", "default"]
 
 @dataclass(kw_only=True)
 class AgentConfig:
@@ -68,7 +68,9 @@ TIMEOUT = 600
 
 class Agent:
     _think_factory = {
-        "open.bigmodel.cn": ("thinking", {"type":"enabled"}, {"type":"disabled"})
+        "open.bigmodel.cn": ("thinking", {"type": "enabled"}, {"type": "disabled"}),
+        "dashscope.aliyuncs.com": ("enable_thinking ", True, False),
+        "ark.cn-beijing.volces.com":("thinking", {"type": "enabled"}, {"type": "disabled"})
     }
 
     def __init__(self, config: AgentConfig):
@@ -87,17 +89,13 @@ class Agent:
         self.thinking = config.thinking
         self.logger = config.logger or global_logger
         self.total_error_counter = TotalErrorCounter(logger=self.logger)
-
     def _add_thinking_mode(self, data: dict):
         if self.domain not in self._think_factory:
-            self.logger.info("尚不支持更改该平台的思考模式")
             return
         field_thinking, val_enable, val_disable = self._think_factory[self.domain]
         if self.thinking == "enable":
-            self.logger.info("使用思考模式")
             data[field_thinking] = val_enable
         elif self.thinking == "disable":
-            self.logger.info("关闭思考模式")
             data[field_thinking] = val_disable
 
     def _prepare_request_data(self, prompt: str, system_prompt: str, temperature=None, top_p=0.9):
