@@ -1,3 +1,10 @@
+好的，我已经仔细分析了您提供的最新代码和旧版 `README`，并理解了架构上的核心变化：从一个统一的 `FileTranslater`
+类转变为一个更灵活、更明确的基于 `Workflow` 的模块化系统。
+
+以下是根据您的要求重写的全新 `README.md` 文档。它旨在结构清晰、说明详细，并能有效引导新老用户理解和使用新架构。
+
+---
+
 # DocuTranslate
 
 [![GitHub stars](https://img.shields.io/github/stars/xunbu/docutranslate?style=flats&logo=github&color=blue)](https://github.com/xunbu/docutranslate)
@@ -6,252 +13,221 @@
 [![python版本](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![开源协议](https://img.shields.io/github/license/xunbu/docutranslate)](./LICENSE)
 
-文件翻译工具，借助[docling](https://github.com/docling-project/docling)、[minerU](https://mineru.net/)与大语言模型实现多种格式文件的翻译
+**DocuTranslate** 是一个文件翻译工具，利用先进的文档解析引擎（如 [docling](https://github.com/docling-project/docling)
+和 [minerU](https://mineru.net/)）与大型语言模型（LLM）相结合，实现对多种格式文档的精准翻译。
 
-- 支持多种格式文件翻译
-- 提供了多种文件翻译工作流
-- 提供了一个交互式界面
-- 提供了一套多任务异步服务接口
+新版架构采用 **工作流(Workflow)** 为核心，为不同类型的翻译任务提供了高度可配置和可扩展的解决方案。
+
+- ✅ **支持多种格式**：无缝处理 `.pdf`, `.docx`, `.md`, `.txt`, `.jpg` 等多种文件。
+- ✅ **灵活的工作流**：针对不同文件类型（如富文本、纯文本）提供专属翻译流程。
+- ✅ **高度可配置**：用户可以精细控制翻译的每一个环节，包括文档解析、AI模型、导出格式等。
+- ✅ **异步优先**：专为高性能场景设计，提供完整的异步支持。
+- ✅ **交互式Web界面**：提供开箱即用的 Web UI 和 RESTful API，方便集成与使用。
 
 > QQ交流群：1047781902
 
 ![翻译效果](/images/双语对照.png)
 
-# 整合包
+> DocuTranslate在翻译pdf等文件时会先转换为markdown，这会**丢失**原先的排版，对排版有要求的用户请注意
 
-- 对于只使用基本翻译功能的用户，可以在[github releases](https://github.com/xunbu/docutranslate/releases)
-  上下载最新的整合包，该整合包点击即用，您所需的只是获取某个ai平台的api-key，和minerU的token
-- 名字为DocuTranslate的软件不支持docling，需要在minerU申请token以进行文档解析【推荐】
-- 名字为DocuTranslate_full的软件包，自带docling模型，支持docling与minerU等所有解析文档引擎
+## 整合包
 
-# 安装
+对于希望快速上手的用户，我们仍在 [GitHub Releases](https://github.com/xunbu/docutranslate/releases) 上提供整合包。您只需下载、解压，并填入您的
+AI 平台 API-Key 即可开始使用。
 
-使用pip
+- **DocuTranslate**: 标准版，使用在线的 `minerU` 引擎解析文档，推荐大多数用户使用。
+- **DocuTranslate_full**: 完整版，内置 `docling` 本地解析引擎，支持离线或对数据隐私有更高要求的场景。
 
-`pip install docutranslate`  
-`pip install docutranslate[docling]`#如果需要使用docling进行文档解析
+## 安装
 
-使用uv
+### 使用 pip
 
-1. `uv init`
-2. `uv add docutranslate`
-3. `uv add docutranslate[docling]`#如果需要使用docling进行文档解析
+```bash
+# 基础安装
+pip install docutranslate
 
-使用git
-
-1. `git clone https://github.com/xunbu/docutranslate.git`
-2. `pip install -e .`
-3. `uv pip install -e .`#使用uv
-
-# 翻译工作流
-
-| 工作流                     | 代码               | 输入格式                                   | 输出格式                 |
-|-------------------------|------------------|----------------------------------------|----------------------|
-| `MarkdownBasedWorkflow` | `markdown_based` | `.pdf ` `.md`  `.png` `.jpeg` `.docx`等 | `.md` `.html` `.pdf` |
-| `TXTWorkflow`           | `txt`            | `.txt `                                | `.txt` `.html` `.pdf` |
-
-> 所有.pdf的输出只能通过交互式界面获取
-
-> 如果想不使用交互界面获取pdf，可以先下载HTML文件，用浏览器打开并打印
-
-# 前置条件
-
-本翻译工具的翻译流程总体如下：
-
-1. 使用文本转换引擎将文档转换成markdown（有docling（本地）、minerU（联网）两种引擎）
-2. 使用大语言模型翻译markdown文本（需要申请api-key或本地部署）
-
-## 使用minerU引擎注意事项（minerU Token获取方式）
-
-使用minerU将文档转换为markdown时，需要在minerU平台申请token
-
-1. 打开[minerU官网](https://mineru.net/apiManage/docs)申请API
-2. 申请成功后，在[API Token管理界面](https://mineru.net/apiManage/token)创建API Token
-
-> mineru token有14天有效期，若过期请创建新的token
-
-## 使用docling引擎注意事项
-
-使用docling将文档转换为markdown时，需要下载模型到本地（也可以提前下载，见FAQ），因此可能会遇到一些网络问题
-
-可以在[github release](https://github.com/xunbu/docutranslate/releases)中下载docling_artifact压缩包，将该压缩包解压放置在项目下可以解决模型下载的网络问题
-
-### huggingface换源（使用docling且尚未下载`docling_artifact`模型包）
-
-> 不能科学上网的友友注意了
-
-无法访问的huggingface的电脑在以下操作时请换源[点击测试](https://huggingface.co)
-
-- 第一次读取非markdown文本
-- 第一次使用公式识别或代码识别功能
-
-#### 方法1
-
-设置电脑的环境变量(记得设置后重启IDE)  
-`HF_ENDPOINT=https://hf-mirror.com`
-
-#### 方法2
-
-在代码开头设置环境变量
-
-```python
-import os
-
-os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
-
-###其余代码写在下方
+# 如需使用 docling 本地解析引擎
+pip install docutranslate[docling]
 ```
 
-## 获取大模型平台的baseurl、key、model-id
+### 使用 uv
 
-由于需要使用大语言模型进行markdown调整与翻译，所以需要预先获取模型的baseurl、key、model-id  
-常见的大模型平台baseurl与api获取方式可见[常用ai平台](#常用ai平台)
-> 比较推荐的模型有智谱的glm-4-air、glm-4-flash（免费），阿里云的qwen-plus等。  
-> 推理模型（不建议使用）需要支持api请求响应中区分`reasoning_content`和`content`（详见平台开发手册，ollama、lmstudio需开启对应选项）
+```bash
+# 初始化环境
+uv init
 
-# 使用方式
+# 基础安装
+uv add docutranslate
 
-## 注意事项（使用docling转换引擎必看，使用minerU或使用整合包时可跳过）
+# 安装 docling 扩展
+uv add docutranslate[docling]
+```
 
-使用docling转换引擎时以下操作会自动从[huggingface](https://huggingface.co)下载模型，windows需要使用**管理员模式**
-打开IDE运行脚本，并按需换源[换源指南](#huggingface换源)
+## 核心概念：工作流 (Workflow)
 
-- 第一次使用该库读取、翻译非markdown文本
-- 第一次使用该库的公式识别或代码识别功能
+新版 DocuTranslate 的核心是 **工作流 (Workflow)**。每个工作流都是一个专门为特定类型文件设计的、完整的端到端翻译管道。您不再与一个庞大的类交互，而是根据您的文件类型选择并配置一个合适的工作流。
 
-## 启动翻译服务（及使用交互式界面）
+**基本使用流程如下：**
 
-启动服务
+1. **选择工作流**：根据您的输入文件类型（例如，PDF/Word 或 TXT）选择一个工作流，如 `MarkdownBasedWorkflow` 或 `TXTWorkflow`。
+2. **构建配置**：为所选工作流创建相应的配置对象（如 `MarkdownBasedWorkflowConfig`）。此配置对象包含了所有需要的子配置，例如：
+    * **转换器配置 (Converter Config)**: 定义如何将原始文件（如PDF）转换为 Markdown。
+    * **翻译器配置 (Translator Config)**: 定义使用哪个 LLM、API-Key、目标语言等。
+    * **导出器配置 (Exporter Config)**: 定义输出格式（如HTML）的特定选项。
+3. **实例化工作流**：使用配置对象创建工作流实例。
+4. **执行翻译**：调用工作流的 `.read_*()` 和 `.translate()` / `.translate_async()` 方法。
+5. **导出/保存结果**：调用 `.export_to_*()` 或 `.save_as_*()` 方法获取或保存翻译结果。
 
-```commandline
+## 可用工作流
+
+| 工作流                         | 适用场景                                                    | 输入格式                                     | 输出格式                   | 核心配置类                         |
+|:----------------------------|:--------------------------------------------------------|:-----------------------------------------|:-----------------------|:------------------------------|
+| **`MarkdownBasedWorkflow`** | 处理富文本文档，如PDF、Word、图片等。流程为：`文件 -> Markdown -> 翻译 -> 导出`。 | `.pdf`, `.docx`, `.md`, `.png`, `.jpg` 等 | `.md`, `.zip`, `.html` | `MarkdownBasedWorkflowConfig` |
+| **`TXTWorkflow`**           | 处理纯文本文档。流程为：`TXT -> 翻译 -> 导出`。                          | `.txt` 及其他纯文本格式                          | `.txt`, `.html`        | `TXTWorkflowConfig`           |
+
+## 使用方式
+
+### 示例 1: 翻译一个 PDF 文件 (使用 `MarkdownBasedWorkflow`)
+
+这是最常见的用例。我们将使用 `minerU` 引擎将 PDF 转换为 Markdown，然后使用 LLM 进行翻译。这里以异步方式为例。
+
+```python
+import asyncio
+from docutranslate.workflow.md_based_workflow import MarkdownBasedWorkflow, MarkdownBasedWorkflowConfig
+from docutranslate.converter.x2md.converter_mineru import ConverterMineruConfig
+from docutranslate.translator.ai_translator.md_translator import MDTranslatorConfig
+from docutranslate.exporter.md.md2html_exporter import MD2HTMLExporterConfig
+
+
+async def main():
+    # 1. 构建翻译器配置
+    translator_config = MDTranslatorConfig(
+        base_url="https://open.bigmodel.cn/api/paas/v4",  # AI 平台 Base URL
+        api_key="YOUR_ZHIPU_API_KEY",  # AI 平台 API Key
+        model_id="glm-4-air",  # 模型 ID
+        to_lang="English",  # 目标语言
+        chunk_size=3000,  # 文本分块大小
+        concurrent=10  # 并发数
+    )
+
+    # 2. 构建转换器配置 (使用 minerU)
+    converter_config = ConverterMineruConfig(
+        mineru_token="YOUR_MINERU_TOKEN",  # 你的 minerU Token
+        formula_ocr=True  # 开启公式识别
+    )
+
+    # 3. 构建主工作流配置
+    workflow_config = MarkdownBasedWorkflowConfig(
+        convert_engine="mineru",  # 指定解析引擎
+        converter_config=converter_config,  # 传入转换器配置
+        translator_config=translator_config,  # 传入翻译器配置
+        html_exporter_config=MD2HTMLExporterConfig(cdn=True)  # HTML 导出配置
+    )
+
+    # 4. 实例化工作流
+    workflow = MarkdownBasedWorkflow(config=workflow_config)
+
+    # 5. 读取文件并执行翻译
+    print("开始读取和翻译文件...")
+    workflow.read_path("path/to/your/document.pdf")
+    await workflow.translate_async()
+    #或者使用同步的方式
+    #workflow.translate()
+    print("翻译完成！")
+
+    # 6. 保存结果
+    workflow.save_as_html(name="translated_document.html")
+    workflow.save_as_markdown_zip(name="translated_document.zip")
+    workflow.save_as_markdown(name="translated_document.md")#嵌入图片的markdown
+    print("文件已保存到 ./output 文件夹。")
+
+    # 或者直接获取内容字符串
+    html_content = workflow.export_to_html()
+    html_content = workflow.export_to_markdown()
+    # print(html_content)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+### 示例 2: 翻译一个 TXT 文件 (使用 `TXTWorkflow`)
+
+对于纯文本文件，流程更简单，因为它不需要文档解析（转换）步骤。这里以异步方式为例。
+
+```python
+import asyncio
+from docutranslate.workflow.txt_workflow import TXTWorkflow, TXTWorkflowConfig
+from docutranslate.translator.ai_translator.txt_translator import TXTTranslatorConfig
+from docutranslate.exporter.txt.txt2html_exporter import TXT2HTMLExporterConfig
+
+
+async def main():
+    # 1. 构建翻译器配置
+    translator_config = TXTTranslatorConfig(
+        base_url="https://api.openai.com/v1/",
+        api_key="YOUR_OPENAI_API_KEY",
+        model_id="gpt-4o",
+        to_lang="中文",
+    )
+
+    # 2. 构建主工作流配置
+    workflow_config = TXTWorkflowConfig(
+        translator_config=translator_config,
+        html_exporter_config=TXT2HTMLExporterConfig(cdn=True)
+    )
+
+    # 3. 实例化工作流
+    workflow = TXTWorkflow(config=workflow_config)
+
+    # 4. 读取文件并执行翻译
+    workflow.read_path("path/to/your/notes.txt")
+    await workflow.translate_async()
+    #或者使用同步的方法
+    workflow.translate()
+
+    # 5. 保存结果
+    workflow.save_as_txt(name="translated_notes.txt")
+    workflow.save_as_html(name="translated_notes.html")
+    print("TXT 文件已保存。")
+
+    # 也可以导出翻译后的纯文本
+    text=workflow.export_to_txt()
+    
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+## 启动 Web UI 和 API 服务
+
+为了方便使用，DocuTranslate 提供了一个功能齐全的 Web 界面和 RESTful API。
+
+**启动服务:**
+
+```bash
+# 启动服务，默认监听 8010 端口
+docutranslate -i
+
+# 指定端口启动
+docutranslate -i -p 8011
+
+# 也可以通过环境变量指定端口
+export DOCUTRANSLATE_PORT=8011
 docutranslate -i
 ```
 
-启动服务并指定端口
+- **交互式界面**: 启动服务后，请在浏览器中访问 `http://127.0.0.1:8010` (或您指定的端口)。
+- **API 文档**: 完整的 API 文档（Swagger UI）位于 `http://127.0.0.1:8010/docs`。
 
-```commandline
-docutranslate -i -p 8011
-```
+## 前置条件与配置详解
 
-> 可以通过设置`DOCUTRANSLATE_PORT`环境变量指定端口
+### 1. 获取大模型 API Key
 
-服务接口文档可以浏览器访问 `http://127.0.0.1:8010/docs` （或指定port）进行查看
+翻译功能依赖于大型语言模型，您需要从相应的 AI 平台获取 `base_url`, `api_key` 和 `model_id`。
 
-交互式界面在启动服务后访问`http://127.0.0.1:8010`（或指定port）
-
-## 翻译文件
-
-```python
-from docutranslate.translator import FileTranslater
-
-translater = FileTranslater(base_url="<baseurl>",  # 大模型的baseurl
-                            key="<api-key>",  # 大模型的api-key
-                            model_id="<model-id>",  # 大模型的model-id
-                            convert_engin="mineru",  # 使用mineru解析文档
-                            mineru_token="<申请的mineru_token>"  # 使用mineru时必填
-                            # convert_engin="docling"  # 使用docling解析文档
-                            )
-
-# 不开启公式、代码识别
-translater.translate_file("<文件路径>", to_lang="中文")
-
-# 开启公式、代码识别
-translater.translate_file("<文件路径>", to_lang="中文", formula=True, code=True)
-
-# 使用ai先修复解析后的文本再翻译（解析效果很差时才需要，现不推荐使用）
-translater.translate_file("<文件路径>", to_lang="中文", refine=True)
-```
-
-> 下载模型时请用管理员模式打开终端运行文件（windows），并按需换源
-> 输出文件默认放在`./output`中
-
-## 使用不同的agent分别进行文本修正和翻译
-
-```python
-from docutranslate import FileTranslater
-from docutranslate.agents import MDRefineAgent, MDTranslateAgent
-
-translater = FileTranslater()
-
-refine_agent = MDRefineAgent(baseurl="<baseurl-1>", key="<key-1>", model_id="<model-id-1>")
-translate_agent = MDTranslateAgent(baseurl="<baseurl-2>", key="<key-2>", model_id="<model-id-2>")
-
-translater.translate_file("<文件路径>", to_lang="中文", refine_agent=refine_agent,
-                          translate_agent=translate_agent)
-```
-
-## 自定义翻译提示词
-
-```python
-from docutranslate import FileTranslater
-from docutranslate.agents import MDTranslateAgent
-
-translater = FileTranslater()
-
-translate_agent = MDTranslateAgent(baseurl="<baseurl>",
-                                   key="<key>",
-                                   model_id="<model-id>",
-                                   custom_prompt="Ordering Node全部翻译为排序节点")  # 这里必须指定baseurl\api-key\model_id
-
-translater.translate_file("<文件路径>", to_lang="中文", translate_agent=translate_agent)
-```
-
-## 文件转换(pdf/markdown/HTML/Doc等->markdown/html)
-
-```python
-from docutranslate import FileTranslater
-
-translater = FileTranslater(convert_engin="mineru",  # 使用mineru解析文档
-                            mineru_token="<申请的mineru_token>"  # 使用mineru时必填
-                            # convert_engin="docling"  # 使用docling解析文档
-                            )
-# 文件转html
-translater.read_file("<文件路径>").save_as_html()  # 保存(可通过output_dir参数指定保存目录)
-translater.read_file("<文件路径>").export_to_html()  # 输出字符串
-# 文件转markdown
-translater.read_file("<文件路径>").save_as_markdown()  # 保存内嵌bas64图片的markdown
-translater.read_file("<文件路径>").save_as_markdown(embed=False)  # 保存不内嵌图片的markdown（文件夹形式）
-translater.read_file("<文件路径>").export_to_markdown()  # 输出内嵌图片的markdown字符串
-```
-
-## 参数说明
-
-### 创建FileTranslater
-
-```python
-from docutranslate import FileTranslater
-
-translater = FileTranslater(base_url="<baseurl>",  # 默认的模型baseurl
-                            key="<api-key>",  # 默认的大语言模型平台api-key
-                            model_id="<model-id>",  # 默认的模型id
-                            chunk_size=3000,  # markdown分块长度（单位byte），分块越大效果越好（也越慢），不建议超过8000
-                            concurrent=30,  # 并发数，受到ai平台并发量限制，如果文章很长建议适当加大到20以上
-                            timeout=2000,  # 调用api的超时时间
-                            docling_artifact=None,  # 使用提前下载好的docling模型
-                            convert_engin="mineru",  # 可选minerU或docling
-                            mineru_token="<mineru-token>",  # minerU的token，使用minerU时必填
-                            )
-
-```
-
-> 使用docling需要先`pip install docling`或`uv add docling`
-
-### 翻译文件
-
-```python
-translater.translate_file(r"<要翻译的文件路径>",
-                          to_lang="中文",
-                          formula=True,  # 是否启用公式识别
-                          code=True,  # 是否启用代码识别
-                          refine=False,  # 是否在翻译前先修正一遍markdown文本（较耗时）
-                          output_format="markdown",  # "markdown"与"html"两种输出格式
-                          output_dir="./output",  # 默认输出文件夹
-                          refine_agent=None,  # 修正Agent
-                          translate_agent=None  # 翻译Agent
-                          )
-```
-
-# 常用ai平台
+> 推荐模型：智谱的`glm-4-flash`，阿里云的 `qwen-plus`,``qwen-turbo`，deepseek的`deepseek-chat`等。
 
 | 平台名称       | 获取APIkey                                                                              | baseurl                                           |
 |------------|---------------------------------------------------------------------------------------|---------------------------------------------------|
@@ -267,52 +243,66 @@ translater.translate_file(r"<要翻译的文件路径>",
 | 硅基流动       | [点击获取](https://cloud.siliconflow.cn/account/ak)                                       | https://api.siliconflow.cn/v1                     |
 | DMXAPI     | [点击获取](https://www.dmxapi.cn/token)                                                   | https://www.dmxapi.cn/v1                          |
 
-# FAQ
+### 2. 获取 minerU Token (在线解析)
 
-### 8010端口被占用了怎么办
+如果您选择 `mineru`作为文档解析引擎（`convert_engine="mineru"`），则需要申请一个免费的 Token。
 
-> 可以通过设置系统环境变量`DOCUTRANSLATE_PORT=<port>`来指定启动端口
+1. 访问 [minerU 官网](https://mineru.net/apiManage/docs) 注册并申请 API。
+2. 在 [API Token 管理界面](https://mineru.net/apiManage/token) 创建一个新的 API Token。
 
-### 是否支持扫描件
+> **注意**: minerU Token 有 14 天有效期，过期后请重新创建。
 
-> mineru解析引擎支持，docling不支持
+### 3. docling 引擎配置 (本地解析)
 
-### 第一次使用很慢是怎么回事
+如果您选择 `docling` 作为文档解析引擎（`convert_engine="docling"`），它会在首次使用时从 Hugging Face 下载所需的模型。
 
-> 第一次是使用时docling需要从huggingface下载转换输入文件为markdown的模型  
-> 通过设置环境变量换源或科学上网可能有助于提高下载速度
+**网络问题解决方案:**
 
-> huggingface换源，请设置环境变量：`HF_ENDPOINT=https://hf-mirror.com`
+1. **设置 Hugging Face 镜像 (推荐)**:
+    * **方法 A (环境变量)**: 设置系统环境变量 `HF_ENDPOINT` 并重启您的IDE或终端。
+     ```
+     HF_ENDPOINT=https://hf-mirror.com
+     ```
+    * **方法 B (代码中设置)**: 在您的 Python 脚本开头添加以下代码。
+     ```python
+     import os
+     os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
+     ```
+2. **离线使用 (提前下载模型包)**:
+    * 从 [GitHub Releases](https://github.com/xunbu/docutranslate/releases) 下载 `docling_artifact.zip`。
+    * 将其解压到您的项目目录中。
+    * 在配置中指定模型路径：
+     ```python
+     from docutranslate.converter.x2md.converter_docling import ConverterDoclingConfig
+     
+     converter_config = ConverterDoclingConfig(
+         artifact="./docling_artifact", # 指向解压后的文件夹
+         code_ocr=True,
+         formula_ocr=True
+     )
+     ```
 
-### 如何内网使用（不联网）
+## FAQ
 
-> 可以，对于docling提供的解析pdf、html等功能，可以使用以下方式提前下载所需的模型
+**Q: 8010 端口被占用了怎么办？**
+A: 使用 `-p` 参数指定一个新端口，或设置 `DOCUTRANSLATE_PORT` 环境变量。
 
-```python
-from docutranslate.utils.docling_utils import get_docling_artifacts
+**Q: 支持扫描件的翻译吗？**
+A: 支持。请使用 `mineru` 解析引擎，它具备强大的 OCR 能力。`docling` 目前对扫描件的支持有限。
 
-print(get_docling_artifacts())  # 会显示模型下载文件夹，通常在`C:\Users\<user>\.cache\docling\models`
-```
+**Q: 第一次使用为什么很慢？**
+A: 如果您使用 `docling` 引擎，它首次运行时需要从 Hugging Face 下载模型。请参考上文的“网络问题解决方案”来加速此过程。
 
-> 将模型文件夹命名为docling_artifact放置在项目下
-> 或创建FileTranslater时docling_artifact参数设置为文件夹位置
+**Q: 如何在内网（离线）环境使用？**
+A: 完全可以。您需要满足两个条件：
 
-```python
-from docutranslate import FileTranslater
+1. **本地解析引擎**: 使用 `docling` 引擎，并按照上文“离线使用”的指引提前下载模型包。
+2. **本地 LLM**: 使用 [Ollama](https://ollama.com/) 或 [LM Studio](https://lmstudio.ai/) 等工具在本地部署语言模型，并在
+   `TranslatorConfig` 中填入本地模型的 `base_url`。
 
-translater = FileTranslater(base_url="<baseurl>",
-                            key="<key>",
-                            model_id="<model-id>",  # 使用的模型id
-                            convert_engin="docling",  # 使用docling
-                            docling_artifact=r"C:\Users\<user>\.cache\docling\models"
-                            )
-```
-
-> 对于本地ai翻译功能，可以使用ollama或lm studio等方式本地部署。
-
-### Filetranslater的解析缓存机制
-
-工具默认会缓存最近10条（全局）解析记录存于内存中，可以通过`DOCUTRANSLATE_CACHE_NUM`环境变量进行修改
+**Q: 缓存机制是如何工作的？**
+A: `MarkdownBasedWorkflow` 会自动缓存文档解析（文件到Markdown的转换）的结果，以避免重复解析消耗时间和资源。缓存默认保存在内存中，并会记录最近的10次解析。您可以通过
+`DOCUTRANSLATE_CACHE_NUM` 环境变量来修改缓存数量。
 
 ## Star History
 

@@ -24,7 +24,7 @@ IMAGE_RESOLUTION_SCALE = 4
 class ConverterDoclingConfig(X2MarkdownConverterConfig):
     code_ocr: bool = True
     formula_ocr: bool = True
-    artifact: Path | None = None
+    artifact: Path |str| None = None
 
     def gethash(self):
         return self.code_ocr,self.formula_ocr
