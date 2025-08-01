@@ -10,6 +10,7 @@ class TXTTranslateAgentArgs(AgentArgs, total=True):
 
 class TXTTranslateAgent(Agent):
     def __init__(self, custom_prompt=None, to_lang="中文", **kwargs: Unpack[AgentArgs]):
+        print(f"custom_prompt:{custom_prompt}")
         super().__init__(**kwargs)
         self.system_prompt = f"""
 # 角色

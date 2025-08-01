@@ -9,7 +9,7 @@ import time
 import uuid
 from contextlib import asynccontextmanager, closing
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Literal, Union, Annotated, TYPE_CHECKING
+from typing import List, Dict, Any, Optional, Literal, Union, Annotated, TYPE_CHECKING, Type
 from urllib.parse import quote
 
 import httpx
@@ -18,31 +18,31 @@ from fastapi import FastAPI, HTTPException, APIRouter, Body, Path as FastApiPath
 from fastapi.openapi.docs import get_swagger_ui_html, get_swagger_ui_oauth2_redirect_html, get_redoc_html
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
+from docutranslate import __version__
+from docutranslate.cacher import md_based_convert_cacher
+# --- 核心代码 Imports ---
 from docutranslate.global_values.conditional_import import DOCLING_EXIST
-# --- 核心代码重构后的新 Imports ---
 from docutranslate.workflow.base import Workflow
 from docutranslate.workflow.interfaces import HTMLExportable, MDFormatsExportable, TXTExportable
-from docutranslate.workflow.md_based_workflow import MarkdownBasedWorkflow
-from docutranslate.workflow.txt_workflow import TXTWorkflow
+from docutranslate.workflow.md_based_workflow import MarkdownBasedWorkflow, MarkdownBasedWorkflowConfig
+from docutranslate.workflow.txt_workflow import TXTWorkflow, TXTWorkflowConfig
 
 if DOCLING_EXIST or TYPE_CHECKING:
     from docutranslate.converter.x2md.converter_docling import ConverterDoclingConfig
 from docutranslate.converter.x2md.converter_mineru import ConverterMineruConfig
 from docutranslate.exporter.md.md2html_exporter import MD2HTMLExporterConfig
 from docutranslate.exporter.txt.txt2html_exporter import TXT2HTMLExporterConfig
-from docutranslate.translator.base import AiTranslateConfig
 from docutranslate.translator.ai_translator.md_translator import MDTranslatorConfig
 from docutranslate.translator.ai_translator.txt_translator import TXTTranslatorConfig
 # ------------------------------------
 
-from docutranslate import __version__
 from docutranslate.logger import global_logger
 from docutranslate.translator import default_params
 from docutranslate.utils.resource_utils import resource_path
 
-# --- 全局配置 (MODIFIED) ---
+# --- 全局配置 ---
 tasks_state: Dict[str, Dict[str, Any]] = {}
 tasks_log_queues: Dict[str, asyncio.Queue] = {}
 tasks_log_histories: Dict[str, List[str]] = {}
@@ -50,13 +50,13 @@ MAX_LOG_HISTORY = 200
 httpx_client: httpx.AsyncClient
 
 # --- [NEW] Workflow字典 ---
-WORKFLOW_DICT: Dict[str, type[Workflow]] = {
+WORKFLOW_DICT: Dict[str, Type[Workflow]] = {
     "markdown_based": MarkdownBasedWorkflow,
     "txt": TXTWorkflow,
 }
 
 
-# --- 辅助函数 (MODIFIED) ---
+# --- 辅助函数 ---
 def _create_default_task_state() -> Dict[str, Any]:
     """创建新的默认任务状态，存储 workflow 实例而不是具体内容"""
     return {
@@ -69,17 +69,21 @@ def _create_default_task_state() -> Dict[str, Any]:
     }
 
 
-# --- [KEPT FOR TEMP ENDPOINT] Workflow 工厂函数 (旧逻辑，仅为临时接口保留) ---
+# --- [KEPT FOR TEMP ENDPOINT] 旧的 Workflow 工厂函数 (仅为临时接口保留) ---
 def _get_workflow_for_file(filename: str, logger: logging.Logger) -> Workflow:
     """根据文件名后缀选择并返回合适的 Workflow 实例。这是扩展点。"""
     suffix = Path(filename).suffix.lower()
     if suffix == '.txt':
-        logger.info("检测到 .txt 文件，使用 Workflow。")
-        return TXTWorkflow(logger=logger)
+        logger.info("检测到 .txt 文件，使用 TXTWorkflow。")
+        # 为临时接口创建虚拟config
+        return TXTWorkflow(config=TXTWorkflowConfig(translator_config=None, html_exporter_config=None, logger=logger))
     else:
         # 默认为基于 Markdown 的流程（处理 .pdf, .docx, .md 等）
         logger.info(f"检测到 {suffix} 文件，使用 MarkdownBasedWorkflow。")
-        return MarkdownBasedWorkflow(logger=logger)
+        # 为临时接口创建虚拟config
+        return MarkdownBasedWorkflow(config=MarkdownBasedWorkflowConfig(
+            convert_engine=None, converter_config=None, translator_config=None, html_exporter_config=None, logger=logger
+        ))
 
 
 # --- 日志处理器 (保持不变) ---
@@ -181,13 +185,13 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 # 1. 定义所有工作流共享的基础参数
 class BaseWorkflowParams(BaseModel):
     base_url: str = Field(..., description="LLM API的基础URL。", examples=["https://api.openai.com/v1"])
-    apikey: str = Field(..., description="LLM API的密钥。", examples=["sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"])
+    api_key: str = Field(..., description="LLM API的密钥。", examples=["sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"])
     model_id: str = Field(..., description="要使用的LLM模型ID。", examples=["gpt-4o"])
     to_lang: str = Field(default="中文", description="目标翻译语言。", examples=["简体中文", "English"])
-    chunk_size: int = Field(default_params["chunk_size"], description="文本分割的块大小（字符）。")
-    concurrent: int = Field(default_params["concurrent"], description="并发请求数。")
-    temperature: float = Field(default_params["temperature"], description="LLM温度参数。")
-    custom_prompt_translate: Optional[str] = Field(None, description="用户自定义的翻译Prompt。")
+    chunk_size: int = Field(default=default_params["chunk_size"], description="文本分割的块大小（字符）。")
+    concurrent: int = Field(default=default_params["concurrent"], description="并发请求数。")
+    temperature: float = Field(default=default_params["temperature"], description="LLM温度参数。")
+    custom_prompt: Optional[str] = Field(None, description="用户自定义的翻译Prompt。", alias="custom_prompt")
 
 
 # 2. 为每个工作流创建独立的参数模型
@@ -195,19 +199,24 @@ class MarkdownWorkflowParams(BaseWorkflowParams):
     workflow_type: Literal['markdown_based'] = Field(..., description="指定使用基于Markdown的翻译工作流。")
 
     # --- Markdown-specific Converter Params ---
-    convert_engin: Optional[Literal["mineru", "docling"]] = Field(
+    convert_engine: Optional[Literal["mineru", "docling"]] = Field(
         None,
         description="文档解析引擎。`mineru`在线服务, `docling`本地引擎。如果输入文件是.md，此项可为`null`或不传。",
         examples=["mineru", "docling"]
     )
-    mineru_token: Optional[str] = Field(None, description="当 `convert_engin` 为 'mineru' 时必填的API令牌。")
+    mineru_token: Optional[str] = Field(None, description="当 `convert_engine` 为 'mineru' 时必填的API令牌。")
     formula_ocr: bool = Field(True, description="是否对公式进行OCR识别。对 `mineru` 和 `docling` 均有效。")
     code_ocr: bool = Field(True, description="是否对代码块进行OCR识别。仅 `docling` 引擎有效。")
+
+    @field_validator('mineru_token')
+    def check_mineru_token(cls, v, values):
+        if values.data.get('convert_engine') == 'mineru' and not v:
+            raise ValueError("当 `convert_engine` 为 'mineru' 时，`mineru_token` 字段是必须的。")
+        return v
 
 
 class TextWorkflowParams(BaseWorkflowParams):
     workflow_type: Literal['txt'] = Field(..., description="指定使用纯文本的翻译工作流。")
-    # TXT 工作流没有额外的参数
 
 
 # 3. 使用可辨识联合类型（Discriminated Union）将它们组合起来
@@ -231,17 +240,17 @@ class TranslateServiceRequest(BaseModel):
                 "payload": {
                     "workflow_type": "markdown_based",
                     "base_url": "https://api.openai.com/v1",
-                    "apikey": "sk-your-api-key-here",
+                    "api_key": "sk-your-api-key-here",
                     "model_id": "gpt-4o",
                     "to_lang": "简体中文",
-                    "convert_engin": "mineru",
+                    "convert_engine": "mineru",
                     "mineru_token": "your-mineru-token-if-any",
                     "formula_ocr": True,
                     "code_ocr": True,
                     "chunk_size": 3000,
                     "concurrent": 10,
                     "temperature": 0.1,
-                    "custom_prompt_translate": "将所有技术术语翻译为业界公认的中文对应词汇。"
+                    "custom_prompt": "将所有技术术语翻译为业界公认的中文对应词汇。"
                 }
             }
         }
@@ -271,66 +280,80 @@ async def _perform_translation(
     task_state["status_message"] = f"正在处理 '{original_filename}'..."
 
     try:
-        # 1. 根据工作流类型选择合适的 Workflow
+        # 1. 根据工作流类型选择合适的 Workflow Class
         workflow_class = WORKFLOW_DICT.get(payload.workflow_type)
         if not workflow_class:
             raise ValueError(f"不支持的工作流类型: '{payload.workflow_type}'")
-        workflow = workflow_class(logger=task_logger)
 
-        # 2. 从 payload 构建通用的 AiTranslateConfig
-        ai_config = AiTranslateConfig(
-            base_url=payload.base_url,
-            api_key=payload.apikey,
-            model_id=payload.model_id,
-            to_lang=payload.to_lang,
-            custom_prompt=payload.custom_prompt_translate,
-            temperature=payload.temperature,
-            timeout=2000,
-            chunk_size=payload.chunk_size,
-            concurrent=payload.concurrent,
-            logger=task_logger
-        )
+        workflow: Workflow
 
-        # 3. 读取文件内容
-        file_stem = Path(original_filename).stem
-        file_suffix = Path(original_filename).suffix
-        workflow.read_bytes(content=file_contents, stem=file_stem, suffix=file_suffix)
+        # 2. 根据 payload 的具体类型构建配置并实例化 workflow (类型安全!)
+        if isinstance(payload, MarkdownWorkflowParams):
+            task_logger.info("构建 MarkdownBasedWorkflow 配置。")
+            translator_config = MDTranslatorConfig(
+                **payload.model_dump(include={
+                    'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                    'temperature', 'timeout', 'chunk_size', 'concurrent'
+                }, exclude_none=True)
+            )
 
-        # 4. 根据 payload 的具体类型执行不同的翻译流程 (类型安全!)
-        if isinstance(payload, MarkdownWorkflowParams) and isinstance(workflow, MarkdownBasedWorkflow):
-            task_logger.info("执行 MarkdownBased 翻译流程。")
-            translate_config = MDTranslatorConfig(**ai_config.__dict__)
-
-            convert_config = None
-            if payload.convert_engin == 'mineru':
-                if not payload.mineru_token:
-                    raise ValueError("使用 'mineru' 引擎需要提供 'mineru_token'。")
-                convert_config = ConverterMineruConfig(
+            converter_config = None
+            if payload.convert_engine == 'mineru':
+                converter_config = ConverterMineruConfig(
                     mineru_token=payload.mineru_token,
                     formula_ocr=payload.formula_ocr
                 )
-            elif payload.convert_engin == 'docling':
-                convert_config = ConverterDoclingConfig(
+            elif payload.convert_engine == 'docling' and DOCLING_EXIST:
+                converter_config = ConverterDoclingConfig(
                     code_ocr=payload.code_ocr,
                     formula_ocr=payload.formula_ocr
                 )
 
-            await workflow.translate_async(
-                convert_engin=payload.convert_engin,
-                convert_config=convert_config,
-                translate_config=translate_config
+            # HTML导出器配置
+            html_exporter_config = MD2HTMLExporterConfig(cdn=True)
+
+            # 创建完整的工作流配置
+            workflow_config = MarkdownBasedWorkflowConfig(
+                convert_engine=payload.convert_engine,
+                converter_config=converter_config,
+                translator_config=translator_config,
+                html_exporter_config=html_exporter_config,
+                logger=task_logger
+            )
+            workflow = MarkdownBasedWorkflow(config=workflow_config)
+
+        elif isinstance(payload, TextWorkflowParams):
+            task_logger.info("构建 TXTWorkflow 配置。")
+            translator_config = TXTTranslatorConfig(
+                **payload.model_dump(include={
+                    'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                    'temperature', 'timeout', 'chunk_size', 'concurrent'
+                }, exclude_none=True)
             )
 
-        elif isinstance(payload, TextWorkflowParams) and isinstance(workflow, TXTWorkflow):
-            task_logger.info("执行 TXT 翻译流程。")
-            translate_config = TXTTranslatorConfig(**ai_config.__dict__)
-            await workflow.translate_async(translate_config=translate_config)
+            # HTML导出器配置
+            html_exporter_config = TXT2HTMLExporterConfig(cdn=True)
+
+            # 创建完整的工作流配置
+            workflow_config = TXTWorkflowConfig(
+                translator_config=translator_config,
+                html_exporter_config=html_exporter_config,
+                logger=task_logger
+            )
+            workflow = TXTWorkflow(config=workflow_config)
 
         else:
             raise TypeError(
-                f"工作流类型 '{payload.workflow_type}'与Workflow类型 '{type(workflow).__name__}' 不匹配或未实现。")
+                f"工作流类型 '{payload.workflow_type}' 的处理逻辑未实现。")
 
-        # 5. 任务成功，存储 workflow 实例并更新状态
+        # 3. 读取文件内容并执行翻译
+        file_stem = Path(original_filename).stem
+        file_suffix = Path(original_filename).suffix
+        workflow.read_bytes(content=file_contents, stem=file_stem, suffix=file_suffix)
+
+        await workflow.translate_async()  # Config is already set in __init__
+
+        # 4. 任务成功，存储 workflow 实例并更新状态
         end_time = time.time()
         duration = end_time - task_state["task_start_time"]
         task_state.update({
@@ -372,6 +395,8 @@ async def _perform_translation(
         task_state["current_task_ref"] = None
         task_logger.info(f"后台翻译任务 '{original_filename}' 处理结束。")
         task_logger.removeHandler(task_handler)
+        # 清理缓存，防止内存泄漏
+        md_based_convert_cacher.clear()
 
 
 # --- [MODIFIED] 核心任务启动逻辑 ---
@@ -444,7 +469,7 @@ def _cancel_translation_logic(task_id: str):
 
 
 # ===================================================================
-# --- Service Endpoints (/service) (部分已重构) ---
+# --- Service Endpoints (/service) (已重构) ---
 # ===================================================================
 
 @service_router.post(
@@ -709,8 +734,8 @@ async def service_get_status(
             "content": {"application/json": {
                 "example": {
                     "logs": [
-                        "2023-10-27 10:30:05 - INFO - 后台翻译任务开始: 文件 'annual_report_2023.pdf', 工作流: 'markdown'",
-                        "2023-10-27 10:30:05 - INFO - 执行 MarkdownBased 翻译流程。",
+                        "2023-10-27 10:30:05 - INFO - 后台翻译任务开始: 文件 'annual_report_2023.pdf', 工作流: 'markdown_based'",
+                        "2023-10-27 10:30:05 - INFO - 构建 MarkdownBasedWorkflow 配置。",
                         "2023-10-27 10:30:15 - INFO - 正在转化为markdown",
                         "2023-10-27 10:30:25 - INFO - markdown分为50块",
                         "2023-10-27 10:30:30 - INFO - 正在翻译markdown"
@@ -758,18 +783,25 @@ async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple
         media_type: str
         filename: str
 
-        if file_type == 'html' and isinstance(workflow, HTMLExportable):
-            config = MD2HTMLExporterConfig(cdn=True) if isinstance(workflow,
-                                                                   MarkdownBasedWorkflow) else TXT2HTMLExporterConfig(
-                cdn=True)
+        # 对于HTML导出，我们需要检查CDN的可用性
+        html_config = None
+        if file_type == 'html':
+            is_cdn_available = True
             try:
+                # 检查一个常用的CDN资源
                 await httpx_client.head("https://s4.zstatic.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js",
                                         timeout=3)
             except (httpx.TimeoutException, httpx.RequestError):
-                workflow.logger.warning("CDN连接失败，使用本地JS进行渲染。")
-                if hasattr(config, 'cdn'):
-                    config.cdn = False
-            content_str = workflow.export_to_html(config)
+                is_cdn_available = False
+                workflow.config.logger.warning("CDN连接失败，将使用本地JS进行渲染。")
+
+            if isinstance(workflow, MarkdownBasedWorkflow):
+                html_config = MD2HTMLExporterConfig(cdn=is_cdn_available)
+            elif isinstance(workflow, TXTWorkflow):
+                html_config = TXT2HTMLExporterConfig(cdn=is_cdn_available)
+
+        if file_type == 'html' and isinstance(workflow, HTMLExportable):
+            content_str = workflow.export_to_html(html_config)
             content_bytes, media_type, filename = content_str.encode(
                 'utf-8'), "text/html; charset=utf-8", f"{filename_stem}_translated.html"
 
@@ -792,7 +824,7 @@ async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple
         return content_bytes, media_type, filename
 
     except Exception as e:
-        workflow.logger.error(f"导出 {file_type} 时出错: {e}", exc_info=True)
+        workflow.config.logger.error(f"导出 {file_type} 时出错: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"导出 {file_type} 时发生内部错误: {e}")
 
 
@@ -1016,9 +1048,8 @@ async def redoc_html():
 
 
 ###
-
 @app.post("/temp/translate",
-          summary="[临时]同步翻译接口 (已重构)",
+          summary="[临时]同步翻译接口",
           description="一个简单的、同步的翻译接口，用于快速测试。不涉及后台任务、状态管理或多格式输出。**不建议在生产环境中使用。**",
           tags=["Temp"],
           responses={
@@ -1051,7 +1082,7 @@ async def temp_translate(
         concurrent: int = Body(default_params["concurrent"], description="ai翻译请求并发数"),
         temperature: float = Body(default_params["temperature"], description="ai翻译请求温度"),
         chunk_size: int = Body(default_params["chunk_size"], description="文本分块大小（bytes）"),
-        custom_prompt_translate: Optional[str] = Body(None, description="翻译自定义提示词",
+        custom_prompt: Optional[str] = Body(None, description="翻译自定义提示词",
                                                       examples=["人名保持原文不翻译"]),
 ):
     """一个用于快速测试的同步翻译接口。"""
@@ -1063,29 +1094,44 @@ async def temp_translate(
     try:
         # [MODIFIED] 使用旧的辅助函数，仅为这个临时接口服务
         workflow = _get_workflow_for_file(file_name, global_logger)
-
-        ai_config = AiTranslateConfig(
-            base_url=base_url, api_key=api_key, model_id=model_id, to_lang=to_lang,
-            custom_prompt=custom_prompt_translate, temperature=temperature,
-            chunk_size=chunk_size, concurrent=concurrent, logger=global_logger, timeout=2000
-        )
-
         workflow.read_bytes(decoded_content, Path(file_name).stem, Path(file_name).suffix)
 
+        # Manually set up configs for the workflow instance for this temp endpoint
         if isinstance(workflow, MarkdownBasedWorkflow):
-            translate_config = MDTranslatorConfig(**ai_config.__dict__)
-            convert_config = ConverterMineruConfig(mineru_token=mineru_token) if mineru_token else None
-            convert_engin = 'mineru' if mineru_token else None
-            await workflow.translate_async(convert_engin, convert_config, translate_config)
+            translator_config = MDTranslatorConfig(
+                base_url=base_url, api_key=api_key, model_id=model_id, to_lang=to_lang,
+                custom_prompt=custom_prompt, temperature=temperature,
+                chunk_size=chunk_size, concurrent=concurrent, logger=global_logger, timeout=2000
+            )
+            convert_config = ConverterMineruConfig(mineru_token=mineru_token,
+                                                   formula_ocr=True) if mineru_token else None
+
+            # Update workflow's internal config for translate() to work
+            workflow.config.translator_config = translator_config
+            workflow.config.converter_config = convert_config
+            workflow.config.convert_engine = 'mineru' if mineru_token and convert_config else 'identity'
+
+            await workflow.translate_async()
             return {"success": True, "content": workflow.export_to_markdown()}
 
         elif isinstance(workflow, TXTWorkflow):
-            translate_config = TXTTranslatorConfig(**ai_config.__dict__)
-            await workflow.translate_async(translate_config)
+            translator_config = TXTTranslatorConfig(
+                base_url=base_url, api_key=api_key, model_id=model_id, to_lang=to_lang,
+                custom_prompt=custom_prompt, temperature=temperature,
+                chunk_size=chunk_size, concurrent=concurrent, logger=global_logger, timeout=2000
+            )
+
+            # Update workflow's internal config
+            workflow.config.translator_config = translator_config
+
+            await workflow.translate_async()
             return {"success": True, "content": workflow.export_to_txt()}
 
+        else:
+            raise NotImplementedError(f"Temp endpoint does not support workflow type {type(workflow).__name__}")
+
     except Exception as e:
-        print(f"临时翻译接口出现错误：{e.__repr__()}")
+        global_logger.error(f"临时翻译接口出现错误：{e.__repr__()}", exc_info=True)
         return {"success": False, "reason": e.__repr__()}
 
 
@@ -1109,7 +1155,7 @@ def run_app(port: int | None = None):
         print(f"正在启动 DocuTranslate WebUI 版本号：{__version__}\n")
         print(f"服务接口文档: http://127.0.0.1:{port_to_use}/docs\n")
         print(f"请用浏览器访问 http://127.0.0.1:{port_to_use}\n")
-        uvicorn.run(app, host=None, port=port_to_use, workers=1)
+        uvicorn.run(app, host="0.0.0.0", port=port_to_use, workers=1)
     except Exception as e:
         print(f"启动失败: {e}")
 

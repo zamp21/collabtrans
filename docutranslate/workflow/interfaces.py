@@ -36,7 +36,7 @@ class MDZIPExportable(Protocol[T_ExporterConfig]):
 
 
 @runtime_checkable
-class MDFormatsExportable(MDZIPExportable[T_ExporterConfig], MDExportable[T_ExporterConfig]):
+class MDFormatsExportable(MDZIPExportable[T_ExporterConfig], MDExportable[T_ExporterConfig],Protocol):
     ...
 
 
