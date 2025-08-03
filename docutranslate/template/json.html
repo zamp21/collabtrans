@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{title}}</title>
+    {{pico}}
+    <!-- 1. 从 CDN 引入 json-viewer 的 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/jquery.json-viewer@1.4.0/json-viewer/jquery.json-viewer.css" rel="stylesheet">
+    <style>
+        /* 美化一下页面 */
+        body { font-family: sans-serif; padding: 20px; }
+        #json-container { border: 1px solid #ccc; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+    <div id="json-container"></div>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery.json-viewer@1.4.0/json-viewer/jquery.json-viewer.js"></script>
+
+    <script>
+
+        const myData = {
+            "id": "0001",
+            "type": "donut",
+            "name": "Cake",
+            "ppu": 0.55,
+            "is_active": true,
+            "sauce": null,
+            "batters": {
+                "batter": [
+                    { "id": "1001", "type": "Regular" },
+                    { "id": "1002", "type": "Chocolate" },
+                    { "id": "1003", "type": "Blueberry" },
+                    { "id": "1004", "type": "Devil's Food" }
+                ]
+            },
+            "topping": [
+                { "id": "5001", "type": "None" },
+                { "id": "5002", "type": "Glazed" },
+                { "id": "5005", "type": "Sugar" },
+                { "id": "5007", "type": "Powdered Sugar" },
+                { "id": "5006", "type": "Chocolate with Sprinkles" },
+                { "id": "5003", "type": "Chocolate" },
+                { "id": "5004", "type": "Maple" }
+            ],
+            "url": "https://example.com"
+        };;
+
+        // 5. 初始化 JSON 查看器
+        $(document).ready(function() {
+            $('#json-container').jsonViewer(myData, {
+                collapsed: false, // 初始状态是否折叠所有节点
+                withQuotes: true  // key 和 string value 是否带引号
+            });
+        });
+    </script>
+
+</body>
+</html>

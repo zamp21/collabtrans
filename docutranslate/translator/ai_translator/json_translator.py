@@ -13,7 +13,7 @@ from docutranslate.utils.json_utils import flat_json_split
 
 @dataclass
 class JsonTranslatorConfig(AiTranslatorConfig):
-    jsonpaths: list[str]
+    json_paths: list[str]
 
 
 class JsonTranslator(Translator):
@@ -32,7 +32,7 @@ class JsonTranslator(Translator):
                                                 timeout=config.timeout,
                                                 logger=self.logger)
         self.translate_agent = JsonTranslateAgent(agent_config)
-        self.jsonpaths = config.jsonpaths
+        self.jsonpaths = config.json_paths
 
     def _extract_matches(self, content: dict) -> list[Any]:
         """
@@ -140,38 +140,6 @@ class JsonTranslator(Translator):
         document.content = json.dumps(content, ensure_ascii=False).encode('utf-8')
 
         return self
-
-    # def translate(self, document: Document) -> Self:
-    #     content = json.loads(document.content.decode())
-    #     path_vals: dict[str:list[str]] = {}
-    #     for jsonpath in self.jsonpaths:
-    #         jsonpath_expr = parse(jsonpath)
-    #         matches = [match.value for match in jsonpath_expr.find(content)]
-    #         path_vals[jsonpath] = matches
-    #     vals_all = []
-    #     for vals in path_vals.values():
-    #         vals_all.extend(vals)
-    #     vals_dict = {str(i): val for i, val in enumerate(vals_all)}#{"1":"val1","2":"val2"}
-    #     chunks=flat_json_split(vals_dict,self.chunk_size)
-    #     chunks_translated=self.translate_agent.send_prompts([json.dumps(chunk) for chunk in chunks])
-    #     for chunk in chunks_translated:
-    #         vals_dict.update(json.loads(chunk))
-    #
-    #     #翻译后的{path1:[val1',val2']}
-    #     reconstructed_dict = {}
-    #     start_index = 0
-    #     for key in path_vals.keys():
-    #         length = len(path_vals[key])
-    #         sub_list = list(vals_dict.values())[start_index: start_index + length]
-    #         reconstructed_dict[key] = sub_list
-    #         start_index += length
-    #
-    #     for path in reconstructed_dict:
-    #         path_expression = parse(path)
-    #         matches = path_expression.find(content)
-    #         for idx,match in enumerate(matches):
-    #             match.full_path.update(content, reconstructed_dict[path][idx])
-    #     return self
 
     async def translate_async(self, document: Document) -> Self:
         content = json.loads(document.content.decode())
