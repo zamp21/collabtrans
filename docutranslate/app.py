@@ -30,6 +30,9 @@ from docutranslate.workflow.base import Workflow
 from docutranslate.workflow.interfaces import HTMLExportable, MDFormatsExportable, TXTExportable
 from docutranslate.workflow.md_based_workflow import MarkdownBasedWorkflow, MarkdownBasedWorkflowConfig
 from docutranslate.workflow.txt_workflow import TXTWorkflow, TXTWorkflowConfig
+# --- [NEW] JSON 工作流 Imports ---
+from docutranslate.workflow.json_workflow import JsonWorkflow, JsonWorkflowConfig
+from docutranslate.workflow.interfaces import JsonExportable
 
 if DOCLING_EXIST or TYPE_CHECKING:
     from docutranslate.converter.x2md.converter_docling import ConverterDoclingConfig
@@ -38,6 +41,9 @@ from docutranslate.exporter.md.md2html_exporter import MD2HTMLExporterConfig
 from docutranslate.exporter.txt.txt2html_exporter import TXT2HTMLExporterConfig
 from docutranslate.translator.ai_translator.md_translator import MDTranslatorConfig
 from docutranslate.translator.ai_translator.txt_translator import TXTTranslatorConfig
+# --- [NEW] JSON 工作流相关配置 Imports ---
+from docutranslate.translator.ai_translator.json_translator import JsonTranslatorConfig
+from docutranslate.exporter.js.json2html_exporter import Json2HTMLExporterConfig
 # ------------------------------------
 
 from docutranslate.logger import global_logger
@@ -51,10 +57,11 @@ tasks_log_histories: Dict[str, List[str]] = {}
 MAX_LOG_HISTORY = 200
 httpx_client: httpx.AsyncClient
 
-# --- [NEW] Workflow字典 ---
+# --- [MODIFIED] Workflow字典 ---
 WORKFLOW_DICT: Dict[str, Type[Workflow]] = {
     "markdown_based": MarkdownBasedWorkflow,
     "txt": TXTWorkflow,
+    "json": JsonWorkflow,  # <--- 新增 JSON 工作流
 }
 
 
@@ -206,9 +213,19 @@ class TextWorkflowParams(BaseWorkflowParams):
     workflow_type: Literal['txt'] = Field(..., description="指定使用纯文本的翻译工作流。")
 
 
-# 3. 使用可辨识联合类型（Discriminated Union）将它们组合起来
+# --- [NEW] JSON 工作流参数模型 ---
+class JsonWorkflowParams(BaseWorkflowParams):
+    workflow_type: Literal['json'] = Field(..., description="指定使用JSON的翻译工作流。")
+    json_paths: List[str] = Field(
+        ...,
+        description="一个jsonpath-ng表达式列表，用于指定需要翻译的JSON字段。表达式遵循jsonpath-ng语法，例如 `data.items[*].name` 会匹配 `items` 数组中所有对象的 `name` 字段。使用 `*` 作为通配符匹配所有数组元素或对象键。",
+        examples=[["productName", "description.long", "features[*]"]]
+    )
+
+
+# 3. [MODIFIED] 使用可辨识联合类型（Discriminated Union）将它们组合起来
 TranslatePayload = Annotated[
-    Union[MarkdownWorkflowParams, TextWorkflowParams],
+    Union[MarkdownWorkflowParams, TextWorkflowParams, JsonWorkflowParams],  # <-- 新增 JsonWorkflowParams
     Field(discriminator='workflow_type')
 ]
 
@@ -221,24 +238,48 @@ class TranslateServiceRequest(BaseModel):
 
     class Config:
         json_schema_extra = {
-            "example": {
-                "file_name": "annual_report_2023.pdf",
-                "file_content": "JVBERi0xLjcKJeLjz9MKMSAwIG9iago8PC9...",
-                "payload": {
-                    "workflow_type": "markdown_based",
-                    "base_url": "https://api.openai.com/v1",
-                    "api_key": "sk-your-api-key-here",
-                    "model_id": "gpt-4o",
-                    "to_lang": "简体中文",
-                    "convert_engine": "mineru",
-                    "mineru_token": "your-mineru-token-if-any",
-                    "formula_ocr": True,
-                    "code_ocr": True,
-                    "chunk_size": 3000,
-                    "concurrent": 10,
-                    "temperature": 0.1,
-                    "thinking": "enable",
-                    "custom_prompt": "将所有技术术语翻译为业界公认的中文对应词汇。"
+            "examples": {
+                "markdown_workflow": {
+                    "summary": "Markdown 工作流示例",
+                    "value": {
+                        "file_name": "annual_report_2023.pdf",
+                        "file_content": "JVBERi0xLjcKJeLjz9MKMSAwIG9iago8PC9...",
+                        "payload": {
+                            "workflow_type": "markdown_based",
+                            "base_url": "https://api.openai.com/v1",
+                            "api_key": "sk-your-api-key-here",
+                            "model_id": "gpt-4o",
+                            "to_lang": "简体中文",
+                            "convert_engine": "mineru",
+                            "mineru_token": "your-mineru-token-if-any",
+                            "formula_ocr": True,
+                            "code_ocr": True,
+                            "chunk_size": 3000,
+                            "concurrent": 10,
+                            "temperature": 0.1,
+                            "thinking": "enable",
+                            "custom_prompt": "将所有技术术语翻译为业界公认的中文对应词汇。"
+                        }
+                    }
+                },
+                "json_workflow": {
+                    "summary": "JSON 工作流示例",
+                    "value": {
+                        "file_name": "product_info.json",
+                        "file_content": "ewogICAgImlkIjogIjEyMzQ1IiwKICAgICJwcm9kdWN0TmFtZSI6ICJBZHZhbmNlZCBXaWRnZXQiLAogICAgImRlc2NyaXB0aW9uIjogewogICAgICAgICJzaG9ydCI6ICJBbiBleGNlbGxlbnQgd2lkZ2V0LiIsCiAgICAgICAgImxvbmciOiAiVGhpcyB3aWRnZXQgaGFzIGFsbCB0aGUgZmVhdHVyZXMgeW91IGNvdWxkIGV2ZXIgd2FudC4gSXQncyBtYWRlIGZyb20gaGlnaC1xdWFsaXR5IG1hdGVyaWFscyBhbmQgaXMgYnVpbHQgdG8gbGFzdC4iCiAgICB9LAogICAgInByaWNlIjogNDkuOTksCiAgICAiZmVhdHVyZXMiOiBbCiAgICAgICAgIkR1cmFibGUiLAogICAgICAgICJQb3J0YWJsZSIsCiAgICAgICAgIkVhc3kgVG8gVXNlIgogICAgXQp9",
+                        "payload": {
+                            "workflow_type": "json",
+                            "base_url": "https://api.openai.com/v1",
+                            "api_key": "sk-your-api-key-here",
+                            "model_id": "gpt-4o",
+                            "to_lang": "日本語",
+                            "json_paths": ["productName", "description.long", "features[*]"],
+                            "chunk_size": 2000,
+                            "concurrent": 5,
+                            "temperature": 0.2,
+                            "thinking": "disable"
+                        }
+                    }
                 }
             }
         }
@@ -297,10 +338,8 @@ async def _perform_translation(
                     formula_ocr=payload.formula_ocr
                 )
 
-            # HTML导出器配置
             html_exporter_config = MD2HTMLExporterConfig(cdn=True)
 
-            # 创建完整的工作流配置
             workflow_config = MarkdownBasedWorkflowConfig(
                 convert_engine=payload.convert_engine,
                 converter_config=converter_config,
@@ -318,17 +357,31 @@ async def _perform_translation(
                     'temperature', 'thinking', 'timeout', 'chunk_size', 'concurrent'
                 }, exclude_none=True)
             )
-
-            # HTML导出器配置
             html_exporter_config = TXT2HTMLExporterConfig(cdn=True)
-
-            # 创建完整的工作流配置
             workflow_config = TXTWorkflowConfig(
                 translator_config=translator_config,
                 html_exporter_config=html_exporter_config,
                 logger=task_logger
             )
             workflow = TXTWorkflow(config=workflow_config)
+
+        # --- [NEW] JSON 工作流处理逻辑 ---
+        elif isinstance(payload, JsonWorkflowParams):
+            task_logger.info("构建 JsonWorkflow 配置。")
+            translator_config = JsonTranslatorConfig(
+                json_paths=payload.json_paths,  # 传入JSON路径
+                **payload.model_dump(include={
+                    'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                    'temperature', 'thinking', 'timeout', 'chunk_size', 'concurrent'
+                }, exclude_none=True)
+            )
+            html_exporter_config = Json2HTMLExporterConfig(cdn=True)
+            workflow_config = JsonWorkflowConfig(
+                translator_config=translator_config,
+                html_exporter_config=html_exporter_config,
+                logger=task_logger
+            )
+            workflow = JsonWorkflow(config=workflow_config)
 
         else:
             raise TypeError(
@@ -466,7 +519,7 @@ def _cancel_translation_logic(task_id: str):
     description="""
 接收一个包含文件内容（Base64编码）和工作流参数的JSON请求，启动一个后台翻译任务。
 
-- **工作流选择**: 请求体中的 `payload.workflow_type` 字段决定了本次任务的类型（如 `markdown_based` 或 `txt`）。
+- **工作流选择**: 请求体中的 `payload.workflow_type` 字段决定了本次任务的类型（如 `markdown_based`, `txt`, 或 `json`）。
 - **动态参数**: 根据所选工作流，API需要不同的参数集。请参考下面的Schema或示例。
 - **异步处理**: 此端点会立即返回任务ID，客户端需轮询状态接口获取进度。
 
@@ -669,6 +722,24 @@ async def service_release_task(
                                 }
                             }
                         },
+                        "completed_json": {
+                            "summary": "已完成 (JSON)",
+                            "value": {
+                                "task_id": "d4a87bb5",
+                                "is_processing": False,
+                                "status_message": "翻译成功！用时 15.67 秒。",
+                                "error_flag": False,
+                                "download_ready": True,
+                                "original_filename_stem": "product_info",
+                                "original_filename": "product_info.json",
+                                "task_start_time": 1678888400.123,
+                                "task_end_time": 1678888415.793,
+                                "downloads": {
+                                    "json": "/service/download/d4a87bb5/json",
+                                    "html": "/service/download/d4a87bb5/html"
+                                }
+                            }
+                        },
                     }
                 }
             }
@@ -697,6 +768,8 @@ async def service_get_status(
             downloads["markdown_zip"] = f"/service/download/{task_id}/markdown_zip"
         if isinstance(workflow, TXTExportable):
             downloads["txt"] = f"/service/download/{task_id}/txt"
+        if isinstance(workflow, JsonExportable):  # <-- 新增对 JSON 导出的支持
+            downloads["json"] = f"/service/download/{task_id}/json"
 
     return JSONResponse(content={
         "task_id": task_id,
@@ -752,7 +825,8 @@ async def service_get_logs(
     return JSONResponse(content={"logs": new_logs})
 
 
-FileType = Literal["markdown", "markdown_zip", "html", "txt"]
+# [MODIFIED] 扩展 FileType 以包含 'json'
+FileType = Literal["markdown", "markdown_zip", "html", "txt", "json"]
 
 
 async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple[bytes, str, str]:
@@ -787,6 +861,9 @@ async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple
                 html_config = MD2HTMLExporterConfig(cdn=is_cdn_available)
             elif isinstance(workflow, TXTWorkflow):
                 html_config = TXT2HTMLExporterConfig(cdn=is_cdn_available)
+            elif isinstance(workflow, JsonWorkflow): # <-- 新增对 JSON->HTML 的支持
+                html_config = Json2HTMLExporterConfig(cdn=is_cdn_available)
+
 
         if file_type == 'html' and isinstance(workflow, HTMLExportable):
             content_str = workflow.export_to_html(html_config)
@@ -805,6 +882,12 @@ async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple
             txt_content = workflow.export_to_txt()
             content_bytes, media_type, filename = txt_content.encode(
                 'utf-8'), "text/plain; charset=utf-8", f"{filename_stem}_translated.txt"
+
+        # --- [NEW] JSON 导出逻辑 ---
+        elif file_type == 'json' and isinstance(workflow, JsonExportable):
+            json_content = workflow.export_to_json()
+            content_bytes, media_type, filename = json_content.encode(
+                'utf-8'), "application/json; charset=utf-8", f"{filename_stem}_translated.json"
 
         else:
             raise HTTPException(status_code=404, detail=f"此任务不支持导出 '{file_type}' 类型的文件。")
@@ -828,6 +911,7 @@ async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple
                 "application/zip": {"schema": {"type": "string", "format": "binary"}},
                 "text/html": {"schema": {"type": "string", "format": "binary"}},
                 "text/plain": {"schema": {"type": "string", "format": "binary"}},
+                "application/json": {"schema": {"type": "string", "format": "binary"}}, # <-- 新增
             }
         },
         404: {
@@ -838,7 +922,7 @@ async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple
 )
 async def service_download_file(
         task_id: str = FastApiPath(..., description="已完成任务的ID", examples=["b2865b93"]),
-        file_type: FileType = FastApiPath(..., description="要下载的文件类型。", examples=["html"])
+        file_type: FileType = FastApiPath(..., description="要下载的文件类型。", examples=["html", "json"])
 ):
     """根据任务ID和文件类型下载翻译结果。"""
     content, media_type, filename = await _get_content_from_workflow(task_id, file_type)
@@ -855,7 +939,7 @@ async def service_download_file(
 
 - **返回结构**: JSON对象包含 `file_type`, `filename`, 和 `content` 三个字段。
 - **内容编码**:
-  - 对于 `html`, `markdown`, `txt` 类型, `content` 字段包含原始的文本内容。
+  - 对于 `html`, `markdown`, `txt`, `json` 类型, `content` 字段包含原始的文本内容。
   - 对于 `markdown_zip` 类型, `content` 字段包含Base64编码后的字符串。
 - **使用场景**: 适用于需要以编程方式处理文件内容及其元数据（如建议的文件名）的客户端。
 - **下载就绪**: 调用前请通过状态接口确认 `download_ready` 为 `true`。
@@ -872,6 +956,14 @@ async def service_download_file(
                                 "file_type": "html",
                                 "filename": "my_doc_translated.html",
                                 "content": "<h1>标题</h1><p>这是翻译后的HTML内容...</p>"
+                            }
+                        },
+                        "json": {
+                            "summary": "JSON 内容",
+                            "value": {
+                                "file_type": "json",
+                                "filename": "product_info_translated.json",
+                                "content": "{ \"productName\": \"高度なウィジェット\", ... }"
                             }
                         },
                         "markdown_zip_base64": {
@@ -894,7 +986,7 @@ async def service_download_file(
 )
 async def service_content(
         task_id: str = FastApiPath(..., description="已完成任务的ID", examples=["b2865b93"]),
-        file_type: FileType = FastApiPath(..., description="要获取内容的文件类型。", examples=["html"])
+        file_type: FileType = FastApiPath(..., description="要获取内容的文件类型。", examples=["html", "json"])
 ):
     """根据任务ID和文件类型，以JSON格式返回内容。zip文件会进行Base64编码。"""
     content, _, filename = await _get_content_from_workflow(task_id, file_type)
@@ -903,6 +995,7 @@ async def service_content(
     if file_type == 'markdown_zip':
         final_content = base64.b64encode(content).decode('utf-8')
     else:
+        # For text-based formats including json, just decode
         final_content = content.decode('utf-8')
 
     return JSONResponse(content={
@@ -1123,7 +1216,7 @@ def run_app(port: int | None = None):
         print(f"正在启动 DocuTranslate WebUI 版本号：{__version__}\n")
         print(f"服务接口文档: http://127.0.0.1:{port_to_use}/docs\n")
         print(f"请用浏览器访问 http://127.0.0.1:{port_to_use}\n")
-        uvicorn.run(app, host="0.0.0.0", port=port_to_use, workers=1)
+        uvicorn.run(app, host=None, port=port_to_use, workers=1)
     except Exception as e:
         print(f"启动失败: {e}")
 

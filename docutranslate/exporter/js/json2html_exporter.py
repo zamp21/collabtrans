@@ -26,12 +26,13 @@ class Json2HTMLExporter(JsonExporter):
 
         # language=html
         pico = f'<style>{resource_path("static/pico.css").read_text(encoding="utf-8")}</style>' if not cdn else r'<link rel="stylesheet" href="https://s4.zstatic.net/ajax/libs/picocss/2.1.1/pico.min.css" integrity="sha512-+4kjFgVD0n6H3xt19Ox84B56MoS7srFn60tgdWFuO4hemtjhySKyW4LnftYZn46k3THUEiTTsbVjrHai+0MOFw==" crossorigin="anonymous" referrerpolicy="no-referrer" />'
-
-        json_data=json.dumps(document.content.decode(),ensure_ascii=False)
-
+        # language=html
+        renderjson=f'<script><{resource_path("static/renderjson.min.js").read_text(encoding="utf-8")}/script>'
+        json_data= document.content.decode()
         render = jinja2.Template(html_template).render(
             title=document.stem,
             pico=pico,
+            renderjson=renderjson,
             jsonData=json_data,
         )
         return Document.from_bytes(content=render.encode("utf-8"), suffix=".html", stem=document.stem)
