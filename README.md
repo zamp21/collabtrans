@@ -85,6 +85,7 @@ uv add docutranslate[docling]
 |:----------------------------|:--------------------------------------------------------|:-----------------------------------------|:-----------------------|:------------------------------|
 | **`MarkdownBasedWorkflow`** | 处理富文本文档，如PDF、Word、图片等。流程为：`文件 -> Markdown -> 翻译 -> 导出`。 | `.pdf`, `.docx`, `.md`, `.png`, `.jpg` 等 | `.md`, `.zip`, `.html` | `MarkdownBasedWorkflowConfig` |
 | **`TXTWorkflow`**           | 处理纯文本文档。流程为：`TXT -> 翻译 -> 导出`。                          | `.txt` 及其他纯文本格式                          | `.txt`, `.html`        | `TXTWorkflowConfig`           |
+| **`JsonWorkflow`**          | 处理json文件。流程为：`json -> 翻译 -> 导出`。                        | `.json`                                  | `.json`, `.html`       | `JsonWorkflowConfig`          |
 
 ## 使用方式
 
@@ -201,7 +202,8 @@ if __name__ == "__main__":
 
 ### 示例 3: 翻译一个 json 文件 (使用 `JsonWorkflow`)
 
-这里以异步方式为例。其中JsonTranslatorConfig的json_paths项需要指明要翻译的json路径(满足jsonpath-ng语法规范)，仅与json路径匹配的值会被翻译。
+这里以异步方式为例。其中JsonTranslatorConfig的json_paths项需要指明要翻译的json路径(满足jsonpath-ng语法规范)
+，仅与json路径匹配的值会被翻译。
 
 ```python
 import asyncio
@@ -218,7 +220,7 @@ async def main():
         api_key="YOUR_OPENAI_API_KEY",
         model_id="gpt-4o",
         to_lang="中文",
-        json_paths=["$.*","$.name"]#满足jsonpath-ng路径语法,匹配路径的值都会被翻译
+        json_paths=["$.*", "$.name"]  # 满足jsonpath-ng路径语法,匹配路径的值都会被翻译
     )
 
     # 2. 构建主工作流配置
