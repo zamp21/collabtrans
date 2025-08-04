@@ -55,3 +55,11 @@ class JsonExportable(Protocol[T_ExporterConfig]):
 
     def save_as_json(self, name: str, output_dir: Path | str, config: T_ExporterConfig | None = None) -> Self:
         ...
+
+@runtime_checkable
+class XlsxExportable(Protocol[T_ExporterConfig]):
+    def export_to_xlsx(self, config: T_ExporterConfig | None = None) -> bytes:
+        ...
+
+    def save_as_xlsx(self, name: str, output_dir: Path | str, config: T_ExporterConfig | None = None) -> Self:
+        ...

@@ -12,7 +12,7 @@ from docutranslate.translator.base import Translator
 
 @dataclass
 class XlsxTranslatorConfig(AiTranslatorConfig):
-    position: Literal["replace", "append", "prepend"] = "replace"
+    insert_mode: Literal["replace", "append", "prepend"] = "replace"
     separator: str = "\n"
 
 
@@ -32,7 +32,7 @@ class XlsxTranslator(Translator):
                                                     timeout=config.timeout,
                                                     logger=self.logger)
         self.translate_agent = SegmentsTranslateAgent(agent_config)
-        self.position = config.position
+        self.insert_mode = config.insert_mode
         self.separator = config.separator
 
     def _pre_translate(self, document: Document):
@@ -66,11 +66,11 @@ class XlsxTranslator(Translator):
 
             # 定位到工作表和单元格
             sheet = workbook[sheet_name]
-            if self.position == "replace":
+            if self.insert_mode == "replace":
                 sheet[coordinate] = translated_text
-            elif self.position == "append":
+            elif self.insert_mode == "append":
                 sheet[coordinate] = original_text + self.separator + translated_text
-            elif self.position == "prepend":
+            elif self.insert_mode == "prepend":
                 sheet[coordinate] = translated_text + self.separator + original_text
             else:
                 self.logger.error("不正确的XlsxTranslatorConfig参数")
@@ -120,7 +120,7 @@ if __name__ == '__main__':
         api_key=r"969ba51b61914cc2b710d1393dca1a3c.hSuATex5IoNVZNGu",
         model_id=r"glm-4-flash",
         to_lang="英文",
-        position="append"
+        insert_mode="append"
     )
     translator = XlsxTranslator(config)
     document = Document.from_path(r"C:\Users\jxgm\Desktop\translate\docutranslate\tests\files\工业互联分组表.xlsx")

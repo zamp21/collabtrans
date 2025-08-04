@@ -1,6 +1,5 @@
 from abc import abstractmethod
 from dataclasses import dataclass
-from logging import Logger
 from typing import TypeVar
 
 from docutranslate.agents.agent import ThinkingMode
