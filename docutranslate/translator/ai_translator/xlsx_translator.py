@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass
 from io import BytesIO
 from typing import Self, Literal
@@ -110,27 +111,3 @@ class XlsxTranslator(Translator):
                                                    translated_texts, original_texts)
         return self
 
-
-if __name__ == '__main__':
-    from pathlib import Path
-    import asyncio
-
-    config = XlsxTranslatorConfig(
-        base_url=r"https://open.bigmodel.cn/api/paas/v4/",
-        api_key=r"969ba51b61914cc2b710d1393dca1a3c.hSuATex5IoNVZNGu",
-        model_id=r"glm-4-flash",
-        to_lang="英文",
-        insert_mode="append"
-    )
-    translator = XlsxTranslator(config)
-    document = Document.from_path(r"C:\Users\jxgm\Desktop\translate\docutranslate\tests\files\工业互联分组表.xlsx")
-
-
-    async def run():
-        await translator.translate_async(document)
-        path = Path(r"C:\Users\jxgm\Desktop\translate\docutranslate\tests\output\output.xlsx")
-        path.write_bytes(document.content)
-        print(f"已保存到{path.resolve()}")
-
-
-    asyncio.run(run())
