@@ -4,7 +4,7 @@ from typing import Self, Any
 
 from jsonpath_ng.ext import parse
 
-from docutranslate.agents.segments_agent import JsonTranslateAgentConfig, JsonTranslateAgent
+from docutranslate.agents.segments_agent import SegmentsTranslateAgentConfig, SegmentsTranslateAgent
 from docutranslate.ir.document import Document
 from docutranslate.translator.ai_translator.base import AiTranslatorConfig
 from docutranslate.translator.base import Translator
@@ -20,18 +20,18 @@ class JsonTranslator(Translator):
     def __init__(self, config: JsonTranslatorConfig):
         super().__init__(config=config)
         self.chunk_size = config.chunk_size
-        agent_config = JsonTranslateAgentConfig(custom_prompt=config.custom_prompt,
-                                                to_lang=config.to_lang,
-                                                baseurl=config.base_url,
-                                                key=config.api_key,
-                                                model_id=config.model_id,
-                                                system_prompt=None,
-                                                temperature=config.temperature,
-                                                thinking=config.thinking,
-                                                max_concurrent=config.concurrent,
-                                                timeout=config.timeout,
-                                                logger=self.logger)
-        self.translate_agent = JsonTranslateAgent(agent_config)
+        agent_config = SegmentsTranslateAgentConfig(custom_prompt=config.custom_prompt,
+                                                    to_lang=config.to_lang,
+                                                    baseurl=config.base_url,
+                                                    key=config.api_key,
+                                                    model_id=config.model_id,
+                                                    system_prompt=None,
+                                                    temperature=config.temperature,
+                                                    thinking=config.thinking,
+                                                    max_concurrent=config.concurrent,
+                                                    timeout=config.timeout,
+                                                    logger=self.logger)
+        self.translate_agent = SegmentsTranslateAgent(agent_config)
         self.jsonpaths = config.json_paths
 
     def _extract_matches(self, content: dict) -> list[Any]:
@@ -71,30 +71,6 @@ class JsonTranslator(Translator):
         # 5. 按原始顺序返回翻译后的文本列表
         return list(indexed_translated.values())
 
-    async def _translate_texts_in_batches_async(self, texts: list[str]) -> list[str]:
-        """
-        将文本列表打包、分块、发送翻译并返回翻译结果。
-        此函数封装了与翻译代理交互的所有细节。
-        """
-        # 1. 使用索引作为唯一ID，将文本列表转换为字典，便于API处理
-        indexed_originals = {str(i): text for i, text in enumerate(texts)}
-
-        # 2. 将大字典分割成小块，以满足API的限制
-        chunks = flat_json_split(indexed_originals, self.chunk_size)
-
-        # 3. 将每个块序列化为JSON字符串并发送翻译
-        prompts = [json.dumps(chunk) for chunk in chunks]
-        translated_chunks = await self.translate_agent.send_prompts_async(prompts)
-
-        # 4. 将翻译结果合并回一个字典
-        # 我们从原始字典的副本开始，以确保即使翻译失败，我们也能保持结构
-        indexed_translated = indexed_originals.copy()
-        for chunk_str in translated_chunks:
-            translated_part = json.loads(chunk_str)
-            indexed_translated.update(translated_part)
-
-        # 5. 按原始顺序返回翻译后的文本列表
-        return list(indexed_translated.values())
     def _update_content_with_translations(self, content: dict, matches: list[Any], translated_texts: list[str]):
         """
         使用翻译后的文本更新原始JSON内容。
@@ -127,7 +103,7 @@ class JsonTranslator(Translator):
         original_texts = [match.value for match in all_matches]
 
         # 步骤 2: 批量翻译提取出的文本
-        translated_texts = self._translate_texts_in_batches(original_texts)
+        translated_texts = self.translate_agent.send_segments(original_texts,self.chunk_size)
 
         # 健壮性检查：确保翻译回来的项目数量与发送的一致
         if len(original_texts) != len(translated_texts):
@@ -141,6 +117,7 @@ class JsonTranslator(Translator):
 
         return self
 
+    # todo:增加协程粒度
     async def translate_async(self, document: Document) -> Self:
         content = json.loads(document.content.decode())
 
@@ -154,7 +131,7 @@ class JsonTranslator(Translator):
         original_texts = [match.value for match in all_matches]
 
         # 步骤 2: 批量翻译提取出的文本
-        translated_texts = await self._translate_texts_in_batches_async(original_texts)
+        translated_texts = await self.translate_agent.send_segments_async(original_texts,self.chunk_size)
 
         # 健壮性检查：确保翻译回来的项目数量与发送的一致
         if len(original_texts) != len(translated_texts):

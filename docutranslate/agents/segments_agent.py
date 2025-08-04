@@ -1,16 +1,18 @@
+import json
 from dataclasses import dataclass
 
 from docutranslate.agents import AgentConfig, Agent
+from docutranslate.utils.json_utils import flat_json_split
 
 
 @dataclass
-class JsonTranslateAgentConfig(AgentConfig):
+class SegmentsTranslateAgentConfig(AgentConfig):
     to_lang: str
     custom_prompt: str | None = None
 
 
-class JsonTranslateAgent(Agent):
-    def __init__(self, config: JsonTranslateAgentConfig):
+class SegmentsTranslateAgent(Agent):
+    def __init__(self, config: SegmentsTranslateAgentConfig):
         super().__init__(config)
         self.system_prompt = f"""
 # 角色
@@ -34,3 +36,26 @@ class JsonTranslateAgent(Agent):
 """
         if config.custom_prompt:
             self.system_prompt += "\n# 重要规则或背景【非常重要】\n" + config.custom_prompt + '\n'
+
+    def send_segments(self, segments: list[str], chunk_size: int):
+        indexed_originals = {str(i): text for i, text in enumerate(segments)}
+        chunks = flat_json_split(indexed_originals, chunk_size)
+        prompts = [json.dumps(chunk) for chunk in chunks]
+        translated_chunks = super().send_prompts(prompts=prompts)
+        indexed_translated = indexed_originals.copy()
+        for chunk_str in translated_chunks:
+            translated_part = json.loads(chunk_str)
+            indexed_translated.update(translated_part)
+        return list(indexed_translated.values())
+
+    #todo:增加协程粒度
+    async def send_segments_async(self, segments: list[str], chunk_size: int):
+        indexed_originals = {str(i): text for i, text in enumerate(segments)}
+        chunks = flat_json_split(indexed_originals, chunk_size)
+        prompts = [json.dumps(chunk) for chunk in chunks]
+        translated_chunks = await super().send_prompts_async(prompts=prompts)
+        indexed_translated = indexed_originals.copy()
+        for chunk_str in translated_chunks:
+            translated_part = json.loads(chunk_str)
+            indexed_translated.update(translated_part)
+        return list(indexed_translated.values())
