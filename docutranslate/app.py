@@ -256,8 +256,8 @@ class TranslateServiceRequest(BaseModel):
 
     class Config:
         json_schema_extra = {
-            "examples": {
-                "markdown_workflow": {
+            "examples": [
+                {
                     "summary": "Markdown 工作流示例",
                     "value": {
                         "file_name": "annual_report_2023.pdf",
@@ -273,7 +273,7 @@ class TranslateServiceRequest(BaseModel):
                         }
                     }
                 },
-                "json_workflow": {
+                {
                     "summary": "JSON 工作流示例",
                     "value": {
                         "file_name": "product_info.json",
@@ -289,7 +289,7 @@ class TranslateServiceRequest(BaseModel):
                     }
                 },
                 # --- [NEW] XLSX 工作流示例 ---
-                "xlsx_workflow": {
+                {
                     "summary": "XLSX 工作流示例",
                     "value": {
                         "file_name": "product_list.xlsx",
@@ -307,7 +307,7 @@ class TranslateServiceRequest(BaseModel):
                         }
                     }
                 }
-            }
+            ]
         }
 
 
@@ -850,18 +850,22 @@ async def main_page_admin():
 @app.get("/docs", include_in_schema=False)
 async def custom_swagger_ui_html():
     return get_swagger_ui_html(
-        openapi_url=app.openapi_url, title=app.title + " - Swagger UI",
+        openapi_url=app.openapi_url,
+        title=app.title + " - Swagger UI",
         oauth2_redirect_url=app.swagger_ui_oauth2_redirect_url,
-        swagger_js_url="/static/swagger/swagger.js", swagger_css_url="/static/swagger/swagger.css",
+        swagger_js_url="/static/swagger/swagger.js",
+        swagger_css_url="/static/swagger/swagger.css",
     )
 
 @app.get(app.swagger_ui_oauth2_redirect_url, include_in_schema=False)
-async def swagger_ui_redirect(): return get_swagger_ui_oauth2_redirect_html()
+async def swagger_ui_redirect():
+    return get_swagger_ui_oauth2_redirect_html()
 
 @app.get("/redoc", include_in_schema=False)
 async def redoc_html():
     return get_redoc_html(
-        openapi_url=app.openapi_url, title=app.title + " - ReDoc",
+        openapi_url=app.openapi_url,
+        title=app.title + " - ReDoc",
         redoc_js_url="/static/redoc/redoc.js",
     )
 
