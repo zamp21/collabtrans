@@ -1,5 +1,6 @@
 import json
 from dataclasses import dataclass
+from json import JSONDecodeError
 
 from docutranslate.agents import AgentConfig, Agent
 from docutranslate.utils.json_utils import flat_json_split
@@ -27,7 +28,7 @@ class SegmentsTranslateAgent(Agent):
 翻译后的片段应该与源格式尽量相同
 如果待翻译片段已经是目标语言，则保持原样
 # 输出
-翻译后的片段序列，以json格式表示。其中键是片段编号，值是翻译后的片段
+翻译后的片段序列，以json文本表示（文本而非代码块）。其中键是片段编号，值是翻译后的片段
 # 示例
 ## 输入
 {r'{"0":"hello","1":"apple","2":true,"3":"false"}'}
@@ -56,6 +57,10 @@ class SegmentsTranslateAgent(Agent):
         translated_chunks = await super().send_prompts_async(prompts=prompts)
         indexed_translated = indexed_originals.copy()
         for chunk_str in translated_chunks:
-            translated_part = json.loads(chunk_str)
-            indexed_translated.update(translated_part)
+            try:
+                translated_part = json.loads(chunk_str)
+                indexed_translated.update(translated_part)
+            except JSONDecodeError as e:
+                self.logger.info(f"json解析错误，解析文本:{chunk_str}，错误:{e.__repr__()}")
+
         return list(indexed_translated.values())

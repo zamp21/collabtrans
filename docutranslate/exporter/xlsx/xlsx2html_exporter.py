@@ -52,11 +52,10 @@ class Xlsx2HTMLExporter(XlsxExporter):
 
         html_template = resource_path("template/xlsx.html").read_text(encoding="utf-8")
 
-        pico = f'<style>{resource_path("static/pico.css").read_text(encoding="utf-8")}</style>' if not cdn else r'<link rel="stylesheet" href="https://s4.zstatic.net/ajax/libs/picocss/2.1.1/pico.min.css" integrity="sha512-+4kjFgVD0n6H3xt19Ox84B56MoS7srFn60tgdWFuO4hemtjhySKyW4LnftYZn46k3THUEiTTsbVjrHai+0MOFw==" crossorigin="anonymous" referrerpolicy="no-referrer" />'
+        pico = f'<style>{resource_path("static/pico.css").read_text(encoding="utf-8")}</style>' if not self.cdn else r'<link rel="stylesheet" href="https://s4.zstatic.net/ajax/libs/picocss/2.1.1/pico.min.css" integrity="sha512-+4kjFgVD0n6H3xt19Ox84B56MoS7srFn60tgdWFuO4hemtjhySKyW4LnftYZn46k3THUEiTTsbVjrHai+0MOFw==" crossorigin="anonymous" referrerpolicy="no-referrer" />'
         render = jinja2.Template(html_template).render(
             title=document.stem,
             pico=pico,
             body=table,
         )
-        print("\n通过openpyxl手动生成了 output_manual.html 文件！")
         return Document.from_bytes(content=render.encode("utf-8"), suffix=".html", stem=document.stem)
