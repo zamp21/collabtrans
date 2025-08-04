@@ -184,15 +184,63 @@ async def main():
     workflow.read_path("path/to/your/notes.txt")
     await workflow.translate_async()
     # 或者使用同步的方法
-    workflow.translate()
+    # workflow.translate()
 
     # 5. 保存结果
     workflow.save_as_txt(name="translated_notes.txt")
-    workflow.save_as_html(name="translated_notes.html")
     print("TXT 文件已保存。")
 
     # 也可以导出翻译后的纯文本
     text = workflow.export_to_txt()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+### 示例 3: 翻译一个 json 文件 (使用 `JsonWorkflow`)
+
+这里以异步方式为例。其中JsonTranslatorConfig的json_paths项需要指明要翻译的json路径(满足jsonpath-ng语法规范)，仅与json路径匹配的值会被翻译。
+
+```python
+import asyncio
+
+from docutranslate.exporter.js.json2html_exporter import Json2HTMLExporterConfig
+from docutranslate.translator.ai_translator.json_translator import JsonTranslatorConfig
+from docutranslate.workflow.json_workflow import JsonWorkflowConfig, JsonWorkflow
+
+
+async def main():
+    # 1. 构建翻译器配置
+    translator_config = JsonTranslatorConfig(
+        base_url="https://api.openai.com/v1/",
+        api_key="YOUR_OPENAI_API_KEY",
+        model_id="gpt-4o",
+        to_lang="中文",
+        json_paths=["$.*","$.name"]#满足jsonpath-ng路径语法,匹配路径的值都会被翻译
+    )
+
+    # 2. 构建主工作流配置
+    workflow_config = JsonWorkflowConfig(
+        translator_config=translator_config,
+        html_exporter_config=Json2HTMLExporterConfig(cdn=True)
+    )
+
+    # 3. 实例化工作流
+    workflow = JsonWorkflow(config=workflow_config)
+
+    # 4. 读取文件并执行翻译
+    workflow.read_path("path/to/your/notes.txt")
+    await workflow.translate_async()
+    # 或者使用同步的方法
+    # workflow.translate()
+
+    # 5. 保存结果
+    workflow.save_as_json(name="translated_notes.json")
+    print("json文件已保存。")
+
+    # 也可以导出翻译后的json文本
+    text = workflow.export_to_json()
 
 
 if __name__ == "__main__":

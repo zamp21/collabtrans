@@ -2,7 +2,7 @@ import json
 from dataclasses import dataclass
 from typing import Self, Any
 
-from jsonpath_ng import parse
+from jsonpath_ng.ext import parse
 
 from docutranslate.agents.segments_agent import JsonTranslateAgentConfig, JsonTranslateAgent
 from docutranslate.ir.document import Document
