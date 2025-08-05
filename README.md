@@ -13,7 +13,8 @@
 
 - ✅ **支持多种格式**：能翻译 `.pdf`, `.docx`, `.md`, `.txt`, `.jpg` ,`json`等多种文件。
 - ✅ **表格、公式、代码识别**：凭借`docling`、`mineru`实现对学术论文中经常出现的表格、公式、代码的识别与翻译
-- ✅ **json翻译**：支持通过json路径(`jsonpath-ng`语法规范)指定json中需要被翻译的值
+- ✅ **json翻译**：支持通过json路径(`jsonpath-ng`语法规范)指定json中需要被翻译的值。
+- ✅ **Excel翻译**：支持`.xlsx`文件（暂不支持`.xls`文件）的翻译，保持原格式进行翻译。
 - ✅ **多ai平台支持**：支持绝大部分的ai平台，可以实现自定义提示词的并发高性能ai翻译。
 - ✅ **异步支持**：专为高性能场景设计，提供完整的异步支持，实现了可以多任务并行的服务接口。
 - ✅ **交互式Web界面**：提供开箱即用的 Web UI 和 RESTful API，方便集成与使用。
@@ -84,9 +85,11 @@ uv add docutranslate[docling]
 | 工作流                         | 适用场景                                                    | 输入格式                                     | 输出格式                   | 核心配置类                         |
 |:----------------------------|:--------------------------------------------------------|:-----------------------------------------|:-----------------------|:------------------------------|
 | **`MarkdownBasedWorkflow`** | 处理富文本文档，如PDF、Word、图片等。流程为：`文件 -> Markdown -> 翻译 -> 导出`。 | `.pdf`, `.docx`, `.md`, `.png`, `.jpg` 等 | `.md`, `.zip`, `.html` | `MarkdownBasedWorkflowConfig` |
-| **`TXTWorkflow`**           | 处理纯文本文档。流程为：`TXT -> 翻译 -> 导出`。                          | `.txt` 及其他纯文本格式                          | `.txt`, `.html`        | `TXTWorkflowConfig`           |
+| **`TXTWorkflow`**           | 处理纯文本文档。流程为：`txt -> 翻译 -> 导出`。                          | `.txt` 及其他纯文本格式                          | `.txt`, `.html`        | `TXTWorkflowConfig`           |
 | **`JsonWorkflow`**          | 处理json文件。流程为：`json -> 翻译 -> 导出`。                        | `.json`                                  | `.json`, `.html`       | `JsonWorkflowConfig`          |
+| **`XlsxWorkflow`**          | 处理xlsx文件。流程为：`xlsx -> 翻译 -> 导出`。                        | `.xlsx`                                  | `.xlsx`, `.html`       | `XlsxWorkflowConfig`          |
 
+> 在交互式界面中可以导出pdf格式
 ## 使用方式
 
 ### 示例 1: 翻译一个 PDF 文件 (使用 `MarkdownBasedWorkflow`)
@@ -233,7 +236,7 @@ async def main():
     workflow = JsonWorkflow(config=workflow_config)
 
     # 4. 读取文件并执行翻译
-    workflow.read_path("path/to/your/notes.txt")
+    workflow.read_path("path/to/your/notes.json")
     await workflow.translate_async()
     # 或者使用同步的方法
     # workflow.translate()
@@ -249,7 +252,55 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 ```
+### 示例 3: 翻译一个 xlsx 文件 (使用 `XlsxWorkflow`)
 
+这里以异步方式为例。
+
+```python
+import asyncio
+
+from docutranslate.exporter.xlsx.xlsx2html_exporter import Xlsx2HTMLExporterConfig
+from docutranslate.translator.ai_translator.xlsx_translator import XlsxTranslatorConfig
+from docutranslate.workflow.xlsx_workflow import XlsxWorkflowConfig, XlsxWorkflow
+
+
+async def main():
+    # 1. 构建翻译器配置
+    translator_config = XlsxTranslatorConfig(
+        base_url="https://api.openai.com/v1/",
+        api_key="YOUR_OPENAI_API_KEY",
+        model_id="gpt-4o",
+        to_lang="中文",
+        insert_mode= "replace",#备选项 "replace", "append", "prepend"
+        separator = "\n",# "append", "prepend"模式时使用的分隔符
+    )
+
+    # 2. 构建主工作流配置
+    workflow_config = XlsxWorkflowConfig(
+        translator_config=translator_config,
+        html_exporter_config=Xlsx2HTMLExporterConfig(cdn=True)
+    )
+
+    # 3. 实例化工作流
+    workflow = XlsxWorkflow(config=workflow_config)
+
+    # 4. 读取文件并执行翻译
+    workflow.read_path("path/to/your/notes.xlsx")
+    await workflow.translate_async()
+    # 或者使用同步的方法
+    # workflow.translate()
+
+    # 5. 保存结果
+    workflow.save_as_xlsx(name="translated_notes.xlsx")
+    print("xlsx文件已保存。")
+
+    # 也可以导出翻译后的xlsx的二进制
+    text_bytes = workflow.export_to_xlsx()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
 ## 启动 Web UI 和 API 服务
 
 为了方便使用，DocuTranslate 提供了一个功能齐全的 Web 界面和 RESTful API。
