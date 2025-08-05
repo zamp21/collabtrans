@@ -70,10 +70,14 @@ class Agent:
     _think_factory = {
         "open.bigmodel.cn": ("thinking", {"type": "enabled"}, {"type": "disabled"}),
         "dashscope.aliyuncs.com": ("enable_thinking ", True, False),
-        "ark.cn-beijing.volces.com":("thinking", {"type": "enabled"}, {"type": "disabled"})
+        "ark.cn-beijing.volces.com": ("thinking", {"type": "enabled"}, {"type": "disabled"}),
+        "https://generativelanguage.googleapis.com/v1beta/openai/": ("generationConfig",
+                                                                     {"thinkingConfig": {"thinkingBudget": -1}},
+                                                                     {"thinkingConfig": {"thinkingBudget": 0}})
     }
 
     def __init__(self, config: AgentConfig):
+
         self.baseurl = config.baseurl.strip()
         if self.baseurl.endswith("/"):
             self.baseurl = self.baseurl[:-1]
@@ -89,6 +93,7 @@ class Agent:
         self.thinking = config.thinking
         self.logger = config.logger or global_logger
         self.total_error_counter = TotalErrorCounter(logger=self.logger)
+
     def _add_thinking_mode(self, data: dict):
         if self.domain not in self._think_factory:
             return
