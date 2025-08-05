@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from io import BytesIO
 
-from xlsx2html import xlsx2html
+import mammoth
 
 from docutranslate.exporter.base import ExporterConfig
 from docutranslate.exporter.xlsx.base import XlsxExporter
@@ -9,16 +9,17 @@ from docutranslate.ir.document import Document
 
 
 @dataclass
-class Xlsx2HTMLExporterConfig(ExporterConfig):
+class Docx2HTMLExporterConfig(ExporterConfig):
     cdn: bool = True
 
 
-class Xlsx2HTMLExporter(XlsxExporter):
-    def __init__(self, config: Xlsx2HTMLExporterConfig = None):
-        config = config or Xlsx2HTMLExporterConfig()
+class Docx2HTMLExporter(XlsxExporter):
+    def __init__(self, config: Docx2HTMLExporterConfig = None):
+        config = config or Docx2HTMLExporterConfig()
         super().__init__(config=config)
         self.cdn = config.cdn
 
     def export(self, document: Document) -> Document:
-        html_content = xlsx2html(BytesIO(document.content), output=None).getvalue()
+        html_content = mammoth.convert_to_html(BytesIO(document.content))
+
         return Document.from_bytes(content=html_content.encode("utf-8"), suffix=".html", stem=document.stem)
