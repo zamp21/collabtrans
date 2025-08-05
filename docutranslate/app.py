@@ -197,7 +197,7 @@ class BaseWorkflowParams(BaseModel):
     chunk_size: int = Field(default=default_params["chunk_size"], description="文本分割的块大小（字符）。")
     concurrent: int = Field(default=default_params["concurrent"], description="并发请求数。")
     temperature: float = Field(default=default_params["temperature"], description="LLM温度参数。")
-    thinking: ThinkingMode = Field(default_params["thinking"], description="是否启用深度思考",
+    thinking: ThinkingMode = Field(default=default_params["thinking"], description="是否启用深度思考",
                                    examples=["default", "enable", "disable"]),
     custom_prompt: Optional[str] = Field(None, description="用户自定义的翻译Prompt。", alias="custom_prompt")
 
@@ -207,7 +207,7 @@ class MarkdownWorkflowParams(BaseWorkflowParams):
     workflow_type: Literal['markdown_based'] = Field(..., description="指定使用基于Markdown的翻译工作流。")
     convert_engine: ConvertEngineType = Field(
         "identity",
-        description="文档解析引擎。`identity`处理markdown文件,`mineru`在线服务, `docling`本地引擎。如果输入文件是.md，此项可为`null`或不传。",
+        description="选择将文件解析为markdown的引擎。如果输入文件是.md，此项可为`null`或不传。",
         examples=["identity", "mineru", "docling"]
     )
     mineru_token: Optional[str] = Field(None, description="当 `convert_engine` 为 'mineru' 时必填的API令牌。")
@@ -230,7 +230,7 @@ class JsonWorkflowParams(BaseWorkflowParams):
     json_paths: List[str] = Field(
         ...,
         description="一个jsonpath-ng表达式列表，用于指定需要翻译的JSON字段。",
-        examples=[["productName", "description.long", "features[*]"]]
+        examples=[["$..description", "$.items[0].name", "$.*"]]
     )
 
 
