@@ -11,15 +11,15 @@
 
 新版架构采用 **工作流(Workflow)** 为核心，为不同类型的翻译任务提供了高度可配置和可扩展的解决方案。
 
-- ✅ **支持多种格式**：能翻译 `.pdf`, `.docx`, `.md`, `.txt`, `.jpg` ,`json`等多种文件。
+- ✅ **支持多种格式**：能翻译 `.pdf`, `.docx`, `xlsx`,`.md`, `.txt`, `.jpg`、`html` 等多种文件。
 - ✅ **表格、公式、代码识别**：凭借`docling`、`mineru`实现对学术论文中经常出现的表格、公式、代码的识别与翻译
 - ✅ **json翻译**：支持通过json路径(`jsonpath-ng`语法规范)指定json中需要被翻译的值。
-- ✅ **Excel翻译**：支持`.xlsx`文件（暂不支持`.xls`文件）的翻译，保持原格式进行翻译。
+- ✅ **Word/Excel高保真翻译**：支持`.docx`、`.xlsx`文件（暂不支持`.doc`、.xls`文件）的翻译，保持原格式进行翻译。
 - ✅ **多ai平台支持**：支持绝大部分的ai平台，可以实现自定义提示词的并发高性能ai翻译。
 - ✅ **异步支持**：专为高性能场景设计，提供完整的异步支持，实现了可以多任务并行的服务接口。
 - ✅ **交互式Web界面**：提供开箱即用的 Web UI 和 RESTful API，方便集成与使用。
 
-> 在翻译`.pdf`、`.docx`等文件时会先转换为markdown，这会**丢失**原先的排版，对排版有要求的用户请注意
+> 在翻译`.pdf`、`html`等文件时会先转换为markdown，这会**丢失**原先的排版，对排版有要求的用户请注意
 
 > QQ交流群：1047781902
 
@@ -34,7 +34,7 @@
 
 ## 整合包
 
-对于希望快速上手的用户，我们仍在 [GitHub Releases](https://github.com/xunbu/docutranslate/releases) 上提供整合包。您只需下载、解压，并填入您的
+对于希望快速上手的用户，我们在 [GitHub Releases](https://github.com/xunbu/docutranslate/releases) 上提供整合包。您只需下载、解压，并填入您的
 AI 平台 API-Key 即可开始使用。
 
 - **DocuTranslate**: 标准版，使用在线的 `minerU` 引擎解析文档，推荐大多数用户使用。
@@ -87,9 +87,11 @@ uv add docutranslate[docling]
 | **`MarkdownBasedWorkflow`** | 处理富文本文档，如PDF、Word、图片等。流程为：`文件 -> Markdown -> 翻译 -> 导出`。 | `.pdf`, `.docx`, `.md`, `.png`, `.jpg` 等 | `.md`, `.zip`, `.html` | `MarkdownBasedWorkflowConfig` |
 | **`TXTWorkflow`**           | 处理纯文本文档。流程为：`txt -> 翻译 -> 导出`。                          | `.txt` 及其他纯文本格式                          | `.txt`, `.html`        | `TXTWorkflowConfig`           |
 | **`JsonWorkflow`**          | 处理json文件。流程为：`json -> 翻译 -> 导出`。                        | `.json`                                  | `.json`, `.html`       | `JsonWorkflowConfig`          |
+| **`DocxWorkflow`**          | 处理docx文件。流程为：`docx -> 翻译 -> 导出`。                        | `.docx`                                  | `.docx`, `.html`       | `docxWorkflowConfig`          |
 | **`XlsxWorkflow`**          | 处理xlsx文件。流程为：`xlsx -> 翻译 -> 导出`。                        | `.xlsx`                                  | `.xlsx`, `.html`       | `XlsxWorkflowConfig`          |
 
 > 在交互式界面中可以导出pdf格式
+
 ## 使用方式
 
 ### 示例 1: 翻译一个 PDF 文件 (使用 `MarkdownBasedWorkflow`)
@@ -272,8 +274,8 @@ async def main():
         api_key="YOUR_OPENAI_API_KEY",
         model_id="gpt-4o",
         to_lang="中文",
-        insert_mode= "replace",#备选项 "replace", "append", "prepend"
-        separator = "\n",# "append", "prepend"模式时使用的分隔符
+        insert_mode="replace",  # 备选项 "replace", "append", "prepend"
+        separator="\n",  # "append", "prepend"模式时使用的分隔符
     )
 
     # 2. 构建主工作流配置
@@ -322,8 +324,8 @@ async def main():
         api_key="YOUR_OPENAI_API_KEY",
         model_id="gpt-4o",
         to_lang="中文",
-        insert_mode= "replace",#备选项 "replace", "append", "prepend"
-        separator = "\n",# "append", "prepend"模式时使用的分隔符
+        insert_mode="replace",  # 备选项 "replace", "append", "prepend"
+        separator="\n",  # "append", "prepend"模式时使用的分隔符
     )
 
     # 2. 构建主工作流配置
@@ -352,6 +354,7 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 ```
+
 ## 启动 Web UI 和 API 服务
 
 为了方便使用，DocuTranslate 提供了一个功能齐全的 Web 界面和 RESTful API。
@@ -379,21 +382,23 @@ docutranslate -i
 
 翻译功能依赖于大型语言模型，您需要从相应的 AI 平台获取 `base_url`, `api_key` 和 `model_id`。
 
-> 推荐模型：智谱的`glm-4-flash`，阿里云的 `qwen-plus`,``qwen-turbo`，deepseek的`deepseek-chat`等。
+> 推荐模型：火山引擎的`doubao-seed-1-6-flash-250715`、智谱的`glm-4-flash`，阿里云的 `qwen-plus`,``qwen-turbo`，deepseek的`
+> deepseek-chat`等。
 
-| 平台名称       | 获取APIkey                                                                              | baseurl                                           |
-|------------|---------------------------------------------------------------------------------------|---------------------------------------------------|
-| ollama     |                                                                                       | http://127.0.0.1:11434/v1                         |
-| lm studio  |                                                                                       | http://127.0.0.1:1234/v1                          |
-| openrouter | [点击获取](https://openrouter.ai/settings/keys)                                           | https://openrouter.ai/api/v1                      |
-| openai     | [点击获取](https://platform.openai.com/api-keys)                                          | https://api.openai.com/v1/                        |
-| deepseek   | [点击获取](https://platform.deepseek.com/api_keys)                                        | https://api.deepseek.com/v1                       |
-| 智谱ai       | [点击获取](https://open.bigmodel.cn/usercenter/apikeys)                                   | https://open.bigmodel.cn/api/paas/v4              |
-| 腾讯混元       | [点击获取](https://console.cloud.tencent.com/hunyuan/api-key)                             | https://api.hunyuan.cloud.tencent.com/v1          |
-| 阿里云百炼      | [点击获取](https://bailian.console.aliyun.com/?tab=model#/api-key)                        | https://dashscope.aliyuncs.com/compatible-mode/v1 |
-| 火山引擎       | [点击获取](https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey?apikey=%7B%7D) | https://ark.cn-beijing.volces.com/api/v3          |
-| 硅基流动       | [点击获取](https://cloud.siliconflow.cn/account/ak)                                       | https://api.siliconflow.cn/v1                     |
-| DMXAPI     | [点击获取](https://www.dmxapi.cn/token)                                                   | https://www.dmxapi.cn/v1                          |
+| 平台名称       | 获取APIkey                                                                              | baseurl                                                  |
+|------------|---------------------------------------------------------------------------------------|----------------------------------------------------------|
+| ollama     |                                                                                       | http://127.0.0.1:11434/v1                                |
+| lm studio  |                                                                                       | http://127.0.0.1:1234/v1                                 |
+| openrouter | [点击获取](https://openrouter.ai/settings/keys)                                           | https://openrouter.ai/api/v1                             |
+| openai     | [点击获取](https://platform.openai.com/api-keys)                                          | https://api.openai.com/v1/                               |
+| gemini     | [点击获取](https://aistudio.google.com/u/0/apikey)                                        | https://generativelanguage.googleapis.com/v1beta/openai/ |
+| deepseek   | [点击获取](https://platform.deepseek.com/api_keys)                                        | https://api.deepseek.com/v1                              |
+| 智谱ai       | [点击获取](https://open.bigmodel.cn/usercenter/apikeys)                                   | https://open.bigmodel.cn/api/paas/v4                     |
+| 腾讯混元       | [点击获取](https://console.cloud.tencent.com/hunyuan/api-key)                             | https://api.hunyuan.cloud.tencent.com/v1                 |
+| 阿里云百炼      | [点击获取](https://bailian.console.aliyun.com/?tab=model#/api-key)                        | https://dashscope.aliyuncs.com/compatible-mode/v1        |
+| 火山引擎       | [点击获取](https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey?apikey=%7B%7D) | https://ark.cn-beijing.volces.com/api/v3                 |
+| 硅基流动       | [点击获取](https://cloud.siliconflow.cn/account/ak)                                       | https://api.siliconflow.cn/v1                            |
+| DMXAPI     | [点击获取](https://www.dmxapi.cn/token)                                                   | https://www.dmxapi.cn/v1                                 |
 
 ### 2. 获取 minerU Token (在线解析)
 
@@ -411,28 +416,34 @@ docutranslate -i
 **网络问题解决方案:**
 
 1. **设置 Hugging Face 镜像 (推荐)**:
-    * **方法 A (环境变量)**: 设置系统环境变量 `HF_ENDPOINT` 并重启您的IDE或终端。
-     ```
-     HF_ENDPOINT=https://hf-mirror.com
-     ```
-    * **方法 B (代码中设置)**: 在您的 Python 脚本开头添加以下代码。
-     ```python
-     import os
-     os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
-     ```
+
+* **方法 A (环境变量)**: 设置系统环境变量 `HF_ENDPOINT` 并重启您的IDE或终端。
+   ```
+   HF_ENDPOINT=https://hf-mirror.com
+   ```
+* **方法 B (代码中设置)**: 在您的 Python 脚本开头添加以下代码。
+
+```python
+import os
+
+os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
+```
+
 2. **离线使用 (提前下载模型包)**:
-    * 从 [GitHub Releases](https://github.com/xunbu/docutranslate/releases) 下载 `docling_artifact.zip`。
-    * 将其解压到您的项目目录中。
-    * 在配置中指定模型路径：
-     ```python
-     from docutranslate.converter.x2md.converter_docling import ConverterDoclingConfig
-     
-     converter_config = ConverterDoclingConfig(
-         artifact="./docling_artifact", # 指向解压后的文件夹
-         code_ocr=True,
-         formula_ocr=True
-     )
-     ```
+
+* 从 [GitHub Releases](https://github.com/xunbu/docutranslate/releases) 下载 `docling_artifact.zip`。
+* 将其解压到您的项目目录中。
+* 在配置中指定模型路径：
+
+```python
+from docutranslate.converter.x2md.converter_docling import ConverterDoclingConfig
+
+converter_config = ConverterDoclingConfig(
+    artifact="./docling_artifact",  # 指向解压后的文件夹
+    code_ocr=True,
+    formula_ocr=True
+)
+```
 
 ## FAQ
 
