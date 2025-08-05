@@ -1,16 +1,26 @@
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from io import BytesIO
 from typing import Self, Literal, List, Dict, Any, Tuple
 
 import docx
 from docx.document import Document as DocumentObject
-from docx.table import _Cell
+from docx.oxml.ns import nsdecls
+from docx.oxml import OxmlElement
+from docx.table import _Cell, Table
+from docx.text.paragraph import Paragraph
+from docx.text.run import Run
 
 from docutranslate.agents.segments_agent import SegmentsTranslateAgentConfig, SegmentsTranslateAgent
 from docutranslate.ir.document import Document
 from docutranslate.translator.ai_translator.base import AiTranslatorConfig
 from docutranslate.translator.base import Translator
+
+
+def is_image_run(run: Run) -> bool:
+    """检查一个 run 是否包含图片。"""
+    # w:drawing 是嵌入式图片的标志, w:pict 是 VML 图片的标志
+    return '<w:drawing' in run.element.xml or '<w:pict' in run.element.xml
 
 
 @dataclass
@@ -25,6 +35,7 @@ class DocxTranslatorConfig(AiTranslatorConfig):
 class DocxTranslator(Translator):
     """
     用于翻译 .docx 文件的翻译器。
+    此版本经过优化，可以处理图文混排的段落而不会丢失图片。
     """
 
     def __init__(self, config: DocxTranslatorConfig):
@@ -49,74 +60,90 @@ class DocxTranslator(Translator):
 
     def _pre_translate(self, document: Document) -> Tuple[DocumentObject, List[Dict[str, Any]], List[str]]:
         """
-        预处理 .docx 文件，提取所有需要翻译的文本。
-
+        [已重构] 预处理 .docx 文件，在 Run 级别上提取文本，以避免破坏图片。
         :param document: 包含 .docx 文件内容的 Document 对象。
         :return: 一个元组，包含：
                  - docx.Document 对象
-                 - 一个包含文本元素信息的列表 (e.g., paragraph, cell)
+                 - 一个包含文本块信息的列表 (每个元素代表一组连续的文本 run)
                  - 一个包含所有待翻译原文的列表
         """
         doc = docx.Document(BytesIO(document.content))
         elements_to_translate = []
         original_texts = []
 
+        def process_paragraph(para: Paragraph):
+            nonlocal elements_to_translate, original_texts
+            current_text_segment = ""
+            current_runs = []
+
+            for run in para.runs:
+                if is_image_run(run):
+                    # 遇到图片，将之前累积的文本作为一个翻译单元
+                    if current_text_segment.strip():
+                        elements_to_translate.append({"type": "text_runs", "runs": current_runs})
+                        original_texts.append(current_text_segment)
+                    # 重置累加器
+                    current_text_segment = ""
+                    current_runs = []
+                else:
+                    # 累积文本 run
+                    current_runs.append(run)
+                    current_text_segment += run.text
+
+            # 处理段落末尾的最后一个文本块
+            if current_text_segment.strip():
+                elements_to_translate.append({"type": "text_runs", "runs": current_runs})
+                original_texts.append(current_text_segment)
+
         # 遍历所有段落
         for para in doc.paragraphs:
-            if para.text.strip():  # 确保段落有实际内容
-                elements_to_translate.append({"type": "paragraph", "element": para})
-                original_texts.append(para.text)
+            process_paragraph(para)
 
         # 遍历所有表格
         for table in doc.tables:
             for row in table.rows:
                 for cell in row.cells:
-                    if cell.text.strip():  # 确保单元格有实际内容
-                        elements_to_translate.append({"type": "cell", "element": cell})
-                        original_texts.append(cell.text)
+                    for para in cell.paragraphs:
+                        process_paragraph(para)
 
         return doc, elements_to_translate, original_texts
 
     def _after_translate(self, doc: DocumentObject, elements_to_translate: List[Dict[str, Any]],
                          translated_texts: List[str], original_texts: List[str]) -> bytes:
         """
-        将翻译后的文本写回到 .docx 对象中。
-
-        :param doc: docx.Document 对象。
-        :param elements_to_translate: 包含文本元素信息的列表。
-        :param translated_texts: 翻译后的文本列表。
-        :param original_texts: 原始文本列表。
-        :return: 更新后的 .docx 文件内容的字节流。
+        [已重构] 将翻译后的文本写回到对应的 text runs 中，保留图片和样式。
         """
+        translation_map = dict(zip(original_texts, translated_texts))
+
         for i, element_info in enumerate(elements_to_translate):
-            element = element_info["element"]
+            runs = element_info["runs"]
             original_text = original_texts[i]
             translated_text = translated_texts[i]
 
-            # 清空原有内容并写入新内容
-            if isinstance(element, docx.text.paragraph.Paragraph):
-                # 清空段落内容
-                element.clear()
-                # 根据插入模式添加文本
-                if self.insert_mode == "replace":
-                    element.add_run(translated_text)
-                elif self.insert_mode == "append":
-                    element.add_run(original_text + self.separator + translated_text)
-                elif self.insert_mode == "prepend":
-                    element.add_run(translated_text + self.separator + original_text)
-                else:
-                    self.logger.error("不正确的DocxTranslatorConfig参数")
+            # 根据插入模式确定最终文本
+            if self.insert_mode == "replace":
+                final_text = translated_text
+            elif self.insert_mode == "append":
+                final_text = original_text + self.separator + translated_text
+            elif self.insert_mode == "prepend":
+                final_text = translated_text + self.separator + original_text
+            else:
+                self.logger.error("不正确的DocxTranslatorConfig参数")
+                final_text = translated_text
 
-            elif isinstance(element, _Cell):
-                # 根据插入模式设置单元格文本
-                if self.insert_mode == "replace":
-                    element.text = translated_text
-                elif self.insert_mode == "append":
-                    element.text = original_text + self.separator + translated_text
-                elif self.insert_mode == "prepend":
-                    element.text = translated_text + self.separator + original_text
-                else:
-                    self.logger.error("不正确的DocxTranslatorConfig参数")
+            if not runs:
+                continue
+
+            # --- 这是修改的核心部分 ---
+            # 1. 将完整的翻译文本写入第一个 run
+            first_run = runs[0]
+            first_run.text = final_text
+
+            # 2. 清空该文本块中其余 run 的内容，但保留 run 本身及其格式
+            #    这可以防止重复文本，同时保留文档结构
+            for run in runs[1:]:
+                run.text = ""
+            # --- 修改结束 ---
 
         # 将修改后的文档保存到 BytesIO 流
         doc_output_stream = BytesIO()
@@ -128,8 +155,9 @@ class DocxTranslator(Translator):
         同步翻译 .docx 文件。
         """
         doc, elements_to_translate, original_texts = self._pre_translate(document)
-        if not elements_to_translate:
+        if not original_texts:
             print("\n文件中没有找到需要翻译的文本内容。")
+            document.content = doc.save(BytesIO()).getvalue() # 返回原文件
             return self
 
         # 调用翻译 agent
@@ -144,8 +172,12 @@ class DocxTranslator(Translator):
         异步翻译 .docx 文件。
         """
         doc, elements_to_translate, original_texts = await asyncio.to_thread(self._pre_translate, document)
-        if not elements_to_translate:
+        if not original_texts:
             print("\n文件中没有找到需要翻译的文本内容。")
+            # 在异步环境中正确保存和返回
+            output_stream = BytesIO()
+            doc.save(output_stream)
+            document.content = output_stream.getvalue()
             return self
 
         # 异步调用翻译 agent

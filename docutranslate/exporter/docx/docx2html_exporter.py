@@ -20,6 +20,6 @@ class Docx2HTMLExporter(XlsxExporter):
         self.cdn = config.cdn
 
     def export(self, document: Document) -> Document:
-        html_content = mammoth.convert_to_html(BytesIO(document.content))
+        html_content = mammoth.convert_to_html(BytesIO(document.content)).value
 
         return Document.from_bytes(content=html_content.encode("utf-8"), suffix=".html", stem=document.stem)
