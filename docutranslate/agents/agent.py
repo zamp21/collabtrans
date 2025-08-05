@@ -167,7 +167,8 @@ class Agent:
     ) -> list[str]:
         max_concurrent = self.max_concurrent if max_concurrent is None else max_concurrent
         total = len(prompts)
-        self.logger.info(f"收到{total}个片段，并发请求数:{max_concurrent}")
+        self.logger.info(f"base-url:{self.baseurl},model-id:{self.model_id}")
+        self.logger.info(f"预计发送{total}个请求，并发请求数:{max_concurrent}")
         count = 0
         semaphore = asyncio.Semaphore(max_concurrent)
         tasks = []
@@ -237,8 +238,8 @@ class Agent:
             prompts: list[str],
             system_prompt: str | None = None,
     ) -> list[str]:
-
-        self.logger.info(f"收到{len(prompts)}个片段，并发请求数:{self.max_concurrent}")
+        self.logger.info(f"base-url:{self.baseurl},model-id:{self.model_id}")
+        self.logger.info(f"预计发送{len(prompts)}个请求，并发请求数:{self.max_concurrent}")
         system_prompts = [system_prompt] * len(prompts)
         counts = [PromptsCounter(len(prompts), self.logger)] * len(prompts)
         output_list = []
