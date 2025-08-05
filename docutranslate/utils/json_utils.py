@@ -14,7 +14,7 @@ def flat_json_split(js: dict, chunk_size_max: int) -> list[dict]:
         if chunk_size <= chunk_size_max:
             chunk[key] = val
         else:
-            chunks.append(json.dumps(chunk,ensure_ascii=False))
+            chunks.append(chunk)
             chunk = {key:val}
     chunks.append(chunk)
     return chunks
