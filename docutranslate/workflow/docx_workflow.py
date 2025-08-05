@@ -50,7 +50,7 @@ class DocxWorkflow(Workflow[DocxWorkflowConfig, Document, Document], HTMLExporta
         docu = self._export(Docx2HTMLExporter(config))
         return docu.content.decode()
 
-    def export_to_xlsx(self, _: ExporterConfig | None = None) -> bytes:
+    def export_to_docx(self, _: ExporterConfig | None = None) -> bytes:
         docu = self._export(Docx2DocxExporter())
         return docu.content
 
@@ -60,7 +60,7 @@ class DocxWorkflow(Workflow[DocxWorkflowConfig, Document, Document], HTMLExporta
         self._save(exporter=Docx2HTMLExporter(config), name=name, output_dir=output_dir)
         return self
 
-    def save_as_xlsx(self, name: str = None, output_dir: Path | str = "./output",
+    def save_as_docx(self, name: str = None, output_dir: Path | str = "./output",
                      _: ExporterConfig | None = None) -> Self:
         self._save(exporter=Docx2DocxExporter(), name=name, output_dir=output_dir)
         return self
