@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./DocuTranslate.png" alt="项目Logo" style="width: 30vw">
+</p>
+
 # DocuTranslate
 
 [![GitHub stars](https://img.shields.io/github/stars/xunbu/docutranslate?style=flats&logo=github&color=blue)](https://github.com/xunbu/docutranslate)
