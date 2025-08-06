@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./DocuTranslate.png" alt="项目Logo" style="width: 30vw">
+  <img src="./DocuTranslate.png" alt="项目Logo" style="width: 150px">
 </p>
 
 # DocuTranslate
