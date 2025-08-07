@@ -1,6 +1,3 @@
-#
-# docutranslate/server/main.py (MODIFIED)
-#
 import asyncio
 import base64
 import binascii
@@ -722,7 +719,6 @@ async def service_get_status(
 
 @service_router.get("/logs/{task_id}", summary="获取任务增量日志")
 async def service_get_logs(task_id: str):
-    # ... (代码不变)
     if task_id not in tasks_log_queues: raise HTTPException(status_code=404, detail=f"找不到任务ID '{task_id}' 的日志队列。")
     log_queue = tasks_log_queues[task_id]
     new_logs = []
@@ -771,25 +767,25 @@ async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple
             elif isinstance(workflow, DocxWorkflow): html_config = Docx2HTMLExporterConfig(cdn=is_cdn_available)
 
         if file_type == 'html' and isinstance(workflow, HTMLExportable):
-            content_str = workflow.export_to_html(html_config)
+            content_str = await asyncio.to_thread(workflow.export_to_html,html_config)
             content_bytes, media_type, filename = content_str.encode('utf-8'), "text/html; charset=utf-8", f"{filename_stem}_translated.html"
         elif file_type == 'markdown' and isinstance(workflow, MDFormatsExportable):
             md_content = workflow.export_to_markdown()
             content_bytes, media_type, filename = md_content.encode('utf-8'), "text/markdown; charset=utf-8", f"{filename_stem}_translated.md"
         elif file_type == 'markdown_zip' and isinstance(workflow, MDFormatsExportable):
-            content_bytes, media_type, filename = workflow.export_to_markdown_zip(), "application/zip", f"{filename_stem}_translated.zip"
+            content_bytes, media_type, filename = await asyncio.to_thread(workflow.export_to_markdown_zip), "application/zip", f"{filename_stem}_translated.zip"
         elif file_type == 'txt' and isinstance(workflow, TXTExportable):
-            txt_content = workflow.export_to_txt()
+            txt_content = await asyncio.to_thread(workflow.export_to_txt)
             content_bytes, media_type, filename = txt_content.encode('utf-8'), "text/plain; charset=utf-8", f"{filename_stem}_translated.txt"
         elif file_type == 'json' and isinstance(workflow, JsonExportable):
-            json_content = workflow.export_to_json()
+            json_content = await asyncio.to_thread(workflow.export_to_json)
             content_bytes, media_type, filename = json_content.encode('utf-8'), "application/json; charset=utf-8", f"{filename_stem}_translated.json"
         elif file_type == 'xlsx' and isinstance(workflow, XlsxExportable):
-            content_bytes = workflow.export_to_xlsx()
+            content_bytes = await asyncio.to_thread(workflow.export_to_xlsx)
             media_type, filename = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", f"{filename_stem}_translated.xlsx"
         # --- [NEW] DOCX 导出逻辑 ---
         elif file_type == 'docx' and isinstance(workflow, DocxExportable):
-            content_bytes = workflow.export_to_docx()
+            content_bytes = await asyncio.to_thread(workflow.export_to_docx)
             media_type, filename = "application/vnd.openxmlformats-officedocument.wordprocessingml.document", f"{filename_stem}_translated.docx"
         else:
             raise HTTPException(status_code=404, detail=f"此任务不支持导出 '{file_type}' 类型的文件。")
@@ -831,8 +827,7 @@ async def service_download_file(
     description="""
 ...
 - **内容编码**:
-  - 对于 `html`, `markdown`, `txt`, `json` 类型, `content` 字段包含原始的文本内容。
-  - 对于 `markdown_zip`, `xlsx`, `docx` 类型, `content` 字段包含Base64编码后的字符串。
+- 返回译文经Base64编码后的字符串。
 ...
 """,
     responses={
@@ -857,14 +852,12 @@ async def service_content(
         task_id: str = FastApiPath(..., description="已完成任务的ID", examples=["b2865b93"]),
         file_type: FileType = FastApiPath(..., description="要获取内容的文件类型。", examples=["html", "json", "docx"])
 ):
-    """[MODIFIED] 根据任务ID和文件类型，以JSON格式返回内容。zip/xlsx/docx文件会进行Base64编码。"""
     content, _, filename = await _get_content_from_workflow(task_id, file_type)
 
-    final_content: str
-    if file_type in ['markdown_zip', 'xlsx', 'docx']:  # 二进制文件进行Base64编码
-        final_content = base64.b64encode(content).decode('utf-8')
-    else:  # 文本文件直接解码
-        final_content = content.decode('utf-8')
+
+     # 返回base64编码
+    final_content = base64.b64encode(content).decode('utf-8')
+
 
     return JSONResponse(content={
         "file_type": file_type,
@@ -872,7 +865,6 @@ async def service_content(
         "content": final_content
     })
 
-# ... 其他端点 (engin-list, task-list, default-params, meta) 保持不变 ...
 
 # ===================================================================
 # --- 应用主路由和启动 (保持不变) ---
