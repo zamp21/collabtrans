@@ -473,10 +473,10 @@ A: `MarkdownBasedWorkflow` 会自动缓存文档解析（文件到Markdown的转
 
 ## Star History
 
-<a href="https://star-history.com/#xunbu/docutranslate&Date">
+<a href="https://www.star-history.com/#xunbu/docutranslate&Date">
  <picture>
    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=xunbu/docutranslate&type=Date&theme=dark" />
    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=xunbu/docutranslate&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=xunbu/docutranslate&type=Date"/>
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=xunbu/docutranslate&type=Date" />
  </picture>
 </a>

@@ -24,20 +24,17 @@ from docutranslate import __version__
 from docutranslate.agents.agent import ThinkingMode
 from docutranslate.cacher import md_based_convert_cacher
 from docutranslate.exporter.md.types import ConvertEngineType
-
 # --- 核心代码 Imports ---
 from docutranslate.global_values.conditional_import import DOCLING_EXIST
 from docutranslate.workflow.base import Workflow
+from docutranslate.workflow.docx_workflow import DocxWorkflow, DocxWorkflowConfig
+from docutranslate.workflow.interfaces import DocxExportable
 from docutranslate.workflow.interfaces import HTMLExportable, MDFormatsExportable, TXTExportable, JsonExportable, \
     XlsxExportable
-# --- [NEW] DOCX 工作流 Imports ---
-from docutranslate.workflow.interfaces import DocxExportable
+from docutranslate.workflow.json_workflow import JsonWorkflow, JsonWorkflowConfig
 from docutranslate.workflow.md_based_workflow import MarkdownBasedWorkflow, MarkdownBasedWorkflowConfig
 from docutranslate.workflow.txt_workflow import TXTWorkflow, TXTWorkflowConfig
-from docutranslate.workflow.json_workflow import JsonWorkflow, JsonWorkflowConfig
 from docutranslate.workflow.xlsx_workflow import XlsxWorkflow, XlsxWorkflowConfig
-# --- [NEW] DOCX 工作流 Imports ---
-from docutranslate.workflow.docx_workflow import DocxWorkflow, DocxWorkflowConfig
 
 if DOCLING_EXIST or TYPE_CHECKING:
     from docutranslate.converter.x2md.converter_docling import ConverterDoclingConfig
@@ -50,7 +47,6 @@ from docutranslate.translator.ai_translator.json_translator import JsonTranslato
 from docutranslate.exporter.js.json2html_exporter import Json2HTMLExporterConfig
 from docutranslate.translator.ai_translator.xlsx_translator import XlsxTranslatorConfig
 from docutranslate.exporter.xlsx.xlsx2html_exporter import Xlsx2HTMLExporterConfig
-# --- [NEW] DOCX 工作流相关配置 Imports ---
 from docutranslate.translator.ai_translator.docx_translator import DocxTranslatorConfig
 from docutranslate.exporter.docx.docx2html_exporter import Docx2HTMLExporterConfig
 # ------------------------------------
@@ -66,17 +62,17 @@ tasks_log_histories: Dict[str, List[str]] = {}
 MAX_LOG_HISTORY = 200
 httpx_client: httpx.AsyncClient
 
-# --- [MODIFIED] Workflow字典 ---
+# --- Workflow字典 ---
 WORKFLOW_DICT: Dict[str, Type[Workflow]] = {
     "markdown_based": MarkdownBasedWorkflow,
     "txt": TXTWorkflow,
     "json": JsonWorkflow,
     "xlsx": XlsxWorkflow,
-    "docx": DocxWorkflow,  # <--- 新增 DOCX 工作流
+    "docx": DocxWorkflow,
 }
 
 
-# --- 辅助函数 (保持不变) ---
+# --- 辅助函数 ---
 def _create_default_task_state() -> Dict[str, Any]:
     """创建新的默认任务状态，存储 workflow 实例而不是具体内容"""
     return {
@@ -89,7 +85,7 @@ def _create_default_task_state() -> Dict[str, Any]:
     }
 
 
-# --- 日志处理器 (保持不变) ---
+# --- 日志处理器 ---
 class QueueAndHistoryHandler(logging.Handler):
     def __init__(self, queue_ref: asyncio.Queue, history_list_ref: List[str], max_history_items: int, task_id: str):
         super().__init__()
@@ -117,7 +113,7 @@ class QueueAndHistoryHandler(logging.Handler):
                 print(f"[{self.task_id}] Error putting log to queue: {e}. Log: {log_entry}")
 
 
-# --- 应用生命周期事件 (保持不变) ---
+# --- 应用生命周期事件 ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global httpx_client
@@ -134,7 +130,7 @@ async def lifespan(app: FastAPI):
     print("应用关闭，资源已清理。")
 
 
-# --- FastAPI 应用和路由设置 (保持不变) ---
+# --- FastAPI 应用和路由设置 ---
 tags_metadata = [
     {
         "name": "Service API",
@@ -182,7 +178,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 # ===================================================================
-# --- [NEW/MODIFIED] Pydantic Models for Service API ---
+# --- Pydantic Models for Service API ---
 # ===================================================================
 
 # 1. 定义所有工作流共享的基础参数
@@ -243,7 +239,6 @@ class XlsxWorkflowParams(BaseWorkflowParams):
     )
 
 
-# --- [NEW] DOCX 工作流参数模型 ---
 class DocxWorkflowParams(BaseWorkflowParams):
     workflow_type: Literal['docx'] = Field(..., description="指定使用DOCX的翻译工作流。")
     insert_mode: Literal["replace", "append", "prepend"] = Field(
@@ -256,16 +251,17 @@ class DocxWorkflowParams(BaseWorkflowParams):
     )
 
 
-# 3. [MODIFIED] 使用可辨识联合类型（Discriminated Union）将它们组合起来
+# 3. 使用可辨识联合类型（Discriminated Union）将它们组合起来
 TranslatePayload = Annotated[
-    Union[MarkdownWorkflowParams, TextWorkflowParams, JsonWorkflowParams, XlsxWorkflowParams, DocxWorkflowParams],  # <-- 新增 DocxWorkflowParams
+    Union[MarkdownWorkflowParams, TextWorkflowParams, JsonWorkflowParams, XlsxWorkflowParams, DocxWorkflowParams],
     Field(discriminator='workflow_type')
 ]
 
 
 # 4. 创建最终的请求体模型
 class TranslateServiceRequest(BaseModel):
-    file_name: str = Field(..., description="上传的原始文件名，含扩展名。", examples=["my_paper.pdf", "chapter1.txt", "data.xlsx"])
+    file_name: str = Field(..., description="上传的原始文件名，含扩展名。",
+                           examples=["my_paper.pdf", "chapter1.txt", "data.xlsx"])
     file_content: str = Field(..., description="Base64编码的文件内容。", examples=["JVBERi0xLjQK..."])
     payload: TranslatePayload = Field(..., description="包含工作流类型和相应参数的载荷。")
 
@@ -321,7 +317,6 @@ class TranslateServiceRequest(BaseModel):
                         }
                     }
                 },
-                # --- [NEW] DOCX 工作流示例 ---
                 {
                     "summary": "DOCX 工作流示例",
                     "value": {
@@ -341,7 +336,7 @@ class TranslateServiceRequest(BaseModel):
         }
 
 
-# --- [MODIFIED] Background Task Logic ---
+# --- Background Task Logic ---
 async def _perform_translation(
         task_id: str,
         payload: TranslatePayload,
@@ -383,7 +378,8 @@ async def _perform_translation(
             )
             converter_config = None
             if payload.convert_engine == 'mineru':
-                converter_config = ConverterMineruConfig(mineru_token=payload.mineru_token, formula_ocr=payload.formula_ocr)
+                converter_config = ConverterMineruConfig(mineru_token=payload.mineru_token,
+                                                         formula_ocr=payload.formula_ocr)
             elif payload.convert_engine == 'docling' and DOCLING_EXIST:
                 converter_config = ConverterDoclingConfig(code_ocr=payload.code_ocr, formula_ocr=payload.formula_ocr)
             html_exporter_config = MD2HTMLExporterConfig(cdn=True)
@@ -442,14 +438,13 @@ async def _perform_translation(
             )
             workflow = XlsxWorkflow(config=workflow_config)
 
-        # --- [NEW] DOCX 工作流处理逻辑 ---
         elif isinstance(payload, DocxWorkflowParams):
             task_logger.info("构建 DocxWorkflow 配置。")
             translator_config = DocxTranslatorConfig(
                 **payload.model_dump(include={
                     'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                     'temperature', 'thinking', 'chunk_size', 'concurrent',
-                    'insert_mode', 'separator'  # 包含DOCX特定参数
+                    'insert_mode', 'separator'
                 }, exclude_none=True)
             )
             html_exporter_config = Docx2HTMLExporterConfig(cdn=True)
@@ -495,7 +490,8 @@ async def _perform_translation(
         error_message = f"翻译失败: {e}"
         task_logger.error(error_message, exc_info=True)
         task_state.update({
-            "status_message": f"翻译过程中发生错误 (用时 {duration:.2f} 秒): {e}", "error_flag": True, "download_ready": False,
+            "status_message": f"翻译过程中发生错误 (用时 {duration:.2f} 秒): {e}", "error_flag": True,
+            "download_ready": False,
             "workflow_instance": None, "task_end_time": end_time,
         })
     finally:
@@ -506,7 +502,7 @@ async def _perform_translation(
         md_based_convert_cacher.clear()
 
 
-# --- 核心任务启动逻辑 (保持不变) ---
+# --- 核心任务启动逻辑 ---
 async def _start_translation_task(
         task_id: str,
         payload: TranslatePayload,
@@ -556,7 +552,7 @@ async def _start_translation_task(
         raise HTTPException(status_code=500, detail=f"启动翻译任务时出错: {e}")
 
 
-# --- 取消任务逻辑 (保持不变) ---
+# --- 取消任务逻辑 ---
 def _cancel_translation_logic(task_id: str):
     task_state = tasks_state.get(task_id)
     if not task_state:
@@ -589,9 +585,17 @@ def _cancel_translation_logic(task_id: str):
 - **工作流选择**: 请求体中的 `payload.workflow_type` 字段决定了本次任务的类型（如 `markdown_based`, `txt`, `json`, `xlsx`, `docx`）。
 - **动态参数**: 根据所选工作流，API需要不同的参数集。请参考下面的Schema或示例。
 - **异步处理**: 此端点会立即返回任务ID，客户端需轮询状态接口获取进度。
-
 """,
-    # ... responses (保持不变) ...
+    responses={
+        200: {
+            "description": "翻译任务已成功启动。",
+            "content": {"application/json": {
+                "example": {"task_started": True, "task_id": "a1b2c3d4", "message": "翻译任务已成功启动，请稍候..."}}}
+        },
+        400: {"description": "请求体无效，例如Base64解码失败。"},
+        429: {"description": "服务器已有一个同ID的任务在处理中（理论上不应发生，因为ID是新生成的）。"},
+        500: {"description": "启动后台任务时发生未知错误。"},
+    }
 )
 async def service_translate(request: TranslateServiceRequest = Body(..., description="翻译任务的详细参数和文件内容。")):
     task_id = uuid.uuid4().hex[:8]
@@ -616,16 +620,24 @@ async def service_translate(request: TranslateServiceRequest = Body(..., descrip
             return JSONResponse(status_code=e.status_code, content={"task_started": False, "message": e.detail})
         raise e
 
-# ... service_cancel_translate, service_release_task (保持不变) ...
 
-@service_router.post("/cancel/{task_id}", summary="取消翻译任务")
-async def service_cancel_translate(task_id: str): return _cancel_translation_logic(task_id)
+@service_router.post(
+    "/cancel/{task_id}",
+    summary="取消翻译任务",
+    description="""根据任务ID取消一个正在进行中的翻译任务。如果任务已经完成、失败或已经被取消，则会返回错误。"""
+)
+async def service_cancel_translate(task_id: str):
+    return _cancel_translation_logic(task_id)
 
 
-@service_router.post("/release/{task_id}", summary="释放任务资源")
+@service_router.post(
+    "/release/{task_id}",
+    summary="释放任务资源",
+    description="""根据任务ID释放其在服务器上占用的所有资源，包括状态、日志和缓存的翻译结果。如果任务正在进行，会先尝试取消该任务。此操作不可逆。"""
+)
 async def service_release_task(task_id: str):
-    # ... (代码不变)
-    if task_id not in tasks_state: return JSONResponse(status_code=404, content={"released": False, "message": f"找不到任务ID '{task_id}'。"})
+    if task_id not in tasks_state:
+        return JSONResponse(status_code=404, content={"released": False, "message": f"找不到任务ID '{task_id}'。"})
     task_state = tasks_state.get(task_id)
     message_parts = []
     if task_state and task_state.get("is_processing") and task_state.get("current_task_ref"):
@@ -636,7 +648,9 @@ async def service_release_task(task_id: str):
         except HTTPException as e:
             print(f"[{task_id}] 取消任务时出现预期中的情况（可能已完成）: {e.detail}")
             message_parts.append(f"任务取消步骤已跳过（可能已完成或取消）。")
-    tasks_state.pop(task_id, None); tasks_log_queues.pop(task_id, None); tasks_log_histories.pop(task_id, None)
+    tasks_state.pop(task_id, None);
+    tasks_log_queues.pop(task_id, None);
+    tasks_log_histories.pop(task_id, None)
     print(f"[{task_id}] 资源已成功释放。")
     message_parts.append(f"任务 '{task_id}' 的资源已释放。")
     return JSONResponse(content={"released": True, "message": " ".join(message_parts)})
@@ -652,18 +666,38 @@ async def service_release_task(task_id: str):
             "content": {
                 "application/json": {
                     "examples": {
-                        # ... 其他示例保持不变 ...
+                        "processing": {
+                            "summary": "进行中",
+                            "value": {
+                                "task_id": "a1b2c3d4", "is_processing": True,
+                                "status_message": "正在处理 'annual_report.pdf'...",
+                                "error_flag": False, "download_ready": False, "original_filename_stem": "annual_report",
+                                "original_filename": "annual_report.pdf", "task_start_time": 1678889400.0,
+                                "task_end_time": 0, "downloads": {}
+                            }
+                        },
+                        "completed_markdown": {
+                            "summary": "已完成 (Markdown)",
+                            "value": {
+                                "task_id": "b2865b93", "is_processing": False,
+                                "status_message": "翻译成功！用时 123.45 秒。",
+                                "error_flag": False, "download_ready": True, "original_filename_stem": "my_paper",
+                                "original_filename": "my_paper.pdf", "task_start_time": 1678889400.123,
+                                "task_end_time": 1678889523.573,
+                                "downloads": {
+                                    "html": "/service/download/b2865b93/html",
+                                    "markdown": "/service/download/b2865b93/markdown",
+                                    "markdown_zip": "/service/download/b2865b93/markdown_zip"
+                                }
+                            }
+                        },
                         "completed_docx": {
                             "summary": "已完成 (DOCX)",
                             "value": {
-                                "task_id": "f8a9c1b2",
-                                "is_processing": False,
+                                "task_id": "f8a9c1b2", "is_processing": False,
                                 "status_message": "翻译成功！用时 25.10 秒。",
-                                "error_flag": False,
-                                "download_ready": True,
-                                "original_filename_stem": "contract",
-                                "original_filename": "contract.docx",
-                                "task_start_time": 1678889500.123,
+                                "error_flag": False, "download_ready": True, "original_filename_stem": "contract",
+                                "original_filename": "contract.docx", "task_start_time": 1678889500.123,
                                 "task_end_time": 1678889525.223,
                                 "downloads": {
                                     "docx": "/service/download/f8a9c1b2/docx",
@@ -671,6 +705,16 @@ async def service_release_task(task_id: str):
                                 }
                             }
                         },
+                        "error": {
+                            "summary": "失败",
+                            "value": {
+                                "task_id": "c3d4e5f6", "is_processing": False,
+                                "status_message": "翻译过程中发生错误: LLM API key is invalid",
+                                "error_flag": True, "download_ready": False, "original_filename_stem": "bad_config",
+                                "original_filename": "bad_config.json", "task_start_time": 1678889600.0,
+                                "task_end_time": 1678889610.0, "downloads": {}
+                            }
+                        }
                     }
                 }
             }
@@ -684,7 +728,6 @@ async def service_get_status(
     if not task_state:
         raise HTTPException(status_code=404, detail=f"找不到任务ID '{task_id}'。")
 
-    # [MODIFIED] 动态生成可用的下载链接
     downloads = {}
     if task_state.get("download_ready") and task_state.get("workflow_instance"):
         workflow = task_state["workflow_instance"]
@@ -699,7 +742,6 @@ async def service_get_status(
             downloads["json"] = f"/service/download/{task_id}/json"
         if isinstance(workflow, XlsxExportable):
             downloads["xlsx"] = f"/service/download/{task_id}/xlsx"
-        # --- [NEW] 新增对 DOCX 导出的支持 ---
         if isinstance(workflow, DocxExportable):
             downloads["docx"] = f"/service/download/{task_id}/docx"
 
@@ -717,9 +759,14 @@ async def service_get_status(
     })
 
 
-@service_router.get("/logs/{task_id}", summary="获取任务增量日志")
+@service_router.get(
+    "/logs/{task_id}",
+    summary="获取任务增量日志",
+    description="""以流式方式获取任务的增量日志。客户端每次调用此接口，都会返回自上次调用以来产生的新日志行。这对于实时展示翻译进度非常有用。如果任务ID不存在，则返回404。"""
+)
 async def service_get_logs(task_id: str):
-    if task_id not in tasks_log_queues: raise HTTPException(status_code=404, detail=f"找不到任务ID '{task_id}' 的日志队列。")
+    if task_id not in tasks_log_queues:
+        raise HTTPException(status_code=404, detail=f"找不到任务ID '{task_id}' 的日志队列。")
     log_queue = tasks_log_queues[task_id]
     new_logs = []
     while not log_queue.empty():
@@ -731,14 +778,14 @@ async def service_get_logs(task_id: str):
     return JSONResponse(content={"logs": new_logs})
 
 
-# [MODIFIED] 扩展 FileType 以包含 'docx'
 FileType = Literal["markdown", "markdown_zip", "html", "txt", "json", "xlsx", "docx"]
 
 
 async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple[bytes, str, str]:
-    """[MODIFIED] 辅助函数，从 workflow 获取内容、媒体类型和文件名"""
+    """辅助函数，从 workflow 获取内容、媒体类型和文件名"""
     task_state = tasks_state.get(task_id)
-    if not task_state: raise HTTPException(status_code=404, detail=f"找不到任务ID '{task_id}'。")
+    if not task_state:
+        raise HTTPException(status_code=404, detail=f"找不到任务ID '{task_id}'。")
     if not task_state.get("download_ready") or not task_state.get("workflow_instance"):
         raise HTTPException(status_code=404, detail="内容尚未准备好。")
 
@@ -754,36 +801,45 @@ async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple
         if file_type == 'html':
             is_cdn_available = True
             try:
-                await httpx_client.head("https://s4.zstatic.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js", timeout=3)
+                await httpx_client.head("https://s4.zstatic.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js",
+                                        timeout=3)
             except (httpx.TimeoutException, httpx.RequestError):
                 is_cdn_available = False
                 workflow.config.logger.warning("CDN连接失败，将使用本地JS进行渲染。")
 
-            if isinstance(workflow, MarkdownBasedWorkflow): html_config = MD2HTMLExporterConfig(cdn=is_cdn_available)
-            elif isinstance(workflow, TXTWorkflow): html_config = TXT2HTMLExporterConfig(cdn=is_cdn_available)
-            elif isinstance(workflow, JsonWorkflow): html_config = Json2HTMLExporterConfig(cdn=is_cdn_available)
-            elif isinstance(workflow, XlsxWorkflow): html_config = Xlsx2HTMLExporterConfig(cdn=is_cdn_available)
-            # --- [NEW] 新增对 DOCX->HTML 的支持 ---
-            elif isinstance(workflow, DocxWorkflow): html_config = Docx2HTMLExporterConfig(cdn=is_cdn_available)
+            if isinstance(workflow, MarkdownBasedWorkflow):
+                html_config = MD2HTMLExporterConfig(cdn=is_cdn_available)
+            elif isinstance(workflow, TXTWorkflow):
+                html_config = TXT2HTMLExporterConfig(cdn=is_cdn_available)
+            elif isinstance(workflow, JsonWorkflow):
+                html_config = Json2HTMLExporterConfig(cdn=is_cdn_available)
+            elif isinstance(workflow, XlsxWorkflow):
+                html_config = Xlsx2HTMLExporterConfig(cdn=is_cdn_available)
+            elif isinstance(workflow, DocxWorkflow):
+                html_config = Docx2HTMLExporterConfig(cdn=is_cdn_available)
 
         if file_type == 'html' and isinstance(workflow, HTMLExportable):
-            content_str = await asyncio.to_thread(workflow.export_to_html,html_config)
-            content_bytes, media_type, filename = content_str.encode('utf-8'), "text/html; charset=utf-8", f"{filename_stem}_translated.html"
+            content_str = await asyncio.to_thread(workflow.export_to_html, html_config)
+            content_bytes, media_type, filename = content_str.encode(
+                'utf-8'), "text/html; charset=utf-8", f"{filename_stem}_translated.html"
         elif file_type == 'markdown' and isinstance(workflow, MDFormatsExportable):
             md_content = workflow.export_to_markdown()
-            content_bytes, media_type, filename = md_content.encode('utf-8'), "text/markdown; charset=utf-8", f"{filename_stem}_translated.md"
+            content_bytes, media_type, filename = md_content.encode(
+                'utf-8'), "text/markdown; charset=utf-8", f"{filename_stem}_translated.md"
         elif file_type == 'markdown_zip' and isinstance(workflow, MDFormatsExportable):
-            content_bytes, media_type, filename = await asyncio.to_thread(workflow.export_to_markdown_zip), "application/zip", f"{filename_stem}_translated.zip"
+            content_bytes, media_type, filename = await asyncio.to_thread(
+                workflow.export_to_markdown_zip), "application/zip", f"{filename_stem}_translated.zip"
         elif file_type == 'txt' and isinstance(workflow, TXTExportable):
             txt_content = await asyncio.to_thread(workflow.export_to_txt)
-            content_bytes, media_type, filename = txt_content.encode('utf-8'), "text/plain; charset=utf-8", f"{filename_stem}_translated.txt"
+            content_bytes, media_type, filename = txt_content.encode(
+                'utf-8'), "text/plain; charset=utf-8", f"{filename_stem}_translated.txt"
         elif file_type == 'json' and isinstance(workflow, JsonExportable):
             json_content = await asyncio.to_thread(workflow.export_to_json)
-            content_bytes, media_type, filename = json_content.encode('utf-8'), "application/json; charset=utf-8", f"{filename_stem}_translated.json"
+            content_bytes, media_type, filename = json_content.encode(
+                'utf-8'), "application/json; charset=utf-8", f"{filename_stem}_translated.json"
         elif file_type == 'xlsx' and isinstance(workflow, XlsxExportable):
             content_bytes = await asyncio.to_thread(workflow.export_to_xlsx)
             media_type, filename = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", f"{filename_stem}_translated.xlsx"
-        # --- [NEW] DOCX 导出逻辑 ---
         elif file_type == 'docx' and isinstance(workflow, DocxExportable):
             content_bytes = await asyncio.to_thread(workflow.export_to_docx)
             media_type, filename = "application/vnd.openxmlformats-officedocument.wordprocessingml.document", f"{filename_stem}_translated.docx"
@@ -801,15 +857,20 @@ async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple
     summary="下载翻译结果文件",
     responses={
         200: {
-            "description": "成功返回文件流。",
+            "description": "成功返回文件流。文件名通过 Content-Disposition 头指定。",
             "content": {
-                # ... 其他类型保持不变 ...
+                "text/html; charset=utf-8": {"schema": {"type": "string"}},
+                "text/markdown; charset=utf-8": {"schema": {"type": "string"}},
+                "application/zip": {"schema": {"type": "string", "format": "binary"}},
                 "application/json": {"schema": {"type": "string", "format": "binary"}},
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {"schema": {"type": "string", "format": "binary"}},
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {"schema": {"type": "string", "format": "binary"}},  # <-- [NEW]
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                    "schema": {"type": "string", "format": "binary"}},
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
+                    "schema": {"type": "string", "format": "binary"}},
             }
         },
-        # ... 其他 response 保持不变 ...
+        404: {"description": "任务ID不存在，或该任务不支持所请求的文件类型。"},
+        500: {"description": "在服务器上生成文件时发生内部错误。"}
     }
 )
 async def service_download_file(
@@ -825,16 +886,23 @@ async def service_download_file(
     "/content/{task_id}/{file_type}",
     summary="下载翻译结果内容 (JSON)",
     description="""
-...
-- **内容编码**:
-- 返回译文经Base64编码后的字符串。
-...
+以JSON格式获取指定文件类型的内容，而不是直接下载文件。
+
+- **返回结构**: 返回一个JSON对象，包含文件名、文件类型和文件内容的Base64编码字符串。
+- **内容编码**: 文件内容总是以 **Base64** 编码，客户端需要自行解码才能使用。
 """,
     responses={
         200: {
             "description": "成功返回文件内容。",
-            "content": { "application/json": { "examples": {
-                # ... 其他示例 ...
+            "content": {"application/json": {"examples": {
+                "html_base64": {
+                    "summary": "HTML 内容 (Base64)",
+                    "value": {
+                        "file_type": "html",
+                        "filename": "my_doc_translated.html",
+                        "content": "PGh0bWw+PGhlYWQ+..."
+                    }
+                },
                 "docx_base64": {
                     "summary": "DOCX 内容 (Base64)",
                     "value": {
@@ -845,7 +913,8 @@ async def service_download_file(
                 }
             }}}
         },
-        # ...
+        404: {"description": "任务ID不存在，或该任务不支持所请求的文件类型。"},
+        500: {"description": "在服务器上生成文件时发生内部错误。"}
     }
 )
 async def service_content(
@@ -854,10 +923,7 @@ async def service_content(
 ):
     content, _, filename = await _get_content_from_workflow(task_id, file_type)
 
-
-     # 返回base64编码
     final_content = base64.b64encode(content).decode('utf-8')
-
 
     return JSONResponse(content={
         "file_type": file_type,
@@ -867,36 +933,44 @@ async def service_content(
 
 
 # ===================================================================
-# --- 应用主路由和启动 (保持不变) ---
+# --- 应用主路由和启动 ---
 # ===================================================================
-@service_router.get("/engin-list", tags=["Application"])
+@service_router.get("/engin-list", tags=["Application"], description="返回正在进行的可用的转换引擎")
 async def service_get_engin_list():
     engin_list = ["mineru"]
     if DOCLING_EXIST: engin_list.append("docling")
     return JSONResponse(content=engin_list)
 
-@service_router.get("/task-list", tags=["Application"])
+
+@service_router.get("/task-list", tags=["Application"], description="返回正在进行的task_id列表")
 async def service_get_task_list(): return JSONResponse(content=list(tasks_state.keys()))
 
-@service_router.get("/default-params", tags=["Application"])
+
+@service_router.get("/default-params", tags=["Application"], description="返回一些默认参数")
 def service_get_default_params(): return JSONResponse(content=default_params)
 
-@service_router.get("/meta", tags=["Application"])
+
+@service_router.get("/meta", tags=["Application"], description="返回软件版本号")
 async def service_get_app_version(): return JSONResponse(content={"version": __version__})
+
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def main_page():
     index_path = Path(STATIC_DIR) / "index.html"
     if not index_path.exists(): raise HTTPException(status_code=404, detail="index.html not found")
-    no_cache_headers = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache", "Expires": "0"}
+    no_cache_headers = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache",
+                        "Expires": "0"}
     return FileResponse(index_path, headers=no_cache_headers)
+
 
 @app.get("/admin", response_class=HTMLResponse, include_in_schema=False)
 async def main_page_admin():
     index_path = Path(STATIC_DIR) / "index.html"
     if not index_path.exists(): raise HTTPException(status_code=404, detail="index.html not found")
-    no_cache_headers = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache", "Expires": "0"}
+    no_cache_headers = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache",
+                        "Expires": "0"}
     return FileResponse(index_path, headers=no_cache_headers)
+
 
 @app.get("/docs", include_in_schema=False)
 async def custom_swagger_ui_html():
@@ -908,9 +982,11 @@ async def custom_swagger_ui_html():
         swagger_css_url="/static/swagger/swagger.css",
     )
 
+
 @app.get(app.swagger_ui_oauth2_redirect_url, include_in_schema=False)
 async def swagger_ui_redirect():
     return get_swagger_ui_oauth2_redirect_html()
+
 
 @app.get("/redoc", include_in_schema=False)
 async def redoc_html():
@@ -920,27 +996,31 @@ async def redoc_html():
         redoc_js_url="/static/redoc/redoc.js",
     )
 
+
 @app.post("/temp/translate", tags=["Temp"])
 async def temp_translate(
         base_url: str = Body(...), api_key: str = Body(...), model_id: str = Body(...),
         mineru_token: Optional[str] = Body(None), file_name: str = Body(...), file_content: str = Body(...),
         to_lang: str = Body("中文"), concurrent: int = Body(default_params["concurrent"]),
-        temperature: float = Body(default_params["temperature"]), thinking: ThinkingMode = Body(default_params["thinking"]),
+        temperature: float = Body(default_params["temperature"]),
+        thinking: ThinkingMode = Body(default_params["thinking"]),
         chunk_size: int = Body(default_params["chunk_size"]), custom_prompt: Optional[str] = Body(None),
 ):
     file_name = Path(file_name)
-    try: decoded_content = base64.b64decode(file_content)
-    except (ValueError, binascii.Error): decoded_content = file_content.encode('utf-8')
+    try:
+        decoded_content = base64.b64decode(file_content)
+    except (ValueError, binascii.Error):
+        decoded_content = file_content.encode('utf-8')
     try:
         workflow_config = MarkdownBasedWorkflowConfig(
             convert_engine="mineru", converter_config=ConverterMineruConfig(mineru_token=mineru_token),
             translator_config=MDTranslatorConfig(base_url=base_url, api_key=api_key, model_id=model_id,
-                                                to_lang=to_lang, custom_prompt=custom_prompt, temperature=temperature,
-                                                thinking=thinking, chunk_size=chunk_size, concurrent=concurrent),
+                                                 to_lang=to_lang, custom_prompt=custom_prompt, temperature=temperature,
+                                                 thinking=thinking, chunk_size=chunk_size, concurrent=concurrent),
             html_exporter_config=MD2HTMLExporterConfig()
         )
         workflow = MarkdownBasedWorkflow(workflow_config)
-        workflow.read_bytes(content=decoded_content, stem=file_name.stem, suffix=file_name.suffix) # Fixed suffix
+        workflow.read_bytes(content=decoded_content, stem=file_name.stem, suffix=file_name.suffix)
         await workflow.translate_async()
         return {"success": True, "content": workflow.export_to_markdown()}
     except Exception as e:
@@ -950,12 +1030,14 @@ async def temp_translate(
 
 app.include_router(service_router)
 
+
 def find_free_port(start_port):
     port = start_port
     while True:
         with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
             if sock.connect_ex(('127.0.0.1', port)) != 0: return port
             port += 1
+
 
 def run_app(port: int | None = None):
     initial_port = port or int(os.environ.get("DOCUTRANSLATE_PORT", 8010))
@@ -965,9 +1047,10 @@ def run_app(port: int | None = None):
         print(f"正在启动 DocuTranslate WebUI 版本号：{__version__}\n")
         print(f"服务接口文档: http://127.0.0.1:{port_to_use}/docs\n")
         print(f"请用浏览器访问 http://127.0.0.1:{port_to_use}\n")
-        uvicorn.run(app, host=None, port=port_to_use, workers=1) # Changed host to 0.0.0.0 for better accessibility
+        uvicorn.run(app, host=None, port=port_to_use, workers=1)
     except Exception as e:
         print(f"启动失败: {e}")
+
 
 if __name__ == "__main__":
     run_app()
