@@ -6,7 +6,6 @@ from typing import Self, Generic, TypeVar
 
 from docutranslate.exporter.base import Exporter
 from docutranslate.ir.document import Document
-from docutranslate.workflow.txt_workflow import TXTWorkflow, TXTWorkflowConfig
 
 
 @dataclass(kw_only=True)
