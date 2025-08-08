@@ -12,6 +12,7 @@ dependencies = [
     "xlsx2html>=0.6.2",
     "json-repair>=0.48.0",
     "mammoth>=1.10.0",
+    "srt>=3.5.3",
 ]
 dynamic = ["version"]
 

@@ -71,3 +71,11 @@ class DocxExportable(Protocol[T_ExporterConfig]):
 
     def save_as_docx(self, name: str, output_dir: Path | str, config: T_ExporterConfig | None = None) -> Self:
         ...
+
+@runtime_checkable
+class SrtExportable(Protocol[T_ExporterConfig]):
+    def export_to_srt(self, config: T_ExporterConfig | None = None) -> str:
+        ...
+
+    def save_as_srt(self, name: str, output_dir: Path | str, config: T_ExporterConfig | None = None) -> Self:
+        ...

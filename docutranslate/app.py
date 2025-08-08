@@ -30,9 +30,10 @@ from docutranslate.workflow.base import Workflow
 from docutranslate.workflow.docx_workflow import DocxWorkflow, DocxWorkflowConfig
 from docutranslate.workflow.interfaces import DocxExportable
 from docutranslate.workflow.interfaces import HTMLExportable, MDFormatsExportable, TXTExportable, JsonExportable, \
-    XlsxExportable
+    XlsxExportable, SrtExportable
 from docutranslate.workflow.json_workflow import JsonWorkflow, JsonWorkflowConfig
 from docutranslate.workflow.md_based_workflow import MarkdownBasedWorkflow, MarkdownBasedWorkflowConfig
+from docutranslate.workflow.srt_workflow import SrtWorkflow, SrtWorkflowConfig
 from docutranslate.workflow.txt_workflow import TXTWorkflow, TXTWorkflowConfig
 from docutranslate.workflow.xlsx_workflow import XlsxWorkflow, XlsxWorkflowConfig
 
@@ -49,6 +50,8 @@ from docutranslate.translator.ai_translator.xlsx_translator import XlsxTranslato
 from docutranslate.exporter.xlsx.xlsx2html_exporter import Xlsx2HTMLExporterConfig
 from docutranslate.translator.ai_translator.docx_translator import DocxTranslatorConfig
 from docutranslate.exporter.docx.docx2html_exporter import Docx2HTMLExporterConfig
+from docutranslate.translator.ai_translator.srt_translator import SrtTranslatorConfig
+from docutranslate.exporter.srt.srt2html_exporter import Srt2HTMLExporterConfig
 # ------------------------------------
 
 from docutranslate.logger import global_logger
@@ -69,6 +72,7 @@ WORKFLOW_DICT: Dict[str, Type[Workflow]] = {
     "json": JsonWorkflow,
     "xlsx": XlsxWorkflow,
     "docx": DocxWorkflow,
+    "srt": SrtWorkflow,
 }
 
 
@@ -251,9 +255,22 @@ class DocxWorkflowParams(BaseWorkflowParams):
     )
 
 
+class SrtWorkflowParams(BaseWorkflowParams):
+    workflow_type: Literal['srt'] = Field(..., description="指定使用SRT字幕的翻译工作流。")
+    insert_mode: Literal["replace", "append", "prepend"] = Field(
+        "replace",
+        description="翻译文本的插入模式。'replace'：替换原文，'append'：附加到原文后，'prepend'：附加到原文前。"
+    )
+    separator: str = Field(
+        "\n",
+        description="当 insert_mode 为 'append' 或 'prepend' 时，用于分隔原文和译文的分隔符。"
+    )
+
+
 # 3. 使用可辨识联合类型（Discriminated Union）将它们组合起来
 TranslatePayload = Annotated[
-    Union[MarkdownWorkflowParams, TextWorkflowParams, JsonWorkflowParams, XlsxWorkflowParams, DocxWorkflowParams],
+    Union[
+        MarkdownWorkflowParams, TextWorkflowParams, JsonWorkflowParams, XlsxWorkflowParams, DocxWorkflowParams, SrtWorkflowParams],
     Field(discriminator='workflow_type')
 ]
 
@@ -261,7 +278,7 @@ TranslatePayload = Annotated[
 # 4. 创建最终的请求体模型
 class TranslateServiceRequest(BaseModel):
     file_name: str = Field(..., description="上传的原始文件名，含扩展名。",
-                           examples=["my_paper.pdf", "chapter1.txt", "data.xlsx"])
+                           examples=["my_paper.pdf", "chapter1.txt", "data.xlsx", "video.srt"])
     file_content: str = Field(..., description="Base64编码的文件内容。", examples=["JVBERi0xLjQK..."])
     payload: TranslatePayload = Field(..., description="包含工作流类型和相应参数的载荷。")
 
@@ -324,6 +341,21 @@ class TranslateServiceRequest(BaseModel):
                         "file_content": "UEsDBBQAAAAIA... (base64-encoded docx)",
                         "payload": {
                             "workflow_type": "docx",
+                            "base_url": "https://api.openai.com/v1",
+                            "api_key": "sk-your-api-key-here",
+                            "model_id": "gpt-4o",
+                            "to_lang": "English",
+                            "insert_mode": "replace",
+                        }
+                    }
+                },
+                {
+                    "summary": "SRT 工作流示例",
+                    "value": {
+                        "file_name": "movie.srt",
+                        "file_content": "MSAKMDA6MDA6MDEsMjAwIC0tPiAwMDowMD...",
+                        "payload": {
+                            "workflow_type": "srt",
                             "base_url": "https://api.openai.com/v1",
                             "api_key": "sk-your-api-key-here",
                             "model_id": "gpt-4o",
@@ -455,6 +487,23 @@ async def _perform_translation(
             )
             workflow = DocxWorkflow(config=workflow_config)
 
+        elif isinstance(payload, SrtWorkflowParams):
+            task_logger.info("构建 SrtWorkflow 配置。")
+            translator_config = SrtTranslatorConfig(
+                **payload.model_dump(include={
+                    'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                    'temperature', 'thinking', 'chunk_size', 'concurrent',
+                    'insert_mode', 'separator'
+                }, exclude_none=True)
+            )
+            html_exporter_config = Srt2HTMLExporterConfig(cdn=True)
+            workflow_config = SrtWorkflowConfig(
+                translator_config=translator_config,
+                html_exporter_config=html_exporter_config,
+                logger=task_logger
+            )
+            workflow = SrtWorkflow(config=workflow_config)
+
         else:
             raise TypeError(f"工作流类型 '{payload.workflow_type}' 的处理逻辑未实现。")
 
@@ -582,7 +631,7 @@ def _cancel_translation_logic(task_id: str):
     description="""
 接收一个包含文件内容（Base64编码）和工作流参数的JSON请求，启动一个后台翻译任务。
 
-- **工作流选择**: 请求体中的 `payload.workflow_type` 字段决定了本次任务的类型（如 `markdown_based`, `txt`, `json`, `xlsx`, `docx`）。
+- **工作流选择**: 请求体中的 `payload.workflow_type` 字段决定了本次任务的类型（如 `markdown_based`, `txt`, `json`, `xlsx`, `docx`, `srt`）。
 - **动态参数**: 根据所选工作流，API需要不同的参数集。请参考下面的Schema或示例。
 - **异步处理**: 此端点会立即返回任务ID，客户端需轮询状态接口获取进度。
 """,
@@ -744,6 +793,8 @@ async def service_get_status(
             downloads["xlsx"] = f"/service/download/{task_id}/xlsx"
         if isinstance(workflow, DocxExportable):
             downloads["docx"] = f"/service/download/{task_id}/docx"
+        if isinstance(workflow, SrtExportable):
+            downloads["srt"] = f"/service/download/{task_id}/srt"
 
     return JSONResponse(content={
         "task_id": task_id,
@@ -778,7 +829,7 @@ async def service_get_logs(task_id: str):
     return JSONResponse(content={"logs": new_logs})
 
 
-FileType = Literal["markdown", "markdown_zip", "html", "txt", "json", "xlsx", "docx"]
+FileType = Literal["markdown", "markdown_zip", "html", "txt", "json", "xlsx", "docx", "srt"]
 
 
 async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple[bytes, str, str]:
@@ -817,6 +868,8 @@ async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple
                 html_config = Xlsx2HTMLExporterConfig(cdn=is_cdn_available)
             elif isinstance(workflow, DocxWorkflow):
                 html_config = Docx2HTMLExporterConfig(cdn=is_cdn_available)
+            elif isinstance(workflow, SrtWorkflow):
+                html_config = Srt2HTMLExporterConfig(cdn=is_cdn_available)
 
         if file_type == 'html' and isinstance(workflow, HTMLExportable):
             content_str = await asyncio.to_thread(workflow.export_to_html, html_config)
@@ -843,6 +896,10 @@ async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple
         elif file_type == 'docx' and isinstance(workflow, DocxExportable):
             content_bytes = await asyncio.to_thread(workflow.export_to_docx)
             media_type, filename = "application/vnd.openxmlformats-officedocument.wordprocessingml.document", f"{filename_stem}_translated.docx"
+        elif file_type == 'srt' and isinstance(workflow, SrtExportable):
+            content_str = await asyncio.to_thread(workflow.export_to_srt)
+            content_bytes, media_type, filename = content_str.encode(
+                'utf-8'), "text/plain; charset=utf-8", f"{filename_stem}_translated.srt"
         else:
             raise HTTPException(status_code=404, detail=f"此任务不支持导出 '{file_type}' 类型的文件。")
 
@@ -861,6 +918,7 @@ async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple
             "content": {
                 "text/html; charset=utf-8": {"schema": {"type": "string"}},
                 "text/markdown; charset=utf-8": {"schema": {"type": "string"}},
+                "text/plain; charset=utf-8": {"schema": {"type": "string"}},
                 "application/zip": {"schema": {"type": "string", "format": "binary"}},
                 "application/json": {"schema": {"type": "string", "format": "binary"}},
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
@@ -875,7 +933,7 @@ async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple
 )
 async def service_download_file(
         task_id: str = FastApiPath(..., description="已完成任务的ID", examples=["b2865b93"]),
-        file_type: FileType = FastApiPath(..., description="要下载的文件类型。", examples=["html", "json", "docx"])
+        file_type: FileType = FastApiPath(..., description="要下载的文件类型。", examples=["html", "json", "docx", "srt"])
 ):
     content, media_type, filename = await _get_content_from_workflow(task_id, file_type)
     headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename, safe='', encoding='utf-8')}"}
@@ -919,7 +977,8 @@ async def service_download_file(
 )
 async def service_content(
         task_id: str = FastApiPath(..., description="已完成任务的ID", examples=["b2865b93"]),
-        file_type: FileType = FastApiPath(..., description="要获取内容的文件类型。", examples=["html", "json", "docx"])
+        file_type: FileType = FastApiPath(..., description="要获取内容的文件类型。",
+                                          examples=["html", "json", "docx", "srt"])
 ):
     content, _, filename = await _get_content_from_workflow(task_id, file_type)
 

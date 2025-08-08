@@ -322,6 +322,7 @@ dependencies = [
     { name = "mammoth" },
     { name = "markdown2" },
     { name = "openpyxl" },
+    { name = "srt" },
     { name = "xlsx2html" },
 ]
 
@@ -349,6 +350,7 @@ requires-dist = [
     { name = "markdown2", specifier = ">=2.5.3" },
     { name = "opencv-python", marker = "extra == 'docling'", specifier = ">=4.11.0.86" },
     { name = "openpyxl", specifier = ">=3.1.5" },
+    { name = "srt", specifier = ">=3.5.3" },
     { name = "xlsx2html", specifier = ">=0.6.2" },
 ]
 provides-extras = ["docling"]
@@ -2301,6 +2303,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/3f/f4/4a80cd6ef364b2e8b
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e7/9c/0e6afc12c269578be5c0c1c9f4b49a8d32770a080260c333ac04cc1c832d/soupsieve-2.7-py3-none-any.whl", hash = "sha256:6e60cc5c1ffaf1cebcc12e8188320b72071e922c2e897f737cadce79ad5d30c4", size = 36677 },
 ]
+
+[[package]]
+name = "srt"
+version = "3.5.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/66/b7/4a1bc231e0681ebf339337b0cd05b91dc6a0d701fa852bb812e244b7a030/srt-3.5.3.tar.gz", hash = "sha256:4884315043a4f0740fd1f878ed6caa376ac06d70e135f306a6dc44632eed0cc0", size = 28296 }
 
 [[package]]
 name = "starlette"
