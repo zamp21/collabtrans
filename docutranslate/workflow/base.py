@@ -6,6 +6,7 @@ from typing import Self, Generic, TypeVar
 
 from docutranslate.exporter.base import Exporter
 from docutranslate.ir.document import Document
+from docutranslate.workflow.txt_workflow import TXTWorkflow, TXTWorkflowConfig
 
 
 @dataclass(kw_only=True)
@@ -56,3 +57,5 @@ class Workflow(ABC, Generic[T_Config,T_original, T_Translated]):
         output_path.write_bytes(docu.content)
         self.logger.info(f"文件已保存到{output_path.resolve()}")
         return self
+
+
