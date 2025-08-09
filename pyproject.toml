@@ -13,6 +13,7 @@ dependencies = [
     "json-repair>=0.48.0",
     "mammoth>=1.10.0",
     "srt>=3.5.3",
+    "lxml>=5.4.0",
 ]
 dynamic = ["version"]
 

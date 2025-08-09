@@ -79,3 +79,11 @@ class SrtExportable(Protocol[T_ExporterConfig]):
 
     def save_as_srt(self, name: str, output_dir: Path | str, config: T_ExporterConfig | None = None) -> Self:
         ...
+
+@runtime_checkable
+class EpubExportable(Protocol[T_ExporterConfig]):
+    def export_to_epub(self, config: T_ExporterConfig | None = None) -> bytes:
+        ...
+
+    def save_as_epub(self, name: str, output_dir: Path | str, config: T_ExporterConfig | None = None) -> Self:
+        ...

@@ -28,7 +28,8 @@ from docutranslate.exporter.md.types import ConvertEngineType
 from docutranslate.global_values.conditional_import import DOCLING_EXIST
 from docutranslate.workflow.base import Workflow
 from docutranslate.workflow.docx_workflow import DocxWorkflow, DocxWorkflowConfig
-from docutranslate.workflow.interfaces import DocxExportable
+from docutranslate.workflow.epub_workflow import EpubWorkflow, EpubWorkflowConfig
+from docutranslate.workflow.interfaces import DocxExportable, EpubExportable
 from docutranslate.workflow.interfaces import HTMLExportable, MDFormatsExportable, TXTExportable, JsonExportable, \
     XlsxExportable, SrtExportable
 from docutranslate.workflow.json_workflow import JsonWorkflow, JsonWorkflowConfig
@@ -52,6 +53,8 @@ from docutranslate.translator.ai_translator.docx_translator import DocxTranslato
 from docutranslate.exporter.docx.docx2html_exporter import Docx2HTMLExporterConfig
 from docutranslate.translator.ai_translator.srt_translator import SrtTranslatorConfig
 from docutranslate.exporter.srt.srt2html_exporter import Srt2HTMLExporterConfig
+from docutranslate.translator.ai_translator.epub_translator import EpubTranslatorConfig
+from docutranslate.exporter.epub.epub2html_exporter import Epub2HTMLExporterConfig
 # ------------------------------------
 
 from docutranslate.logger import global_logger
@@ -73,6 +76,7 @@ WORKFLOW_DICT: Dict[str, Type[Workflow]] = {
     "xlsx": XlsxWorkflow,
     "docx": DocxWorkflow,
     "srt": SrtWorkflow,
+    "epub": EpubWorkflow,
 }
 
 
@@ -267,10 +271,22 @@ class SrtWorkflowParams(BaseWorkflowParams):
     )
 
 
+class EpubWorkflowParams(BaseWorkflowParams):
+    workflow_type: Literal['epub'] = Field(..., description="指定使用EPUB的翻译工作流。")
+    insert_mode: Literal["replace", "append", "prepend"] = Field(
+        "replace",
+        description="翻译文本的插入模式。'replace'：替换原文，'append'：附加到原文后，'prepend'：附加到原文前。"
+    )
+    separator: str = Field(
+        "\n",
+        description="当 insert_mode 为 'append' 或 'prepend' 时，用于分隔原文和译文的分隔符。"
+    )
+
+
 # 3. 使用可辨识联合类型（Discriminated Union）将它们组合起来
 TranslatePayload = Annotated[
     Union[
-        MarkdownWorkflowParams, TextWorkflowParams, JsonWorkflowParams, XlsxWorkflowParams, DocxWorkflowParams, SrtWorkflowParams],
+        MarkdownWorkflowParams, TextWorkflowParams, JsonWorkflowParams, XlsxWorkflowParams, DocxWorkflowParams, SrtWorkflowParams, EpubWorkflowParams],
     Field(discriminator='workflow_type')
 ]
 
@@ -278,7 +294,7 @@ TranslatePayload = Annotated[
 # 4. 创建最终的请求体模型
 class TranslateServiceRequest(BaseModel):
     file_name: str = Field(..., description="上传的原始文件名，含扩展名。",
-                           examples=["my_paper.pdf", "chapter1.txt", "data.xlsx", "video.srt"])
+                           examples=["my_paper.pdf", "chapter1.txt", "data.xlsx", "video.srt", "my_book.epub"])
     file_content: str = Field(..., description="Base64编码的文件内容。", examples=["JVBERi0xLjQK..."])
     payload: TranslatePayload = Field(..., description="包含工作流类型和相应参数的载荷。")
 
@@ -360,6 +376,21 @@ class TranslateServiceRequest(BaseModel):
                             "api_key": "sk-your-api-key-here",
                             "model_id": "gpt-4o",
                             "to_lang": "English",
+                            "insert_mode": "replace",
+                        }
+                    }
+                },
+                {
+                    "summary": "EPUB 工作流示例",
+                    "value": {
+                        "file_name": "my_book.epub",
+                        "file_content": "UEsDBBQAAAAIA... (base64-encoded epub)",
+                        "payload": {
+                            "workflow_type": "epub",
+                            "base_url": "https://api.openai.com/v1",
+                            "api_key": "sk-your-api-key-here",
+                            "model_id": "gpt-4o",
+                            "to_lang": "简体中文",
                             "insert_mode": "replace",
                         }
                     }
@@ -504,6 +535,23 @@ async def _perform_translation(
             )
             workflow = SrtWorkflow(config=workflow_config)
 
+        elif isinstance(payload, EpubWorkflowParams):
+            task_logger.info("构建 EpubWorkflow 配置。")
+            translator_config = EpubTranslatorConfig(
+                **payload.model_dump(include={
+                    'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                    'temperature', 'thinking', 'chunk_size', 'concurrent',
+                    'insert_mode', 'separator'
+                }, exclude_none=True)
+            )
+            html_exporter_config = Epub2HTMLExporterConfig(cdn=True)
+            workflow_config = EpubWorkflowConfig(
+                translator_config=translator_config,
+                html_exporter_config=html_exporter_config,
+                logger=task_logger
+            )
+            workflow = EpubWorkflow(config=workflow_config)
+
         else:
             raise TypeError(f"工作流类型 '{payload.workflow_type}' 的处理逻辑未实现。")
 
@@ -631,7 +679,7 @@ def _cancel_translation_logic(task_id: str):
     description="""
 接收一个包含文件内容（Base64编码）和工作流参数的JSON请求，启动一个后台翻译任务。
 
-- **工作流选择**: 请求体中的 `payload.workflow_type` 字段决定了本次任务的类型（如 `markdown_based`, `txt`, `json`, `xlsx`, `docx`, `srt`）。
+- **工作流选择**: 请求体中的 `payload.workflow_type` 字段决定了本次任务的类型（如 `markdown_based`, `txt`, `json`, `xlsx`, `docx`, `srt`, `epub`）。
 - **动态参数**: 根据所选工作流，API需要不同的参数集。请参考下面的Schema或示例。
 - **异步处理**: 此端点会立即返回任务ID，客户端需轮询状态接口获取进度。
 """,
@@ -754,6 +802,20 @@ async def service_release_task(task_id: str):
                                 }
                             }
                         },
+                        "completed_epub": {
+                            "summary": "已完成 (EPUB)",
+                            "value": {
+                                "task_id": "e9b8d7c6", "is_processing": False,
+                                "status_message": "翻译成功！用时 45.32 秒。",
+                                "error_flag": False, "download_ready": True, "original_filename_stem": "my_book",
+                                "original_filename": "my_book.epub", "task_start_time": 1678890000.0,
+                                "task_end_time": 1678890045.32,
+                                "downloads": {
+                                    "epub": "/service/download/e9b8d7c6/epub",
+                                    "html": "/service/download/e9b8d7c6/html"
+                                }
+                            }
+                        },
                         "error": {
                             "summary": "失败",
                             "value": {
@@ -795,6 +857,8 @@ async def service_get_status(
             downloads["docx"] = f"/service/download/{task_id}/docx"
         if isinstance(workflow, SrtExportable):
             downloads["srt"] = f"/service/download/{task_id}/srt"
+        if isinstance(workflow, EpubExportable):
+            downloads["epub"] = f"/service/download/{task_id}/epub"
 
     return JSONResponse(content={
         "task_id": task_id,
@@ -829,7 +893,7 @@ async def service_get_logs(task_id: str):
     return JSONResponse(content={"logs": new_logs})
 
 
-FileType = Literal["markdown", "markdown_zip", "html", "txt", "json", "xlsx", "docx", "srt"]
+FileType = Literal["markdown", "markdown_zip", "html", "txt", "json", "xlsx", "docx", "srt", "epub"]
 
 
 async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple[bytes, str, str]:
@@ -870,6 +934,8 @@ async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple
                 html_config = Docx2HTMLExporterConfig(cdn=is_cdn_available)
             elif isinstance(workflow, SrtWorkflow):
                 html_config = Srt2HTMLExporterConfig(cdn=is_cdn_available)
+            elif isinstance(workflow, EpubWorkflow):
+                html_config = Epub2HTMLExporterConfig(cdn=is_cdn_available)
 
         if file_type == 'html' and isinstance(workflow, HTMLExportable):
             content_str = await asyncio.to_thread(workflow.export_to_html, html_config)
@@ -900,6 +966,9 @@ async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple
             content_str = await asyncio.to_thread(workflow.export_to_srt)
             content_bytes, media_type, filename = content_str.encode(
                 'utf-8'), "text/plain; charset=utf-8", f"{filename_stem}_translated.srt"
+        elif file_type == 'epub' and isinstance(workflow, EpubExportable):
+            content_bytes = await asyncio.to_thread(workflow.export_to_epub)
+            media_type, filename = "application/epub+zip", f"{filename_stem}_translated.epub"
         else:
             raise HTTPException(status_code=404, detail=f"此任务不支持导出 '{file_type}' 类型的文件。")
 
@@ -925,6 +994,8 @@ async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple
                     "schema": {"type": "string", "format": "binary"}},
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
                     "schema": {"type": "string", "format": "binary"}},
+                "application/epub+zip": {
+                    "schema": {"type": "string", "format": "binary"}},
             }
         },
         404: {"description": "任务ID不存在，或该任务不支持所请求的文件类型。"},
@@ -933,7 +1004,8 @@ async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple
 )
 async def service_download_file(
         task_id: str = FastApiPath(..., description="已完成任务的ID", examples=["b2865b93"]),
-        file_type: FileType = FastApiPath(..., description="要下载的文件类型。", examples=["html", "json", "docx", "srt"])
+        file_type: FileType = FastApiPath(..., description="要下载的文件类型。",
+                                          examples=["html", "json", "docx", "srt", "epub"])
 ):
     content, media_type, filename = await _get_content_from_workflow(task_id, file_type)
     headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename, safe='', encoding='utf-8')}"}
@@ -968,6 +1040,14 @@ async def service_download_file(
                         "filename": "my_doc_translated.docx",
                         "content": "UEsDBBQAAAAIA... (base64-encoded string)"
                     }
+                },
+                "epub_base64": {
+                    "summary": "EPUB 内容 (Base64)",
+                    "value": {
+                        "file_type": "epub",
+                        "filename": "my_book_translated.epub",
+                        "content": "UEsDBBQAAAAIA... (base64-encoded string)"
+                    }
                 }
             }}}
         },
@@ -978,7 +1058,7 @@ async def service_download_file(
 async def service_content(
         task_id: str = FastApiPath(..., description="已完成任务的ID", examples=["b2865b93"]),
         file_type: FileType = FastApiPath(..., description="要获取内容的文件类型。",
-                                          examples=["html", "json", "docx", "srt"])
+                                          examples=["html", "json", "docx", "srt", "epub"])
 ):
     content, _, filename = await _get_content_from_workflow(task_id, file_type)
 
