@@ -15,15 +15,15 @@
 
 新版架构采用 **工作流(Workflow)** 为核心，为不同类型的翻译任务提供了高度可配置和可扩展的解决方案。
 
-- ✅ **支持多种格式**：能翻译 `.pdf`, `.docx`, `xlsx`,`.md`, `.txt`, `.jpg`、`html` 等多种文件。
+- ✅ **支持多种格式**：能翻译 `pdf`, `docx`, `xlsx`,`md`, `txt`, `json`、`epub`、`srt` 等多种文件。
 - ✅ **表格、公式、代码识别**：凭借`docling`、`mineru`实现对学术论文中经常出现的表格、公式、代码的识别与翻译
 - ✅ **json翻译**：支持通过json路径(`jsonpath-ng`语法规范)指定json中需要被翻译的值。
-- ✅ **Word/Excel高保真翻译**：支持`.docx`、`.xlsx`文件（暂不支持`.doc`、.xls`文件）的翻译，保持原格式进行翻译。
+- ✅ **Word/Excel高保真翻译**：支持`docx`、`xlsx`文件（暂不支持`doc`、`xls`文件）的翻译，保持原格式进行翻译。
 - ✅ **多ai平台支持**：支持绝大部分的ai平台，可以实现自定义提示词的并发高性能ai翻译。
 - ✅ **异步支持**：专为高性能场景设计，提供完整的异步支持，实现了可以多任务并行的服务接口。
 - ✅ **交互式Web界面**：提供开箱即用的 Web UI 和 RESTful API，方便集成与使用。
 
-> 在翻译`.pdf`、`html`等文件时会先转换为markdown，这会**丢失**原先的排版，对排版有要求的用户请注意
+> 在翻译`pdf`、`html`等文件时会先转换为markdown，这会**丢失**原先的排版，对排版有要求的用户请注意
 
 > QQ交流群：1047781902
 
@@ -69,6 +69,18 @@ uv add docutranslate
 uv add docutranslate[docling]
 ```
 
+### 使用 git
+
+```bash
+# 初始化环境
+git clone https://github.com/xunbu/docutranslate.git
+
+cd docutranslate
+
+uv sync
+
+```
+
 ## 核心概念：工作流 (Workflow)
 
 新版 DocuTranslate 的核心是 **工作流 (Workflow)**。每个工作流都是一个专门为特定类型文件设计的、完整的端到端翻译管道。您不再与一个庞大的类交互，而是根据您的文件类型选择并配置一个合适的工作流。
@@ -93,8 +105,31 @@ uv add docutranslate[docling]
 | **`JsonWorkflow`**          | 处理json文件。流程为：`json -> 翻译 -> 导出`。                        | `.json`                                  | `.json`, `.html`       | `JsonWorkflowConfig`          |
 | **`DocxWorkflow`**          | 处理docx文件。流程为：`docx -> 翻译 -> 导出`。                        | `.docx`                                  | `.docx`, `.html`       | `docxWorkflowConfig`          |
 | **`XlsxWorkflow`**          | 处理xlsx文件。流程为：`xlsx -> 翻译 -> 导出`。                        | `.xlsx`                                  | `.xlsx`, `.html`       | `XlsxWorkflowConfig`          |
+| **`SrtWorkflow`**           | 处理srt文件。流程为：`srt -> 翻译 -> 导出`。                          | `.srt`                                   | `.srt`, `.html`        | `SrtWorkflowConfig`           |
+| **`EpubWorkflow`**           | 处理epub文件。流程为：`epub -> 翻译 -> 导出`。                        | `.epub`                                  | `.epub`, `.html`       | `EpubWorkflowConfig`          |
 
 > 在交互式界面中可以导出pdf格式
+
+## 启动 Web UI 和 API 服务
+
+为了方便使用，DocuTranslate 提供了一个功能齐全的 Web 界面和 RESTful API。
+
+**启动服务:**
+
+```bash
+# 启动服务，默认监听 8010 端口
+docutranslate -i
+
+# 指定端口启动
+docutranslate -i -p 8011
+
+# 也可以通过环境变量指定端口
+export DOCUTRANSLATE_PORT=8011
+docutranslate -i
+```
+
+- **交互式界面**: 启动服务后，请在浏览器中访问 `http://127.0.0.1:8010` (或您指定的端口)。
+- **API 文档**: 完整的 API 文档（Swagger UI）位于 `http://127.0.0.1:8010/docs`。
 
 ## 使用方式
 
@@ -358,27 +393,6 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 ```
-
-## 启动 Web UI 和 API 服务
-
-为了方便使用，DocuTranslate 提供了一个功能齐全的 Web 界面和 RESTful API。
-
-**启动服务:**
-
-```bash
-# 启动服务，默认监听 8010 端口
-docutranslate -i
-
-# 指定端口启动
-docutranslate -i -p 8011
-
-# 也可以通过环境变量指定端口
-export DOCUTRANSLATE_PORT=8011
-docutranslate -i
-```
-
-- **交互式界面**: 启动服务后，请在浏览器中访问 `http://127.0.0.1:8010` (或您指定的端口)。
-- **API 文档**: 完整的 API 文档（Swagger UI）位于 `http://127.0.0.1:8010/docs`。
 
 ## 前置条件与配置详解
 
