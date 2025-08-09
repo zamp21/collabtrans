@@ -37,11 +37,10 @@ client_async = httpx.AsyncClient(trust_env=False, timeout=timeout, proxy=None, v
 
 
 class ConverterMineru(X2MarkdownConverter):
-    def __init__(self, config: ConverterMineruConfig, logger: Logger = global_logger):
+    def __init__(self, config: ConverterMineruConfig):
         super().__init__(config=config)
         self.mineru_token = config.mineru_token.strip()
         self.formula = config.formula_ocr
-        self.logger = logger
 
     def _get_header(self):
         return {

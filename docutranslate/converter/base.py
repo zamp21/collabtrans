@@ -10,16 +10,19 @@ from docutranslate.logger import global_logger
 @dataclass(kw_only=True)
 class ConverterConfig(ABC):
     logger: Logger | None = None
-    @abstractmethod
-    def gethash(self)->Hashable:
-        ...
 
+    @abstractmethod
+    def gethash(self) -> Hashable:
+        ...
 
 
 class Converter(ABC):
     def __init__(self, config: ConverterConfig | None = None):
         self.config = config
-        self.logger = config.logger or global_logger
+        if config:
+            self.logger = config.logger or global_logger
+        else:
+            self.logger = global_logger
 
     @abstractmethod
     def convert(self, document: Document) -> Document:

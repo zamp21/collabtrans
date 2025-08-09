@@ -13,8 +13,13 @@ class MDBasedCovertCacher:
         self.cache_dict = OrderedDict()
 
     @staticmethod
-    def _get_hashcode(document: Document, convert_engin: str, convert_config: ConverterConfig) -> str:
-        obj = (document.suffix, document.content, convert_engin, convert_config.gethash())
+    def _get_hashcode(document: Document, convert_engin: str, convert_config: ConverterConfig|None) -> str:
+        if convert_config :
+            convert_config_hash=convert_config.gethash()
+        else:
+            convert_config_hash=None
+
+        obj = (document.suffix, document.content, convert_engin, convert_config_hash)
         return str(hash(obj))
 
     def get_cached_result(self, document: Document, convert_engin: str,

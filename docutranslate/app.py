@@ -441,10 +441,11 @@ async def _perform_translation(
             )
             converter_config = None
             if payload.convert_engine == 'mineru':
-                converter_config = ConverterMineruConfig(mineru_token=payload.mineru_token,
+                converter_config = ConverterMineruConfig(logger=task_logger, mineru_token=payload.mineru_token,
                                                          formula_ocr=payload.formula_ocr)
             elif payload.convert_engine == 'docling' and DOCLING_EXIST:
-                converter_config = ConverterDoclingConfig(code_ocr=payload.code_ocr, formula_ocr=payload.formula_ocr)
+                converter_config = ConverterDoclingConfig(logger=task_logger, code_ocr=payload.code_ocr,
+                                                          formula_ocr=payload.formula_ocr)
             html_exporter_config = MD2HTMLExporterConfig(cdn=True)
             workflow_config = MarkdownBasedWorkflowConfig(
                 convert_engine=payload.convert_engine, converter_config=converter_config,
