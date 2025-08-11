@@ -10,6 +10,8 @@
 [![python版本](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![开源协议](https://img.shields.io/github/license/xunbu/docutranslate)](./LICENSE)
 
+[**简体中文**](./README.md) / [**English**](./README_EN.md)
+
 **DocuTranslate** 是一个文件翻译工具，利用先进的文档解析引擎（如 [docling](https://github.com/docling-project/docling)
 和 [minerU](https://mineru.net/)）与大型语言模型（LLM）相结合，实现对多种格式文档的精准翻译。
 
