@@ -1102,13 +1102,6 @@ async def main_page():
                         "Expires": "0"}
     return FileResponse(index_path, headers=no_cache_headers)
 
-@app.get("/EN/{rest_of_path:path}", response_class=HTMLResponse, include_in_schema=False)
-async def main_page_EN():
-    index_path = Path(STATIC_DIR) / "index_EN.html"
-    if not index_path.exists(): raise HTTPException(status_code=404, detail="index_EN.html not found")
-    no_cache_headers = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache",
-                        "Expires": "0"}
-    return FileResponse(index_path, headers=no_cache_headers)
 
 @app.get("/admin", response_class=HTMLResponse, include_in_schema=False)
 async def main_page_admin():
