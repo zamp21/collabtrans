@@ -10,7 +10,7 @@
 [![python版本](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![开源协议](https://img.shields.io/github/license/xunbu/docutranslate)](./LICENSE)
 
-[**简体中文**](/README_ZH.md)/[**English**](/README.md)
+[**简体中文**](/README_ZH.md) / [**English**](/README.md) / [**日本語**](/README_JP.md)
 
 **DocuTranslate** is a document translation tool that leverages advanced document parsing engines (such as [docling](https://github.com/docling-project/docling) and [minerU](https://mineru.net/)) combined with large language models (LLMs) to achieve precise translations for various document formats.
 
@@ -405,7 +405,7 @@ if __name__ == "__main__":
 
 The translation functionality relies on large language models. You need to obtain `base_url`, `api_key`, and `model_id` from the respective AI platforms.
 
-> Recommended models: Volcano Engine's `doubao-seed-1-6-flash-250715`, Zhipu's `glm-4-flash`, Alibaba Cloud's `qwen-plus`, `qwen-turbo`, Deepseek's `deepseek-chat`, etc.
+> Recommended models: Volcano Engine's `doubao-seed-1-6-250615`，`doubao-seed-1-6-flash-250715`, Zhipu's `glm-4-flash`, Alibaba Cloud's `qwen-plus`, `qwen-turbo`, Deepseek's `deepseek-chat`, etc.
 
 | Platform Name | API Key Acquisition                                                                 | Base URL                                                  |
 |---------------|------------------------------------------------------------------------------------|-----------------------------------------------------------|

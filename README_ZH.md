@@ -10,7 +10,7 @@
 [![python版本](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![开源协议](https://img.shields.io/github/license/xunbu/docutranslate)](./LICENSE)
 
-[**简体中文**](README_ZH.md) / [**English**](README.md)
+[**简体中文**](/README_ZH.md) / [**English**](/README.md) / [**日本語**](/README_JP.md)
 
 **DocuTranslate** 是一个文件翻译工具，利用先进的文档解析引擎（如 [docling](https://github.com/docling-project/docling)
 和 [minerU](https://mineru.net/)）与大型语言模型（LLM）相结合，实现对多种格式文档的精准翻译。
@@ -402,7 +402,7 @@ if __name__ == "__main__":
 
 翻译功能依赖于大型语言模型，您需要从相应的 AI 平台获取 `base_url`, `api_key` 和 `model_id`。
 
-> 推荐模型：火山引擎的`doubao-seed-1-6-flash-250715`、智谱的`glm-4-flash`，阿里云的 `qwen-plus`,``qwen-turbo`，deepseek的`
+> 推荐模型：火山引擎的`doubao-seed-1-6-250615`、`doubao-seed-1-6-flash-250715`、智谱的`glm-4-flash`，阿里云的 `qwen-plus`、`qwen-turbo`，deepseek的`
 > deepseek-chat`等。
 
 | 平台名称       | 获取APIkey                                                                              | baseurl                                                  |
