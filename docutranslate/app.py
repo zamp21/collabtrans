@@ -22,7 +22,6 @@ from pydantic import BaseModel, Field, field_validator
 
 from docutranslate import __version__
 from docutranslate.agents.agent import ThinkingMode
-from docutranslate.cacher import md_based_convert_cacher
 from docutranslate.exporter.md.types import ConvertEngineType
 # --- 核心代码 Imports ---
 from docutranslate.global_values.conditional_import import DOCLING_EXIST
@@ -597,7 +596,6 @@ async def _perform_translation(
         task_state["current_task_ref"] = None
         task_logger.info(f"后台翻译任务 '{original_filename}' 处理结束。")
         task_logger.removeHandler(task_handler)
-        md_based_convert_cacher.clear()
 
 
 # --- 核心任务启动逻辑 ---
