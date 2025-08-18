@@ -25,7 +25,7 @@
 - ✅ **异步支持**：专为高性能场景设计，提供完整的异步支持，实现了可以多任务并行的服务接口。
 - ✅ **交互式Web界面**：提供开箱即用的 Web UI 和 RESTful API，方便集成与使用。
 
-> 在翻译`pdf`、`html`等文件时会先转换为markdown，这会**丢失**原先的排版，对排版有要求的用户请注意
+> 在翻译`pdf`时会先转换为markdown，这会**丢失**原先的排版，对排版有要求的用户请注意
 
 > QQ交流群：1047781902
 
@@ -108,7 +108,8 @@ uv sync
 | **`DocxWorkflow`**          | 处理docx文件。流程为：`docx -> 翻译 -> 导出`。                        | `.docx`                                  | `.docx`, `.html`       | `docxWorkflowConfig`          |
 | **`XlsxWorkflow`**          | 处理xlsx文件。流程为：`xlsx -> 翻译 -> 导出`。                        | `.xlsx`                                  | `.xlsx`, `.html`       | `XlsxWorkflowConfig`          |
 | **`SrtWorkflow`**           | 处理srt文件。流程为：`srt -> 翻译 -> 导出`。                          | `.srt`                                   | `.srt`, `.html`        | `SrtWorkflowConfig`           |
-| **`EpubWorkflow`**           | 处理epub文件。流程为：`epub -> 翻译 -> 导出`。                        | `.epub`                                  | `.epub`, `.html`       | `EpubWorkflowConfig`          |
+| **`EpubWorkflow`**          | 处理epub文件。流程为：`epub -> 翻译 -> 导出`。                        | `.epub`                                  | `.epub`, `.html`       | `EpubWorkflowConfig`          |
+| **`HtmlWorkflow`**          | 处理html文件。流程为：`html -> 翻译 -> 导出`。                        | `.html`, `.htm`                          | `.html`                | `HtmlWorkflowConfig`          |
 
 > 在交互式界面中可以导出pdf格式
 
@@ -402,7 +403,8 @@ if __name__ == "__main__":
 
 翻译功能依赖于大型语言模型，您需要从相应的 AI 平台获取 `base_url`, `api_key` 和 `model_id`。
 
-> 推荐模型：火山引擎的`doubao-seed-1-6-250615`、`doubao-seed-1-6-flash-250715`、智谱的`glm-4-flash`，阿里云的 `qwen-plus`、`qwen-turbo`，deepseek的`
+> 推荐模型：火山引擎的`doubao-seed-1-6-250615`、`doubao-seed-1-6-flash-250715`、智谱的`glm-4-flash`，阿里云的 `qwen-plus`、
+`qwen-turbo`，deepseek的`
 > deepseek-chat`等。
 
 | 平台名称       | 获取APIkey                                                                              | baseurl                                                  |
@@ -486,6 +488,9 @@ A: 完全可以。您需要满足两个条件：
 **Q: 缓存机制是如何工作的？**
 A: `MarkdownBasedWorkflow` 会自动缓存文档解析（文件到Markdown的转换）的结果，以避免重复解析消耗时间和资源。缓存默认保存在内存中，并会记录最近的10次解析。您可以通过
 `DOCUTRANSLATE_CACHE_NUM` 环境变量来修改缓存数量。
+
+**Q: 如何让软件可以经过代理**
+A: 软件默认不使用代理，可以通过设置环境变量`DOCUTRANSLATE_USE_PROXY`为`true`让软件通过代理。
 
 ## Star History
 
