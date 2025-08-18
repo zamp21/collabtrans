@@ -1,3 +1,4 @@
+import asyncio
 import json
 from dataclasses import dataclass
 from json import JSONDecodeError
@@ -76,7 +77,7 @@ class SegmentsTranslateAgent(Agent):
 
     # todo:增加协程粒度
     async def send_segments_async(self, segments: list[str], chunk_size: int):
-        indexed_originals, chunks, merged_indices_list = segments2json_chunks(segments, chunk_size)
+        indexed_originals, chunks, merged_indices_list = await asyncio.to_thread(segments2json_chunks,segments, chunk_size)
         prompts = [json.dumps(chunk, ensure_ascii=False) for chunk in chunks]
         translated_chunks = await super().send_prompts_async(prompts=prompts)
         indexed_translated = indexed_originals.copy()
