@@ -38,7 +38,6 @@ else:
     client_async = httpx.AsyncClient(trust_env=False, timeout=timeout, proxy=None, verify=False)
 
 
-
 class ConverterMineru(X2MarkdownConverter):
     def __init__(self, config: ConverterMineruConfig):
         super().__init__(config=config)

@@ -89,8 +89,10 @@ class Agent:
         self.temperature = config.temperature
         # self.client = httpx.Client(trust_env=False, proxy=None, verify=False)
         # self.client_async = httpx.AsyncClient(trust_env=False, proxy=None, verify=False)
-        self.client = httpx.Client(verify=False) if USE_PROXY else httpx.Client(proxy=None, verify=False)
-        self.client_async = httpx.AsyncClient(verify=False) if USE_PROXY else httpx.AsyncClient(proxy=None,
+        self.client = httpx.Client(verify=False) if USE_PROXY else httpx.Client(trust_env=False, proxy=None,
+                                                                                verify=False)
+        self.client_async = httpx.AsyncClient(verify=False) if USE_PROXY else httpx.AsyncClient(trust_env=False,
+                                                                                                proxy=None,
                                                                                                 verify=False)
         self.max_concurrent = config.max_concurrent
         self.timeout = config.timeout

@@ -28,6 +28,9 @@ from docutranslate.global_values.conditional_import import DOCLING_EXIST
 from docutranslate.workflow.base import Workflow
 from docutranslate.workflow.docx_workflow import DocxWorkflow, DocxWorkflowConfig
 from docutranslate.workflow.epub_workflow import EpubWorkflow, EpubWorkflowConfig
+# --- HTML WORKFLOW IMPORT START ---
+from docutranslate.workflow.html_workflow import HtmlWorkflow, HtmlWorkflowConfig
+# --- HTML WORKFLOW IMPORT END ---
 from docutranslate.workflow.interfaces import DocxExportable, EpubExportable
 from docutranslate.workflow.interfaces import HTMLExportable, MDFormatsExportable, TXTExportable, JsonExportable, \
     XlsxExportable, SrtExportable
@@ -54,6 +57,9 @@ from docutranslate.translator.ai_translator.srt_translator import SrtTranslatorC
 from docutranslate.exporter.srt.srt2html_exporter import Srt2HTMLExporterConfig
 from docutranslate.translator.ai_translator.epub_translator import EpubTranslatorConfig
 from docutranslate.exporter.epub.epub2html_exporter import Epub2HTMLExporterConfig
+# --- HTML TRANSLATOR IMPORT START ---
+from docutranslate.translator.ai_translator.html_translator import HtmlTranslatorConfig
+# --- HTML TRANSLATOR IMPORT END ---
 # ------------------------------------
 
 from docutranslate.logger import global_logger
@@ -76,6 +82,7 @@ WORKFLOW_DICT: Dict[str, Type[Workflow]] = {
     "docx": DocxWorkflow,
     "srt": SrtWorkflow,
     "epub": EpubWorkflow,
+    "html": HtmlWorkflow,
 }
 
 
@@ -282,10 +289,24 @@ class EpubWorkflowParams(BaseWorkflowParams):
     )
 
 
+# --- HTML WORKFLOW PARAMS START ---
+class HtmlWorkflowParams(BaseWorkflowParams):
+    workflow_type: Literal['html'] = Field(..., description="指定使用HTML的翻译工作流。")
+    insert_mode: Literal["replace", "append", "prepend"] = Field(
+        "replace",
+        description="翻译文本的插入模式。'replace'：替换原文，'append'：附加到原文后，'prepend'：附加到原文前。"
+    )
+    separator: str = Field(
+        " ",
+        description="当 insert_mode 为 'append' 或 'prepend' 时，用于分隔原文和译文的分隔符。"
+    )
+# --- HTML WORKFLOW PARAMS END ---
+
+
 # 3. 使用可辨识联合类型（Discriminated Union）将它们组合起来
 TranslatePayload = Annotated[
     Union[
-        MarkdownWorkflowParams, TextWorkflowParams, JsonWorkflowParams, XlsxWorkflowParams, DocxWorkflowParams, SrtWorkflowParams, EpubWorkflowParams],
+        MarkdownWorkflowParams, TextWorkflowParams, JsonWorkflowParams, XlsxWorkflowParams, DocxWorkflowParams, SrtWorkflowParams, EpubWorkflowParams, HtmlWorkflowParams],
     Field(discriminator='workflow_type')
 ]
 
@@ -293,7 +314,7 @@ TranslatePayload = Annotated[
 # 4. 创建最终的请求体模型
 class TranslateServiceRequest(BaseModel):
     file_name: str = Field(..., description="上传的原始文件名，含扩展名。",
-                           examples=["my_paper.pdf", "chapter1.txt", "data.xlsx", "video.srt", "my_book.epub"])
+                           examples=["my_paper.pdf", "chapter1.txt", "data.xlsx", "video.srt", "my_book.epub", "index.html"])
     file_content: str = Field(..., description="Base64编码的文件内容。", examples=["JVBERi0xLjQK..."])
     payload: TranslatePayload = Field(..., description="包含工作流类型和相应参数的载荷。")
 
@@ -393,7 +414,24 @@ class TranslateServiceRequest(BaseModel):
                             "insert_mode": "replace",
                         }
                     }
+                },
+                # --- HTML EXAMPLE START ---
+                {
+                    "summary": "HTML 工作流示例",
+                    "value": {
+                        "file_name": "company_about_us.html",
+                        "file_content": "PGh0bWw+PGhlYWQ+PHRpdGxlPkFib3V0IFVzPC90aXRsZT48L2hlYWQ+PGJvZHk+PGgxPk91ciBDb21wYW55PC9oMT48cD5XZSBhcmUgYSBsZWFkaW5nIHByb3ZpZGVyIG9mIGlubm92YXRpdmUgc29sdXRpb25zLjwvcD48L2JvZHk+PC9odG1sPg==",
+                        "payload": {
+                            "workflow_type": "html",
+                            "base_url": "https://api.openai.com/v1",
+                            "api_key": "sk-your-api-key-here",
+                            "model_id": "gpt-4o",
+                            "to_lang": "简体中文",
+                            "insert_mode": "replace"
+                        }
+                    }
                 }
+                # --- HTML EXAMPLE END ---
             ]
         }
 
@@ -552,6 +590,23 @@ async def _perform_translation(
             )
             workflow = EpubWorkflow(config=workflow_config)
 
+        # --- HTML WORKFLOW LOGIC START ---
+        elif isinstance(payload, HtmlWorkflowParams):
+            task_logger.info("构建 HtmlWorkflow 配置。")
+            translator_config = HtmlTranslatorConfig(
+                **payload.model_dump(include={
+                    'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                    'temperature', 'thinking', 'chunk_size', 'concurrent',
+                    'insert_mode', 'separator'
+                }, exclude_none=True)
+            )
+            workflow_config = HtmlWorkflowConfig(
+                translator_config=translator_config,
+                logger=task_logger
+            )
+            workflow = HtmlWorkflow(config=workflow_config)
+        # --- HTML WORKFLOW LOGIC END ---
+
         else:
             raise TypeError(f"工作流类型 '{payload.workflow_type}' 的处理逻辑未实现。")
 
@@ -678,7 +733,7 @@ def _cancel_translation_logic(task_id: str):
     description="""
 接收一个包含文件内容（Base64编码）和工作流参数的JSON请求，启动一个后台翻译任务。
 
-- **工作流选择**: 请求体中的 `payload.workflow_type` 字段决定了本次任务的类型（如 `markdown_based`, `txt`, `json`, `xlsx`, `docx`, `srt`, `epub`）。
+- **工作流选择**: 请求体中的 `payload.workflow_type` 字段决定了本次任务的类型（如 `markdown_based`, `txt`, `json`, `xlsx`, `docx`, `srt`, `epub`, `html`）。
 - **动态参数**: 根据所选工作流，API需要不同的参数集。请参考下面的Schema或示例。
 - **异步处理**: 此端点会立即返回任务ID，客户端需轮询状态接口获取进度。
 """,
@@ -815,6 +870,21 @@ async def service_release_task(task_id: str):
                                 }
                             }
                         },
+                        # --- HTML STATUS EXAMPLE START ---
+                        "completed_html": {
+                            "summary": "已完成 (HTML)",
+                            "value": {
+                                "task_id": "a1b2c3d4", "is_processing": False,
+                                "status_message": "翻译成功！用时 15.78 秒。",
+                                "error_flag": False, "download_ready": True, "original_filename_stem": "about_us",
+                                "original_filename": "about_us.html", "task_start_time": 1678890100.0,
+                                "task_end_time": 1678890115.78,
+                                "downloads": {
+                                    "html": "/service/download/a1b2c3d4/html"
+                                }
+                            }
+                        },
+                        # --- HTML STATUS EXAMPLE END ---
                         "error": {
                             "summary": "失败",
                             "value": {
@@ -935,6 +1005,7 @@ async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple
                 html_config = Srt2HTMLExporterConfig(cdn=is_cdn_available)
             elif isinstance(workflow, EpubWorkflow):
                 html_config = Epub2HTMLExporterConfig(cdn=is_cdn_available)
+            # No special html_config for HtmlWorkflow as it doesn't use these preview-oriented features
 
         if file_type == 'html' and isinstance(workflow, HTMLExportable):
             content_str = await asyncio.to_thread(workflow.export_to_html, html_config)
