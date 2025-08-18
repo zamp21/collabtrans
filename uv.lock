@@ -315,6 +315,7 @@ wheels = [
 name = "docutranslate"
 source = { editable = "." }
 dependencies = [
+    { name = "beautifulsoup4" },
     { name = "fastapi", extra = ["standard"] },
     { name = "httpx" },
     { name = "json-repair" },
@@ -323,6 +324,7 @@ dependencies = [
     { name = "mammoth" },
     { name = "markdown2" },
     { name = "openpyxl" },
+    { name = "python-docx" },
     { name = "srt" },
     { name = "xlsx2html" },
 ]
@@ -342,6 +344,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "beautifulsoup4", specifier = ">=4.13.4" },
     { name = "docling", marker = "extra == 'docling'", specifier = ">=2.40.0" },
     { name = "fastapi", extras = ["standard"], specifier = ">=0.115.12" },
     { name = "httpx", specifier = "==0.27.2" },
@@ -352,6 +355,7 @@ requires-dist = [
     { name = "markdown2", specifier = ">=2.5.3" },
     { name = "opencv-python", marker = "extra == 'docling'", specifier = ">=4.11.0.86" },
     { name = "openpyxl", specifier = ">=3.1.5" },
+    { name = "python-docx", specifier = ">=1.2.0" },
     { name = "srt", specifier = ">=3.5.3" },
     { name = "xlsx2html", specifier = ">=0.6.2" },
 ]
