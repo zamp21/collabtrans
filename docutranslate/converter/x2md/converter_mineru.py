@@ -2,7 +2,6 @@ import asyncio
 import time
 import zipfile
 from dataclasses import dataclass
-from logging import Logger
 from typing import Hashable
 
 import httpx
@@ -10,7 +9,6 @@ import httpx
 from docutranslate.converter.x2md.base import X2MarkdownConverter, X2MarkdownConverterConfig
 from docutranslate.ir.document import Document
 from docutranslate.ir.markdown_document import MarkdownDocument
-from docutranslate.logger import global_logger
 from docutranslate.utils.markdown_utils import embed_inline_image_from_zip
 
 URL = 'https://mineru.net/api/v4/file-urls/batch'
@@ -21,7 +19,7 @@ class ConverterMineruConfig(X2MarkdownConverterConfig):
     mineru_token: str
     formula_ocr: bool = True
 
-    def gethash(self) ->Hashable:
+    def gethash(self) -> Hashable:
         return self.formula_ocr
 
 
@@ -32,8 +30,10 @@ timeout = httpx.Timeout(
     pool=1.0  # 从连接池获取连接的超时时间
 )
 
-client = httpx.Client(trust_env=False, timeout=timeout, proxy=None, verify=False)
-client_async = httpx.AsyncClient(trust_env=False, timeout=timeout, proxy=None, verify=False)
+# client = httpx.Client(trust_env=False, timeout=timeout, proxy=None, verify=False)
+# client_async = httpx.AsyncClient(trust_env=False, timeout=timeout, proxy=None, verify=False)
+client = httpx.Client(timeout=timeout, verify=False)
+client_async = httpx.AsyncClient(timeout=timeout, verify=False)
 
 
 class ConverterMineru(X2MarkdownConverter):

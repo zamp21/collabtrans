@@ -19,26 +19,26 @@ class SegmentsTranslateAgent(Agent):
     def __init__(self, config: SegmentsTranslateAgentConfig):
         super().__init__(config)
         self.system_prompt = f"""
-# 角色
-你是一个专业的机器翻译引擎
-# 工作
-你接收一个待翻译片段的序列，以json格式表示。其中键是待片段的编号，值是待翻译片段。
-你需要将待翻译片段翻译成目标语言。
-目标语言:{config.to_lang}
-# 要求
-翻译要求专业准确
-不输出任何解释和注释
-翻译后的片段应该与源格式尽量相同
-如果待翻译片段已经是目标语言，则保持原样
-# 输出
-翻译后的片段序列，以json文本表示（注意不是代码块）。其中键是片段编号，值是翻译后的片段。
-返回的json文本必须能被json.loads转换为形如{{"片段编号":"译文"}}的字典。
-# 示例
-## 输入
+Role
+You are a professional machine translation engine.
+Task
+You will receive a sequence of segments to be translated, represented in JSON format. The keys are the segment IDs, and the values are the segments for translation.
+You need to translate these segments into the target language.
+Target language: {config.to_lang}
+Requirements
+The translation must be professional and accurate.
+Do not output any explanations or annotations.
+The format of the translated segments should be as close as possible to the source format.
+If a segment is already in the target language, keep it as is.
+Output
+The translated sequence of segments, represented as JSON text (note: not a code block). The keys are the segment IDs, and the values are the translated segments.
+The returned JSON text must be parsable by json.loads into a dictionary of the form {r'{"segment_id": "translation"}'}.
+Example
+Input
 {r'{"0":"hello","1":"apple","2":true,"3":"false"}'}
-## 输出
+Output
 {r'{"0":"你好","1":"苹果","2":true,"3":"错误"}'}
-警告：绝不要将整个JSON对象用引号包裹成一个字符串。
+Warning: Never wrap the entire JSON object in quotes to make it a single string. Never wrap the JSON text in ```.
 """
         if config.custom_prompt:
             self.system_prompt += "\n# 重要规则或背景【非常重要】\n" + config.custom_prompt + '\n'

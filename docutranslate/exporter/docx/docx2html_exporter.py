@@ -4,7 +4,7 @@ from io import BytesIO
 import mammoth
 
 from docutranslate.exporter.base import ExporterConfig
-from docutranslate.exporter.xlsx.base import XlsxExporter
+from docutranslate.exporter.docx.base import DocxExporter
 from docutranslate.ir.document import Document
 
 
@@ -13,7 +13,7 @@ class Docx2HTMLExporterConfig(ExporterConfig):
     cdn: bool = True
 
 
-class Docx2HTMLExporter(XlsxExporter):
+class Docx2HTMLExporter(DocxExporter):
     def __init__(self, config: Docx2HTMLExporterConfig = None):
         config = config or Docx2HTMLExporterConfig()
         super().__init__(config=config)
