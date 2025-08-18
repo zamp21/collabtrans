@@ -11,6 +11,7 @@ import httpx
 
 from docutranslate.global_values import USE_PROXY
 from docutranslate.logger import global_logger
+from docutranslate.utils.utils import get_httpx_proxies
 
 MAX_RETRY_COUNT = 2
 MAX_TOTAL_ERROR_COUNT = 10
@@ -87,13 +88,13 @@ class Agent:
         self.model_id = config.model_id.strip()
         self.system_prompt = config.system_prompt or ""
         self.temperature = config.temperature
-        # self.client = httpx.Client(trust_env=False, proxy=None, verify=False)
-        # self.client_async = httpx.AsyncClient(trust_env=False, proxy=None, verify=False)
-        self.client = httpx.Client(verify=False) if USE_PROXY else httpx.Client(trust_env=False, proxy=None,
-                                                                                verify=False)
-        self.client_async = httpx.AsyncClient(verify=False) if USE_PROXY else httpx.AsyncClient(trust_env=False,
-                                                                                                proxy=None,
-                                                                                                verify=False)
+        if USE_PROXY:
+            self.client = httpx.Client(proxies=get_httpx_proxies(), verify=False)
+            self.client_async = httpx.AsyncClient(proxies=get_httpx_proxies(), verify=False)
+        else:
+            self.client = httpx.Client(trust_env=False, proxy=None, verify=False)
+            self.client_async = httpx.AsyncClient(trust_env=False, proxy=None, verify=False)
+
         self.max_concurrent = config.max_concurrent
         self.timeout = config.timeout
         self.thinking = config.thinking

@@ -490,7 +490,7 @@ A: `MarkdownBasedWorkflow` 会自动缓存文档解析（文件到Markdown的转
 `DOCUTRANSLATE_CACHE_NUM` 环境变量来修改缓存数量。
 
 **Q: 如何让软件可以经过代理**
-A: 软件默认不使用代理，可以通过设置环境变量`DOCUTRANSLATE_USE_PROXY`为`true`让软件通过代理。
+A: 软件默认不使用代理，可以通过设置环境变量`DOCUTRANSLATE_PROXY_ENABLED`为`true`让软件通过代理。
 
 ## Star History
 

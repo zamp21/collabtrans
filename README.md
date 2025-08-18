@@ -503,7 +503,7 @@ A: It is completely possible. The following two conditions need to be met:
 A: `MarkdownBasedWorkflow` automatically caches the results of document parsing (conversion from files to Markdown) to avoid wasting time and resources on repeated parsing. The cache is stored in memory by default and records the most recent 10 parsing operations. The number of cached items can be changed via the `DOCUTRANSLATE_CACHE_NUM` environment variable.
 
 **Q: How can I use the software via a proxy?**
-A: The software does not use a proxy by default. Set the `DOCUTRANSLATE_USE_PROXY` environment variable to `true` to enable communication via a proxy.
+A: The software does not use a proxy by default. Set the `DOCUTRANSLATE_PROXY_ENABLED` environment variable to `true` to enable communication via a proxy.
 
 ## Star History
 
