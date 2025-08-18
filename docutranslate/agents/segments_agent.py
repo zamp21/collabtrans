@@ -5,7 +5,7 @@ from json import JSONDecodeError
 from json_repair import json_repair
 
 from docutranslate.agents import AgentConfig, Agent
-from docutranslate.utils.json_utils import flat_json_split, segments2json_chunks
+from docutranslate.utils.json_utils import  segments2json_chunks
 
 
 @dataclass
