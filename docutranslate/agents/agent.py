@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 
 import httpx
 
+from docutranslate.global_values import USE_PROXY
 from docutranslate.logger import global_logger
 
 MAX_RETRY_COUNT = 2
@@ -88,8 +89,9 @@ class Agent:
         self.temperature = config.temperature
         # self.client = httpx.Client(trust_env=False, proxy=None, verify=False)
         # self.client_async = httpx.AsyncClient(trust_env=False, proxy=None, verify=False)
-        self.client = httpx.Client(verify=False)
-        self.client_async = httpx.AsyncClient(verify=False)
+        self.client = httpx.Client(verify=False) if USE_PROXY else httpx.Client(proxy=None, verify=False)
+        self.client_async = httpx.AsyncClient(verify=False) if USE_PROXY else httpx.AsyncClient(proxy=None,
+                                                                                                verify=False)
         self.max_concurrent = config.max_concurrent
         self.timeout = config.timeout
         self.thinking = config.thinking

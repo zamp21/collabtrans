@@ -7,6 +7,7 @@ from typing import Hashable
 import httpx
 
 from docutranslate.converter.x2md.base import X2MarkdownConverter, X2MarkdownConverterConfig
+from docutranslate.global_values import USE_PROXY
 from docutranslate.ir.document import Document
 from docutranslate.ir.markdown_document import MarkdownDocument
 from docutranslate.utils.markdown_utils import embed_inline_image_from_zip
@@ -29,11 +30,13 @@ timeout = httpx.Timeout(
     write=200.0,  # 写入超时 (发送数据的最长时间)
     pool=1.0  # 从连接池获取连接的超时时间
 )
+if USE_PROXY:
+    client = httpx.Client(timeout=timeout, verify=False)
+    client_async = httpx.AsyncClient(timeout=timeout, verify=False)
+else:
+    client = httpx.Client(trust_env=False, timeout=timeout, proxy=None, verify=False)
+    client_async = httpx.AsyncClient(trust_env=False, timeout=timeout, proxy=None, verify=False)
 
-# client = httpx.Client(trust_env=False, timeout=timeout, proxy=None, verify=False)
-# client_async = httpx.AsyncClient(trust_env=False, timeout=timeout, proxy=None, verify=False)
-client = httpx.Client(timeout=timeout, verify=False)
-client_async = httpx.AsyncClient(timeout=timeout, verify=False)
 
 
 class ConverterMineru(X2MarkdownConverter):
