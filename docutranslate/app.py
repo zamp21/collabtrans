@@ -801,8 +801,8 @@ async def service_release_task(task_id: str):
         except HTTPException as e:
             print(f"[{task_id}] 取消任务时出现预期中的情况（可能已完成）: {e.detail}")
             message_parts.append(f"任务取消步骤已跳过（可能已完成或取消）。")
-    tasks_state.pop(task_id, None);
-    tasks_log_queues.pop(task_id, None);
+    tasks_state.pop(task_id, None)
+    tasks_log_queues.pop(task_id, None)
     tasks_log_histories.pop(task_id, None)
     print(f"[{task_id}] 资源已成功释放。")
     message_parts.append(f"任务 '{task_id}' 的资源已释放。")

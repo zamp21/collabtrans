@@ -21,7 +21,7 @@ class ConverterMineruConfig(X2MarkdownConverterConfig):
     model_version: Literal["pipline", "vlm"] = "vlm"
 
     def gethash(self) -> Hashable:
-        return (self.formula_ocr,self.model_version)
+        return self.formula_ocr,self.model_version
 
 
 timeout = httpx.Timeout(
@@ -127,7 +127,7 @@ class ConverterMineru(X2MarkdownConverter):
                 await asyncio.sleep(3)
 
     def convert(self, document: Document) -> MarkdownDocument:
-        self.logger.info(f"正在将文档转换为markdown")
+        self.logger.info(f"正在将文档转换为markdown,model_version:{self.model_version}")
         time1 = time.time()
         batch_id = self.upload(document)
         file_url = self.get_file_url(batch_id)
@@ -137,7 +137,7 @@ class ConverterMineru(X2MarkdownConverter):
         return md_document
 
     async def convert_async(self, document: Document) -> MarkdownDocument:
-        self.logger.info(f"正在将文档转换为markdown")
+        self.logger.info(f"正在将文档转换为markdown,model_version:{self.model_version}")
         time1 = time.time()
         batch_id = await self.upload_async(document)
         file_url = await self.get_file_url_async(batch_id)
