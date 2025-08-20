@@ -3,8 +3,8 @@ from PyInstaller.utils.hooks import collect_all
 datas = [('./.venv/Lib/site-packages/docling_parse/pdf_resources_v2', 'docling_parse/pdf_resources_v2'),
 ('./docutranslate/static', 'docutranslate/static'),('./docutranslate/template', 'docutranslate/template')]
 binaries = []
-hiddenimports=[]
-for i in ['easyocr','docling']:
+hiddenimports=['markdown.extensions.tables','pymdownx.arithmatex','pymdownx.superfences','pymdownx.highlight','pygments']
+for i in ['easyocr','docling','pygments']:
     tmp_ret = collect_all(i)
     datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 

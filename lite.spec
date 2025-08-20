@@ -1,11 +1,18 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_all
+datas = [('./docutranslate/static', 'docutranslate/static'),('./docutranslate/template', 'docutranslate/template')]
+binaries = []
+hiddenimports=['markdown.extensions.tables','pymdownx.arithmatex','pymdownx.superfences','pymdownx.highlight','pygments']
+for i in ['pygments']:
+    tmp_ret = collect_all(i)
+    datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 a = Analysis(
     ['docutranslate\\app.py'],
     pathex=[],
-    binaries=[],
-    datas=[('./docutranslate/static', 'docutranslate/static'),('./docutranslate/template', 'docutranslate/template')],
-    hiddenimports=[],
+    binaries=binaries,
+    datas=datas,
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

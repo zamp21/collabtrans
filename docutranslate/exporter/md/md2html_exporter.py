@@ -6,7 +6,6 @@ from docutranslate.ir.document import Document
 from docutranslate.ir.markdown_document import MarkdownDocument
 from docutranslate.utils.resource_utils import resource_path
 
-
 @dataclass
 class MD2HTMLExporterConfig(MDExporterConfig):
     cdn: bool = True
