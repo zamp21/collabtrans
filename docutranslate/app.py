@@ -205,7 +205,7 @@ class BaseWorkflowParams(BaseModel):
     concurrent: int = Field(default=default_params["concurrent"], description="并发请求数。")
     temperature: float = Field(default=default_params["temperature"], description="LLM温度参数。")
     thinking: ThinkingMode = Field(default=default_params["thinking"], description="是否启用深度思考",
-                                   examples=["default", "enable", "disable"]),
+                                   examples=["default", "enable", "disable"])
     custom_prompt: Optional[str] = Field(None, description="用户自定义的翻译Prompt。", alias="custom_prompt")
 
 
@@ -220,6 +220,7 @@ class MarkdownWorkflowParams(BaseWorkflowParams):
     mineru_token: Optional[str] = Field(None, description="当 `convert_engine` 为 'mineru' 时必填的API令牌。")
     formula_ocr: bool = Field(True, description="是否对公式进行OCR识别。对 `mineru` 和 `docling` 均有效。")
     code_ocr: bool = Field(True, description="是否对代码块进行OCR识别。仅 `docling` 引擎有效。")
+    model_version: Literal["pipline", "vlm"] = Field("vlm", description="Mineru模型的版本，'vlm'是更新的版本。仅 `mineru` 引擎有效。")
 
     @field_validator('mineru_token')
     def check_mineru_token(cls, v, values):
@@ -479,7 +480,8 @@ async def _perform_translation(
             converter_config = None
             if payload.convert_engine == 'mineru':
                 converter_config = ConverterMineruConfig(logger=task_logger, mineru_token=payload.mineru_token,
-                                                         formula_ocr=payload.formula_ocr)
+                                                         formula_ocr=payload.formula_ocr,
+                                                         model_version=payload.model_version)
             elif payload.convert_engine == 'docling' and DOCLING_EXIST:
                 converter_config = ConverterDoclingConfig(logger=task_logger, code_ocr=payload.code_ocr,
                                                           formula_ocr=payload.formula_ocr)
@@ -1214,6 +1216,7 @@ async def temp_translate(
         temperature: float = Body(default_params["temperature"]),
         thinking: ThinkingMode = Body(default_params["thinking"]),
         chunk_size: int = Body(default_params["chunk_size"]), custom_prompt: Optional[str] = Body(None),
+        model_version: Literal["pipline", "vlm"] = Body("vlm"),
 ):
     file_name = Path(file_name)
     try:
@@ -1222,7 +1225,7 @@ async def temp_translate(
         decoded_content = file_content.encode('utf-8')
     try:
         workflow_config = MarkdownBasedWorkflowConfig(
-            convert_engine="mineru", converter_config=ConverterMineruConfig(mineru_token=mineru_token),
+            convert_engine="mineru", converter_config=ConverterMineruConfig(mineru_token=mineru_token, model_version=model_version),
             translator_config=MDTranslatorConfig(base_url=base_url, api_key=api_key, model_id=model_id,
                                                  to_lang=to_lang, custom_prompt=custom_prompt, temperature=temperature,
                                                  thinking=thinking, chunk_size=chunk_size, concurrent=concurrent),

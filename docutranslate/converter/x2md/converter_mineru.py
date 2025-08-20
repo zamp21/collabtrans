@@ -2,7 +2,7 @@ import asyncio
 import time
 import zipfile
 from dataclasses import dataclass
-from typing import Hashable
+from typing import Hashable, Literal
 
 import httpx
 
@@ -18,9 +18,10 @@ URL = 'https://mineru.net/api/v4/file-urls/batch'
 class ConverterMineruConfig(X2MarkdownConverterConfig):
     mineru_token: str
     formula_ocr: bool = True
+    model_version: Literal["pipline", "vlm"] = "vlm"
 
     def gethash(self) -> Hashable:
-        return self.formula_ocr
+        return (self.formula_ocr,self.model_version)
 
 
 timeout = httpx.Timeout(
@@ -44,6 +45,7 @@ class ConverterMineru(X2MarkdownConverter):
         super().__init__(config=config)
         self.mineru_token = config.mineru_token.strip()
         self.formula = config.formula_ocr
+        self.model_version=config.model_version
 
     def _get_header(self):
         return {
@@ -56,6 +58,7 @@ class ConverterMineru(X2MarkdownConverter):
             "enable_formula": self.formula,
             "language": "auto",
             "enable_table": True,
+            "model_version":self.model_version,
             "files": [
                 {"name": f"{document.name}", "is_ocr": True}
             ]
