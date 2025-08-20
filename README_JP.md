@@ -10,7 +10,7 @@
 [![python版本](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![开源协议](https://img.shields.io/github/license/xunbu/docutranslate)](./LICENSE)
 
-[**簡体字中国語**](/README_ZH.md) / [**English**](/README.md) / [**日本語**](/README_JP.md)
+[**简体中文**](/README_ZH.md) / [**English**](/README.md) / [**日本語**](/README_JP.md)
 
 **DocuTranslate** はファイル翻訳ツールで、[docling](https://github.com/docling-project/docling)や[minerU](https://mineru.net/)などの最先端の文書解析エンジンと大型言語モデル(LLM)を組み合わせ、さまざまな形式の文書を正確に翻訳します。
 
