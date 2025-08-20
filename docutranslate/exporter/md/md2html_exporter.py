@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 import jinja2
-import markdown2
+import markdown
 
 from docutranslate.exporter.md.base import MDExporter, MDExporterConfig
 from docutranslate.ir.document import Document
@@ -20,7 +20,6 @@ class MD2HTMLExporter(MDExporter):
 
     def export(self, document: MarkdownDocument) -> Document:
         cdn = self.cdn
-        markdowner = markdown2.Markdown(extras=['tables', 'fenced-code-blocks', 'mermaid', "code-friendly"])
         # language=html
         pico = f'<style>{resource_path("static/pico.css").read_text(encoding="utf-8")}</style>' if not cdn else r'<link rel="stylesheet" href="https://s4.zstatic.net/ajax/libs/picocss/2.1.1/pico.min.css" integrity="sha512-+4kjFgVD0n6H3xt19Ox84B56MoS7srFn60tgdWFuO4hemtjhySKyW4LnftYZn46k3THUEiTTsbVjrHai+0MOFw==" crossorigin="anonymous" referrerpolicy="no-referrer" />'
         html_template = resource_path("template/markdown.html").read_text(encoding="utf-8")
@@ -58,16 +57,57 @@ class MD2HTMLExporter(MDExporter):
                                                           });
                                                           </script>"""
         mermaid = f'<script>{resource_path("static/mermaid.js").read_text(encoding="utf-8")}</script>'
-        content = markdowner.convert(document.content.decode().replace("\\", "\\\\"))
-        # TODO:实现MathJax本地化
+
+        # 使用 python-markdown 和 pymdown-extensions
+        # Arithmatex 扩展专门用于处理 KaTeX/MathJax 公式
+        # 它能智能识别 $...$, $$...$$, \(...\), \[...\] 等，并保护它们不受干扰
+        extensions = [
+            'markdown.extensions.tables',
+            'pymdownx.arithmatex',
+            'pymdownx.superfences'  # 使用 superfences
+        ]
+
+        extension_configs = {
+            'pymdownx.arithmatex': {
+                'generic': True
+            },
+            'pymdownx.superfences': {
+                'custom_fences': [
+                    {
+                        'name': 'mermaid',
+                        'class': 'mermaid',
+                        # 这个 format 函数确保输出的 HTML 结构是 Mermaid.js 期望的
+                        'format': lambda source, language, css_class, options, md,
+                                         **kwargs: f'<pre class="{css_class}">{source}</pre>'
+                    }
+                ]
+            }
+        }
+
+        # 注意：这里不再需要 .replace("\\", "\\\\")
+        html_content = markdown.markdown(
+            document.content.decode(),
+            extensions=extensions,
+            extension_configs=extension_configs
+        )
+
         render = jinja2.Template(html_template).render(
             title=document.stem,
             pico=pico,
             katexCss=katex_css,
             katexJs=katex_js,
             autoRender=auto_render,
-            markdown=content,
+            markdown=html_content,  # 使用新的 html_content
             renderMathInElement=render_math_in_element,
             mermaid=mermaid,
         )
         return Document.from_bytes(content=render.encode("utf-8"), suffix=".html", stem=document.stem)
+
+if __name__ == '__main__':
+    from pathlib import Path
+    # d=Document.from_path(r"C:\Users\jxgm\Desktop\A_Survey_on_Decentralized_Identifiers_and_Verifiable_Credentials_translated.md")
+    d=Document.from_path(r"C:\Users\jxgm\Desktop\mcp文件夹\学习笔记\互联网认证授权机制\互联网认证授权机制.md")
+    exporter=MD2HTMLExporter()
+    d1=exporter.export(d)
+    path=Path(r"C:\Users\jxgm\Desktop\a.html")
+    path.write_bytes(d1.content)

@@ -31,7 +31,8 @@
             mutation.target.style.visibility = "visible";
         }
     });
-    document.querySelectorAll("pre.mermaid-pre div.mermaid").forEach(item => {
+    // ***** 修改这里的选择器 *****
+    document.querySelectorAll("pre.mermaid").forEach(item => {
         observer.observe(item, {
             attributes: true,
             attributeFilter: ['data-processed']
