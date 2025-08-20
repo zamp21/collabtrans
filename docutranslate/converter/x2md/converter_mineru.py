@@ -18,7 +18,7 @@ URL = 'https://mineru.net/api/v4/file-urls/batch'
 class ConverterMineruConfig(X2MarkdownConverterConfig):
     mineru_token: str
     formula_ocr: bool = True
-    model_version: Literal["pipline", "vlm"] = "vlm"
+    model_version: Literal["pipeline", "vlm"] = "vlm"
 
     def gethash(self) -> Hashable:
         return self.formula_ocr,self.model_version

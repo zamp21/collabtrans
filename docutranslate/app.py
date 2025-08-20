@@ -220,7 +220,7 @@ class MarkdownWorkflowParams(BaseWorkflowParams):
     mineru_token: Optional[str] = Field(None, description="当 `convert_engine` 为 'mineru' 时必填的API令牌。")
     formula_ocr: bool = Field(True, description="是否对公式进行OCR识别。对 `mineru` 和 `docling` 均有效。")
     code_ocr: bool = Field(True, description="是否对代码块进行OCR识别。仅 `docling` 引擎有效。")
-    model_version: Literal["pipline", "vlm"] = Field("vlm", description="Mineru模型的版本，'vlm'是更新的版本。仅 `mineru` 引擎有效。")
+    model_version: Literal["pipeline", "vlm"] = Field("vlm", description="Mineru模型的版本，'vlm'是更新的版本。仅 `mineru` 引擎有效。")
 
     @field_validator('mineru_token')
     def check_mineru_token(cls, v, values):
@@ -1216,7 +1216,7 @@ async def temp_translate(
         temperature: float = Body(default_params["temperature"]),
         thinking: ThinkingMode = Body(default_params["thinking"]),
         chunk_size: int = Body(default_params["chunk_size"]), custom_prompt: Optional[str] = Body(None),
-        model_version: Literal["pipline", "vlm"] = Body("vlm"),
+        model_version: Literal["pipeline", "vlm"] = Body("vlm"),
 ):
     file_name = Path(file_name)
     try:
