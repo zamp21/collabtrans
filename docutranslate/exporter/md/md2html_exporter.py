@@ -1,22 +1,22 @@
 from dataclasses import dataclass
-
 import jinja2
 import markdown
-
 from docutranslate.exporter.md.base import MDExporter, MDExporterConfig
 from docutranslate.ir.document import Document
 from docutranslate.ir.markdown_document import MarkdownDocument
 from docutranslate.utils.resource_utils import resource_path
 
+
 @dataclass
 class MD2HTMLExporterConfig(MDExporterConfig):
     cdn: bool = True
+
 
 class MD2HTMLExporter(MDExporter):
     def __init__(self, config: MD2HTMLExporterConfig = None):
         config = config or MD2HTMLExporterConfig()
         super().__init__(config=config)
-        self.cdn=config.cdn
+        self.cdn = config.cdn
 
     def export(self, document: MarkdownDocument) -> Document:
         cdn = self.cdn
@@ -26,41 +26,32 @@ class MD2HTMLExporter(MDExporter):
         katex_css = f'<link rel="stylesheet" href="/static/katex/katex.css"/>' if not cdn else r"""<link rel="stylesheet" href="https://s4.zstatic.net/ajax/libs/KaTeX/0.16.9/katex.min.css" integrity="sha512-fHwaWebuwA7NSF5Qg/af4UeDx9XqUpYpOGgubo3yWu+b2IQR4UeQwbb42Ti7gVAjNtVoI/I9TEoYeu9omwcC6g==" crossorigin="anonymous" referrerpolicy="no-referrer" />"""
         katex_js = f'<script src="/static/katex/katex.js"></script>' if not cdn else r"""<script src="https://s4.zstatic.net/ajax/libs/KaTeX/0.16.9/katex.min.js" integrity="sha512-LQNxIMR5rXv7o+b1l8+N1EZMfhG7iFZ9HhnbJkTp4zjNr5Wvst75AqUeFDxeRUa7l5vEDyUiAip//r+EFLLCyA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>"""
         auto_render = f'<script>{resource_path("static/autoRender.js").read_text(encoding="utf-8")}</script>' if not cdn else r"""<script src="https://s4.zstatic.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js" integrity="sha512-iWiuBS5nt6r60fCz26Nd0Zqe0nbk1ZTIQbl3Kv7kYsX+yKMUFHzjaH2+AnM6vp2Xs+gNmaBAVWJjSmuPw76Efg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>"""
-        # language=javascript
+
+        # 修改 JavaScript 渲染配置，增加更多选项
         render_math_in_element = r"""
-                                 <script>
-                                     document.addEventListener("DOMContentLoaded", function () {
-                                     renderMathInElement(document.body, {
-                                         delimiters: [
-                                             {left: '$$', right: '$$', display: true},
-                                             {left: '\\[', right: '\\]', display: true},
-                                             {left: '$', right: '$', display: false},
-                                             {left: '\\(', right: '\\)', display: false}
-                                         ],
-                                         throwOnError: false
-                                     })
-                                 });
-                                 </script>""" if cdn else r"""
-                                                          <script>
-                                                              document.addEventListener("DOMContentLoaded", function
-                                                              () {
-                                                              renderMathInElement(document.body, {
-                                                                  delimiters: [
-                                                                      {left: '$$', right: '$$', display: true},
-                                                                      {left: '\\[', right: '\\]', display: true},
-                                                                      {left: '$', right: '$', display: false},
-                                                                      {left: '\\(', right: '\\)', display: false}
-                                                                  ],
-                                                                  fonts: false,
-                                                                  throwOnError: false
-                                                              })
-                                                          });
-                                                          </script>"""
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false,
+                    errorColor: '#cc0000',
+                    macros: {
+                        "\\f": "#1f(#2)"
+                    },
+                    trust: true,
+                    strict: false
+                });
+            });
+        </script>"""
+
         mermaid = f'<script>{resource_path("static/mermaid.js").read_text(encoding="utf-8")}</script>'
 
-        # 使用 python-markdown 和 pymdown-extensions
-        # Arithmatex 扩展专门用于处理 KaTeX/MathJax 公式
-        # 它能智能识别 $...$, $$...$$, \(...\), \[...\] 等，并保护它们不受干扰
+        # 修改扩展配置
         extensions = [
             'markdown.extensions.tables',
             'pymdownx.arithmatex',
@@ -69,14 +60,20 @@ class MD2HTMLExporter(MDExporter):
 
         extension_configs = {
             'pymdownx.arithmatex': {
-                'generic': True
+                'generic': True,
+                'block_tag': 'div',
+                'inline_tag': 'span',
+                'block_syntax': ['dollar', 'square'],
+                'inline_syntax': ['dollar', 'round'],
+                'tex_inline_wrap': ['\\(', '\\)'],
+                'tex_block_wrap': ['\\[', '\\]'],
+                'smart_dollar': True
             },
             'pymdownx.superfences': {
                 'custom_fences': [
                     {
                         'name': 'mermaid',
                         'class': 'mermaid',
-                        # 这个 format 函数确保输出的 HTML 结构是 Mermaid.js 期望的
                         'format': lambda source, language, css_class, options, md,
                                          **kwargs: f'<pre class="{css_class}">{source}</pre>'
                     }
@@ -84,9 +81,21 @@ class MD2HTMLExporter(MDExporter):
             }
         }
 
-        # 注意：这里不再需要 .replace("\\", "\\\\")
+        # 预处理 markdown 内容，确保数学公式周围有正确的空行
+        content = document.content.decode()
+
+        # 处理 $$ 块公式，确保前后有空行
+        import re
+        # 匹配 $$ 块公式
+        def fix_block_math(match):
+            formula = match.group(1)
+            return f'\n\n$$\n{formula}\n$$\n\n'
+
+        # 使用正则表达式修复块公式格式
+        content = re.sub(r'\$\$\s*\n?(.*?)\n?\s*\$\$', fix_block_math, content, flags=re.DOTALL)
+
         html_content = markdown.markdown(
-            document.content.decode(),
+            content,
             extensions=extensions,
             extension_configs=extension_configs
         )
@@ -97,17 +106,18 @@ class MD2HTMLExporter(MDExporter):
             katexCss=katex_css,
             katexJs=katex_js,
             autoRender=auto_render,
-            markdown=html_content,  # 使用新的 html_content
+            markdown=html_content,
             renderMathInElement=render_math_in_element,
             mermaid=mermaid,
         )
         return Document.from_bytes(content=render.encode("utf-8"), suffix=".html", stem=document.stem)
 
+
 if __name__ == '__main__':
     from pathlib import Path
-    # d=Document.from_path(r"C:\Users\jxgm\Desktop\A_Survey_on_Decentralized_Identifiers_and_Verifiable_Credentials_translated.md")
-    d=Document.from_path(r"C:\Users\jxgm\Desktop\mcp文件夹\学习笔记\互联网认证授权机制\互联网认证授权机制.md")
-    exporter=MD2HTMLExporter()
-    d1=exporter.export(d)
-    path=Path(r"C:\Users\jxgm\Desktop\a.html")
+
+    d = Document.from_path(r"C:\Users\jxgm\Desktop\a2f9907d-6d49-4e87-9075-126218336b1e_origin_translated.md")
+    exporter = MD2HTMLExporter()
+    d1 = exporter.export(d)
+    path = Path(r"C:\Users\jxgm\Desktop\a.html")
     path.write_bytes(d1.content)
