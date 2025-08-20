@@ -22,7 +22,6 @@ Target language: {config.to_lang}
 - The translation must be professional and accurate.
 - Do not output any explanations or annotations.
 - Do not change placeholders in the format of `<ph-xxxxxx>`.
-- For `code`, `LaTeX`, and `HTML`, only translate the descriptive text (e.g., comments, captions); keep the rest of the content in its original form.
 - All formulas, regardless of length, must be represented as valid, parsable LaTeX. They must be correctly enclosed by `$`, `\\(\\)`, or `$$`. If a formula is not formatted correctly, you must fix it.
 - Remove or correct any obviously abnormal characters, but without altering the original meaning.
 - When citing references, strictly preserve the original text; do not translate them. Examples of reference formats are as follows:
