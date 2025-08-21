@@ -80,9 +80,14 @@ jobs:
           EOF
         shell: bash
 
-      # 第 8 步: 直接上传 .app 文件夹作为构建产物
-      - name: Upload macOS application
+      # 第 8 步: 将 .app 打包成 .dmg 磁盘映像
+      - name: Create DMG Disk Image
+        run: |
+          hdiutil create -volname "DocuTranslate Installer" -srcfolder dist/DocuTranslate.app -ov -format UDZO dist/DocuTranslate-macOS.dmg
+
+      # 第 9 步: 上传 .dmg 文件作为构建产物
+      - name: Upload macOS DMG
         uses: actions/upload-artifact@v4
         with:
           name: DocuTranslate-macOS
-          path: dist/DocuTranslate.app
+          path: dist/DocuTranslate-macOS.dmg # <--- 修改这里，上传 .dmg 文件
