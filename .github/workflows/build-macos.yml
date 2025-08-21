@@ -1,5 +1,3 @@
-# .github/workflows/build-macos.yml
-
 name: Build macOS Application
 
 on:
@@ -14,7 +12,7 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      # 第 1 步: 检出你的代码
+      # 第 1 步: 检出代码
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -22,43 +20,76 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11' # 匹配你的 pyproject.toml
+          python-version: '3.12'
 
-      # 第 3 步: 安装 uv (超高速的包管理器)
+      # 第 3 步: 安装 uv
       - name: Install uv
-        run: curl -LsSf https://astral.sh/uv/install.sh | sh
-      - name: Add uv to PATH
-        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
-      # 第 4 步: 使用 uv 安装项目及开发依赖
-      # . --dev 会安装 pyproject.toml 中 [dependencies] 和 [dependency-groups].dev 的所有包
+      # 第 4 步: 安装依赖
       - name: Install dependencies with uv
         run: uv sync
 
-      # 第 5 步: 运行 PyInstaller
-      - name: Build the application with PyInstaller
-        # 使用你的 macOS spec 文件
-        run: uv run pyinstaller lite_mac.spec --noconfirm
-
-      # 第 6 步: 创建 DMG 磁盘映像 (macOS 标准分发格式)
-      - name: Install create-dmg
-        run: brew install create-dmg
-      - name: Create DMG
+      # 第 5 步: 安装 UPX (macOS 版本)
+      - name: Install UPX
         run: |
-          create-dmg \
-            --volname "DocuTranslate Installer" \
-            --window-pos 200 120 \
-            --window-size 600 400 \
-            --icon-size 100 \
-            --icon "DocuTranslate.app" 200 190 \
-            --hide-extension "DocuTranslate.app" \
-            --app-drop-link 400 190 \
-            "dist/DocuTranslate.dmg" \
-            "dist/DocuTranslate.app"
+          brew install upx
 
-      # 第 7 步: 上传构建产物 (DMG 文件)
+      # 第 6 步: 运行 PyInstaller (macOS 版本)
+      - name: Build the application with PyInstaller
+        run: |
+          uv run pyinstaller lite_mac.spec --noconfirm
+
+      # 第 7 步: 创建 macOS 应用包结构 (可选)
+      - name: Create macOS app bundle structure
+        run: |
+          mkdir -p dist/DocuTranslate.app/Contents/MacOS
+          mkdir -p dist/DocuTranslate.app/Contents/Resources
+          
+          # 移动可执行文件
+          mv dist/DocuTranslate-*-mac dist/DocuTranslate.app/Contents/MacOS/DocuTranslate
+          chmod +x dist/DocuTranslate.app/Contents/MacOS/DocuTranslate
+          
+          # 复制图标文件
+          cp DocuTranslate.icns dist/DocuTranslate.app/Contents/Resources/
+          
+          # 创建 Info.plist
+          cat > dist/DocuTranslate.app/Contents/Info.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>DocuTranslate</string>
+              <key>CFBundleIconFile</key>
+              <string>DocuTranslate.icns</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.yourcompany.DocuTranslate</string>
+              <key>CFBundleName</key>
+              <string>DocuTranslate</string>
+              <key>CFBundleVersion</key>
+              <string>${{ github.run_number }}</string>
+              <key>CFBundleShortVersionString</key>
+              <string>$(python -c "import docutranslate; print(docutranslate.__version__)")</string>
+              <key>NSHighResolutionCapable</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+        shell: bash
+
+      # 第 8 步: 打包成 zip 文件
+      - name: Package application into a zip file
+        run: |
+          cd dist
+          zip -r DocuTranslate-macOS.zip DocuTranslate.app
+        shell: bash
+
+      # 第 9 步: 上传构建产物
       - name: Upload macOS build artifact
         uses: actions/upload-artifact@v4
         with:
           name: DocuTranslate-macOS
-          path: dist/DocuTranslate.dmg
+          path: dist/DocuTranslate-macOS.zip
