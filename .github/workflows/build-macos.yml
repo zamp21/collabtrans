@@ -33,7 +33,7 @@ jobs:
       # 第 4 步: 使用 uv 安装项目及开发依赖
       # . --dev 会安装 pyproject.toml 中 [dependencies] 和 [dependency-groups].dev 的所有包
       - name: Install dependencies with uv
-        run: uv pip install ". --dev"
+        run: uv sync
 
       # 第 5 步: 运行 PyInstaller
       - name: Build the application with PyInstaller
