@@ -38,7 +38,7 @@ jobs:
       # 第 5 步: 运行 PyInstaller
       - name: Build the application with PyInstaller
         # 使用你的 macOS spec 文件
-        run: pyinstaller lite_mac.spec --noconfirm
+        run: uv run pyinstaller lite_mac.spec --noconfirm
 
       # 第 6 步: 创建 DMG 磁盘映像 (macOS 标准分发格式)
       - name: Install create-dmg

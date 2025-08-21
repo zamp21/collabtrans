@@ -45,7 +45,7 @@ jobs:
       # 第 6 步: 运行 PyInstaller
       - name: Build the application with PyInstaller
         # 使用你的 Windows spec 文件
-        run: pyinstaller lite.spec --noconfirm
+        run: uv run pyinstaller lite.spec --noconfirm
 
       # 第 7 步: 将单个 exe 文件打包成 .zip
       - name: Package executable into a zip file
