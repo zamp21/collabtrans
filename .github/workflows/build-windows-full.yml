@@ -40,7 +40,7 @@ jobs:
       # 第 6 步: 运行 PyInstaller
       - name: Build the application with PyInstaller
         run: |
-          uv run pyinstaller lite_full.spec --noconfirm
+          uv run pyinstaller full.spec --noconfirm
 
       # 第 7 步: 上传 exe 文件作为构建产物
       - name: Upload Windows executable
