@@ -1,0 +1,60 @@
+# .github/workflows/build-windows.yml
+
+name: Build Windows Application
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+  release:
+    types: [created]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      # 第 1 步: 检出你的代码
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 第 2 步: 设置 Python 环境
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # 第 3 步: 安装 uv (Windows 版)
+      - name: Install uv
+        run: powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+      - name: Add uv to PATH
+        run: echo "$env:APPDATA\uv\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      # 第 4 步: 使用 uv 安装项目及开发依赖
+      - name: Install dependencies with uv
+        run: uv pip install ". --dev"
+
+      # 第 5 步: 安装 UPX (用于压缩 exe)
+      - name: Install UPX
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/upx/upx/releases/download/v4.2.4/upx-4.2.4-win64.zip" -OutFile "upx.zip"
+          Expand-Archive -Path "upx.zip" -DestinationPath "upx"
+          echo "$((Get-Item -Path ".\upx\*\").FullName)" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        shell: powershell
+
+      # 第 6 步: 运行 PyInstaller
+      - name: Build the application with PyInstaller
+        # 使用你的 Windows spec 文件
+        run: pyinstaller lite.spec --noconfirm
+
+      # 第 7 步: 将单个 exe 文件打包成 .zip
+      - name: Package executable into a zip file
+        run: Compress-Archive -Path dist/DocuTranslate.exe -DestinationPath dist/DocuTranslate-Windows.zip
+        shell: powershell
+
+      # 第 8 步: 上传构建产物 (Zip 文件)
+      - name: Upload Windows build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DocuTranslate-Windows
+          path: dist/DocuTranslate-Windows.zip

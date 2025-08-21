@@ -1,0 +1,64 @@
+# .github/workflows/build-macos.yml
+
+name: Build macOS Application
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+  release:
+    types: [created]
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      # 第 1 步: 检出你的代码
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 第 2 步: 设置 Python 环境
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11' # 匹配你的 pyproject.toml
+
+      # 第 3 步: 安装 uv (超高速的包管理器)
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Add uv to PATH
+        run: echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      # 第 4 步: 使用 uv 安装项目及开发依赖
+      # . --dev 会安装 pyproject.toml 中 [dependencies] 和 [dependency-groups].dev 的所有包
+      - name: Install dependencies with uv
+        run: uv pip install ". --dev"
+
+      # 第 5 步: 运行 PyInstaller
+      - name: Build the application with PyInstaller
+        # 使用你的 macOS spec 文件
+        run: pyinstaller lite_mac.spec --noconfirm
+
+      # 第 6 步: 创建 DMG 磁盘映像 (macOS 标准分发格式)
+      - name: Install create-dmg
+        run: brew install create-dmg
+      - name: Create DMG
+        run: |
+          create-dmg \
+            --volname "DocuTranslate Installer" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --icon "DocuTranslate.app" 200 190 \
+            --hide-extension "DocuTranslate.app" \
+            --app-drop-link 400 190 \
+            "dist/DocuTranslate.dmg" \
+            "dist/DocuTranslate.app"
+
+      # 第 7 步: 上传构建产物 (DMG 文件)
+      - name: Upload macOS build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DocuTranslate-macOS
+          path: dist/DocuTranslate.dmg
