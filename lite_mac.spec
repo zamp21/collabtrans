@@ -56,7 +56,7 @@ exe = EXE(
     console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
-    target_arch='universal2', # 推荐 'universal2' 以支持 Apple Silicon 和 Intel
+    target_arch=None, # 推荐 'universal2' 以支持 Apple Silicon 和 Intel
     codesign_identity=None,
     entitlements_file=None,
 )
