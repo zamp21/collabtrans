@@ -58,6 +58,8 @@ Warning: Never wrap the entire JSON object in quotes to make it a single string.
                 self.logger.info(f"json解析错误，解析文本:{chunk_str}，错误:{e.__repr__()}")
             except ValueError as e:
                 self.logger.info(f"value错误，更新对象:{indexed_translated}，错误:{e.__repr__()}")
+            except Exception as e:
+                self.logger.info(f"send_segments错误:{e.__repr__()}")
 
         # 初始化结果列表
         result = []
@@ -91,6 +93,8 @@ Warning: Never wrap the entire JSON object in quotes to make it a single string.
                 self.logger.info(f"json解析错误，解析文本:{chunk_str}，错误:{e.__repr__()}")
             except ValueError as e:
                 self.logger.info(f"value错误，更新对象:{indexed_translated}，错误:{e.__repr__()}")
+            except Exception as e:
+                self.logger.info(f"send_segments错误:{e.__repr__()}")
 
 
         # 初始化结果列表
