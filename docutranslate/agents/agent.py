@@ -1,10 +1,11 @@
 import asyncio
+import itertools
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from threading import Lock
-from typing import Literal
+from typing import Literal, Callable, Any
 from urllib.parse import urlparse
 
 import httpx
@@ -66,6 +67,9 @@ class PromptsCounter:
 
 
 TIMEOUT = 600
+
+ResultHandlerType = Callable[[str, str, logging.Logger], str]
+ErrorResultHandlerType = Callable[[str, logging.Logger], str]
 
 
 class Agent:
@@ -129,7 +133,9 @@ class Agent:
             self._add_thinking_mode(data)
         return headers, data
 
-    async def send_async(self, prompt: str, system_prompt: None | str = None, retry=True, retry_count=0) -> str:
+    async def send_async(self, prompt: str, system_prompt: None | str = None, retry=True, retry_count=0,
+                         result_handler: ResultHandlerType = None,
+                         error_result_handler: ErrorResultHandlerType = None) -> Any:
         if system_prompt is None:
             system_prompt = self.system_prompt
         if prompt.strip() == "":
@@ -145,12 +151,12 @@ class Agent:
             )
             response.raise_for_status()
             result = response.json()["choices"][0]["message"]["content"]
-            return result
+            return result if result_handler is None else result_handler(result, prompt, self.logger)
         except httpx.HTTPStatusError as e:
             self.logger.warning(f"AI请求错误 (async): {e.response.status_code} - {e.response.text}")
             print(f"prompt:\n{prompt}")
             self.total_error_counter.add()
-            return prompt
+            return prompt if error_result_handler is None else error_result_handler(prompt, self.logger)
         except httpx.RequestError as e:
             self.logger.warning(f"AI请求连接错误 (async): {repr(e)}")
         except (KeyError, IndexError) as e:
@@ -158,20 +164,23 @@ class Agent:
         # 如果没有正常获取结果则重试
         if retry and retry_count < MAX_RETRY_COUNT:
             if self.total_error_counter.add():
-                return prompt
+                return prompt if error_result_handler is None else error_result_handler(prompt, self.logger)
             self.logger.info(f"正在重试，重试次数{retry_count}")
             await asyncio.sleep(0.5)
-            return await self.send_async(prompt, system_prompt, retry=True, retry_count=retry_count + 1)
+            return await self.send_async(prompt, system_prompt, retry=True, retry_count=retry_count + 1,
+                                         result_handler=result_handler)
         else:
             self.logger.error(f"达到重试次数上限")
-            return prompt
+            return prompt if error_result_handler is None else error_result_handler(prompt, self.logger)
 
     async def send_prompts_async(
             self,
             prompts: list[str],
             system_prompt: str | None = None,
-            max_concurrent: int | None = None  # 新增参数，默认并发数为5
-    ) -> list[str]:
+            max_concurrent: int | None = None,  # 新增参数，默认并发数为5
+            result_handler: ResultHandlerType = None,
+            error_result_handler: ErrorResultHandlerType = None
+    ) -> list[Any]:
         max_concurrent = self.max_concurrent if max_concurrent is None else max_concurrent
         total = len(prompts)
         self.logger.info(f"base-url:{self.baseurl},model-id:{self.model_id}")
@@ -186,6 +195,8 @@ class Agent:
                 result = await self.send_async(
                     prompt=p_text,
                     system_prompt=system_prompt,
+                    result_handler=result_handler,
+                    error_result_handler=error_result_handler,
                 )
                 nonlocal count
                 count += 1
@@ -199,7 +210,8 @@ class Agent:
         results = await asyncio.gather(*tasks, return_exceptions=False)
         return results
 
-    def send(self, prompt: str, system_prompt: None | str = None, retry=True, retry_count=0) -> str:
+    def send(self, prompt: str, system_prompt: None | str = None, retry=True, retry_count=0,
+             result_handler=None, error_result_handler=None) -> Any:
         if system_prompt is None:
             system_prompt = self.system_prompt
         if prompt.strip() == "":
@@ -214,12 +226,12 @@ class Agent:
             )
             response.raise_for_status()
             result = response.json()["choices"][0]["message"]["content"]
-            return result
+            return result if result_handler is None else result_handler(result, prompt, self.logger)
         except httpx.HTTPStatusError as e:
             self.logger.warning(f"AI请求错误 (async): {e.response.status_code} - {e.response.text}")
             print(f"prompt:\n{prompt}")
             self.total_error_counter.add()
-            return prompt
+            return prompt if error_result_handler is None else error_result_handler(prompt, self.logger)
         except httpx.RequestError as e:
             self.logger.warning(f"AI请求连接错误 (sync): {repr(e)}\nprompt:{prompt}")
         except (KeyError, IndexError) as e:
@@ -227,16 +239,19 @@ class Agent:
         # 如果没有正常获取结果则重试
         if retry and retry_count < MAX_RETRY_COUNT:
             if self.total_error_counter.add():
-                return prompt
+                return prompt if error_result_handler is None else error_result_handler(prompt, self.logger)
             self.logger.info(f"正在重试，重试次数{retry_count}")
             time.sleep(0.5)
-            return self.send(prompt, system_prompt, retry=True, retry_count=retry_count + 1)
+            return self.send(prompt, system_prompt, retry=True, retry_count=retry_count + 1,
+                             result_handler=result_handler)
         else:
             self.logger.error(f"达到重试次数上限")
-            return prompt
+            return prompt if error_result_handler is None else error_result_handler(prompt, self.logger)
 
-    def _send_prompt_count(self, prompt: str, system_prompt: None | str, count: PromptsCounter) -> str:
-        result = self.send(prompt, system_prompt)
+    def _send_prompt_count(self, prompt: str, system_prompt: None | str, count: PromptsCounter, result_handler,
+                           error_result_handler) -> Any:
+        result = self.send(prompt, system_prompt, result_handler=result_handler,
+                           error_result_handler=error_result_handler)
         count.add()
         return result
 
@@ -244,14 +259,23 @@ class Agent:
             self,
             prompts: list[str],
             system_prompt: str | None = None,
-    ) -> list[str]:
+            result_handler: ResultHandlerType = None,
+            error_result_handler: ErrorResultHandlerType = None
+    ) -> list[Any]:
         self.logger.info(f"base-url:{self.baseurl},model-id:{self.model_id}")
         self.logger.info(f"预计发送{len(prompts)}个请求，并发请求数:{self.max_concurrent}")
-        system_prompts = [system_prompt] * len(prompts)
-        counts = [PromptsCounter(len(prompts), self.logger)] * len(prompts)
+
+        # 创建单个计数器实例
+        counter = PromptsCounter(len(prompts), self.logger)
+
+        # 使用 itertools.repeat 将同一个实例传递给每个 map 调用
+        system_prompts = itertools.repeat(system_prompt, len(prompts))
+        counters = itertools.repeat(counter, len(prompts))
+        result_handlers = itertools.repeat(result_handler, len(prompts))
+        error_result_handlers = itertools.repeat(error_result_handler, len(prompts))
         output_list = []
         with ThreadPoolExecutor(max_workers=self.max_concurrent) as executor:
-            results_iterator = executor.map(self._send_prompt_count, prompts, system_prompts, counts)
+            results_iterator = executor.map(self._send_prompt_count, prompts, system_prompts, counters, result_handlers,error_result_handlers)
             output_list = list(results_iterator)
         return output_list
 
