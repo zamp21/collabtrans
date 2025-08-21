@@ -157,7 +157,9 @@ class DocxTranslator(Translator):
         doc, elements_to_translate, original_texts = self._pre_translate(document)
         if not original_texts:
             print("\n文件中没有找到需要翻译的文本内容。")
-            document.content = doc.save(BytesIO()).getvalue() # 返回原文件
+            output_stream = BytesIO()
+            doc.save(output_stream)
+            document.content = output_stream.getvalue()
             return self
 
         # 调用翻译 agent
