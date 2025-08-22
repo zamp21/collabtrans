@@ -21,7 +21,7 @@ class ConverterMineruConfig(X2MarkdownConverterConfig):
     model_version: Literal["pipeline", "vlm"] = "vlm"
 
     def gethash(self) -> Hashable:
-        return self.formula_ocr,self.model_version
+        return self.formula_ocr, self.model_version
 
 
 timeout = httpx.Timeout(
@@ -36,8 +36,10 @@ timeout = httpx.Timeout(
 # else:
 #     client = httpx.Client(trust_env=False, timeout=timeout, proxy=None, verify=False)
 #     client_async = httpx.AsyncClient(trust_env=False, timeout=timeout, proxy=None, verify=False)
-client = httpx.Client(trust_env=False, timeout=timeout, proxy=None, verify=False)
-client_async = httpx.AsyncClient(trust_env=False, timeout=timeout, proxy=None, verify=False)
+
+limits = httpx.Limits(max_connections=500, max_keepalive_connections=20)
+client = httpx.Client(limits=limits, trust_env=False, timeout=timeout, proxy=None, verify=False)
+client_async = httpx.AsyncClient(limits=limits, trust_env=False, timeout=timeout, proxy=None, verify=False)
 
 
 class ConverterMineru(X2MarkdownConverter):
@@ -45,7 +47,7 @@ class ConverterMineru(X2MarkdownConverter):
         super().__init__(config=config)
         self.mineru_token = config.mineru_token.strip()
         self.formula = config.formula_ocr
-        self.model_version=config.model_version
+        self.model_version = config.model_version
 
     def _get_header(self):
         return {
@@ -58,7 +60,7 @@ class ConverterMineru(X2MarkdownConverter):
             "enable_formula": self.formula,
             "language": "auto",
             "enable_table": True,
-            "model_version":self.model_version,
+            "model_version": self.model_version,
             "files": [
                 {"name": f"{document.name}", "is_ocr": True}
             ]
