@@ -83,16 +83,6 @@ class MD2HTMLExporter(MDExporter):
         # 预处理 markdown 内容，确保数学公式周围有正确的空行
         content = document.content.decode()
 
-        # 处理 $$ 块公式，确保前后有空行
-        import re
-        # 匹配 $$ 块公式
-        def fix_block_math(match):
-            formula = match.group(1)
-            return f'\n\n$$\n{formula}\n$$\n\n'
-
-        # 使用正则表达式修复块公式格式
-        content = re.sub(r'\$\$\s*\n?(.*?)\n?\s*\$\$', fix_block_math, content, flags=re.DOTALL)
-
         html_content = markdown.markdown(
             content,
             extensions=extensions,
@@ -115,7 +105,7 @@ class MD2HTMLExporter(MDExporter):
 if __name__ == '__main__':
     from pathlib import Path
 
-    d = Document.from_path(r"C:\Users\jxgm\Desktop\a2f9907d-6d49-4e87-9075-126218336b1e_origin_translated.md")
+    d = Document.from_path(r"C:\Users\jxgm\Desktop\matrixcookbook_translated.md")
     exporter = MD2HTMLExporter()
     d1 = exporter.export(d)
     path = Path(r"C:\Users\jxgm\Desktop\a.html")
