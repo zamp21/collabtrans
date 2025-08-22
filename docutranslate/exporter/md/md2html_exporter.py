@@ -1,3 +1,4 @@
+import re  # <--- 步骤 1: 导入 re 模块
 from dataclasses import dataclass
 import jinja2
 import markdown
@@ -5,6 +6,7 @@ from docutranslate.exporter.md.base import MDExporter, MDExporterConfig
 from docutranslate.ir.document import Document
 from docutranslate.ir.markdown_document import MarkdownDocument
 from docutranslate.utils.resource_utils import resource_path
+
 
 @dataclass
 class MD2HTMLExporterConfig(MDExporterConfig):
@@ -26,15 +28,14 @@ class MD2HTMLExporter(MDExporter):
         katex_js = f'<script src="/static/katex/katex.js"></script>' if not cdn else r"""<script src="https://s4.zstatic.net/ajax/libs/KaTeX/0.16.9/katex.min.js" integrity="sha512-LQNxIMR5rXv7o+b1l8+N1EZMfhG7iFZ9HhnbJkTp4zjNr5Wvst75AqUeFDxeRUa7l5vEDyUiAip//r+EFLLCyA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>"""
         auto_render = f'<script>{resource_path("static/autoRender.js").read_text(encoding="utf-8")}</script>' if not cdn else r"""<script src="https://s4.zstatic.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js" integrity="sha512-iWiuBS5nt6r60fCz26Nd0Zqe0nbk1ZTIQbl3Kv7kYsX+yKMUFHzjaH2+AnM6vp2Xs+gNmaBAVWJjSmuPw76Efg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>"""
 
-        # 修改 JavaScript 渲染配置，增加更多选项
+        # 这是正确且推荐的 JS 配置，它与 pymdownx.arithmatex 配合工作
+        # 它只寻找 arithmatex 生成的 \(...\) 和 \[...\]
         render_math_in_element = r"""
         <script>
             document.addEventListener("DOMContentLoaded", function () {
                 renderMathInElement(document.body, {
                     delimiters: [
-                        {left: '$$', right: '$$', display: true},
                         {left: '\\[', right: '\\]', display: true},
-                        {left: '$', right: '$', display: false},
                         {left: '\\(', right: '\\)', display: false}
                     ],
                     throwOnError: false,
@@ -50,7 +51,7 @@ class MD2HTMLExporter(MDExporter):
 
         mermaid = f'<script>{resource_path("static/mermaid.js").read_text(encoding="utf-8")}</script>'
 
-        # 修改扩展配置
+        # 扩展配置保持不变，我们仍然使用 arithmatex
         extensions = [
             'markdown.extensions.tables',
             'pymdownx.arithmatex',
@@ -80,8 +81,15 @@ class MD2HTMLExporter(MDExporter):
             }
         }
 
-        # 预处理 markdown 内容，确保数学公式周围有正确的空行
         content = document.content.decode()
+
+        # =================================================================
+        # 步骤 2: 预处理 markdown 内容，确保数学公式块周围有正确的空行
+        # 正则表达式 r'(\$\$[\s\S]*?\$\$)' 匹配一个完整的 $$...$$ 块。
+        # [\s\S]*? 匹配包括换行符在内的任何字符，并且是非贪婪模式。
+        # re.sub 将找到的每个匹配项替换为 `\n\n<匹配项>\n\n`，从而强制添加空行。
+        content = re.sub(r'(\$\$[\s\S]*?\$\$)', r'\n\n\1\n\n', content)
+        # =================================================================
 
         html_content = markdown.markdown(
             content,
@@ -100,14 +108,11 @@ class MD2HTMLExporter(MDExporter):
             mermaid=mermaid,
         )
         return Document.from_bytes(content=render.encode("utf-8"), suffix=".html", stem=document.stem)
-
-
 if __name__ == '__main__':
     from pathlib import Path
 
-    d = Document.from_path(r"C:\Users\jxgm\Desktop\mcp文件夹\学习笔记\互联网认证授权机制\互联网认证授权机制.md"
-)
-    # d = Document.from_path(r"C:\Users\jxgm\Desktop\matrixcookbook_translated.md")
+    # d = Document.from_path(r"C:\Users\jxgm\Desktop\mcp文件夹\学习笔记\互联网认证授权机制\互联网认证授权机制.md")
+    d = Document.from_path(r"C:\Users\jxgm\Desktop\matrixcookbook_translated.md")
 
     exporter = MD2HTMLExporter()
     d1 = exporter.export(d)
