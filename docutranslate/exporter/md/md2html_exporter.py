@@ -105,7 +105,10 @@ class MD2HTMLExporter(MDExporter):
 if __name__ == '__main__':
     from pathlib import Path
 
-    d = Document.from_path(r"C:\Users\jxgm\Desktop\matrixcookbook_translated.md")
+    d = Document.from_path(r"C:\Users\jxgm\Desktop\mcp文件夹\学习笔记\互联网认证授权机制\互联网认证授权机制.md"
+)
+    # d = Document.from_path(r"C:\Users\jxgm\Desktop\matrixcookbook_translated.md")
+
     exporter = MD2HTMLExporter()
     d1 = exporter.export(d)
     path = Path(r"C:\Users\jxgm\Desktop\a.html")
