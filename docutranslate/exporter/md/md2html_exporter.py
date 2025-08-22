@@ -30,6 +30,7 @@ class MD2HTMLExporter(MDExporter):
 
         # 这是正确且推荐的 JS 配置，它与 pymdownx.arithmatex 配合工作
         # 它只寻找 arithmatex 生成的 \(...\) 和 \[...\]
+        # language=javascript
         render_math_in_element = r"""
         <script>
             document.addEventListener("DOMContentLoaded", function () {
@@ -39,7 +40,7 @@ class MD2HTMLExporter(MDExporter):
                         {left: '\\(', right: '\\)', display: false}
                     ],
                     throwOnError: false,
-                    errorColor: '#cc0000',
+                    errorColor: '#F5CF27',
                     macros: {
                         "\\f": "#1f(#2)"
                     },

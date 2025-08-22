@@ -20,7 +20,14 @@
 </body>
 {{renderMathInElement}}
 {{mermaid}}
-
+<script>
+    setTimeout(()=>{
+        const KatexErrors=document.getElementsByClassName("katex-error")
+        for (const katexError of KatexErrors) {
+            katexError.innerHTML=katexError.title
+        }
+    },200)
+</script>
 <script>
     mermaid.initialize({
         securityLevel: 'loose',
