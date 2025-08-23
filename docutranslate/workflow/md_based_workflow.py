@@ -11,7 +11,7 @@ from docutranslate.ir.markdown_document import MarkdownDocument
 
 if DOCLING_EXIST:
     from docutranslate.converter.x2md.converter_docling import ConverterDoclingConfig, ConverterDocling
-from docutranslate.converter.x2md.converter_identity import ConverterIdentity
+from docutranslate.converter.converter_identity import ConverterIdentity
 from docutranslate.converter.x2md.converter_mineru import ConverterMineruConfig, ConverterMineru
 from docutranslate.converter.x2md.base import X2MarkdownConverterConfig, X2MarkdownConverter
 from docutranslate.exporter.md.md2html_exporter import MD2HTMLExporterConfig, MD2HTMLExporter
@@ -35,7 +35,7 @@ class MarkdownBasedWorkflow(Workflow[MarkdownBasedWorkflowConfig, Document, Mark
                             HTMLExportable[MD2HTMLExporterConfig],
                             MDFormatsExportable[ExporterConfig]):
     _converter_factory: dict[
-        ConvertEngineType, Tuple[Type[X2MarkdownConverter], Type[X2MarkdownConverterConfig]] | None] = {
+        ConvertEngineType, Tuple[Type[X2MarkdownConverter|ConverterIdentity], Type[X2MarkdownConverterConfig]] | None] = {
         "mineru": (ConverterMineru, ConverterMineruConfig),
         "identity": (ConverterIdentity, None)
     }

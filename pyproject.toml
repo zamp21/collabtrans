@@ -17,6 +17,7 @@ dependencies = [
     "beautifulsoup4>=4.13.4",
     "markdown>=3.8.2",
     "pymdown-extensions>=10.16.1",
+    "chardet>=5.2.0",
 ]
 dynamic = ["version"]
 

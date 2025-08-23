@@ -36,7 +36,7 @@ class MDZIPExportable(Protocol[T_ExporterConfig]):
 
 
 @runtime_checkable
-class MDFormatsExportable(MDZIPExportable[T_ExporterConfig], MDExportable[T_ExporterConfig],Protocol):
+class MDFormatsExportable(MDZIPExportable[T_ExporterConfig], MDExportable[T_ExporterConfig], Protocol):
     ...
 
 
@@ -48,6 +48,7 @@ class TXTExportable(Protocol[T_ExporterConfig]):
     def save_as_txt(self, name: str, output_dir: Path | str, config: T_ExporterConfig | None = None) -> Self:
         ...
 
+
 @runtime_checkable
 class JsonExportable(Protocol[T_ExporterConfig]):
     def export_to_json(self, config: T_ExporterConfig | None = None) -> str:
@@ -55,6 +56,7 @@ class JsonExportable(Protocol[T_ExporterConfig]):
 
     def save_as_json(self, name: str, output_dir: Path | str, config: T_ExporterConfig | None = None) -> Self:
         ...
+
 
 @runtime_checkable
 class XlsxExportable(Protocol[T_ExporterConfig]):
@@ -64,6 +66,16 @@ class XlsxExportable(Protocol[T_ExporterConfig]):
     def save_as_xlsx(self, name: str, output_dir: Path | str, config: T_ExporterConfig | None = None) -> Self:
         ...
 
+
+@runtime_checkable
+class CsvExportable(Protocol[T_ExporterConfig]):
+    def export_to_csv(self, config: T_ExporterConfig | None = None) -> bytes:
+        ...
+
+    def save_as_csv(self, name: str, output_dir: Path | str, config: T_ExporterConfig | None = None) -> Self:
+        ...
+
+
 @runtime_checkable
 class DocxExportable(Protocol[T_ExporterConfig]):
     def export_to_docx(self, config: T_ExporterConfig | None = None) -> bytes:
@@ -72,6 +84,7 @@ class DocxExportable(Protocol[T_ExporterConfig]):
     def save_as_docx(self, name: str, output_dir: Path | str, config: T_ExporterConfig | None = None) -> Self:
         ...
 
+
 @runtime_checkable
 class SrtExportable(Protocol[T_ExporterConfig]):
     def export_to_srt(self, config: T_ExporterConfig | None = None) -> str:
@@ -79,6 +92,7 @@ class SrtExportable(Protocol[T_ExporterConfig]):
 
     def save_as_srt(self, name: str, output_dir: Path | str, config: T_ExporterConfig | None = None) -> Self:
         ...
+
 
 @runtime_checkable
 class EpubExportable(Protocol[T_ExporterConfig]):
