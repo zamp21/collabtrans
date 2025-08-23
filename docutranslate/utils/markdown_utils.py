@@ -211,16 +211,6 @@ def unembed_base64_images_to_zip(markdown:str,markdown_name:str,image_folder_nam
                     zipf.write(file, file.relative_to(folder_path))
     return zip_buffer.getvalue()
 
-def clean_markdown_math_block(markdown):
-    """清除公式块的多余空格字符"""
-
-    def replace_block(match: re.Match):
-        return f"{match.group(1).strip()}\n{match.group(2).strip()}\n{match.group(3).lstrip()}"
-
-    pattern = re.compile(r"(^\s*\$\$\s*)\n([\s\S]+?)\n(^\s*\$\$\s*$)", re.MULTILINE)
-    cleaned_text = pattern.sub(replace_block, markdown)
-    return cleaned_text
-
 
 if __name__ == '__main__':
     pass

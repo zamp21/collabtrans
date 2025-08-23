@@ -2,6 +2,8 @@ import re
 from typing import List
 
 
+
+
 class MarkdownBlockSplitter:
     def __init__(self, max_block_size: int = 5000):
         """
@@ -203,3 +205,12 @@ def join_markdown_texts(markdown_texts: List[str]) -> str:
         joined_text += separator + current_chunk
 
     return joined_text
+
+
+if __name__ == '__main__':
+    from pathlib import Path
+    from docutranslate.utils.markdown_utils import clean_markdown_math_block
+    content=Path(r"C:\Users\jxgm\Desktop\3a8d8999-3e9d-4f32-a32c-5b0830bb4320\full.md").read_text()
+    content=split_markdown_text(content)
+    content=join_markdown_texts(content)
+

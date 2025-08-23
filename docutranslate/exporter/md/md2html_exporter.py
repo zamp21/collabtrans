@@ -46,7 +46,7 @@ class MD2HTMLExporter(MDExporter):
                     },
                     trust: true,
                     strict: false
-                });
+                })
             });
         </script>"""
 
@@ -84,14 +84,6 @@ class MD2HTMLExporter(MDExporter):
 
         content = document.content.decode()
 
-        # =================================================================
-        # 步骤 2: 预处理 markdown 内容，确保数学公式块周围有正确的空行
-        # 正则表达式 r'(\$\$[\s\S]*?\$\$)' 匹配一个完整的 $$...$$ 块。
-        # [\s\S]*? 匹配包括换行符在内的任何字符，并且是非贪婪模式。
-        # re.sub 将找到的每个匹配项替换为 `\n\n<匹配项>\n\n`，从而强制添加空行。
-        content = re.sub(r'(\$\$[\s\S]*?\$\$)', r'\n\n\1\n\n', content)
-        # =================================================================
-
         html_content = markdown.markdown(
             content,
             extensions=extensions,
@@ -109,12 +101,13 @@ class MD2HTMLExporter(MDExporter):
             mermaid=mermaid,
         )
         return Document.from_bytes(content=render.encode("utf-8"), suffix=".html", stem=document.stem)
+
 if __name__ == '__main__':
     from pathlib import Path
 
     # d = Document.from_path(r"C:\Users\jxgm\Desktop\mcp文件夹\学习笔记\互联网认证授权机制\互联网认证授权机制.md")
-    d = Document.from_path(r"C:\Users\jxgm\Desktop\matrixcalc_translated.md")
-    # d = Document.from_path(r"C:\Users\jxgm\Downloads\3a8d8999-3e9d-4f32-a32c-5b0830bb4320\full.md")
+    # d = Document.from_path(r"C:\Users\jxgm\Desktop\matrixcalc_translated.md")
+    d = Document.from_path(r"C:\Users\jxgm\Desktop\full_translated.md")
     exporter = MD2HTMLExporter()
     d1 = exporter.export(d)
     path = Path(r"C:\Users\jxgm\Desktop\a.html")

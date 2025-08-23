@@ -9,7 +9,6 @@ from docutranslate.ir.markdown_document import MarkdownDocument
 from docutranslate.translator.ai_translator.base import AiTranslatorConfig
 from docutranslate.translator.base import Translator
 from docutranslate.utils.markdown_splitter import split_markdown_text, join_markdown_texts
-from docutranslate.utils.markdown_utils import clean_markdown_math_block
 
 
 @dataclass
@@ -44,7 +43,6 @@ class MDTranslator(Translator):
             # 做一些加强鲁棒性的操作
             content = content.replace(r'\（', r'\(')
             content = content.replace(r'\）', r'\)')
-            content = clean_markdown_math_block(content)
 
             document.content = content.encode()
         self.logger.info("翻译完成")
@@ -62,7 +60,6 @@ class MDTranslator(Translator):
                 # 做一些加强鲁棒性的操作
                 content = content.replace(r'\（', r'\(')
                 content = content.replace(r'\）', r'\)')
-                content = clean_markdown_math_block(content)
                 document.content = content.encode()
 
             await asyncio.to_thread(run)
