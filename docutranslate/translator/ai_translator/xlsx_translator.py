@@ -1,9 +1,10 @@
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from io import BytesIO
-from typing import Self, Literal
+from typing import Self, Literal, List, Optional
 
 import openpyxl
+from openpyxl.cell import Cell
 
 from docutranslate.agents.segments_agent import SegmentsTranslateAgentConfig, SegmentsTranslateAgent
 from docutranslate.ir.document import Document
@@ -15,6 +16,11 @@ from docutranslate.translator.base import Translator
 class XlsxTranslatorConfig(AiTranslatorConfig):
     insert_mode: Literal["replace", "append", "prepend"] = "replace"
     separator: str = "\n"
+    # 指定翻译区域列表。
+    # 示例: ["Sheet1!A1:B10", "C:D", "E5"]
+    # 如果不指定表名 (如 "C:D")，则应用于所有表。
+    # 如果为 None 或空列表，则翻译整个文件中的所有文本。
+    translate_regions: Optional[List[str]] = None
 
 
 class XlsxTranslator(Translator):
@@ -35,25 +41,80 @@ class XlsxTranslator(Translator):
         self.translate_agent = SegmentsTranslateAgent(agent_config)
         self.insert_mode = config.insert_mode
         self.separator = config.separator
+        # --- 新增功能 ---
+        self.translate_regions = config.translate_regions
 
     def _pre_translate(self, document: Document):
         workbook = openpyxl.load_workbook(BytesIO(document.content))
-
-        # --- 步骤 1: 收集所有需要翻译的文本单元格 ---
         cells_to_translate = []
 
-        for sheet_name in workbook.sheetnames:
-            sheet = workbook[sheet_name]
-            for row in sheet.iter_rows():
-                for cell in row:
-                    # 关键判断：值是字符串(str) 且 数据类型是 's' (string)，以排除公式('f')
-                    if isinstance(cell.value, str) and cell.data_type == "s":
-                        cell_info = {
-                            "sheet_name": sheet_name,
-                            "coordinate": cell.coordinate,
-                            "original_text": cell.value,
-                        }
-                        cells_to_translate.append(cell_info)
+        # --- 步骤 1: 根据是否指定区域，收集需要翻译的文本单元格 ---
+
+        # 如果未指定翻译区域，则沿用旧逻辑，翻译所有单元格
+        if self.translate_regions is None:
+            for sheet in workbook.worksheets:
+                for row in sheet.iter_rows():
+                    for cell in row:
+                        if isinstance(cell.value, str) and cell.data_type == "s":
+                            cells_to_translate.append({
+                                "sheet_name": sheet.title,
+                                "coordinate": cell.coordinate,
+                                "original_text": cell.value,
+                            })
+        # 如果指定了翻译区域，则只在这些区域内查找
+        else:
+            # 用于防止重叠区域导致重复翻译
+            processed_coordinates = set()
+
+            # 1. 解析区域，区分“全局区域”和“指定工作表区域”
+            regions_by_sheet = {}
+            all_sheet_regions = []
+            for region in self.translate_regions:
+                if '!' in region:
+                    sheet_name, cell_range = region.split('!', 1)
+                    if sheet_name not in regions_by_sheet:
+                        regions_by_sheet[sheet_name] = []
+                    regions_by_sheet[sheet_name].append(cell_range)
+                else:
+                    all_sheet_regions.append(region)
+
+            # 2. 遍历工作表，应用区域规则
+            for sheet in workbook.worksheets:
+                # 获取当前工作表的“指定区域”和“全局区域”
+                sheet_specific_ranges = regions_by_sheet.get(sheet.title, [])
+                total_ranges_for_this_sheet = sheet_specific_ranges + all_sheet_regions
+
+                if not total_ranges_for_this_sheet:
+                    continue
+
+                # 3. 遍历区域内的单元格
+                for cell_range in total_ranges_for_this_sheet:
+                    try:
+                        # sheet[cell_range] 可以获取单个单元格或一个元组的元组
+                        cells_in_range = sheet[cell_range]
+                        if isinstance(cells_in_range, Cell):
+                            # 将单个单元格包装成与多单元格范围一致的结构
+                            cells_in_range = ((cells_in_range,),)
+
+                        for row_of_cells in cells_in_range:
+                            for cell in row_of_cells:
+                                full_coordinate = (sheet.title, cell.coordinate)
+                                # 如果该单元格已处理，则跳过
+                                if full_coordinate in processed_coordinates:
+                                    continue
+
+                                # 关键判断：值是字符串(str) 且 数据类型是 's' (string)
+                                if isinstance(cell.value, str) and cell.data_type == "s":
+                                    cell_info = {
+                                        "sheet_name": sheet.title,
+                                        "coordinate": cell.coordinate,
+                                        "original_text": cell.value,
+                                    }
+                                    cells_to_translate.append(cell_info)
+                                    processed_coordinates.add(full_coordinate)
+                    except Exception as e:
+                        self.logger.warning(f"跳过无效的区域 '{cell_range}' 在工作表 '{sheet.title}'. 错误: {e}")
+
         # 提取所有原文文本，准备进行批量翻译
         original_texts = [cell["original_text"] for cell in cells_to_translate]
         return workbook, cells_to_translate, original_texts
@@ -88,7 +149,7 @@ class XlsxTranslator(Translator):
 
         workbook, cells_to_translate, original_texts = self._pre_translate(document)
         if not cells_to_translate:
-            print("\n文件中没有找到需要翻译的纯文本内容。")
+            print("\n在指定区域中没有找到需要翻译的纯文本内容。")
             workbook.close()
             return self
         # --- 步骤 2: 调用翻译函数 ---
@@ -101,7 +162,7 @@ class XlsxTranslator(Translator):
 
         workbook, cells_to_translate, original_texts = await asyncio.to_thread(self._pre_translate, document)
         if not cells_to_translate:
-            print("\n文件中没有找到需要翻译的纯文本内容。")
+            print("\n在指定区域中没有找到需要翻译的纯文本内容。")
             workbook.close()
             return self
         # --- 步骤 2: 调用翻译函数 ---
@@ -110,4 +171,3 @@ class XlsxTranslator(Translator):
         document.content = await asyncio.to_thread(self._after_translate, workbook, cells_to_translate,
                                                    translated_texts, original_texts)
         return self
-

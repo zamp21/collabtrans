@@ -252,6 +252,10 @@ class XlsxWorkflowParams(BaseWorkflowParams):
         "\n",
         description="当 insert_mode 为 'append' 或 'prepend' 时，用于分隔原文和译文的分隔符。"
     )
+    translate_regions: Optional[List[str]] = Field(
+        None,
+        description="指定翻译区域列表。示例: ['Sheet1!A1:B10', 'C:D', 'E5']。如果不指定表名 (如 'C:D')，则应用于所有表。如果为 None，则翻译整个文件中的所有文本。"
+    )
 
 
 class DocxWorkflowParams(BaseWorkflowParams):
@@ -367,7 +371,8 @@ class TranslateServiceRequest(BaseModel):
                             "insert_mode": "append",
                             "separator": " \n---翻译---\n ",
                             "chunk_size": 2000,
-                            "concurrent": 5
+                            "concurrent": 5,
+                            "translate_regions": ["Sheet1!A1:B10", "C:D"]
                         }
                     }
                 },
@@ -530,7 +535,7 @@ async def _perform_translation(
                 **payload.model_dump(include={
                     'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                     'temperature', 'thinking', 'chunk_size', 'concurrent',
-                    'insert_mode', 'separator'
+                    'insert_mode', 'separator', 'translate_regions'
                 }, exclude_none=True)
             )
             html_exporter_config = Xlsx2HTMLExporterConfig(cdn=True)
