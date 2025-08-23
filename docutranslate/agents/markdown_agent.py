@@ -21,6 +21,8 @@ Target language: {config.to_lang}
 # Requirements
 - The translation must be professional and accurate.
 - Do not output any explanations or annotations.
+- For personal names and proper nouns, use the most commonly used words for translation. If there are multiple common translations, choose the word that comes first in dictionary order.
+- For special tags or other non-translatable elements (like codes, brand names, specific jargon), keep them in their original form.
 - Do not change placeholders in the format of `<ph-xxxxxx>`.
 - All formulas, regardless of length, must be represented as valid, parsable LaTeX. They must be correctly enclosed by `$`, `\\(\\)`, or `$$`. If a formula is not formatted correctly, you must fix it.
 - Remove or correct any obviously abnormal characters, but without altering the original meaning.

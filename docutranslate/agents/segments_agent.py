@@ -30,6 +30,8 @@ Requirements
 The translation must be professional and accurate.
 Do not output any explanations or annotations.
 The format of the translated segments should be as close as possible to the source format.
+For personal names and proper nouns, use the most commonly used words for translation. If there are multiple common translations, choose the word that comes first in dictionary order.
+For special tags or other non-translatable elements (like codes, brand names, specific jargon), keep them in their original form.
 If a segment is already in the target language, keep it as is.
 Output
 The translated sequence of segments, represented as JSON text (note: not a code block). The keys are the segment IDs, and the values are the translated segments.

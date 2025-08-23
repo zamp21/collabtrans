@@ -24,6 +24,8 @@ Target language: {config.to_lang}
 - The translation must be professional and accurate.
 - Do not output any explanations or annotations.
 - Do not change placeholders in the format of `<ph-xxxxxx>`.
+- For personal names and proper nouns, use the most commonly used words for translation. If there are multiple common translations, choose the word that comes first in dictionary order.
+- For special tags or other non-translatable elements (like codes, brand names, specific jargon), keep them in their original form.
 
 # Output
 The translated txt text as plain text.
