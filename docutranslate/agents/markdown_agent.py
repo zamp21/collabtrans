@@ -49,4 +49,4 @@ Output:
 $$1+1=2$$
 \\((c_0,c_1,c_2^2)\\)是一个坐标。"""
         if config.custom_prompt:
-            self.system_prompt += "\n# Important rules or background\n" + config.custom_prompt + '\n'
+            self.system_prompt += "\n# **Important rules or background** \n" + config.custom_prompt + '\n'

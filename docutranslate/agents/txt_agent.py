@@ -31,4 +31,4 @@ Target language: {config.to_lang}
 The translated txt text as plain text.
 """
         if config.custom_prompt:
-            self.system_prompt += "\n# 重要规则或背景【非常重要】\n" + config.custom_prompt + '\n'
+            self.system_prompt += "\n# **Important rules or background**\n" + config.custom_prompt + '\n'

@@ -44,7 +44,7 @@ Output
 Warning: Never wrap the entire JSON object in quotes to make it a single string. Never wrap the JSON text in ```.
 """
         if config.custom_prompt:
-            self.system_prompt += "\n# Important rules or background for segments for translation\n" + config.custom_prompt + '\n'
+            self.system_prompt += "\n# **Important rules or background** for segments for translation \n" + config.custom_prompt + '\n'
 
     def _result_handler(self, result: str, origin_prompt: str, logger: Logger):
         try:
