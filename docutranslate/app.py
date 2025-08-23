@@ -33,7 +33,7 @@ from docutranslate.workflow.html_workflow import HtmlWorkflow, HtmlWorkflowConfi
 # --- HTML WORKFLOW IMPORT END ---
 from docutranslate.workflow.interfaces import DocxExportable, EpubExportable
 from docutranslate.workflow.interfaces import HTMLExportable, MDFormatsExportable, TXTExportable, JsonExportable, \
-    XlsxExportable, SrtExportable
+    XlsxExportable, SrtExportable, CsvExportable
 from docutranslate.workflow.json_workflow import JsonWorkflow, JsonWorkflowConfig
 from docutranslate.workflow.md_based_workflow import MarkdownBasedWorkflow, MarkdownBasedWorkflowConfig
 from docutranslate.workflow.srt_workflow import SrtWorkflow, SrtWorkflowConfig
@@ -849,6 +849,25 @@ async def service_release_task(task_id: str):
                                 }
                             }
                         },
+                        "completed_xlsx": {
+                            "summary": "已完成 (XLSX)",
+                            "value": {
+                                "task_id": "d7e8f9a0",
+                                "is_processing": False,
+                                "status_message": "翻译成功！用时 18.99 秒。",
+                                "error_flag": False,
+                                "download_ready": True,
+                                "original_filename_stem": "sales_data",
+                                "original_filename": "sales_data.xlsx",
+                                "task_start_time": 1678889600.0,
+                                "task_end_time": 1678889618.99,
+                                "downloads": {
+                                    "xlsx": "/service/download/d7e8f9a0/xlsx",
+                                    "csv": "/service/download/d7e8f9a0/csv",
+                                    "html": "/service/download/d7e8f9a0/html"
+                                }
+                            }
+                        },
                         "completed_docx": {
                             "summary": "已完成 (DOCX)",
                             "value": {
@@ -929,6 +948,8 @@ async def service_get_status(
             downloads["json"] = f"/service/download/{task_id}/json"
         if isinstance(workflow, XlsxExportable):
             downloads["xlsx"] = f"/service/download/{task_id}/xlsx"
+        if isinstance(workflow, CsvExportable):
+            downloads["csv"] = f"/service/download/{task_id}/csv"
         if isinstance(workflow, DocxExportable):
             downloads["docx"] = f"/service/download/{task_id}/docx"
         if isinstance(workflow, SrtExportable):
@@ -969,7 +990,7 @@ async def service_get_logs(task_id: str):
     return JSONResponse(content={"logs": new_logs})
 
 
-FileType = Literal["markdown", "markdown_zip", "html", "txt", "json", "xlsx", "docx", "srt", "epub"]
+FileType = Literal["markdown", "markdown_zip", "html", "txt", "json", "xlsx", "csv", "docx", "srt", "epub"]
 
 
 async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple[bytes, str, str]:
@@ -1036,6 +1057,9 @@ async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple
         elif file_type == 'xlsx' and isinstance(workflow, XlsxExportable):
             content_bytes = await asyncio.to_thread(workflow.export_to_xlsx)
             media_type, filename = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", f"{filename_stem}_translated.xlsx"
+        elif file_type == 'csv' and isinstance(workflow, CsvExportable):
+            content_bytes = await asyncio.to_thread(workflow.export_to_csv)
+            media_type, filename = "text/csv; charset=utf-8", f"{filename_stem}_translated.csv"
         elif file_type == 'docx' and isinstance(workflow, DocxExportable):
             content_bytes = await asyncio.to_thread(workflow.export_to_docx)
             media_type, filename = "application/vnd.openxmlformats-officedocument.wordprocessingml.document", f"{filename_stem}_translated.docx"
@@ -1065,6 +1089,7 @@ async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple
                 "text/html; charset=utf-8": {"schema": {"type": "string"}},
                 "text/markdown; charset=utf-8": {"schema": {"type": "string"}},
                 "text/plain; charset=utf-8": {"schema": {"type": "string"}},
+                "text/csv; charset=utf-8": {"schema": {"type": "string"}},
                 "application/zip": {"schema": {"type": "string", "format": "binary"}},
                 "application/json": {"schema": {"type": "string", "format": "binary"}},
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
@@ -1082,7 +1107,7 @@ async def _get_content_from_workflow(task_id: str, file_type: FileType) -> tuple
 async def service_download_file(
         task_id: str = FastApiPath(..., description="已完成任务的ID", examples=["b2865b93"]),
         file_type: FileType = FastApiPath(..., description="要下载的文件类型。",
-                                          examples=["html", "json", "docx", "srt", "epub"])
+                                          examples=["html", "json", "csv", "docx", "srt", "epub"])
 ):
     content, media_type, filename = await _get_content_from_workflow(task_id, file_type)
     headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename, safe='', encoding='utf-8')}"}
@@ -1135,7 +1160,7 @@ async def service_download_file(
 async def service_content(
         task_id: str = FastApiPath(..., description="已完成任务的ID", examples=["b2865b93"]),
         file_type: FileType = FastApiPath(..., description="要获取内容的文件类型。",
-                                          examples=["html", "json", "docx", "srt", "epub"])
+                                          examples=["html", "json", "csv", "docx", "srt", "epub"])
 ):
     content, _, filename = await _get_content_from_workflow(task_id, file_type)
 

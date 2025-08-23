@@ -113,8 +113,8 @@ if __name__ == '__main__':
     from pathlib import Path
 
     # d = Document.from_path(r"C:\Users\jxgm\Desktop\mcp文件夹\学习笔记\互联网认证授权机制\互联网认证授权机制.md")
-    d = Document.from_path(r"C:\Users\jxgm\Desktop\matrixcookbook_translated.md")
-
+    d = Document.from_path(r"C:\Users\jxgm\Desktop\matrixcalc_translated.md")
+    # d = Document.from_path(r"C:\Users\jxgm\Downloads\3a8d8999-3e9d-4f32-a32c-5b0830bb4320\full.md")
     exporter = MD2HTMLExporter()
     d1 = exporter.export(d)
     path = Path(r"C:\Users\jxgm\Desktop\a.html")
