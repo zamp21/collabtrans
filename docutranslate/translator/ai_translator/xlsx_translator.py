@@ -51,7 +51,7 @@ class XlsxTranslator(Translator):
         # --- 步骤 1: 根据是否指定区域，收集需要翻译的文本单元格 ---
 
         # 如果未指定翻译区域，则沿用旧逻辑，翻译所有单元格
-        if self.translate_regions is None:
+        if not self.translate_regions:  # 也处理 None 或空列表的情况
             for sheet in workbook.worksheets:
                 for row in sheet.iter_rows():
                     for cell in row:
@@ -63,10 +63,8 @@ class XlsxTranslator(Translator):
                             })
         # 如果指定了翻译区域，则只在这些区域内查找
         else:
-            # 用于防止重叠区域导致重复翻译
             processed_coordinates = set()
 
-            # 1. 解析区域，区分“全局区域”和“指定工作表区域”
             regions_by_sheet = {}
             all_sheet_regions = []
             for region in self.translate_regions:
@@ -78,44 +76,49 @@ class XlsxTranslator(Translator):
                 else:
                     all_sheet_regions.append(region)
 
-            # 2. 遍历工作表，应用区域规则
             for sheet in workbook.worksheets:
-                # 获取当前工作表的“指定区域”和“全局区域”
                 sheet_specific_ranges = regions_by_sheet.get(sheet.title, [])
                 total_ranges_for_this_sheet = sheet_specific_ranges + all_sheet_regions
 
                 if not total_ranges_for_this_sheet:
                     continue
 
-                # 3. 遍历区域内的单元格
                 for cell_range in total_ranges_for_this_sheet:
                     try:
-                        # sheet[cell_range] 可以获取单个单元格或一个元组的元组
                         cells_in_range = sheet[cell_range]
+
+                        # --- START: 这是修改的关键部分 ---
+                        # 无论返回的是单个cell、一维元组(行/列)还是二维元组(矩形)，都将其展平为一维列表
+                        flat_cells = []
                         if isinstance(cells_in_range, Cell):
-                            # 将单个单元格包装成与多单元格范围一致的结构
-                            cells_in_range = ((cells_in_range,),)
+                            flat_cells.append(cells_in_range)
+                        elif isinstance(cells_in_range, tuple):
+                            for item in cells_in_range:
+                                if isinstance(item, Cell):
+                                    flat_cells.append(item)  # 处理一维元组
+                                elif isinstance(item, tuple):
+                                    for cell in item:  # 处理二维元组
+                                        flat_cells.append(cell)
+                        # --- END: 修改结束 ---
 
-                        for row_of_cells in cells_in_range:
-                            for cell in row_of_cells:
-                                full_coordinate = (sheet.title, cell.coordinate)
-                                # 如果该单元格已处理，则跳过
-                                if full_coordinate in processed_coordinates:
-                                    continue
+                        # 使用简化后的单层循环
+                        for cell in flat_cells:
+                            full_coordinate = (sheet.title, cell.coordinate)
+                            if full_coordinate in processed_coordinates:
+                                continue
 
-                                # 关键判断：值是字符串(str) 且 数据类型是 's' (string)
-                                if isinstance(cell.value, str) and cell.data_type == "s":
-                                    cell_info = {
-                                        "sheet_name": sheet.title,
-                                        "coordinate": cell.coordinate,
-                                        "original_text": cell.value,
-                                    }
-                                    cells_to_translate.append(cell_info)
-                                    processed_coordinates.add(full_coordinate)
+                            if isinstance(cell.value, str) and cell.data_type == "s":
+                                cell_info = {
+                                    "sheet_name": sheet.title,
+                                    "coordinate": cell.coordinate,
+                                    "original_text": cell.value,
+                                }
+                                cells_to_translate.append(cell_info)
+                                processed_coordinates.add(full_coordinate)
+
                     except Exception as e:
                         self.logger.warning(f"跳过无效的区域 '{cell_range}' 在工作表 '{sheet.title}'. 错误: {e}")
 
-        # 提取所有原文文本，准备进行批量翻译
         original_texts = [cell["original_text"] for cell in cells_to_translate]
         return workbook, cells_to_translate, original_texts
 
