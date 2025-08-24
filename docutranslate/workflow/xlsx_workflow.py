@@ -1,11 +1,12 @@
 import asyncio
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Self, Type
+from typing import Self
 
+from docutranslate.converter.base import ConverterConfig
 from docutranslate.converter.converter_identity import ConverterIdentity
 from docutranslate.converter.x2xlsx.base import X2XlsxConverter
-from docutranslate.converter.x2xlsx.converter_csv2xlsx import ConverterCsv2Xlsx
+from docutranslate.converter.x2xlsx.converter_csv2xlsx import ConverterCsv2Xlsx, ConverterCsv2XlsxConfig
 from docutranslate.exporter.base import ExporterConfig
 from docutranslate.exporter.xlsx.xlsx2csv_exporter import Xlsx2CsvExporter
 from docutranslate.exporter.xlsx.xlsx2html_exporter import Xlsx2HTMLExporterConfig, Xlsx2HTMLExporter
@@ -23,12 +24,7 @@ class XlsxWorkflowConfig(WorkflowConfig):
 
 
 class XlsxWorkflow(Workflow[XlsxWorkflowConfig, Document, Document], HTMLExportable[Xlsx2HTMLExporterConfig],
-                   XlsxExportable[ExporterConfig],CsvExportable[ExporterConfig]):
-    _converter_factory: dict[
-        str, Type[X2XlsxConverter | ConverterIdentity]] = {
-        ".csv": ConverterCsv2Xlsx,
-        ".xlsx": ConverterIdentity
-    }
+                   XlsxExportable[ExporterConfig], CsvExportable[ExporterConfig]):
 
     def __init__(self, config: XlsxWorkflowConfig):
         super().__init__(config=config)
@@ -36,17 +32,25 @@ class XlsxWorkflow(Workflow[XlsxWorkflowConfig, Document, Document], HTMLExporta
             for sub_config in [self.config.translator_config]:
                 if sub_config:
                     sub_config.logger = config.logger
+        self._converter_factory: dict[
+            str, tuple[
+                type[X2XlsxConverter | ConverterIdentity], ConverterConfig|None]] = {
+            ".csv": (ConverterCsv2Xlsx, ConverterCsv2XlsxConfig(logger=self.logger)),
+            ".xlsx": (ConverterIdentity,None)
+        }
 
     def _get_document_xlsx(self, document: Document) -> Document:
         suffix = document.suffix
-        converter_type = self._converter_factory.get(suffix)
-        if converter_type is None:
+        converter_types = self._converter_factory.get(suffix)
+        if converter_types is None:
             raise ValueError(f"Xlsx工作流不支持{suffix}格式文件")
-        converter = converter_type()
+        converter_type, converter_config = converter_types
+        converter = converter_type(converter_config)
+
         return converter.convert(document)
 
-    def _pre_translate(self, document_pre_transalte: Document):
-        document = document_pre_transalte.copy()
+    def _pre_translate(self, document_pre_translate: Document):
+        document = document_pre_translate.copy()
         translate_config = self.config.translator_config
         translator = XlsxTranslator(translate_config)
         return document, translator

@@ -1,7 +1,6 @@
 import asyncio
 import base64
 import binascii
-import io
 import logging
 import os
 import shutil
@@ -12,13 +11,12 @@ import uuid
 from contextlib import asynccontextmanager, closing
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Literal, Union, Annotated, TYPE_CHECKING, Type
-from urllib.parse import quote
 
 import httpx
 import uvicorn
 from fastapi import FastAPI, HTTPException, APIRouter, Body, Path as FastApiPath
 from fastapi.openapi.docs import get_swagger_ui_html, get_swagger_ui_oauth2_redirect_html, get_redoc_html
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
@@ -247,7 +245,8 @@ class MarkdownWorkflowParams(BaseWorkflowParams):
     mineru_token: Optional[str] = Field(None, description="当 `convert_engine` 为 'mineru' 时必填的API令牌。")
     formula_ocr: bool = Field(True, description="是否对公式进行OCR识别。对 `mineru` 和 `docling` 均有效。")
     code_ocr: bool = Field(True, description="是否对代码块进行OCR识别。仅 `docling` 引擎有效。")
-    model_version: Literal["pipeline", "vlm"] = Field("vlm", description="Mineru模型的版本，'vlm'是更新的版本。仅 `mineru` 引擎有效。")
+    model_version: Literal["pipeline", "vlm"] = Field("vlm",
+                                                      description="Mineru模型的版本，'vlm'是更新的版本。仅 `mineru` 引擎有效。")
 
     @field_validator('mineru_token')
     def check_mineru_token(cls, v, values):
@@ -348,7 +347,8 @@ TranslatePayload = Annotated[
 # 4. 创建最终的请求体模型
 class TranslateServiceRequest(BaseModel):
     file_name: str = Field(..., description="上传的原始文件名，含扩展名。",
-                           examples=["my_paper.pdf", "chapter1.txt", "data.xlsx", "video.srt", "my_book.epub", "index.html"])
+                           examples=["my_paper.pdf", "chapter1.txt", "data.xlsx", "video.srt", "my_book.epub",
+                                     "index.html"])
     file_content: str = Field(..., description="Base64编码的文件内容。", examples=["JVBERi0xLjQK..."])
     payload: TranslatePayload = Field(..., description="包含工作流类型和相应参数的载荷。")
 
@@ -654,7 +654,7 @@ async def _perform_translation(
         await workflow.translate_async()
 
         # 4. 任务成功，生成所有可下载文件并存储
-        task_logger.info("翻译完成，正在生成结果文件...")
+        task_logger.info("翻译完成，正在生成临时结果文件...")
         temp_dir = tempfile.mkdtemp(prefix=f"docutranslate_{task_id}_")
         task_state["temp_dir"] = temp_dir
         downloadable_files = {}
@@ -689,7 +689,8 @@ async def _perform_translation(
                 html_config = Srt2HTMLExporterConfig(cdn=is_cdn_available)
             elif isinstance(workflow, EpubWorkflow):
                 html_config = Epub2HTMLExporterConfig(cdn=is_cdn_available)
-            export_map['html'] = (lambda: workflow.export_to_html(html_config), f"{filename_stem}_translated.html", True)
+            export_map['html'] = (lambda: workflow.export_to_html(html_config), f"{filename_stem}_translated.html",
+                                  True)
         if isinstance(workflow, MDFormatsExportable):
             export_map['markdown'] = (workflow.export_to_markdown, f"{filename_stem}_translated.md", True)
             export_map['markdown_zip'] = (workflow.export_to_markdown_zip, f"{filename_stem}_translated.zip", False)
@@ -711,14 +712,13 @@ async def _perform_translation(
         # 循环生成文件
         for file_type, (export_func, filename, is_string_output) in export_map.items():
             try:
-                task_logger.info(f"正在生成 {file_type} 文件: {filename}")
                 content = await asyncio.to_thread(export_func)
                 content_bytes = content.encode('utf-8') if is_string_output else content
                 file_path = os.path.join(temp_dir, filename)
                 with open(file_path, "wb") as f:
                     f.write(content_bytes)
                 downloadable_files[file_type] = {"path": file_path, "filename": filename}
-                task_logger.info(f"成功生成 {file_type} 文件于: {file_path}")
+                task_logger.info(f"成功生成 {file_type} 文件")
             except Exception as export_error:
                 task_logger.error(f"生成 {file_type} 文件时出错: {export_error}", exc_info=True)
 
@@ -760,7 +760,7 @@ async def _perform_translation(
 
         if task_state["error_flag"] and temp_dir and os.path.isdir(temp_dir):
             shutil.rmtree(temp_dir)
-            task_logger.info(f"因任务失败，已清理临时目录: {temp_dir}")
+            task_logger.info(f"因任务失败，已清理临时目录")
             task_state["temp_dir"] = None
 
         task_logger.info(f"后台翻译任务 '{original_filename}' 处理结束。")
@@ -1199,7 +1199,8 @@ async def service_content(
 
     file_info = task_state.get("downloadable_files", {}).get(file_type)
     if not file_info or not os.path.exists(file_info.get("path")):
-        raise HTTPException(status_code=404, detail=f"任务 '{task_id}' 不支持获取 '{file_type}' 类型的内容，或文件已丢失。")
+        raise HTTPException(status_code=404,
+                            detail=f"任务 '{task_id}' 不支持获取 '{file_type}' 类型的内容，或文件已丢失。")
 
     file_path = file_info["path"]
     filename = file_info["filename"]
@@ -1299,7 +1300,8 @@ async def temp_translate(
         decoded_content = file_content.encode('utf-8')
     try:
         workflow_config = MarkdownBasedWorkflowConfig(
-            convert_engine="mineru", converter_config=ConverterMineruConfig(mineru_token=mineru_token, model_version=model_version),
+            convert_engine="mineru",
+            converter_config=ConverterMineruConfig(mineru_token=mineru_token, model_version=model_version),
             translator_config=MDTranslatorConfig(base_url=base_url, api_key=api_key, model_id=model_id,
                                                  to_lang=to_lang, custom_prompt=custom_prompt, temperature=temperature,
                                                  thinking=thinking, chunk_size=chunk_size, concurrent=concurrent),

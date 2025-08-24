@@ -1,17 +1,24 @@
 import asyncio
 import csv
-import logging
+from dataclasses import dataclass
 from io import BytesIO, StringIO
+from typing import Hashable
 
 # 引入 chardet 用于编码检测
 import chardet
 import openpyxl
-from docutranslate.converter.x2xlsx.base import X2XlsxConverter
+
+from docutranslate.converter.x2xlsx.base import X2XlsxConverter, X2XlsxConverterConfig
 from docutranslate.ir.document import Document
 
 
 # 配置一个基本的日志记录器（如果您的项目尚未配置）
 # logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+@dataclass(kw_only=True)
+class ConverterCsv2XlsxConfig(X2XlsxConverterConfig):
+
+    def gethash(self) -> Hashable:
+        return "1"
 
 
 class ConverterCsv2Xlsx(X2XlsxConverter):
@@ -25,6 +32,8 @@ class ConverterCsv2Xlsx(X2XlsxConverter):
     - 完善的错误处理和日志记录。
     """
 
+    def __init__(self, config: ConverterCsv2XlsxConfig):
+        super().__init__(config=config)
 
     def convert(self, document: Document) -> Document:
         """

@@ -1,4 +1,7 @@
-from docutranslate.converter.base import Converter
+from dataclasses import dataclass
+from typing import Hashable
+
+from docutranslate.converter.base import Converter, ConverterConfig
 from docutranslate.ir.document import Document
 
 
