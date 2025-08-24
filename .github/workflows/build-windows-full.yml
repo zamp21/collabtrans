@@ -1,9 +1,9 @@
-name: Build Windows Application
+name: Build Windows-full Application
 
 on:
-  push:
-    branches: [ "main" ]
   workflow_dispatch:
+  release:
+    types: [created]
 
 
 jobs:
