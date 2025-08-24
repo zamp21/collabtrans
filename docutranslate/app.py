@@ -732,7 +732,7 @@ async def _perform_translation(
             "task_end_time": end_time,
             "downloadable_files": downloadable_files,
         })
-        task_logger.info(f"翻译成功完成，用时 {duration:.2f} 秒。所有结果文件已生成。")
+        task_logger.info(f"翻译成功完成，用时 {duration:.2f} 秒。")
 
     except asyncio.CancelledError:
         end_time = time.time()
