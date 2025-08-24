@@ -40,7 +40,15 @@ jobs:
         run: |
           uv run pyinstaller lite_mac.spec --noconfirm
 
-      # 第 7 步: 创建 macOS 应用包结构
+      # 第 7 步: 获取应用版本号
+      - name: Get application version
+        id: get_version
+        run: |
+          VERSION=$(python -c "import docutranslate; print(docutranslate.__version__)")
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      # 第 8 步: 创建 macOS 应用包结构
       - name: Create macOS app bundle structure
         run: |
           mkdir -p dist/DocuTranslate.app/Contents/MacOS
@@ -70,7 +78,7 @@ jobs:
               <key>CFBundleVersion</key>
               <string>${{ github.run_number }}</string>
               <key>CFBundleShortVersionString</key>
-              <string>$(python -c "import docutranslate; print(docutranslate.__version__)")</string>
+              <string>${{ env.VERSION }}</string>
               <key>NSHighResolutionCapable</key>
               <true/>
           </dict>
@@ -78,14 +86,14 @@ jobs:
           EOF
         shell: bash
 
-      # 第 8 步: 将 .app 打包成 .dmg 磁盘映像
-      - name: Create DMG Disk Image
+      # 第 9 步: 将 .app 打包成 .dmg 磁盘映像（带版本号）
+      - name: Create DMG Disk Image with version
         run: |
-          hdiutil create -volname "DocuTranslate Installer" -srcfolder dist/DocuTranslate.app -ov -format UDZO dist/DocuTranslate-macOS.dmg
+          hdiutil create -volname "DocuTranslate Installer" -srcfolder dist/DocuTranslate.app -ov -format UDZO "dist/DocuTranslate-${{ env.VERSION }}-macOS.dmg"
 
-      # 第 9 步: 上传 .dmg 文件作为构建产物
+      # 第 10 步: 上传 .dmg 文件作为构建产物
       - name: Upload macOS DMG
         uses: actions/upload-artifact@v4
         with:
-          name: DocuTranslate-macOS
-          path: dist/DocuTranslate-macOS.dmg # <--- 修改这里，上传 .dmg 文件
+          name: DocuTranslate-macOS-${{ env.VERSION }}
+          path: dist/DocuTranslate-${{ env.VERSION }}-macOS.dmg
