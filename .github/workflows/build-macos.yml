@@ -95,5 +95,5 @@ jobs:
       - name: Upload macOS DMG
         uses: actions/upload-artifact@v4
         with:
-          name: DocuTranslate-macOS-${{ env.VERSION }}
+          name: DocuTranslate-macOS
           path: dist/DocuTranslate-${{ env.VERSION }}-macOS.dmg
