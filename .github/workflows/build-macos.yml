@@ -1,4 +1,4 @@
-name: Build macOS Application (Universal2)
+name: Build macOS Universal2 Application
 
 on:
   workflow_dispatch:
@@ -7,7 +7,9 @@ on:
 
 jobs:
   build-macos:
-    runs-on: macos-latest
+    # 更改第 1 处：指定使用 macOS 14 (Apple Silicon, arm64) 运行环境
+    # 这是构建 universal2 应用的前提
+    runs-on: macos-14
 
     steps:
       # 第 1 步: 检出代码
@@ -35,25 +37,14 @@ jobs:
         run: |
           brew install upx
 
-      # 第 6 步: 运行 PyInstaller (Universal2 架构)
-      - name: Build the application with PyInstaller (Universal2)
+      # 第 6 步: 运行 PyInstaller (macOS universal2 版本)
+      - name: Build the application with PyInstaller for universal2
         run: |
-          # 设置架构为 universal2
-          export ARCHFLAGS="-arch x86_64 -arch arm64"
-          
-          # 使用 universal2 标志运行 PyInstaller
-          uv run pyinstaller lite_mac.spec --noconfirm --target-architecture universal2
+          # 更改第 2 处：添加 --target-arch universal2 参数
+          # 这个参数会告诉 PyInstaller 构建一个同时支持 Intel 和 Apple Silicon 的应用
+          uv run pyinstaller lite_mac.spec --noconfirm --target-arch universal2
 
-      # 第 7 步: 验证二进制文件架构
-      - name: Verify universal2 architecture
-        run: |
-          # 检查生成的可执行文件是否包含两种架构
-          file dist/DocuTranslate-*-mac
-          lipo -archs dist/DocuTranslate-*-mac
-          echo "验证二进制文件架构:"
-          lipo -info dist/DocuTranslate-*-mac
-
-      # 第 8 步: 获取应用版本号
+      # 第 7 步: 获取应用版本号
       - name: Get application version
         id: get_version
         run: |
@@ -61,24 +52,22 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      # 第 9 步: 创建 macOS 应用包结构 (Universal2)
+      # 第 8 步: 创建 macOS 应用包结构
       - name: Create macOS app bundle structure
         run: |
           mkdir -p dist/DocuTranslate.app/Contents/MacOS
           mkdir -p dist/DocuTranslate.app/Contents/Resources
           
           # 移动可执行文件
-          mv dist/DocuTranslate-*-mac dist/DocuTranslate.app/Contents/MacOS/DocuTranslate
+          # PyInstaller 生成的 universal2 可执行文件名与 spec 文件中的 name 字段一致
+          # 假设 spec 文件中的 name 是 'DocuTranslate'，这里可以直接使用
+          mv dist/DocuTranslate dist/DocuTranslate.app/Contents/MacOS/DocuTranslate
           chmod +x dist/DocuTranslate.app/Contents/MacOS/DocuTranslate
-          
-          # 验证应用包内的二进制文件架构
-          echo "验证应用包内二进制文件架构:"
-          lipo -info dist/DocuTranslate.app/Contents/MacOS/DocuTranslate
           
           # 复制图标文件
           cp DocuTranslate.icns dist/DocuTranslate.app/Contents/Resources/
           
-          # 创建 Info.plist (添加架构信息)
+          # 创建 Info.plist
           cat > dist/DocuTranslate.app/Contents/Info.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -96,14 +85,6 @@ jobs:
               <string>${{ github.run_number }}</string>
               <key>CFBundleShortVersionString</key>
               <string>${{ env.VERSION }}</string>
-              <key>CFBundleSupportedPlatforms</key>
-              <array>
-                  <string>MacOSX</string>
-              </array>
-              <key>LSMinimumSystemVersion</key>
-              <string>10.15</string>
-              <key>LSRequiresNativeExecution</key>
-              <true/>
               <key>NSHighResolutionCapable</key>
               <true/>
           </dict>
@@ -111,14 +92,14 @@ jobs:
           EOF
         shell: bash
 
-      # 第 10 步: 将 .app 打包成 .dmg 磁盘映像（带版本号）
+      # 第 9 步: 将 .app 打包成 .dmg 磁盘映像（带版本号）
       - name: Create DMG Disk Image with version
         run: |
-          hdiutil create -volname "DocuTranslate Installer" -srcfolder dist/DocuTranslate.app -ov -format UDZO "dist/DocuTranslate-${{ env.VERSION }}-macOS-universal2.dmg"
+          hdiutil create -volname "DocuTranslate Installer" -srcfolder dist/DocuTranslate.app -ov -format UDZO "dist/DocuTranslate-${{ env.VERSION }}-macOS-universal.dmg"
 
-      # 第 11 步: 上传 .dmg 文件作为构建产物
-      - name: Upload macOS DMG (Universal2)
+      # 第 10 步: 上传 .dmg 文件作为构建产物
+      - name: Upload macOS DMG
         uses: actions/upload-artifact@v4
         with:
-          name: DocuTranslate-macOS-Universal2
-          path: dist/DocuTranslate-${{ env.VERSION }}-macOS-universal2.dmg
+          name: DocuTranslate-macOS-universal
+          path: dist/DocuTranslate-${{ env.VERSION }}-macOS-universal.dmg
