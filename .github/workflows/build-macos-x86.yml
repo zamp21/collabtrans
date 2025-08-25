@@ -44,7 +44,7 @@ jobs:
       # 步骤 7: 运行 PyInstaller 构建 x86_64 应用
       - name: Build the x86_64 application with PyInstaller
         run: |
-          uv run pyinstaller lite_mac_x86_64.spec --noconfirm 
+          uv run --no-dev pyinstaller lite_mac_x86_64.spec --noconfirm 
 
       # 步骤 8: 从代码中获取应用版本号
       - name: Get application version
