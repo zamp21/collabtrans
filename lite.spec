@@ -26,7 +26,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["docling", "docutranslate.converter.x2md.converter_docling"],
+    excludes=["docling", "docutranslate.converter.x2md.converter_docling","torch"],
     noarchive=False,
     optimize=0,
 )
