@@ -32,7 +32,9 @@ jobs:
 
       # 步骤 5: 使用 uv 安装项目依赖
       - name: Install dependencies with uv
-        run: uv pip install .
+        run: |
+          rm uv.lock
+          uv sync
 
       # 步骤 6: 安装 UPX (用于压缩可执行文件)
       - name: Install UPX
@@ -59,7 +61,7 @@ jobs:
           mkdir -p dist/DocuTranslate.app/Contents/MacOS
           mkdir -p dist/DocuTranslate.app/Contents/Resources
           
-          # 移动可执行文件到 .app 包中（注意文件名包含 -intel）
+          # 移动可执行文件到 .app 包中
           mv dist/DocuTranslate-*-mac dist/DocuTranslate.app/Contents/MacOS/DocuTranslate
           chmod +x dist/DocuTranslate.app/Contents/MacOS/DocuTranslate
           
