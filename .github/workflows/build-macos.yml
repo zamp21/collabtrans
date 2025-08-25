@@ -40,9 +40,7 @@ jobs:
       # 第 6 步: 运行 PyInstaller (macOS universal2 版本)
       - name: Build the application with PyInstaller for universal2
         run: |
-          # 更改第 2 处：添加 --target-arch universal2 参数
-          # 这个参数会告诉 PyInstaller 构建一个同时支持 Intel 和 Apple Silicon 的应用
-          uv run pyinstaller lite_mac.spec --noconfirm --target-arch universal2
+          uv run pyinstaller lite_mac.spec --noconfirm 
 
       # 第 7 步: 获取应用版本号
       - name: Get application version

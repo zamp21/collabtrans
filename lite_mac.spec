@@ -29,6 +29,7 @@ a = Analysis(
     runtime_hooks=[],
     excludes=["docling","docutranslate.converter.x2md.converter_docling"],
     noarchive=False,
+    target_arch='universal2',
     optimize=0,
 )
 
@@ -49,7 +50,6 @@ exe = EXE(
     console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
-    target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
     icon='DocuTranslate.icns',
