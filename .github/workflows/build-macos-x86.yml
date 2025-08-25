@@ -32,7 +32,7 @@ jobs:
 
       # 步骤 5: 使用 uv 安装项目依赖
       - name: Install dependencies with uv
-        run: uv sync
+        run: uv pip install .
 
       # 步骤 6: 安装 UPX (用于压缩可执行文件)
       - name: Install UPX
