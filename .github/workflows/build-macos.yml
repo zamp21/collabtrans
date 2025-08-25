@@ -1,48 +1,51 @@
 name: Build macOS Universal2 Application
 
 on:
+  # 允许手动触发工作流
   workflow_dispatch:
+  # 当在 GitHub 上创建新的 release 时自动触发
   release:
     types: [created]
 
 jobs:
   build-macos:
-    # 更改第 1 处：指定使用 macOS 14 (Apple Silicon, arm64) 运行环境
-    # 这是构建 universal2 应用的前提
+    # 步骤 1: 指定运行环境为 macOS 14 (Apple Silicon)
+    # 这是构建 arm64 和 universal2 应用的必要条件。
     runs-on: macos-14
 
     steps:
-      # 第 1 步: 检出代码
+      # 步骤 2: 检出你的代码库
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 第 2 步: 设置 Python 环境
+      # 步骤 3: 设置 Python 环境
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      # 第 3 步: 安装 uv
+      # 步骤 4: 安装 uv (一个快速的 Python 包安装器)
       - name: Install uv
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
-      # 第 4 步: 安装依赖
+      # 步骤 5: 使用 uv 安装项目依赖
       - name: Install dependencies with uv
         run: uv sync
 
-      # 第 5 步: 安装 UPX (macOS 版本)
+      # 步骤 6: 安装 UPX (用于压缩可执行文件)
       - name: Install UPX
         run: |
           brew install upx
 
-      # 第 6 步: 运行 PyInstaller (macOS universal2 版本)
-      - name: Build the application with PyInstaller for universal2
+      # 步骤 7: 运行 PyInstaller 构建应用
+      # universal2 的配置已移至 lite_mac.spec 文件中，所以命令行很简洁。
+      - name: Build the application with PyInstaller
         run: |
           uv run pyinstaller lite_mac.spec --noconfirm 
 
-      # 第 7 步: 获取应用版本号
+      # 步骤 8: 从代码中获取应用版本号
       - name: Get application version
         id: get_version
         run: |
@@ -50,22 +53,22 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      # 第 8 步: 创建 macOS 应用包结构
+      # 步骤 9: 创建标准的 macOS .app 包结构
       - name: Create macOS app bundle structure
         run: |
+          # 创建必要的目录
           mkdir -p dist/DocuTranslate.app/Contents/MacOS
           mkdir -p dist/DocuTranslate.app/Contents/Resources
           
-          # 移动可执行文件
-          # PyInstaller 生成的 universal2 可执行文件名与 spec 文件中的 name 字段一致
-          # 假设 spec 文件中的 name 是 'DocuTranslate'，这里可以直接使用
+          # 移动可执行文件到 .app 包中
+          # **重要**: 此命令依赖于 .spec 文件中 exe 的 name 设置为 'DocuTranslate'
           mv dist/DocuTranslate dist/DocuTranslate.app/Contents/MacOS/DocuTranslate
           chmod +x dist/DocuTranslate.app/Contents/MacOS/DocuTranslate
           
-          # 复制图标文件
+          # 复制应用图标
           cp DocuTranslate.icns dist/DocuTranslate.app/Contents/Resources/
           
-          # 创建 Info.plist
+          # 动态创建 Info.plist 文件
           cat > dist/DocuTranslate.app/Contents/Info.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -90,12 +93,13 @@ jobs:
           EOF
         shell: bash
 
-      # 第 9 步: 将 .app 打包成 .dmg 磁盘映像（带版本号）
+      # 步骤 10: 将 .app 文件打包成 .dmg 磁盘映像
       - name: Create DMG Disk Image with version
         run: |
           hdiutil create -volname "DocuTranslate Installer" -srcfolder dist/DocuTranslate.app -ov -format UDZO "dist/DocuTranslate-${{ env.VERSION }}-macOS-universal.dmg"
 
-      # 第 10 步: 上传 .dmg 文件作为构建产物
+      # 步骤 11: 上传 .dmg 文件作为构建产物
+      # 这样你就可以在工作流运行结束后下载它，或者在 release 中使用它。
       - name: Upload macOS DMG
         uses: actions/upload-artifact@v4
         with:
