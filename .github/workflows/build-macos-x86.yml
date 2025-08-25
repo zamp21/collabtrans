@@ -60,7 +60,7 @@ jobs:
           mkdir -p dist/DocuTranslate.app/Contents/Resources
           
           # 移动可执行文件到 .app 包中（注意文件名包含 -intel）
-          mv dist/DocuTranslate-*-mac-intel dist/DocuTranslate.app/Contents/MacOS/DocuTranslate
+          mv dist/DocuTranslate-*-mac dist/DocuTranslate.app/Contents/MacOS/DocuTranslate
           chmod +x dist/DocuTranslate.app/Contents/MacOS/DocuTranslate
           
           # 复制应用图标
