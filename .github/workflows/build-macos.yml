@@ -43,7 +43,8 @@ jobs:
       # universal2 的配置已移至 lite_mac.spec 文件中，所以命令行很简洁。
       - name: Build the application with PyInstaller
         run: |
-          uv run --no-dev pyinstaller lite_mac.spec --noconfirm 
+          uv pip install pyinstaller
+          uv run --no-dev pyinstaller lite_mac.spec --noconfirm --clean -y
 
       # 步骤 8: 从代码中获取应用版本号
       - name: Get application version
