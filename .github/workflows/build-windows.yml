@@ -29,7 +29,7 @@ jobs:
       # 第 4 步: 安装依赖
       - name: Install dependencies with uv
         run: |
-          rm -f uv.lock
+          rm uv.lock
           uv sync --no-dev
 
       # 第 5 步: 安装 UPX (简化版本)
