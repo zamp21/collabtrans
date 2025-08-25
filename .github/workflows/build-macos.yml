@@ -1,4 +1,4 @@
-name: Build macOS Application
+name: Build macOS Universal2 Application
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
     types: [created]
 
 jobs:
-  build-macos:
+  build-macos-universal2:
     runs-on: macos-latest
 
     steps:
@@ -14,11 +14,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 第 2 步: 设置 Python 环境
-      - name: Set up Python
+      # 第 2 步: 设置多架构的 Python 环境
+      - name: Set up Python x86_64
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          architecture: 'x64'
+
+      - name: Set up Python arm64
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: 'arm64'
 
       # 第 3 步: 安装 uv
       - name: Install uv
@@ -26,37 +33,56 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
-      # 第 4 步: 安装依赖
-      - name: Install dependencies with uv
-        run: uv sync
+      # 第 4 步: 安装 x86_64 依赖并构建
+      - name: Install dependencies and build for x86_64
+        env:
+          ARCH: x86_64
+        run: |
+          echo "Building for x86_64"
+          /usr/bin/arch -x86_64 python3.12 -m venv .venv-x86_64
+          . .venv-x86_64/bin/activate
+          uv sync
+          uv run pyinstaller lite_mac.spec --noconfirm --distpath dist_x86_64
 
-      # 第 5 步: 安装 UPX (macOS 版本)
+      # 第 5 步: 安装 arm64 依赖并构建
+      - name: Install dependencies and build for arm64
+        env:
+          ARCH: arm64
+        run: |
+          echo "Building for arm64"
+          /usr/bin/arch -arm64 python3.12 -m venv .venv-arm64
+          . .venv-arm64/bin/activate
+          uv sync
+          uv run pyinstaller lite_mac.spec --noconfirm --distpath dist_arm64
+
+      # 第 6 步: 安装 UPX
       - name: Install UPX
-        run: |
-          brew install upx
+        run: brew install upx
 
-      # 第 6 步: 运行 PyInstaller (macOS 版本)
-      - name: Build the application with PyInstaller
+      # 第 7 步: 合并为 Universal 2 二进制文件
+      - name: Create Universal 2 binary
         run: |
-          uv run pyinstaller lite_mac.spec --noconfirm
+          lipo -create -output dist/DocuTranslate-universal \
+            dist_x86_64/DocuTranslate-*-mac \
+            dist_arm64/DocuTranslate-*-mac
+          chmod +x dist/DocuTranslate-universal
 
-      # 第 7 步: 获取应用版本号
+      # 第 8 步: 获取应用版本号
       - name: Get application version
         id: get_version
         run: |
-          VERSION=$(python -c "import docutranslate; print(docutranslate.__version__)")
+          VERSION=$(python3.12 -c "import docutranslate; print(docutranslate.__version__)")
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      # 第 8 步: 创建 macOS 应用包结构
+      # 第 9 步: 创建 macOS 应用包结构
       - name: Create macOS app bundle structure
         run: |
           mkdir -p dist/DocuTranslate.app/Contents/MacOS
           mkdir -p dist/DocuTranslate.app/Contents/Resources
           
-          # 移动可执行文件
-          mv dist/DocuTranslate-*-mac dist/DocuTranslate.app/Contents/MacOS/DocuTranslate
-          chmod +x dist/DocuTranslate.app/Contents/MacOS/DocuTranslate
+          # 移动合并后的 Universal 2 可执行文件
+          mv dist/DocuTranslate-universal dist/DocuTranslate.app/Contents/MacOS/DocuTranslate
           
           # 复制图标文件
           cp DocuTranslate.icns dist/DocuTranslate.app/Contents/Resources/
@@ -86,14 +112,14 @@ jobs:
           EOF
         shell: bash
 
-      # 第 9 步: 将 .app 打包成 .dmg 磁盘映像（带版本号）
+      # 第 10 步: 将 .app 打包成 .dmg 磁盘映像（带版本号）
       - name: Create DMG Disk Image with version
         run: |
-          hdiutil create -volname "DocuTranslate Installer" -srcfolder dist/DocuTranslate.app -ov -format UDZO "dist/DocuTranslate-${{ env.VERSION }}-macOS.dmg"
+          hdiutil create -volname "DocuTranslate Installer" -srcfolder dist/DocuTranslate.app -ov -format UDZO "dist/DocuTranslate-${{ env.VERSION }}-macOS-universal.dmg"
 
-      # 第 10 步: 上传 .dmg 文件作为构建产物
+      # 第 11 步: 上传 .dmg 文件作为构建产物
       - name: Upload macOS DMG
         uses: actions/upload-artifact@v4
         with:
-          name: DocuTranslate-macOS
-          path: dist/DocuTranslate-${{ env.VERSION }}-macOS.dmg
+          name: DocuTranslate-macOS-universal
+          path: dist/DocuTranslate-${{ env.VERSION }}-macOS-universal.dmg
