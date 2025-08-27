@@ -7,6 +7,7 @@ from logging import Logger
 from json_repair import json_repair
 
 from docutranslate.agents import AgentConfig, Agent
+from docutranslate.glossary.glossary import Glossary
 from docutranslate.utils.json_utils import segments2json_chunks
 
 
@@ -14,6 +15,7 @@ from docutranslate.utils.json_utils import segments2json_chunks
 class SegmentsTranslateAgentConfig(AgentConfig):
     to_lang: str
     custom_prompt: str | None = None
+    glossary_dict: dict[str, str] | None = None
 
 
 class SegmentsTranslateAgent(Agent):
@@ -43,13 +45,21 @@ Output
 {r'{"0":"你好","1":"苹果","2":true,"3":"错误"}'}
 Warning: Never wrap the entire JSON object in quotes to make it a single string. Never wrap the JSON text in ```.
 """
+        self.custom_prompt = config.custom_prompt
         if config.custom_prompt:
-            self.system_prompt += "\n# **Important rules or background** for segments for translation \n" + config.custom_prompt + '\n'
+            self.system_prompt += "\n# **Important rules or background** \n" + self.custom_prompt + '\n'
+        self.glossary_dict = config.glossary_dict
+
+    def _pre_send_handler(self, system_prompt, prompt):
+        if self.glossary_dict:
+            glossary = Glossary(glossary_dict=self.glossary_dict)
+            system_prompt += glossary.append_system_prompt(prompt)
+        return system_prompt, prompt
 
     def _result_handler(self, result: str, origin_prompt: str, logger: Logger):
         try:
             result = json_repair.loads(result)
-            if not isinstance(result,dict):
+            if not isinstance(result, dict):
                 raise ValueError("agent返回结果不是dict的json形式")
         except:
             logger.error("结果不能正确解析")
@@ -66,7 +76,8 @@ Warning: Never wrap the entire JSON object in quotes to make it a single string.
     def send_segments(self, segments: list[str], chunk_size: int):
         indexed_originals, chunks, merged_indices_list = segments2json_chunks(segments, chunk_size)
         prompts = [json.dumps(chunk, ensure_ascii=False) for chunk in chunks]
-        translated_chunks = super().send_prompts(prompts=prompts, result_handler=self._result_handler,
+        translated_chunks = super().send_prompts(prompts=prompts, pre_send_handler=self._pre_send_handler,
+                                                 result_handler=self._result_handler,
                                                  error_result_handler=self._error_result_handler)
         indexed_translated = indexed_originals.copy()
         for chunk in translated_chunks:
@@ -102,7 +113,8 @@ Warning: Never wrap the entire JSON object in quotes to make it a single string.
         indexed_originals, chunks, merged_indices_list = await asyncio.to_thread(segments2json_chunks, segments,
                                                                                  chunk_size)
         prompts = [json.dumps(chunk, ensure_ascii=False) for chunk in chunks]
-        translated_chunks = await super().send_prompts_async(prompts=prompts, result_handler=self._result_handler,
+        translated_chunks = await super().send_prompts_async(prompts=prompts, pre_send_handler=self._pre_send_handler,
+                                                             result_handler=self._result_handler,
                                                              error_result_handler=self._error_result_handler)
         indexed_translated = indexed_originals.copy()
         for chunk in translated_chunks:

@@ -34,11 +34,11 @@ class AgentConfig:
 
 
 class TotalErrorCounter:
-    def __init__(self, logger: logging.Logger,max_errors_count=10):
+    def __init__(self, logger: logging.Logger, max_errors_count=10):
         self.lock = Lock()
         self.count = 0
         self.logger = logger
-        self.max_errors_count=max_errors_count
+        self.max_errors_count = max_errors_count
 
     def add(self):
         self.lock.acquire()
@@ -67,7 +67,7 @@ class PromptsCounter:
         self.lock.release()
 
 
-
+PreSendHandlerType = Callable[[str, str], tuple[str, str]]
 ResultHandlerType = Callable[[str, str, logging.Logger], str]
 ErrorResultHandlerType = Callable[[str, logging.Logger], str]
 
@@ -128,10 +128,13 @@ class Agent:
 
     async def send_async(self, client: httpx.AsyncClient, prompt: str, system_prompt: None | str = None, retry=True,
                          retry_count=0,
+                         pre_send_handler: PreSendHandlerType = None,
                          result_handler: ResultHandlerType = None,
                          error_result_handler: ErrorResultHandlerType = None) -> Any:
         if system_prompt is None:
             system_prompt = self.system_prompt
+        if pre_send_handler:
+            system_prompt, prompt = pre_send_handler(system_prompt, prompt)
         # if prompt.strip() == "":
         #     return prompt
         headers, data = self._prepare_request_data(prompt, system_prompt)
@@ -172,6 +175,7 @@ class Agent:
             prompts: list[str],
             system_prompt: str | None = None,
             max_concurrent: int | None = None,  # 新增参数，默认并发数为5
+            pre_send_handler: PreSendHandlerType = None,
             result_handler: ResultHandlerType = None,
             error_result_handler: ErrorResultHandlerType = None
     ) -> list[Any]:
@@ -179,7 +183,7 @@ class Agent:
         total = len(prompts)
         self.logger.info(f"base-url:{self.baseurl},model-id:{self.model_id}")
         self.logger.info(f"预计发送{total}个请求，并发请求数:{max_concurrent}")
-        self.total_error_counter.max_errors_count=len(prompts) // MAX_REQUESTS_PER_ERROR #允许多少个异常
+        self.total_error_counter.max_errors_count = len(prompts) // MAX_REQUESTS_PER_ERROR  # 允许多少个异常
         count = 0
         semaphore = asyncio.Semaphore(max_concurrent)
         tasks = []
@@ -194,6 +198,7 @@ class Agent:
                         client=client,
                         prompt=p_text,
                         system_prompt=system_prompt,
+                        pre_send_handler=pre_send_handler,
                         result_handler=result_handler,
                         error_result_handler=error_result_handler,
                     )
@@ -210,9 +215,11 @@ class Agent:
             return results
 
     def send(self, client: httpx.Client, prompt: str, system_prompt: None | str = None, retry=True, retry_count=0,
-             result_handler=None, error_result_handler=None) -> Any:
+             pre_send_handler=None, result_handler=None, error_result_handler=None) -> Any:
         if system_prompt is None:
             system_prompt = self.system_prompt
+        if pre_send_handler:
+            system_prompt, prompt = pre_send_handler(system_prompt, prompt)
         # if prompt.strip() == "":
         #     return prompt
         headers, data = self._prepare_request_data(prompt, system_prompt)
@@ -259,6 +266,7 @@ class Agent:
             self,
             prompts: list[str],
             system_prompt: str | None = None,
+            pre_send_handler:PreSendHandlerType=None,
             result_handler: ResultHandlerType = None,
             error_result_handler: ErrorResultHandlerType = None
     ) -> list[Any]:
@@ -271,6 +279,7 @@ class Agent:
         # 使用 itertools.repeat 将同一个实例传递给每个 map 调用
         system_prompts = itertools.repeat(system_prompt, len(prompts))
         counters = itertools.repeat(counter, len(prompts))
+        pre_send_handlers=itertools.repeat(pre_send_handler,len(prompts))
         result_handlers = itertools.repeat(result_handler, len(prompts))
         error_result_handlers = itertools.repeat(error_result_handler, len(prompts))
         output_list = []
@@ -279,6 +288,7 @@ class Agent:
             clients = itertools.repeat(client, len(prompts))
             with ThreadPoolExecutor(max_workers=self.max_concurrent) as executor:
                 results_iterator = executor.map(self._send_prompt_count, clients, prompts, system_prompts, counters,
+                                                pre_send_handlers,
                                                 result_handlers,
                                                 error_result_handlers)
                 output_list = list(results_iterator)

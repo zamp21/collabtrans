@@ -1,14 +1,18 @@
 from dataclasses import dataclass
 
 from .agent import Agent, AgentConfig
+from ..glossary.glossary import Glossary
+
 
 @dataclass
 class MDTranslateAgentConfig(AgentConfig):
-    to_lang:str
-    custom_prompt:str|None=None
+    to_lang: str
+    custom_prompt: str | None = None
+    glossary_dict: dict[str, str] | None = None
+
 
 class MDTranslateAgent(Agent):
-    def __init__(self,config:MDTranslateAgentConfig):
+    def __init__(self, config: MDTranslateAgentConfig):
         super().__init__(config)
         self.system_prompt = f"""
 # Role
@@ -48,5 +52,17 @@ Output:
 这个方程是 $E=mc^2$。这很有名。
 $$1+1=2$$
 \\((c_0,c_1,c_2^2)\\)是一个坐标。"""
+        self.custom_prompt = config.custom_prompt
         if config.custom_prompt:
-            self.system_prompt += "\n# **Important rules or background** \n" + config.custom_prompt + '\n'
+            self.system_prompt += "\n# **Important rules or background** \n" + self.custom_prompt + '\n'
+        self.glossary_dict = config.glossary_dict
+
+    def _pre_send_handler(self, system_prompt, prompt):
+        if self.glossary_dict:
+            glossary = Glossary(glossary_dict=self.glossary_dict)
+            system_prompt += glossary.append_system_prompt(prompt)
+        return system_prompt, prompt
+    def send_chunks(self, prompts: list[str]):
+        return super().send_prompts(prompts=prompts, pre_send_handler=self._pre_send_handler)
+    async def send_chunks_async(self, prompts: list[str]):
+        return await super().send_prompts_async(prompts=prompts,pre_send_handler=self._pre_send_handler)
