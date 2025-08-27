@@ -1,7 +1,7 @@
 import asyncio
 import os
-import zipfile
 import xml.etree.ElementTree as ET
+import zipfile
 from dataclasses import dataclass
 from io import BytesIO
 from typing import Self, Literal, List, Dict, Any
@@ -10,8 +10,7 @@ from bs4 import BeautifulSoup
 
 from docutranslate.agents.segments_agent import SegmentsTranslateAgentConfig, SegmentsTranslateAgent
 from docutranslate.ir.document import Document
-from docutranslate.translator.ai_translator.base import AiTranslatorConfig
-from docutranslate.translator.base import Translator
+from docutranslate.translator.ai_translator.base import AiTranslatorConfig, AiTranslator
 
 
 @dataclass
@@ -20,7 +19,7 @@ class EpubTranslatorConfig(AiTranslatorConfig):
     separator: str = "\n"
 
 
-class EpubTranslator(Translator):
+class EpubTranslator(AiTranslator):
     """
     一个用于翻译 EPUB 文件中内容的翻译器。
     此版本使用内置的 `zipfile` 和 `xml` 库，不依赖 `ebooklib`。

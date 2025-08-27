@@ -3,8 +3,7 @@ from typing import Self
 
 from docutranslate.agents.txt_agent import TXTTranslateAgent, TXTTranslateAgentConfig
 from docutranslate.ir.document import Document
-from docutranslate.translator.ai_translator.base import AiTranslatorConfig
-from docutranslate.translator.base import Translator
+from docutranslate.translator.ai_translator.base import AiTranslatorConfig, AiTranslator
 from docutranslate.utils.markdown_splitter import split_markdown_text
 
 
@@ -13,7 +12,7 @@ class TXTTranslatorConfig(AiTranslatorConfig):
     ...
 
 
-class TXTTranslator(Translator):
+class TXTTranslator(AiTranslator):
     def __init__(self, config: TXTTranslatorConfig):
         super().__init__(config=config)
         self.chunk_size = config.chunk_size

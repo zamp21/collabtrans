@@ -2,12 +2,11 @@ import asyncio
 from dataclasses import dataclass
 from typing import Self, Literal, Set, Dict, List, Tuple
 
-from bs4 import BeautifulSoup, NavigableString, Tag, Comment
+from bs4 import BeautifulSoup, NavigableString, Comment
 
 from docutranslate.agents.segments_agent import SegmentsTranslateAgentConfig, SegmentsTranslateAgent
 from docutranslate.ir.document import Document
-from docutranslate.translator.ai_translator.base import AiTranslatorConfig
-from docutranslate.translator.base import Translator
+from docutranslate.translator.ai_translator.base import AiTranslatorConfig, AiTranslator
 
 # --- 规则定义 ---
 
@@ -16,16 +15,16 @@ from docutranslate.translator.base import Translator
 # 在预处理阶段，这些标签及其所有子元素将被直接从文档中移除，以确保它们不会被意外修改。
 NON_TRANSLATABLE_TAGS: Set[str] = {
     'script',  # JavaScript代码
-    'style',   # CSS样式
-    'pre',     # 预格式化文本，通常用于代码块
-    'code',    # 行内代码
-    'kbd',     # 键盘输入
-    'samp',    # 示例输出
-    'var',     # 变量
-    'noscript',# script未启用时的内容
-    'meta',    # 元数据
-    'link',    # 外部资源链接
-    'head',    # 文档头部，通常不包含可见的可翻译内容
+    'style',  # CSS样式
+    'pre',  # 预格式化文本，通常用于代码块
+    'code',  # 行内代码
+    'kbd',  # 键盘输入
+    'samp',  # 示例输出
+    'var',  # 变量
+    'noscript',  # script未启用时的内容
+    'meta',  # 元数据
+    'link',  # 外部资源链接
+    'head',  # 文档头部，通常不包含可见的可翻译内容
 }
 
 # 2. 可翻译标签（白名单）
@@ -73,7 +72,7 @@ class HtmlTranslatorConfig(AiTranslatorConfig):
     separator: str = " "  # HTML中用空格作为默认分隔符可能更合适
 
 
-class HtmlTranslator(Translator):
+class HtmlTranslator(AiTranslator):
     """
     一个用于翻译 HTML 文件内容的翻译器。
     它采用黑白名单结合的策略，以最大程度地保留页面样式和功能：
@@ -133,7 +132,7 @@ class HtmlTranslator(Translator):
 
             # --- 2b. 翻译安全标签内的安全属性 ---
             attributes_to_check = SAFE_ATTRIBUTES.get(tag.name, []) + SAFE_ATTRIBUTES.get('*', [])
-            for attr in set(attributes_to_check): # 使用set去重
+            for attr in set(attributes_to_check):  # 使用set去重
                 if tag.has_attr(attr) and tag[attr].strip():
                     value = tag[attr]
                     translatable_items.append({'type': 'attribute', 'tag': tag, 'attribute': attr})
@@ -171,7 +170,7 @@ class HtmlTranslator(Translator):
                 new_content = translated_text + self.separator + original_text
             else:
                 self.logger.error(f"不正确的HtmlTranslatorConfig参数: insert_mode='{self.insert_mode}'")
-                new_content = original_text # 出错时恢复原文
+                new_content = original_text  # 出错时恢复原文
 
             # 根据类型将内容写回
             if item['type'] == 'node':

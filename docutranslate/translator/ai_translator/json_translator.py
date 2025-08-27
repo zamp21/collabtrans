@@ -6,8 +6,7 @@ from jsonpath_ng.ext import parse
 
 from docutranslate.agents.segments_agent import SegmentsTranslateAgentConfig, SegmentsTranslateAgent
 from docutranslate.ir.document import Document
-from docutranslate.translator.ai_translator.base import AiTranslatorConfig
-from docutranslate.translator.base import Translator
+from docutranslate.translator.ai_translator.base import AiTranslatorConfig, AiTranslator
 
 
 @dataclass
@@ -15,7 +14,7 @@ class JsonTranslatorConfig(AiTranslatorConfig):
     json_paths: list[str]
 
 
-class JsonTranslator(Translator):
+class JsonTranslator(AiTranslator):
     def __init__(self, config: JsonTranslatorConfig):
         super().__init__(config=config)
         self.chunk_size = config.chunk_size

@@ -8,8 +8,7 @@ from openpyxl.cell import Cell
 
 from docutranslate.agents.segments_agent import SegmentsTranslateAgentConfig, SegmentsTranslateAgent
 from docutranslate.ir.document import Document
-from docutranslate.translator.ai_translator.base import AiTranslatorConfig
-from docutranslate.translator.base import Translator
+from docutranslate.translator.ai_translator.base import AiTranslatorConfig, AiTranslator
 
 
 @dataclass
@@ -23,7 +22,7 @@ class XlsxTranslatorConfig(AiTranslatorConfig):
     translate_regions: Optional[List[str]] = None
 
 
-class XlsxTranslator(Translator):
+class XlsxTranslator(AiTranslator):
     def __init__(self, config: XlsxTranslatorConfig):
         super().__init__(config=config)
         self.chunk_size = config.chunk_size

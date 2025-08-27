@@ -1,20 +1,16 @@
 import asyncio
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from io import BytesIO
 from typing import Self, Literal, List, Dict, Any, Tuple
 
 import docx
 from docx.document import Document as DocumentObject
-from docx.oxml.ns import nsdecls
-from docx.oxml import OxmlElement
-from docx.table import _Cell, Table
 from docx.text.paragraph import Paragraph
 from docx.text.run import Run
 
 from docutranslate.agents.segments_agent import SegmentsTranslateAgentConfig, SegmentsTranslateAgent
 from docutranslate.ir.document import Document
-from docutranslate.translator.ai_translator.base import AiTranslatorConfig
-from docutranslate.translator.base import Translator
+from docutranslate.translator.ai_translator.base import AiTranslatorConfig, AiTranslator
 
 
 def is_image_run(run: Run) -> bool:
@@ -32,7 +28,7 @@ class DocxTranslatorConfig(AiTranslatorConfig):
     separator: str = "\n"
 
 
-class DocxTranslator(Translator):
+class DocxTranslator(AiTranslator):
     """
     用于翻译 .docx 文件的翻译器。
     此版本经过优化，可以处理图文混排的段落而不会丢失图片。

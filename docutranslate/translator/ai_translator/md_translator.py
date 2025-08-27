@@ -6,8 +6,7 @@ from docutranslate.agents import MDTranslateAgent
 from docutranslate.agents.markdown_agent import MDTranslateAgentConfig
 from docutranslate.context.md_mask_context import MDMaskUrisContext
 from docutranslate.ir.markdown_document import MarkdownDocument
-from docutranslate.translator.ai_translator.base import AiTranslatorConfig
-from docutranslate.translator.base import Translator
+from docutranslate.translator.ai_translator.base import AiTranslatorConfig, AiTranslator
 from docutranslate.utils.markdown_splitter import split_markdown_text, join_markdown_texts
 
 
@@ -16,7 +15,7 @@ class MDTranslatorConfig(AiTranslatorConfig):
     ...
 
 
-class MDTranslator(Translator):
+class MDTranslator(AiTranslator):
     def __init__(self, config: MDTranslatorConfig):
         super().__init__(config=config)
         self.chunk_size = config.chunk_size

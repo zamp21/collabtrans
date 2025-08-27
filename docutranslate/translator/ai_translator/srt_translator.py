@@ -6,8 +6,7 @@ import srt  # 导入srt库来处理字幕文件
 
 from docutranslate.agents.segments_agent import SegmentsTranslateAgentConfig, SegmentsTranslateAgent
 from docutranslate.ir.document import Document
-from docutranslate.translator.ai_translator.base import AiTranslatorConfig
-from docutranslate.translator.base import Translator
+from docutranslate.translator.ai_translator.base import AiTranslatorConfig, AiTranslator
 
 
 @dataclass
@@ -16,7 +15,7 @@ class SrtTranslatorConfig(AiTranslatorConfig):
     separator: str = "\n"
 
 
-class SrtTranslator(Translator):
+class SrtTranslator(AiTranslator):
     """
     一个用于翻译 SRT (.srt) 字幕文件的翻译器。
     它会提取每个字幕块的文本内容，进行翻译，然后根据配置将译文写回。
