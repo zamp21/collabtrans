@@ -26,14 +26,15 @@ class TXTTranslator(AiTranslator):
                                                thinking=config.thinking,
                                                max_concurrent=config.concurrent,
                                                timeout=config.timeout,
-                                               logger=self.logger)
+                                               logger=self.logger,
+                                               glossary_dict=config.glossary_dict)
         self.translate_agent = TXTTranslateAgent(agent_config)
 
     def translate(self, document: Document) -> Self:
         self.logger.info("正在翻译txt")
         chunks: list[str] = split_markdown_text(document.content.decode(), max_block_size=self.chunk_size)
         self.logger.info(f"txt分为{len(chunks)}块")
-        result: list[str] = self.translate_agent.send_prompts(chunks)
+        result: list[str] = self.translate_agent.send_chunks(chunks)
         content = "\n".join(result)
         document.content = content.encode()
         self.logger.info("翻译完成")
@@ -43,7 +44,7 @@ class TXTTranslator(AiTranslator):
         self.logger.info("正在翻译txt")
         chunks: list[str] = split_markdown_text(document.content.decode(), max_block_size=self.chunk_size)
         self.logger.info(f"txt分为{len(chunks)}块")
-        result: list[str] = await self.translate_agent.send_prompts_async(chunks)
+        result: list[str] = await self.translate_agent.send_chunks_async(chunks)
         content = "\n".join(result)
         document.content = content.encode()
         self.logger.info("翻译完成")

@@ -29,7 +29,8 @@ class MDTranslator(AiTranslator):
                                               thinking=config.thinking,
                                               max_concurrent=config.concurrent,
                                               timeout=config.timeout,
-                                              logger=self.logger)
+                                              logger=self.logger,
+                                              glossary_dict=config.glossary_dict)
         self.translate_agent = MDTranslateAgent(agent_config)
 
     def translate(self, document: MarkdownDocument) -> Self:
@@ -37,7 +38,7 @@ class MDTranslator(AiTranslator):
         with MDMaskUrisContext(document):
             chunks: list[str] = split_markdown_text(document.content.decode(), self.chunk_size)
             self.logger.info(f"markdown分为{len(chunks)}块")
-            result: list[str] = self.translate_agent.send_prompts(chunks)
+            result: list[str] = self.translate_agent.send_chunks(chunks)
             content = join_markdown_texts(result)
             # 做一些加强鲁棒性的操作
             content = content.replace(r'\（', r'\(')
@@ -52,7 +53,7 @@ class MDTranslator(AiTranslator):
         with MDMaskUrisContext(document):
             chunks: list[str] = split_markdown_text(document.content.decode(), self.chunk_size)
             self.logger.info(f"markdown分为{len(chunks)}块")
-            result: list[str] = await self.translate_agent.send_prompts_async(chunks)
+            result: list[str] = await self.translate_agent.send_chunks_async(chunks)
 
             def run():
                 content = join_markdown_texts(result)

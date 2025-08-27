@@ -19,6 +19,7 @@ class AiTranslatorConfig(TranslatorConfig):
     timeout: int = 2000
     chunk_size: int = 3000
     concurrent: int = 30
+    glossary_dict: dict[str:str] | None = None
 
 
 T = TypeVar('T', bound=Document)
@@ -31,6 +32,7 @@ class AiTranslator(Translator[T]):
 
     def __init__(self, config: AiTranslatorConfig):
         super().__init__(config=config)
+
 
     @abstractmethod
     def translate(self, document: T) -> Document:
