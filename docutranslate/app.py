@@ -232,6 +232,7 @@ class BaseWorkflowParams(BaseModel):
     thinking: ThinkingMode = Field(default=default_params["thinking"], description="是否启用深度思考",
                                    examples=["default", "enable", "disable"])
     custom_prompt: Optional[str] = Field(None, description="用户自定义的翻译Prompt。", alias="custom_prompt")
+    glossary_dict: Optional[Dict[str, str]] = Field(None, description="术语表字典，key为原文，value为译文。")
 
 
 # 2. 为每个工作流创建独立的参数模型
@@ -401,7 +402,11 @@ class TranslateServiceRequest(BaseModel):
                             "separator": " \n---翻译---\n ",
                             "chunk_size": 2000,
                             "concurrent": 5,
-                            "translate_regions": ["Sheet1!A1:B10", "C:D"]
+                            "translate_regions": ["Sheet1!A1:B10", "C:D"],
+                            "glossary_dict": {
+                                "OpenAI": "开放人工智能",
+                                "LLM": "大语言模型"
+                            }
                         }
                     }
                 },
@@ -509,7 +514,7 @@ async def _perform_translation(
             translator_config = MDTranslatorConfig(
                 **payload.model_dump(include={
                     'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
-                    'temperature', 'thinking', 'chunk_size', 'concurrent'
+                    'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict'
                 }, exclude_none=True)
             )
             converter_config = None
@@ -533,7 +538,7 @@ async def _perform_translation(
             translator_config = TXTTranslatorConfig(
                 **payload.model_dump(include={
                     'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
-                    'temperature', 'thinking', 'chunk_size', 'concurrent'
+                    'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict'
                 }, exclude_none=True)
             )
             html_exporter_config = TXT2HTMLExporterConfig(cdn=True)
@@ -549,7 +554,7 @@ async def _perform_translation(
                 json_paths=payload.json_paths,
                 **payload.model_dump(include={
                     'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
-                    'temperature', 'thinking', 'chunk_size', 'concurrent'
+                    'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict'
                 }, exclude_none=True)
             )
             html_exporter_config = Json2HTMLExporterConfig(cdn=True)
@@ -565,7 +570,7 @@ async def _perform_translation(
                 **payload.model_dump(include={
                     'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                     'temperature', 'thinking', 'chunk_size', 'concurrent',
-                    'insert_mode', 'separator', 'translate_regions'
+                    'insert_mode', 'separator', 'translate_regions', 'glossary_dict'
                 }, exclude_none=True)
             )
             html_exporter_config = Xlsx2HTMLExporterConfig(cdn=True)
@@ -582,7 +587,7 @@ async def _perform_translation(
                 **payload.model_dump(include={
                     'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                     'temperature', 'thinking', 'chunk_size', 'concurrent',
-                    'insert_mode', 'separator'
+                    'insert_mode', 'separator', 'glossary_dict'
                 }, exclude_none=True)
             )
             html_exporter_config = Docx2HTMLExporterConfig(cdn=True)
@@ -599,7 +604,7 @@ async def _perform_translation(
                 **payload.model_dump(include={
                     'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                     'temperature', 'thinking', 'chunk_size', 'concurrent',
-                    'insert_mode', 'separator'
+                    'insert_mode', 'separator', 'glossary_dict'
                 }, exclude_none=True)
             )
             html_exporter_config = Srt2HTMLExporterConfig(cdn=True)
@@ -616,7 +621,7 @@ async def _perform_translation(
                 **payload.model_dump(include={
                     'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                     'temperature', 'thinking', 'chunk_size', 'concurrent',
-                    'insert_mode', 'separator'
+                    'insert_mode', 'separator', 'glossary_dict'
                 }, exclude_none=True)
             )
             html_exporter_config = Epub2HTMLExporterConfig(cdn=True)
@@ -634,7 +639,7 @@ async def _perform_translation(
                 **payload.model_dump(include={
                     'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                     'temperature', 'thinking', 'chunk_size', 'concurrent',
-                    'insert_mode', 'separator'
+                    'insert_mode', 'separator', 'glossary_dict'
                 }, exclude_none=True)
             )
             workflow_config = HtmlWorkflowConfig(
@@ -1292,6 +1297,7 @@ async def temp_translate(
         thinking: ThinkingMode = Body(default_params["thinking"]),
         chunk_size: int = Body(default_params["chunk_size"]), custom_prompt: Optional[str] = Body(None),
         model_version: Literal["pipeline", "vlm"] = Body("vlm"),
+        glossary_dict: Optional[Dict[str, str]] = Body(None),
 ):
     file_name = Path(file_name)
     try:
@@ -1304,7 +1310,8 @@ async def temp_translate(
             converter_config=ConverterMineruConfig(mineru_token=mineru_token, model_version=model_version),
             translator_config=MDTranslatorConfig(base_url=base_url, api_key=api_key, model_id=model_id,
                                                  to_lang=to_lang, custom_prompt=custom_prompt, temperature=temperature,
-                                                 thinking=thinking, chunk_size=chunk_size, concurrent=concurrent),
+                                                 thinking=thinking, chunk_size=chunk_size, concurrent=concurrent,
+                                                 glossary_dict=glossary_dict),
             html_exporter_config=MD2HTMLExporterConfig()
         )
         workflow = MarkdownBasedWorkflow(workflow_config)
