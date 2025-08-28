@@ -18,7 +18,7 @@ from fastapi import FastAPI, HTTPException, APIRouter, Body, Path as FastApiPath
 from fastapi.openapi.docs import get_swagger_ui_html, get_swagger_ui_oauth2_redirect_html, get_redoc_html
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from docutranslate import __version__
 from docutranslate.agents.agent import ThinkingMode
@@ -235,9 +235,13 @@ class GlossaryAgentConfigPayload(BaseModel):
 
 # 1. 定义所有工作流共享的基础参数
 class BaseWorkflowParams(BaseModel):
-    base_url: str = Field(..., description="LLM API的基础URL。", examples=["https://api.openai.com/v1"])
-    api_key: str = Field(..., description="LLM API的密钥。", examples=["sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"])
-    model_id: str = Field(..., description="要使用的LLM模型ID。", examples=["gpt-4o"])
+    skip_translate: bool = Field(default=False, description="是否跳过翻译步骤。如果为True，则仅执行文档解析和格式转换。")
+    base_url: Optional[str] = Field(default=None, description="LLM API的基础URL。当 `skip_translate` 为 `False` 时必填。",
+                                    examples=["https://api.openai.com/v1"])
+    api_key: Optional[str] = Field(default=None, description="LLM API的密钥。当 `skip_translate` 为 `False` 时必填。",
+                                   examples=["sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"])
+    model_id: Optional[str] = Field(default=None, description="要使用的LLM模型ID。当 `skip_translate` 为 `False` 时必填。",
+                                    examples=["gpt-4o"])
     to_lang: str = Field(default="中文", description="目标翻译语言。", examples=["简体中文", "English"])
     chunk_size: int = Field(default=default_params["chunk_size"], description="文本分割的块大小（字符）。")
     concurrent: int = Field(default=default_params["concurrent"], description="并发请求数。")
@@ -255,6 +259,20 @@ class BaseWorkflowParams(BaseModel):
         if values.data.get('glossary_generate_enable') and not v:
             raise ValueError("当 `glossary_generate_enable` 为 `True` 时, `glossary_agent_config` 字段是必须的。")
         return v
+
+    @model_validator(mode='before')
+    @classmethod
+    def check_translation_fields(cls, values):
+        # 如果不跳过翻译 (值为False或字段不存在)，则验证相关字段必须存在且不为空
+        if not values.get('skip_translate'):
+            if not values.get('base_url'):
+                raise ValueError("当 `skip_translate` 为 `False` 时, `base_url` 字段是必须的。")
+            if not values.get('api_key'):
+                raise ValueError("当 `skip_translate` 为 `False` 时, `api_key` 字段是必须的。")
+            if not values.get('model_id'):
+                raise ValueError("当 `skip_translate` 为 `False` 时, `model_id` 字段是必须的。")
+        # 如果跳过翻译，则不进行任何检查，允许 base_url 等字段为空
+        return values
 
 
 # 2. 为每个工作流创建独立的参数模型
@@ -566,7 +584,7 @@ async def _perform_translation(
         if isinstance(payload, MarkdownWorkflowParams):
             task_logger.info("构建 MarkdownBasedWorkflow 配置。")
             translator_args = payload.model_dump(include={
-                'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict'
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
@@ -592,7 +610,7 @@ async def _perform_translation(
         elif isinstance(payload, TextWorkflowParams):
             task_logger.info("构建 TXTWorkflow 配置。")
             translator_args = payload.model_dump(include={
-                'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict'
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
@@ -609,7 +627,7 @@ async def _perform_translation(
         elif isinstance(payload, JsonWorkflowParams):
             task_logger.info("构建 JsonWorkflow 配置。")
             translator_args = payload.model_dump(include={
-                'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict',
                 'json_paths'
             }, exclude_none=True)
@@ -627,7 +645,7 @@ async def _perform_translation(
         elif isinstance(payload, XlsxWorkflowParams):
             task_logger.info("构建 XlsxWorkflow 配置。")
             translator_args = payload.model_dump(include={
-                'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent',
                 'insert_mode', 'separator', 'translate_regions', 'glossary_dict'
             }, exclude_none=True)
@@ -646,7 +664,7 @@ async def _perform_translation(
         elif isinstance(payload, DocxWorkflowParams):
             task_logger.info("构建 DocxWorkflow 配置。")
             translator_args = payload.model_dump(include={
-                'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent',
                 'insert_mode', 'separator', 'glossary_dict'
             }, exclude_none=True)
@@ -665,7 +683,7 @@ async def _perform_translation(
         elif isinstance(payload, SrtWorkflowParams):
             task_logger.info("构建 SrtWorkflow 配置。")
             translator_args = payload.model_dump(include={
-                'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent',
                 'insert_mode', 'separator', 'glossary_dict'
             }, exclude_none=True)
@@ -684,7 +702,7 @@ async def _perform_translation(
         elif isinstance(payload, EpubWorkflowParams):
             task_logger.info("构建 EpubWorkflow 配置。")
             translator_args = payload.model_dump(include={
-                'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent',
                 'insert_mode', 'separator', 'glossary_dict'
             }, exclude_none=True)
@@ -704,7 +722,7 @@ async def _perform_translation(
         elif isinstance(payload, HtmlWorkflowParams):
             task_logger.info("构建 HtmlWorkflow 配置。")
             translator_args = payload.model_dump(include={
-                'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent',
                 'insert_mode', 'separator', 'glossary_dict'
             }, exclude_none=True)
