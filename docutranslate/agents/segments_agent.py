@@ -57,16 +57,19 @@ Warning: Never wrap the entire JSON object in quotes to make it a single string.
         return system_prompt, prompt
 
     def _result_handler(self, result: str, origin_prompt: str, logger: Logger):
+        if result == "":
+            return {}
         try:
             result = json_repair.loads(result)
             if not isinstance(result, dict):
-                raise ValueError("agent返回结果不是dict的json形式")
-        except:
-            logger.error("结果不能正确解析")
-            return self._error_result_handler(origin_prompt, logger)
+                raise ValueError(f"agent返回结果不是dict的json形式,result:{result}")
+        except RuntimeError as e:
+            raise ValueError(f"结果不能正确解析:{e.__repr__()}")
         return result
 
     def _error_result_handler(self, origin_prompt: str, logger: Logger):
+        if origin_prompt == "":
+            return {}
         try:
             return json_repair.loads(origin_prompt)
         except:

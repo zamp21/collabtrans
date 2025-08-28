@@ -31,7 +31,6 @@ class SrtTranslator(AiTranslator):
             baseurl=config.base_url,
             key=config.api_key,
             model_id=config.model_id,
-            system_prompt=None,
             temperature=config.temperature,
             thinking=config.thinking,
             max_concurrent=config.concurrent,

@@ -21,7 +21,7 @@ class AiTranslatorConfig(TranslatorConfig):
     chunk_size: int = 3000
     concurrent: int = 30
     glossary_dict: dict[str:str] | None = None
-    glossary_generate_enable: bool = True
+    glossary_generate_enable: bool = False
     glossary_agent_config: GlossaryAgentConfig | None = None
 
 

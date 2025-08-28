@@ -46,6 +46,8 @@ You are a professional machine translation engine.
 """
 
     def _result_handler(self, result: str, origin_prompt: str, logger: Logger):
+        if result == "":
+            return []
         try:
             result = json_repair.loads(result)
             if not isinstance(result, list):
@@ -56,6 +58,8 @@ You are a professional machine translation engine.
         return result
 
     def _error_result_handler(self, origin_prompt: str, logger: Logger):
+        if origin_prompt == "":
+            return []
         try:
             return json_repair.loads(origin_prompt)
         except:
@@ -79,11 +83,11 @@ You are a professional machine translation engine.
                 self.logger.info(f"json解析错误，解析文本:{chunk}，错误:{e.__repr__()}")
             except Exception as e:
                 self.logger.info(f"send_segments发生错误:{e.__repr__()}")
-
+        self.logger.info("术语表提取完成")
         return result
 
     async def send_segments_async(self, segments: list[str], chunk_size: int):
-        self.logger.info("开始提取术语表")
+        self.logger.info("开始术语表提取")
         result = {}
         indexed_originals, chunks, merged_indices_list = await asyncio.to_thread(segments2json_chunks, segments,
                                                                                  chunk_size)
@@ -101,4 +105,5 @@ You are a professional machine translation engine.
             except Exception as e:
                 self.logger.info(f"send_segments发生错误:{e.__repr__()}")
         print(f"术语表:\n{result}")
+        self.logger.info("术语表提取完成")
         return result

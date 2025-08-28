@@ -26,7 +26,6 @@ class AgentConfig:
     baseurl: str
     key: str
     model_id: str
-    system_prompt: str | None
     temperature: float = 0.7
     max_concurrent: int = 30
     timeout: int = 2000
@@ -68,8 +67,8 @@ class PromptsCounter:
 
 
 PreSendHandlerType = Callable[[str, str], tuple[str, str]]
-ResultHandlerType = Callable[[str, str, logging.Logger], str]
-ErrorResultHandlerType = Callable[[str, logging.Logger], str]
+ResultHandlerType = Callable[[str, str, logging.Logger], Any]
+ErrorResultHandlerType = Callable[[str, logging.Logger], Any]
 
 
 class Agent:
@@ -90,7 +89,7 @@ class Agent:
         self.domain = urlparse(self.baseurl).netloc
         self.key = config.key.strip() or "xx"
         self.model_id = config.model_id.strip()
-        self.system_prompt = config.system_prompt or ""
+        self.system_prompt = ""
         self.temperature = config.temperature
         self.max_concurrent = config.max_concurrent
         self.timeout = config.timeout
@@ -158,6 +157,8 @@ class Agent:
             self.logger.warning(f"AI请求连接错误 (async): {repr(e)}")
         except (KeyError, IndexError) as e:
             raise Exception(f"AI响应格式错误 (async): {repr(e)}")
+        except ValueError as e:
+            self.logger.warning(f"{e.__repr__()}")
         # 如果没有正常获取结果则重试
         if retry and retry_count < MAX_RETRY_COUNT:
             if self.total_error_counter.add():
@@ -181,7 +182,7 @@ class Agent:
     ) -> list[Any]:
         max_concurrent = self.max_concurrent if max_concurrent is None else max_concurrent
         total = len(prompts)
-        self.logger.info(f"base-url:{self.baseurl},model-id:{self.model_id}")
+        self.logger.info(f"base-url:{self.baseurl},model-id:{self.model_id},concurrent:{self.max_concurrent},temperature:{self.temperature}")
         self.logger.info(f"预计发送{total}个请求，并发请求数:{max_concurrent}")
         self.total_error_counter.max_errors_count = len(prompts) // MAX_REQUESTS_PER_ERROR  # 允许多少个异常
         count = 0
@@ -258,7 +259,8 @@ class Agent:
                            pre_send_handler,
                            result_handler,
                            error_result_handler) -> Any:
-        result = self.send(client, prompt, system_prompt, pre_send_handler=pre_send_handler,result_handler=result_handler,
+        result = self.send(client, prompt, system_prompt, pre_send_handler=pre_send_handler,
+                           result_handler=result_handler,
                            error_result_handler=error_result_handler)
         count.add()
         return result
@@ -267,11 +269,11 @@ class Agent:
             self,
             prompts: list[str],
             system_prompt: str | None = None,
-            pre_send_handler:PreSendHandlerType=None,
+            pre_send_handler: PreSendHandlerType = None,
             result_handler: ResultHandlerType = None,
             error_result_handler: ErrorResultHandlerType = None
     ) -> list[Any]:
-        self.logger.info(f"base-url:{self.baseurl},model-id:{self.model_id}")
+        self.logger.info(f"base-url:{self.baseurl},model-id:{self.model_id},concurrent:{self.max_concurrent},temperature:{self.temperature}")
         self.logger.info(f"预计发送{len(prompts)}个请求，并发请求数:{self.max_concurrent}")
         self.total_error_counter.max_errors_count = len(prompts) // MAX_REQUESTS_PER_ERROR  # 允许多少个异常
         # 创建单个计数器实例
@@ -280,7 +282,7 @@ class Agent:
         # 使用 itertools.repeat 将同一个实例传递给每个 map 调用
         system_prompts = itertools.repeat(system_prompt, len(prompts))
         counters = itertools.repeat(counter, len(prompts))
-        pre_send_handlers=itertools.repeat(pre_send_handler,len(prompts))
+        pre_send_handlers = itertools.repeat(pre_send_handler, len(prompts))
         result_handlers = itertools.repeat(result_handler, len(prompts))
         error_result_handlers = itertools.repeat(error_result_handler, len(prompts))
         output_list = []

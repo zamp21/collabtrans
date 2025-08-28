@@ -8,9 +8,14 @@ class Glossary:
                 self.glossary_dict[src]=dst
 
     def append_system_prompt(self,text:str):
+        flag=False
         prompt="\n以下为参考术语表:\n"
         for src,dst in self.glossary_dict.items():
             if src in text:
                 prompt+=f"{src}=>{dst}\n"
+                flag=True
         prompt+="术语表结束\n"
-        return prompt
+        if flag:
+            return prompt
+        else:
+            return ""

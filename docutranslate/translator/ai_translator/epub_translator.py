@@ -32,7 +32,7 @@ class EpubTranslator(AiTranslator):
         agent_config = SegmentsTranslateAgentConfig(
             custom_prompt=config.custom_prompt, to_lang=config.to_lang,
             baseurl=config.base_url, key=config.api_key, model_id=config.model_id,
-            system_prompt=None, temperature=config.temperature, thinking=config.thinking,
+            temperature=config.temperature, thinking=config.thinking,
             max_concurrent=config.concurrent, timeout=config.timeout, logger=self.logger,
             glossary_dict=config.glossary_dict
         )

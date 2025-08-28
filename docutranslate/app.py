@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from docutranslate import __version__
 from docutranslate.agents.agent import ThinkingMode
+from docutranslate.agents.glossary_agent import GlossaryAgentConfig
 from docutranslate.exporter.md.types import ConvertEngineType
 # --- 核心代码 Imports ---
 from docutranslate.global_values.conditional_import import DOCLING_EXIST
@@ -220,6 +221,16 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 # --- Pydantic Models for Service API ---
 # ===================================================================
 
+class GlossaryAgentConfigPayload(BaseModel):
+    baseurl: str = Field(..., description="用于术语表生成的Agent的LLM API基础URL。", examples=["https://api.openai.com/v1"])
+    key: str = Field(..., description="用于术语表生成的Agent的LLM API密钥。", examples=["sk-agent-api-key"])
+    model_id: str = Field(..., description="用于术语表生成的Agent的模型ID。", examples=["gpt-4-turbo"])
+    temperature: float = Field(default=0.7, description="用于术语表生成的Agent的温度参数。")
+    max_concurrent: int = Field(default=30, description="Agent的最大并发请求数。")
+    timeout: int = Field(default=2000, description="Agent的API调用超时时间。")
+    thinking: ThinkingMode = Field(default="default", description="Agent的思考模式。")
+
+
 # 1. 定义所有工作流共享的基础参数
 class BaseWorkflowParams(BaseModel):
     base_url: str = Field(..., description="LLM API的基础URL。", examples=["https://api.openai.com/v1"])
@@ -233,6 +244,15 @@ class BaseWorkflowParams(BaseModel):
                                    examples=["default", "enable", "disable"])
     custom_prompt: Optional[str] = Field(None, description="用户自定义的翻译Prompt。", alias="custom_prompt")
     glossary_dict: Optional[Dict[str, str]] = Field(None, description="术语表字典，key为原文，value为译文。")
+    glossary_generate_enable: bool = Field(default=False, description="是否开启术语表自动生成。")
+    glossary_agent_config: Optional[GlossaryAgentConfigPayload] = Field(None,
+                                                                       description="用于术语表生成的Agent的配置。如果 `glossary_generate_enable` 为 `True`，此项必填。")
+
+    @field_validator('glossary_agent_config')
+    def check_glossary_config(cls, v, values):
+        if values.data.get('glossary_generate_enable') and not v:
+            raise ValueError("当 `glossary_generate_enable` 为 `True` 时, `glossary_agent_config` 字段是必须的。")
+        return v
 
 
 # 2. 为每个工作流创建独立的参数模型
@@ -411,6 +431,27 @@ class TranslateServiceRequest(BaseModel):
                     }
                 },
                 {
+                    "summary": "XLSX 带术语表生成",
+                    "value": {
+                        "file_name": "complex_terms.xlsx",
+                        "file_content": "UEsDBBQAAAAIA... (base64-encoded xlsx)",
+                        "payload": {
+                            "workflow_type": "xlsx",
+                            "base_url": "https://api.openai.com/v1",
+                            "api_key": "sk-your-main-translator-key",
+                            "model_id": "gpt-4o",
+                            "to_lang": "简体中文",
+                            "glossary_generate_enable": True,
+                            "glossary_agent_config": {
+                                "baseurl": "https://api.openai.com/v1",
+                                "key": "sk-your-agent-key-for-glossary",
+                                "model_id": "gpt-4-turbo",
+                                "temperature": 0.5
+                            }
+                        }
+                    }
+                },
+                {
                     "summary": "DOCX 工作流示例",
                     "value": {
                         "file_name": "contract.docx",
@@ -508,15 +549,28 @@ async def _perform_translation(
 
         workflow: Workflow
 
+        # 辅助函数：构建术语表生成配置
+        def build_glossary_agent_config():
+            if payload.glossary_generate_enable and payload.glossary_agent_config:
+                agent_payload = payload.glossary_agent_config
+                return GlossaryAgentConfig(
+                    logger=task_logger,
+                    to_lang=payload.to_lang,
+                    **agent_payload.model_dump()
+                )
+            return None
+
         # 2. 根据 payload 的具体类型构建配置并实例化 workflow
         if isinstance(payload, MarkdownWorkflowParams):
             task_logger.info("构建 MarkdownBasedWorkflow 配置。")
-            translator_config = MDTranslatorConfig(
-                **payload.model_dump(include={
-                    'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
-                    'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict'
-                }, exclude_none=True)
-            )
+            translator_args = payload.model_dump(include={
+                'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict'
+            }, exclude_none=True)
+            translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
+            translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            translator_config = MDTranslatorConfig(**translator_args)
+
             converter_config = None
             if payload.convert_engine == 'mineru':
                 converter_config = ConverterMineruConfig(logger=task_logger, mineru_token=payload.mineru_token,
@@ -535,12 +589,14 @@ async def _perform_translation(
 
         elif isinstance(payload, TextWorkflowParams):
             task_logger.info("构建 TXTWorkflow 配置。")
-            translator_config = TXTTranslatorConfig(
-                **payload.model_dump(include={
-                    'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
-                    'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict'
-                }, exclude_none=True)
-            )
+            translator_args = payload.model_dump(include={
+                'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict'
+            }, exclude_none=True)
+            translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
+            translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            translator_config = TXTTranslatorConfig(**translator_args)
+
             html_exporter_config = TXT2HTMLExporterConfig(cdn=True)
             workflow_config = TXTWorkflowConfig(
                 translator_config=translator_config, html_exporter_config=html_exporter_config,
@@ -550,13 +606,15 @@ async def _perform_translation(
 
         elif isinstance(payload, JsonWorkflowParams):
             task_logger.info("构建 JsonWorkflow 配置。")
-            translator_config = JsonTranslatorConfig(
-                json_paths=payload.json_paths,
-                **payload.model_dump(include={
-                    'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
-                    'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict'
-                }, exclude_none=True)
-            )
+            translator_args = payload.model_dump(include={
+                'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict',
+                'json_paths'
+            }, exclude_none=True)
+            translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
+            translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            translator_config = JsonTranslatorConfig(**translator_args)
+
             html_exporter_config = Json2HTMLExporterConfig(cdn=True)
             workflow_config = JsonWorkflowConfig(
                 translator_config=translator_config, html_exporter_config=html_exporter_config,
@@ -566,13 +624,15 @@ async def _perform_translation(
 
         elif isinstance(payload, XlsxWorkflowParams):
             task_logger.info("构建 XlsxWorkflow 配置。")
-            translator_config = XlsxTranslatorConfig(
-                **payload.model_dump(include={
-                    'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
-                    'temperature', 'thinking', 'chunk_size', 'concurrent',
-                    'insert_mode', 'separator', 'translate_regions', 'glossary_dict'
-                }, exclude_none=True)
-            )
+            translator_args = payload.model_dump(include={
+                'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                'temperature', 'thinking', 'chunk_size', 'concurrent',
+                'insert_mode', 'separator', 'translate_regions', 'glossary_dict'
+            }, exclude_none=True)
+            translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
+            translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            translator_config = XlsxTranslatorConfig(**translator_args)
+
             html_exporter_config = Xlsx2HTMLExporterConfig(cdn=True)
             workflow_config = XlsxWorkflowConfig(
                 translator_config=translator_config,
@@ -583,13 +643,15 @@ async def _perform_translation(
 
         elif isinstance(payload, DocxWorkflowParams):
             task_logger.info("构建 DocxWorkflow 配置。")
-            translator_config = DocxTranslatorConfig(
-                **payload.model_dump(include={
-                    'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
-                    'temperature', 'thinking', 'chunk_size', 'concurrent',
-                    'insert_mode', 'separator', 'glossary_dict'
-                }, exclude_none=True)
-            )
+            translator_args = payload.model_dump(include={
+                'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                'temperature', 'thinking', 'chunk_size', 'concurrent',
+                'insert_mode', 'separator', 'glossary_dict'
+            }, exclude_none=True)
+            translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
+            translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            translator_config = DocxTranslatorConfig(**translator_args)
+
             html_exporter_config = Docx2HTMLExporterConfig(cdn=True)
             workflow_config = DocxWorkflowConfig(
                 translator_config=translator_config,
@@ -600,13 +662,15 @@ async def _perform_translation(
 
         elif isinstance(payload, SrtWorkflowParams):
             task_logger.info("构建 SrtWorkflow 配置。")
-            translator_config = SrtTranslatorConfig(
-                **payload.model_dump(include={
-                    'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
-                    'temperature', 'thinking', 'chunk_size', 'concurrent',
-                    'insert_mode', 'separator', 'glossary_dict'
-                }, exclude_none=True)
-            )
+            translator_args = payload.model_dump(include={
+                'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                'temperature', 'thinking', 'chunk_size', 'concurrent',
+                'insert_mode', 'separator', 'glossary_dict'
+            }, exclude_none=True)
+            translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
+            translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            translator_config = SrtTranslatorConfig(**translator_args)
+
             html_exporter_config = Srt2HTMLExporterConfig(cdn=True)
             workflow_config = SrtWorkflowConfig(
                 translator_config=translator_config,
@@ -617,13 +681,15 @@ async def _perform_translation(
 
         elif isinstance(payload, EpubWorkflowParams):
             task_logger.info("构建 EpubWorkflow 配置。")
-            translator_config = EpubTranslatorConfig(
-                **payload.model_dump(include={
-                    'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
-                    'temperature', 'thinking', 'chunk_size', 'concurrent',
-                    'insert_mode', 'separator', 'glossary_dict'
-                }, exclude_none=True)
-            )
+            translator_args = payload.model_dump(include={
+                'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                'temperature', 'thinking', 'chunk_size', 'concurrent',
+                'insert_mode', 'separator', 'glossary_dict'
+            }, exclude_none=True)
+            translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
+            translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            translator_config = EpubTranslatorConfig(**translator_args)
+
             html_exporter_config = Epub2HTMLExporterConfig(cdn=True)
             workflow_config = EpubWorkflowConfig(
                 translator_config=translator_config,
@@ -635,13 +701,15 @@ async def _perform_translation(
         # --- HTML WORKFLOW LOGIC START ---
         elif isinstance(payload, HtmlWorkflowParams):
             task_logger.info("构建 HtmlWorkflow 配置。")
-            translator_config = HtmlTranslatorConfig(
-                **payload.model_dump(include={
-                    'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
-                    'temperature', 'thinking', 'chunk_size', 'concurrent',
-                    'insert_mode', 'separator', 'glossary_dict'
-                }, exclude_none=True)
-            )
+            translator_args = payload.model_dump(include={
+                'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                'temperature', 'thinking', 'chunk_size', 'concurrent',
+                'insert_mode', 'separator', 'glossary_dict'
+            }, exclude_none=True)
+            translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
+            translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            translator_config = HtmlTranslatorConfig(**translator_args)
+
             workflow_config = HtmlWorkflowConfig(
                 translator_config=translator_config,
                 logger=task_logger
