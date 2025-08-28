@@ -47,8 +47,8 @@ class TXTTranslator(AiTranslator):
         chunks: list[str] = split_markdown_text(document.content.decode(), max_block_size=self.chunk_size)
 
         if self.glossary_agent:
-            glossary_dict = await self.glossary_agent.send_segments_async(chunks, self.chunk_size)
-            self.translate_agent.update_glossary_dict(glossary_dict)
+            self.glossary_dict_gen = await self.glossary_agent.send_segments_async(chunks, self.chunk_size)
+            self.translate_agent.update_glossary_dict(self.glossary_dict_gen)
 
         self.logger.info(f"txt分为{len(chunks)}块")
         result: list[str] = await self.translate_agent.send_chunks_async(chunks)

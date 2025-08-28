@@ -217,8 +217,8 @@ class HtmlTranslator(AiTranslator):
             return self
 
         if self.glossary_agent:
-            glossary_dict = await self.glossary_agent.send_segments_async(original_texts, self.chunk_size)
-            self.translate_agent.update_glossary_dict(glossary_dict)
+            self.glossary_dict_gen = await self.glossary_agent.send_segments_async(original_texts, self.chunk_size)
+            self.translate_agent.update_glossary_dict(self.glossary_dict_gen)
 
         translated_texts = await self.translate_agent.send_segments_async(original_texts, self.chunk_size)
         document.content = await asyncio.to_thread(

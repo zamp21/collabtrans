@@ -53,8 +53,6 @@ class AiTranslator(Translator[T]):
                     logger=self.logger,
                 )
                 self.glossary_agent = GlossaryAgent(glossary_agent_config)
-    def get_glossary_dict(self):
-        return self.glossary_dict_gen
     @abstractmethod
     def translate(self, document: T) -> Document:
         ...

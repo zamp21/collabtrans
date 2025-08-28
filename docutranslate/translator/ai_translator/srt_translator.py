@@ -129,8 +129,8 @@ class SrtTranslator(AiTranslator):
             return self
 
         if self.glossary_agent:
-            glossary_dict = await self.glossary_agent.send_segments_async(original_texts, self.chunk_size)
-            self.translate_agent.update_glossary_dict(glossary_dict)
+            self.glossary_dict_gen = await self.glossary_agent.send_segments_async(original_texts, self.chunk_size)
+            self.translate_agent.update_glossary_dict(self.glossary_dict_gen)
 
         # --- 步骤 2: 调用翻译Agent (异步) ---
         translated_texts = await self.translate_agent.send_segments_async(original_texts, self.chunk_size)

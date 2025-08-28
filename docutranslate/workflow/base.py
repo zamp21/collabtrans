@@ -61,4 +61,5 @@ class Workflow(ABC, Generic[T_Config, T_original, T_Translated]):
         return self
 
     def get_attachment(self):
+        print(f"attachment:{self.attachment.attachment_dict}")
         return self.attachment

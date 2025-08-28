@@ -113,6 +113,7 @@ def _create_default_task_state() -> Dict[str, Any]:
         "original_filename": None,
         "temp_dir": None,  # 用于存储临时文件的目录
         "downloadable_files": {},  # 存储可下载文件的路径和名称
+        "attachment_files": {},  # 存储附件文件的路径和标识符
     }
 
 
@@ -202,9 +203,10 @@ DocuTranslate 后端服务 API，提供文档翻译、状态查询、结果下�
 2.  **`GET /service/status/{{task_id}}`**: 使用获取到的 `task_id` 轮询此端点，获取任务的实时状态。
 3.  **`GET /service/logs/{{task_id}}`**: (可选) 获取实时的翻译日志。
 4.  **`GET /service/download/{{task_id}}/{{file_type}}`**: 任务完成后 (当 `download_ready` 为 `true` 时)，通过此端点下载结果文件。
-5.  **`GET /service/content/{{task_id}}/{{file_type}}`**: 任务完成后(当 `download_ready` 为 `true` 时)，以JSON格式获取文件内容。
-6.  **`POST /service/cancel/{{task_id}}`**: (可选) 取消一个正在进行的任务。
-7.  **`POST /service/release/{{task_id}}`**: (可选) 当任务不再需要时，释放其在服务器上占用的所有资源，包括临时文件。
+5.  **`GET /service/attachment/{{task_id}}/{{identifier}}`**: (可选) 如果任务生成了附件（如术语表），通过此端点下载。
+6.  **`GET /service/content/{{task_id}}/{{file_type}}`**: 任务完成后(当 `download_ready` 为 `true` 时)，以JSON格式获取文件内容。
+7.  **`POST /service/cancel/{{task_id}}`**: (可选) 取消一个正在进行的任务。
+8.  **`POST /service/release/{{task_id}}`**: (可选) 当任务不再需要时，释放其在服务器上占用的所有资源，包括临时文件。
 
 **版本**: {__version__}
 """,
@@ -795,6 +797,23 @@ async def _perform_translation(
             except Exception as export_error:
                 task_logger.error(f"生成 {file_type} 文件时出错: {export_error}", exc_info=True)
 
+        # 处理附件文件
+        attachment_files = {}
+        attachment_object = workflow.get_attachment()
+        if attachment_object and attachment_object.attachment_dict:
+            task_logger.info(f"发现 {len(attachment_object.attachment_dict)} 个附件，正在处理...")
+            for identifier, doc in attachment_object.attachment_dict.items():
+                try:
+                    # 'doc' is a Document object
+                    attachment_filename = f"{doc.stem or identifier}.{doc.suffix}"
+                    attachment_path = os.path.join(temp_dir, attachment_filename)
+                    with open(attachment_path, "wb") as f:
+                        f.write(doc.content)
+                    attachment_files[identifier] = {"path": attachment_path, "filename": attachment_filename}
+                    task_logger.info(f"成功生成附件 '{identifier}' 文件: {attachment_filename}")
+                except Exception as attachment_error:
+                    task_logger.error(f"生成附件 '{identifier}' 文件时出错: {attachment_error}", exc_info=True)
+
         # 5. 任务成功，更新最终状态
         end_time = time.time()
         duration = end_time - task_state["task_start_time"]
@@ -804,6 +823,7 @@ async def _perform_translation(
             "error_flag": False,
             "task_end_time": end_time,
             "downloadable_files": downloadable_files,
+            "attachment_files": attachment_files,
         })
         task_logger.info(f"翻译成功完成，用时 {duration:.2f} 秒。")
 
@@ -867,7 +887,7 @@ async def _start_translation_task(
         "original_filename_stem": Path(original_filename).stem,
         "original_filename": original_filename,
         "task_start_time": time.time(), "task_end_time": 0, "current_task_ref": None,
-        "temp_dir": None, "downloadable_files": {},
+        "temp_dir": None, "downloadable_files": {}, "attachment_files": {},
     })
 
     log_history = tasks_log_histories[task_id]
@@ -1014,7 +1034,7 @@ async def service_release_task(task_id: str):
 @service_router.get(
     "/status/{task_id}",
     summary="获取任务状态",
-    description="根据任务ID获取任务的当前状态。当 `download_ready` 为 `true` 时，`downloads` 对象中会包含可用的下载链接。",
+    description="根据任务ID获取任务的当前状态。当 `download_ready` 为 `true` 时，`downloads` 和 `attachment` 对象中会包含可用的下载链接。",
     responses={
         200: {
             "description": "成功获取任务状态。",
@@ -1028,7 +1048,7 @@ async def service_release_task(task_id: str):
                                 "status_message": "正在处理 'annual_report.pdf'...",
                                 "error_flag": False, "download_ready": False, "original_filename_stem": "annual_report",
                                 "original_filename": "annual_report.pdf", "task_start_time": 1678889400.0,
-                                "task_end_time": 0, "downloads": {}
+                                "task_end_time": 0, "downloads": {}, "attachment": {}
                             }
                         },
                         "completed_markdown": {
@@ -1043,6 +1063,26 @@ async def service_release_task(task_id: str):
                                     "html": "/service/download/b2865b93/html",
                                     "markdown": "/service/download/b2865b93/markdown",
                                     "markdown_zip": "/service/download/b2865b93/markdown_zip"
+                                },
+                                "attachment": {}
+                            }
+                        },
+                        "completed_with_attachment": {
+                            "summary": "已完成 (带附件)",
+                            "value": {
+                                "task_id": "g1h2i3j4", "is_processing": False,
+                                "status_message": "翻译成功！用时 125.00 秒。",
+                                "error_flag": False, "download_ready": True,
+                                "original_filename_stem": "complex_document",
+                                "original_filename": "complex_document.docx",
+                                "task_start_time": 1678891000.0,
+                                "task_end_time": 1678891125.0,
+                                "downloads": {
+                                    "docx": "/service/download/g1h2i3j4/docx",
+                                    "html": "/service/download/g1h2i3j4/html"
+                                },
+                                "attachment": {
+                                    "glossary": "/service/attachment/g1h2i3j4/glossary"
                                 }
                             }
                         },
@@ -1062,7 +1102,8 @@ async def service_release_task(task_id: str):
                                     "xlsx": "/service/download/d7e8f9a0/xlsx",
                                     "csv": "/service/download/d7e8f9a0/csv",
                                     "html": "/service/download/d7e8f9a0/html"
-                                }
+                                },
+                                "attachment": {}
                             }
                         },
                         "completed_docx": {
@@ -1076,7 +1117,8 @@ async def service_release_task(task_id: str):
                                 "downloads": {
                                     "docx": "/service/download/f8a9c1b2/docx",
                                     "html": "/service/download/f8a9c1b2/html"
-                                }
+                                },
+                                "attachment": {}
                             }
                         },
                         "completed_epub": {
@@ -1090,7 +1132,8 @@ async def service_release_task(task_id: str):
                                 "downloads": {
                                     "epub": "/service/download/e9b8d7c6/epub",
                                     "html": "/service/download/e9b8d7c6/html"
-                                }
+                                },
+                                "attachment": {}
                             }
                         },
                         # --- HTML STATUS EXAMPLE START ---
@@ -1104,7 +1147,8 @@ async def service_release_task(task_id: str):
                                 "task_end_time": 1678890115.78,
                                 "downloads": {
                                     "html": "/service/download/a1b2c3d4/html"
-                                }
+                                },
+                                "attachment": {}
                             }
                         },
                         # --- HTML STATUS EXAMPLE END ---
@@ -1115,7 +1159,7 @@ async def service_release_task(task_id: str):
                                 "status_message": "翻译过程中发生错误: LLM API key is invalid",
                                 "error_flag": True, "download_ready": False, "original_filename_stem": "bad_config",
                                 "original_filename": "bad_config.json", "task_start_time": 1678889600.0,
-                                "task_end_time": 1678889610.0, "downloads": {}
+                                "task_end_time": 1678889610.0, "downloads": {}, "attachment": {}
                             }
                         }
                     }
@@ -1136,6 +1180,11 @@ async def service_get_status(
         for file_type in task_state["downloadable_files"].keys():
             downloads[file_type] = f"/service/download/{task_id}/{file_type}"
 
+    attachments = {}
+    if task_state.get("download_ready") and task_state.get("attachment_files"):
+        for identifier in task_state["attachment_files"].keys():
+            attachments[identifier] = f"/service/attachment/{task_id}/{identifier}"
+
     return JSONResponse(content={
         "task_id": task_id,
         "is_processing": task_state["is_processing"],
@@ -1146,7 +1195,8 @@ async def service_get_status(
         "original_filename": task_state.get("original_filename"),
         "task_start_time": task_state["task_start_time"],
         "task_end_time": task_state["task_end_time"],
-        "downloads": downloads
+        "downloads": downloads,
+        "attachment": attachments
     })
 
 
@@ -1214,6 +1264,42 @@ async def service_download_file(
     file_path = file_info["path"]
     filename = file_info["filename"]
     media_type = MEDIA_TYPES.get(file_type, "application/octet-stream")
+
+    return FileResponse(path=file_path, media_type=media_type, filename=filename)
+
+
+@service_router.get(
+    "/attachment/{task_id}/{identifier}",
+    summary="下载附件文件",
+    description="根据任务ID和附件标识符下载在翻译过程中生成的附加文件，例如自动生成的术语表。",
+    responses={
+        200: {
+            "description": "成功返回文件流。文件名通过 Content-Disposition 头指定。",
+            "content": {
+                "application/octet-stream": {"schema": {"type": "string", "format": "binary"}},
+            }
+        },
+        404: {"description": "任务ID不存在，或该任务没有指定的附件，或临时文件已丢失。"},
+    }
+)
+async def service_download_attachment(
+        task_id: str = FastApiPath(..., description="已完成任务的ID", examples=["g1h2i3j4"]),
+        identifier: str = FastApiPath(..., description="要下载的附件的标识符。", examples=["glossary"])
+):
+    task_state = tasks_state.get(task_id)
+    if not task_state:
+        raise HTTPException(status_code=404, detail=f"找不到任务ID '{task_id}'。")
+
+    attachment_info = task_state.get("attachment_files", {}).get(identifier)
+    if not attachment_info or not os.path.exists(attachment_info.get("path")):
+        raise HTTPException(status_code=404,
+                            detail=f"任务 '{task_id}' 不存在标识符为 '{identifier}' 的附件，或文件已丢失。")
+
+    file_path = attachment_info["path"]
+    filename = attachment_info["filename"]
+
+    # Use a generic media type as attachments can be of various formats
+    media_type = "application/octet-stream"
 
     return FileResponse(path=file_path, media_type=media_type, filename=filename)
 
