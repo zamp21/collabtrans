@@ -227,6 +227,7 @@ class GlossaryAgentConfigPayload(BaseModel):
     baseurl: str = Field(..., description="用于术语表生成的Agent的LLM API基础URL。", examples=["https://api.openai.com/v1"])
     key: str = Field(..., description="用于术语表生成的Agent的LLM API密钥。", examples=["sk-agent-api-key"])
     model_id: str = Field(..., description="用于术语表生成的Agent的模型ID。", examples=["gpt-4-turbo"])
+    to_lang: str = Field(..., description="术语表生成的目标语言。", examples=["简体中文", "English"])
     temperature: float = Field(default=0.7, description="用于术语表生成的Agent的温度参数。")
     max_concurrent: int = Field(default=30, description="Agent的最大并发请求数。")
     timeout: int = Field(default=2000, description="Agent的API调用超时时间。")
@@ -399,7 +400,7 @@ class TranslateServiceRequest(BaseModel):
                 {
                     "summary": "Markdown 工作流示例",
                     "value": {
-                        "file_name": "annual_report_2023.pdf",
+                        "file_name": "annual_report_203.pdf",
                         "file_content": "JVBERi0xLjcKJeLjz9MKMSAwIG9iago8PC9...",
                         "payload": {
                             "workflow_type": "markdown_based",
@@ -466,6 +467,7 @@ class TranslateServiceRequest(BaseModel):
                                 "baseurl": "https://api.openai.com/v1",
                                 "key": "sk-your-agent-key-for-glossary",
                                 "model_id": "gpt-4-turbo",
+                                "to_lang": "简体中文",
                                 "temperature": 0.5
                             }
                         }
@@ -575,7 +577,6 @@ async def _perform_translation(
                 agent_payload = payload.glossary_agent_config
                 return GlossaryAgentConfig(
                     logger=task_logger,
-                    to_lang=payload.to_lang,
                     **agent_payload.model_dump()
                 )
             return None

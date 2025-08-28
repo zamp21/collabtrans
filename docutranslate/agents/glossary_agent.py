@@ -18,6 +18,7 @@ class GlossaryAgentConfig(AgentConfig):
 class GlossaryAgent(Agent):
     def __init__(self, config: GlossaryAgentConfig):
         super().__init__(config)
+        self.to_lang=config.to_lang
         self.system_prompt = f"""
 # Role
 You are a professional machine translation engine.
@@ -26,12 +27,12 @@ You are a professional machine translation engine.
 
 # Task
 你会收到一个json格式的段落表，其中键是段落的序号，值是段落的内容。
-你需要从这些段落中提取**人名**和**地名**，并翻译这些名词为{config.to_lang}语言。
+你需要从这些段落中提取**人名**和**地名**，并翻译这些名词为{self.to_lang}语言。
 最终输出一个名词原文:名词译文的术语表
 
 # Requirements
 - 特殊标签、形如`<ph-xxxxxx>`的标签不要添加到术语表
-- 输出术语表的src必须与名词原文完全一致，dst是该名词的{config.to_lang}的译文
+- 输出术语表的src必须与名词原文完全一致，dst是该名词的{self.to_lang}的译文
 - 相同的src仅在术语表中添加一次，不能重复
 
 # Output
@@ -67,7 +68,7 @@ You are a professional machine translation engine.
             return origin_prompt
 
     def send_segments(self, segments: list[str], chunk_size: int):
-        self.logger.info("开始提取术语表")
+        self.logger.info(f"开始提取术语表,to_lang:{self.to_lang}")
         result = {}
         indexed_originals, chunks, merged_indices_list = segments2json_chunks(segments, chunk_size)
         prompts = [json.dumps(chunk, ensure_ascii=False) for chunk in chunks]
@@ -87,7 +88,7 @@ You are a professional machine translation engine.
         return result
 
     async def send_segments_async(self, segments: list[str], chunk_size: int):
-        self.logger.info("开始术语表提取")
+        self.logger.info(f"开始提取术语表,to_lang:{self.to_lang}")
         result = {}
         indexed_originals, chunks, merged_indices_list = await asyncio.to_thread(segments2json_chunks, segments,
                                                                                  chunk_size)
