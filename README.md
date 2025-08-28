@@ -16,13 +16,14 @@
 
 The new version's architecture adopts **Workflow** as its core, providing a highly configurable and extensible solution for various types of translation tasks.
 
-- ✅ **Supports a wide variety of formats**: Capable of translating files such as `pdf`, `docx`, `xlsx`, `md`, `txt`, `json`, `epub`, `srt`, etc.
-- ✅ **Recognition of tables, formulas, and code**: Utilizes `docling` and `mineru` to recognize and translate tables, formulas, and code commonly found in academic papers.
-- ✅ **JSON translation**: Supports specifying values within JSON that need translation through JSON paths (following the `jsonpath-ng` syntax specification).
-- ✅ **High-fidelity translation for Word/Excel**: Supports translation of `docx` and `xlsx` files (currently does not support `doc` and `xls` files) while preserving the original formatting.
-- ✅ **Support for multiple AI platforms**: Compatible with most AI platforms, enabling high-performance parallel AI translation with custom prompts.
-- ✅ **Asynchronous support**: Designed for high-performance scenarios, offering full asynchronous support and implementing a service interface capable of multitask parallel processing.
-- ✅ **Interactive web interface**: Provides an out-of-the-box Web UI and RESTful API for easy integration and use.
+- ✅ **Supports Multiple Formats**: Capable of translating various files such as `pdf`, `docx`, `xlsx`, `md`, `txt`, `json`, `epub`, `srt`, and more.  
+- ✅ **Table, Formula, and Code Recognition**: Utilizes `docling` and `mineru` to recognize and translate tables, formulas, and code frequently found in academic papers.  
+- ✅ **Automatic Glossary Generation**: Supports automatic glossary creation to ensure terminology consistency.  
+- ✅ **JSON Translation**: Allows specifying values to be translated in JSON using JSONPath (`jsonpath-ng` syntax) specifications.  
+- ✅ **High-Fidelity Word/Excel Translation**: Supports translation of `docx` and `xlsx` files (currently does not support `doc` or `xls` files) while preserving the original formatting.  
+- ✅ **Multi-AI Platform Support**: Compatible with most AI platforms, enabling high-performance concurrent AI translation with customizable prompts.  
+- ✅ **Asynchronous Support**: Designed for high-performance scenarios, offering full asynchronous support and service interfaces for parallel task execution.  
+- ✅ **Interactive Web Interface**: Provides an out-of-the-box Web UI and RESTful API for easy integration and use.  
 
 > When translating `pdf` files, they are first converted to markdown, so the original typesetting will be **lost**. Users with typesetting requirements should note this.
 
