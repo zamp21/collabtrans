@@ -18,7 +18,7 @@ class GlossaryAgentConfig(AgentConfig):
 class GlossaryAgent(Agent):
     def __init__(self, config: GlossaryAgentConfig):
         super().__init__(config)
-        self.to_lang=config.to_lang
+        self.to_lang = config.to_lang
         self.system_prompt = f"""
 # Role
 You are a professional machine translation engine.
@@ -79,7 +79,7 @@ You are a professional machine translation engine.
             chunk: list[dict[str, str]]
             try:
                 glossary_dict = {d["src"]: d["dst"] for d in chunk}
-                result = result | glossary_dict
+                result = glossary_dict | result
             except JSONDecodeError as e:
                 self.logger.info(f"json解析错误，解析文本:{chunk}，错误:{e.__repr__()}")
             except Exception as e:

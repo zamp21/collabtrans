@@ -49,8 +49,8 @@ The translated txt text as plain text.
     async def send_chunks_async(self, prompts: list[str]):
         return await super().send_prompts_async(prompts=prompts, pre_send_handler=self._pre_send_handler)
 
-    def update_glossary_dict(self, update_dict: dict|None):
+    def update_glossary_dict(self, update_dict: dict | None):
         if self.glossary_dict is None:
             self.glossary_dict = {}
         if update_dict is not None:
-            self.glossary_dict = self.glossary_dict | update_dict
+            self.glossary_dict = update_dict | self.glossary_dict

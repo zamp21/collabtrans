@@ -73,4 +73,4 @@ $$1+1=2$$
         if self.glossary_dict is None:
             self.glossary_dict = {}
         if update_dict is not None:
-            self.glossary_dict = self.glossary_dict | update_dict
+            self.glossary_dict = update_dict | self.glossary_dict
