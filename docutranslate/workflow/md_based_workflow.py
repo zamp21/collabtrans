@@ -6,6 +6,7 @@ from typing import Self, Tuple, Type
 from docutranslate.cacher import md_based_convert_cacher
 from docutranslate.exporter.base import ExporterConfig
 from docutranslate.global_values.conditional_import import DOCLING_EXIST
+from docutranslate.glossary.glossary import Glossary
 from docutranslate.ir.document import Document
 from docutranslate.ir.markdown_document import MarkdownDocument
 
@@ -86,6 +87,8 @@ class MarkdownBasedWorkflow(Workflow[MarkdownBasedWorkflowConfig, Document, Mark
         convert_engine, convert_config, translator_config, translator = self._pre_translate(self.document_original)
         document_md = self._get_document_md(convert_engine, convert_config)
         translator.translate(document_md)
+        if translator.glossary_dict_gen:
+            self.attachment.add_attachment("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
         self.document_translated = document_md
         return self
 
@@ -93,6 +96,8 @@ class MarkdownBasedWorkflow(Workflow[MarkdownBasedWorkflowConfig, Document, Mark
         convert_engine, convert_config, translator_config, translator = self._pre_translate(self.document_original)
         document_md = await asyncio.to_thread(self._get_document_md, convert_engine, convert_config)
         await translator.translate_async(document_md)
+        if translator.glossary_dict_gen:
+            self.attachment.add_attachment("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
         self.document_translated = document_md
         return self
 

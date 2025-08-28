@@ -11,6 +11,7 @@ from docutranslate.exporter.base import ExporterConfig
 from docutranslate.exporter.xlsx.xlsx2csv_exporter import Xlsx2CsvExporter
 from docutranslate.exporter.xlsx.xlsx2html_exporter import Xlsx2HTMLExporterConfig, Xlsx2HTMLExporter
 from docutranslate.exporter.xlsx.xlsx2xlsx_exporter import Xlsx2XlsxExporter
+from docutranslate.glossary.glossary import Glossary
 from docutranslate.ir.document import Document
 from docutranslate.translator.ai_translator.xlsx_translator import XlsxTranslatorConfig, XlsxTranslator
 from docutranslate.workflow.base import Workflow, WorkflowConfig
@@ -59,6 +60,8 @@ class XlsxWorkflow(Workflow[XlsxWorkflowConfig, Document, Document], HTMLExporta
         document_xlsx = self._get_document_xlsx(self.document_original)
         document, translator = self._pre_translate(document_xlsx)
         translator.translate(document)
+        if translator.glossary_dict_gen:
+            self.attachment.add_attachment("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
         self.document_translated = document
         return self
 
@@ -66,6 +69,8 @@ class XlsxWorkflow(Workflow[XlsxWorkflowConfig, Document, Document], HTMLExporta
         document_xlsx = await asyncio.to_thread(self._get_document_xlsx, self.document_original)
         document, translator = self._pre_translate(document_xlsx)
         await translator.translate_async(document)
+        if translator.glossary_dict_gen:
+            self.attachment.add_attachment("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
         self.document_translated = document
         return self
 

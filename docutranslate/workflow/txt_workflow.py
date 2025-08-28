@@ -5,6 +5,7 @@ from typing import Self
 from docutranslate.exporter.base import ExporterConfig
 from docutranslate.exporter.txt.txt2html_exporter import TXT2HTMLExporterConfig, TXT2HTMLExporter
 from docutranslate.exporter.txt.txt2txt_exporter import TXT2TXTExporter
+from docutranslate.glossary.glossary import Glossary
 from docutranslate.ir.document import Document
 from docutranslate.translator.ai_translator.txt_translator import TXTTranslatorConfig, TXTTranslator
 from docutranslate.workflow.base import Workflow, WorkflowConfig
@@ -36,12 +37,16 @@ class TXTWorkflow(Workflow[TXTWorkflowConfig, Document, Document], HTMLExportabl
     def translate(self) -> Self:
         document, translator=self._pre_translate(self.document_original)
         translator.translate(document)
+        if translator.glossary_dict_gen:
+            self.attachment.add_attachment("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
         self.document_translated = document
         return self
 
     async def translate_async(self) -> Self:
         document, translator = self._pre_translate(self.document_original)
         await translator.translate_async(document)
+        if translator.glossary_dict_gen:
+            self.attachment.add_attachment("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
         self.document_translated = document
         return self
 

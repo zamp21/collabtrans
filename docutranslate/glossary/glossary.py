@@ -1,3 +1,6 @@
+from docutranslate.ir.document import Document
+
+
 class Glossary:
     def __init__(self,glossary_dict:dict[str:str]=None):
         self.glossary_dict=glossary_dict
@@ -19,3 +22,9 @@ class Glossary:
             return prompt
         else:
             return ""
+    @staticmethod
+    def glossary_dict2csv(glossary_dict: dict[str, str], seperator=",", stem="glossary_gen") -> Document:
+        content = f"src{seperator}dst\n"
+        for src, dst in glossary_dict.items():
+            content += f"{src}{seperator}{dst}\n"
+        return Document.from_bytes(content=content.encode("utf-8"), suffix=".csv", stem=stem)

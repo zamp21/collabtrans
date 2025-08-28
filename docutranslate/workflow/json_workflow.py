@@ -5,6 +5,7 @@ from typing import Self
 from docutranslate.exporter.base import ExporterConfig
 from docutranslate.exporter.js.json2html_exporter import Json2HTMLExporterConfig, Json2HTMLExporter
 from docutranslate.exporter.js.json2json_exporter import Json2JsonExporter
+from docutranslate.glossary.glossary import Glossary
 from docutranslate.ir.document import Document
 from docutranslate.translator.ai_translator.json_translator import JsonTranslatorConfig, JsonTranslator
 from docutranslate.workflow.base import Workflow, WorkflowConfig
@@ -35,12 +36,16 @@ class JsonWorkflow(Workflow[JsonWorkflowConfig, Document, Document], HTMLExporta
     def translate(self) -> Self:
         document, translator = self._pre_translate(self.document_original)
         translator.translate(document)
+        if translator.glossary_dict_gen:
+            self.attachment.add_attachment("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
         self.document_translated = document
         return self
 
     async def translate_async(self) -> Self:
         document, translator = self._pre_translate(self.document_original)
         await translator.translate_async(document)
+        if translator.glossary_dict_gen:
+            self.attachment.add_attachment("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
         self.document_translated = document
         return self
 

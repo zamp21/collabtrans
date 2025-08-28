@@ -5,6 +5,7 @@ from typing import Self
 from docutranslate.exporter.base import ExporterConfig
 from docutranslate.exporter.srt.srt2html_exporter import Srt2HTMLExporterConfig, Srt2HTMLExporter
 from docutranslate.exporter.srt.srt2srt_exporter import Srt2SrtExporter
+from docutranslate.glossary.glossary import Glossary
 from docutranslate.ir.document import Document
 from docutranslate.translator.ai_translator.srt_translator import SrtTranslatorConfig, SrtTranslator
 from docutranslate.workflow.base import Workflow, WorkflowConfig
@@ -36,12 +37,16 @@ class SrtWorkflow(Workflow[SrtWorkflowConfig, Document, Document], HTMLExportabl
     def translate(self) -> Self:
         document, translator=self._pre_translate(self.document_original)
         translator.translate(document)
+        if translator.glossary_dict_gen:
+            self.attachment.add_attachment("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
         self.document_translated = document
         return self
 
     async def translate_async(self) -> Self:
         document, translator = self._pre_translate(self.document_original)
         await translator.translate_async(document)
+        if translator.glossary_dict_gen:
+            self.attachment.add_attachment("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
         self.document_translated = document
         return self
 

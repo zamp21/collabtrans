@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Self, Generic, TypeVar
 
 from docutranslate.exporter.base import Exporter
+from docutranslate.ir.attachment import AttachMent
 from docutranslate.ir.document import Document
 
 
@@ -24,6 +25,7 @@ class Workflow(ABC, Generic[T_Config, T_original, T_Translated]):
         self.logger = self.config.logger
         self.document_original: T_original | None = None
         self.document_translated: T_Translated | None = None
+        self.attachment = AttachMent()
 
     def read_path(self, path: Path | str) -> Self:
         document = Document.from_path(path)
@@ -57,3 +59,6 @@ class Workflow(ABC, Generic[T_Config, T_original, T_Translated]):
         output_path.write_bytes(docu.content)
         self.logger.info(f"文件已保存到{output_path.resolve()}")
         return self
+
+    def get_attachment(self):
+        return self.attachment

@@ -36,6 +36,7 @@ class AiTranslator(Translator[T]):
     def __init__(self, config: AiTranslatorConfig):
         super().__init__(config=config)
         self.glossary_agent = None
+        self.glossary_dict_gen = None
         if config.glossary_generate_enable:
             if config.glossary_agent_config:
                 self.glossary_agent = GlossaryAgent(config.glossary_agent_config)
@@ -52,7 +53,8 @@ class AiTranslator(Translator[T]):
                     logger=self.logger,
                 )
                 self.glossary_agent = GlossaryAgent(glossary_agent_config)
-
+    def get_glossary_dict(self):
+        return self.glossary_dict_gen
     @abstractmethod
     def translate(self, document: T) -> Document:
         ...

@@ -198,8 +198,8 @@ class HtmlTranslator(AiTranslator):
             return self
 
         if self.glossary_agent:
-            glossary_dict = self.glossary_agent.send_segments(original_texts, self.chunk_size)
-            self.translate_agent.update_glossary_dict(glossary_dict)
+            self.glossary_dict_gen = self.glossary_agent.send_segments(original_texts, self.chunk_size)
+            self.translate_agent.update_glossary_dict(self.glossary_dict_gen)
 
         translated_texts = self.translate_agent.send_segments(original_texts, self.chunk_size)
         document.content = self._after_translate(soup, translatable_items, translated_texts, original_texts)

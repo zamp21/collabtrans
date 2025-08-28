@@ -37,8 +37,8 @@ class MDTranslator(AiTranslator):
         with MDMaskUrisContext(document):
             chunks: list[str] = split_markdown_text(document.content.decode(), self.chunk_size)
             if self.glossary_agent:
-                glossary_dict = self.glossary_agent.send_segments(chunks, self.chunk_size)
-                self.translate_agent.update_glossary_dict(glossary_dict)
+                self.glossary_dict_gen = self.glossary_agent.send_segments(chunks, self.chunk_size)
+                self.translate_agent.update_glossary_dict(self.glossary_dict_gen)
             self.logger.info(f"markdown分为{len(chunks)}块")
             result: list[str] = self.translate_agent.send_chunks(chunks)
             content = join_markdown_texts(result)
@@ -56,8 +56,8 @@ class MDTranslator(AiTranslator):
             chunks: list[str] = split_markdown_text(document.content.decode(), self.chunk_size)
 
             if self.glossary_agent:
-                glossary_dict = await self.glossary_agent.send_segments_async(chunks, self.chunk_size)
-                self.translate_agent.update_glossary_dict(glossary_dict)
+                self.glossary_dict_gen = await self.glossary_agent.send_segments_async(chunks, self.chunk_size)
+                self.translate_agent.update_glossary_dict(self.glossary_dict_gen)
 
             self.logger.info(f"markdown分为{len(chunks)}块")
             result: list[str] = await self.translate_agent.send_chunks_async(chunks)
