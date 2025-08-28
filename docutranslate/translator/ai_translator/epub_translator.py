@@ -8,6 +8,7 @@ from typing import Self, Literal, List, Dict, Any
 
 from bs4 import BeautifulSoup
 
+from docutranslate.agents.glossary_agent import GlossaryAgent, GlossaryAgentConfig
 from docutranslate.agents.segments_agent import SegmentsTranslateAgentConfig, SegmentsTranslateAgent
 from docutranslate.ir.document import Document
 from docutranslate.translator.ai_translator.base import AiTranslatorConfig, AiTranslator
@@ -38,6 +39,7 @@ class EpubTranslator(AiTranslator):
         self.translate_agent = SegmentsTranslateAgent(agent_config)
         self.insert_mode = config.insert_mode
         self.separator = config.separator
+
 
     def _pre_translate(self, document: Document) -> tuple[
         Dict[str, bytes], List[Dict[str, Any]], List[str]
@@ -173,7 +175,9 @@ class EpubTranslator(AiTranslator):
         if not items_to_translate:
             self.logger.info("\n文件中没有找到需要翻译的纯文本内容。")
             return self
-
+        if self.glossary_agent:
+            glossary_dict = self.glossary_agent.send_segments(original_texts, self.chunk_size)
+            self.translate_agent.update_glossary_dict(glossary_dict)
         translated_texts = self.translate_agent.send_segments(original_texts, self.chunk_size)
         document.content = self._after_translate(
             all_files, items_to_translate, translated_texts, original_texts
@@ -190,6 +194,10 @@ class EpubTranslator(AiTranslator):
         if not items_to_translate:
             self.logger.info("\n文件中没有找到需要翻译的纯文本内容。")
             return self
+
+        if self.glossary_agent:
+            glossary_dict = await self.glossary_agent.send_segments_async(original_texts, self.chunk_size)
+            self.translate_agent.update_glossary_dict(glossary_dict)
 
         translated_texts = await self.translate_agent.send_segments_async(
             original_texts, self.chunk_size

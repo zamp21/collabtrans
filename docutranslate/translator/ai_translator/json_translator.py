@@ -75,7 +75,9 @@ class JsonTranslator(AiTranslator):
             return self
 
         original_texts = [match.value for match in all_matches]
-
+        if self.glossary_agent:
+            glossary_dict = self.glossary_agent.send_segments(original_texts, self.chunk_size)
+            self.translate_agent.update_glossary_dict(glossary_dict)
         # 步骤 2: 批量翻译提取出的文本
         translated_texts = self.translate_agent.send_segments(original_texts, self.chunk_size)
 
@@ -103,6 +105,10 @@ class JsonTranslator(AiTranslator):
             return self
 
         original_texts = [match.value for match in all_matches]
+
+        if self.glossary_agent:
+            glossary_dict = await self.glossary_agent.send_segments_async(original_texts, self.chunk_size)
+            self.translate_agent.update_glossary_dict(glossary_dict)
 
         # 步骤 2: 批量翻译提取出的文本
         translated_texts = await self.translate_agent.send_segments_async(original_texts, self.chunk_size)

@@ -198,6 +198,10 @@ class HtmlTranslator(AiTranslator):
             document.content = soup.encode('utf-8')
             return self
 
+        if self.glossary_agent:
+            glossary_dict = self.glossary_agent.send_segments(original_texts, self.chunk_size)
+            self.translate_agent.update_glossary_dict(glossary_dict)
+
         translated_texts = self.translate_agent.send_segments(original_texts, self.chunk_size)
         document.content = self._after_translate(soup, translatable_items, translated_texts, original_texts)
         return self
@@ -212,6 +216,10 @@ class HtmlTranslator(AiTranslator):
             self.logger.info("\nHTML文件中没有找到符合安全规则的可翻译内容。")
             document.content = await asyncio.to_thread(soup.encode, 'utf-8')
             return self
+
+        if self.glossary_agent:
+            glossary_dict = await self.glossary_agent.send_segments_async(original_texts, self.chunk_size)
+            self.translate_agent.update_glossary_dict(glossary_dict)
 
         translated_texts = await self.translate_agent.send_segments_async(original_texts, self.chunk_size)
         document.content = await asyncio.to_thread(

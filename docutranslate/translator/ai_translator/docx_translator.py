@@ -8,6 +8,7 @@ from docx.document import Document as DocumentObject
 from docx.text.paragraph import Paragraph
 from docx.text.run import Run
 
+from docutranslate.agents.glossary_agent import GlossaryAgent, GlossaryAgentConfig
 from docutranslate.agents.segments_agent import SegmentsTranslateAgentConfig, SegmentsTranslateAgent
 from docutranslate.ir.document import Document
 from docutranslate.translator.ai_translator.base import AiTranslatorConfig, AiTranslator
@@ -159,6 +160,10 @@ class DocxTranslator(AiTranslator):
             document.content = output_stream.getvalue()
             return self
 
+        if self.glossary_agent:
+            glossary_dict = self.glossary_agent.send_segments(original_texts, self.chunk_size)
+            self.translate_agent.update_glossary_dict(glossary_dict)
+
         # 调用翻译 agent
         translated_texts = self.translate_agent.send_segments(original_texts, self.chunk_size)
 
@@ -178,6 +183,10 @@ class DocxTranslator(AiTranslator):
             doc.save(output_stream)
             document.content = output_stream.getvalue()
             return self
+
+        if self.glossary_agent:
+            glossary_dict = await self.glossary_agent.send_segments_async(original_texts, self.chunk_size)
+            self.translate_agent.update_glossary_dict(glossary_dict)
 
         # 异步调用翻译 agent
         translated_texts = await self.translate_agent.send_segments_async(original_texts, self.chunk_size)

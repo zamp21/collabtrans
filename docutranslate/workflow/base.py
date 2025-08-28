@@ -12,15 +12,16 @@ from docutranslate.ir.document import Document
 class WorkflowConfig:
     logger: Logger | None = None
 
+
 T_Config = TypeVar("T_Config", bound=WorkflowConfig)
 T_original = TypeVar('T_original', bound=Document)
 T_Translated = TypeVar('T_Translated', bound=Document)
 
 
-class Workflow(ABC, Generic[T_Config,T_original, T_Translated]):
-    def __init__(self, config:T_Config):
-        self.config=config
-        self.logger=self.config.logger
+class Workflow(ABC, Generic[T_Config, T_original, T_Translated]):
+    def __init__(self, config: T_Config):
+        self.config = config
+        self.logger = self.config.logger
         self.document_original: T_original | None = None
         self.document_translated: T_Translated | None = None
 
@@ -56,5 +57,3 @@ class Workflow(ABC, Generic[T_Config,T_original, T_Translated]):
         output_path.write_bytes(docu.content)
         self.logger.info(f"文件已保存到{output_path.resolve()}")
         return self
-
-

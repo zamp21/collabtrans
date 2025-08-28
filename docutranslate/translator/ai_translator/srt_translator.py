@@ -4,6 +4,7 @@ from typing import Self, Literal
 
 import srt  # 导入srt库来处理字幕文件
 
+from docutranslate.agents.glossary_agent import GlossaryAgentConfig, GlossaryAgent
 from docutranslate.agents.segments_agent import SegmentsTranslateAgentConfig, SegmentsTranslateAgent
 from docutranslate.ir.document import Document
 from docutranslate.translator.ai_translator.base import AiTranslatorConfig, AiTranslator
@@ -108,7 +109,9 @@ class SrtTranslator(AiTranslator):
         if not original_texts:
             self.logger.info("\n文件中没有找到需要翻译的字幕内容。")
             return self
-
+        if self.glossary_agent:
+            glossary_dict = self.glossary_agent.send_segments(original_texts, self.chunk_size)
+            self.translate_agent.update_glossary_dict(glossary_dict)
         # --- 步骤 2: 调用翻译Agent ---
         translated_texts = self.translate_agent.send_segments(original_texts, self.chunk_size)
 
@@ -126,6 +129,10 @@ class SrtTranslator(AiTranslator):
         if not original_texts:
             self.logger.info("\n文件中没有找到需要翻译的字幕内容。")
             return self
+
+        if self.glossary_agent:
+            glossary_dict = await self.glossary_agent.send_segments_async(original_texts, self.chunk_size)
+            self.translate_agent.update_glossary_dict(glossary_dict)
 
         # --- 步骤 2: 调用翻译Agent (异步) ---
         translated_texts = await self.translate_agent.send_segments_async(original_texts, self.chunk_size)

@@ -1,8 +1,9 @@
 from abc import abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TypeVar
 
 from docutranslate.agents.agent import ThinkingMode
+from docutranslate.agents.glossary_agent import GlossaryAgentConfig, GlossaryAgent
 from docutranslate.ir.document import Document
 from docutranslate.translator.base import Translator, TranslatorConfig
 
@@ -20,6 +21,8 @@ class AiTranslatorConfig(TranslatorConfig):
     chunk_size: int = 3000
     concurrent: int = 30
     glossary_dict: dict[str:str] | None = None
+    glossary_generate_enable: bool = True
+    glossary_agent_config: GlossaryAgentConfig | None = None
 
 
 T = TypeVar('T', bound=Document)
@@ -32,7 +35,24 @@ class AiTranslator(Translator[T]):
 
     def __init__(self, config: AiTranslatorConfig):
         super().__init__(config=config)
-
+        self.glossary_agent = None
+        if config.glossary_generate_enable:
+            if config.glossary_agent_config:
+                self.glossary_agent = GlossaryAgent(config.glossary_agent_config)
+            else:
+                glossary_agent_config = GlossaryAgentConfig(
+                    to_lang=config.to_lang,
+                    baseurl=config.base_url,
+                    key=config.api_key,
+                    model_id=config.model_id,
+                    system_prompt=None,
+                    temperature=config.temperature,
+                    thinking=config.thinking,
+                    max_concurrent=config.concurrent,
+                    timeout=config.timeout,
+                    logger=self.logger,
+                )
+                self.glossary_agent = GlossaryAgent(glossary_agent_config)
 
     @abstractmethod
     def translate(self, document: T) -> Document:

@@ -144,3 +144,9 @@ Warning: Never wrap the entire JSON object in quotes to make it a single string.
         # 添加剩余部分
         result.extend(ls[last_end:])
         return result
+
+    def update_glossary_dict(self, update_dict: dict|None):
+        if self.glossary_dict is None:
+            self.glossary_dict = {}
+        if update_dict is not None:
+            self.glossary_dict = self.glossary_dict | update_dict

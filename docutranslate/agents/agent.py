@@ -255,9 +255,10 @@ class Agent:
             return prompt if error_result_handler is None else error_result_handler(prompt, self.logger)
 
     def _send_prompt_count(self, client: httpx.Client, prompt: str, system_prompt: None | str, count: PromptsCounter,
+                           pre_send_handler,
                            result_handler,
                            error_result_handler) -> Any:
-        result = self.send(client, prompt, system_prompt, result_handler=result_handler,
+        result = self.send(client, prompt, system_prompt, pre_send_handler=pre_send_handler,result_handler=result_handler,
                            error_result_handler=error_result_handler)
         count.add()
         return result
