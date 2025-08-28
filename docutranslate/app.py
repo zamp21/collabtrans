@@ -805,7 +805,7 @@ async def _perform_translation(
             for identifier, doc in attachment_object.attachment_dict.items():
                 try:
                     # 'doc' is a Document object
-                    attachment_filename = f"{doc.stem or identifier}.{doc.suffix}"
+                    attachment_filename = f"{doc.stem or identifier}{doc.suffix}"
                     attachment_path = os.path.join(temp_dir, attachment_filename)
                     with open(attachment_path, "wb") as f:
                         f.write(doc.content)
