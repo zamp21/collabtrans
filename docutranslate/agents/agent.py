@@ -243,6 +243,8 @@ class Agent:
             self.logger.warning(f"AI请求连接错误 (sync): {repr(e)}\nprompt:{prompt}")
         except (KeyError, IndexError) as e:
             raise Exception(f"AI响应格式错误 (sync): {repr(e)}")
+        except ValueError as e:
+            self.logger.warning(f"{e.__repr__()}")
         # 如果没有正常获取结果则重试
         if retry and retry_count < MAX_RETRY_COUNT:
             if self.total_error_counter.add():
