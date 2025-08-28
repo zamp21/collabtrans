@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TypeVar
 
 from docutranslate.agents.agent import ThinkingMode
@@ -10,10 +10,10 @@ from docutranslate.translator.base import Translator, TranslatorConfig
 
 @dataclass(kw_only=True)
 class AiTranslatorConfig(TranslatorConfig):
-    base_url: str
-    api_key: str
-    model_id: str
-    to_lang: str
+    base_url: str | None = field(default=None,metadata={"description": "OpenAI兼容地址，当skip_translate为False时为必填项"})
+    api_key: str | None = field(default=None,metadata={"description": "当skip_translate为False时为必填项"})
+    model_id: str | None = field(default=None,metadata={"description": "当skip_translate为False时为必填项"})
+    to_lang: str = "简体中文"
     custom_prompt: str | None = None
     temperature: float = 0.7
     thinking: ThinkingMode = "default"
@@ -23,6 +23,7 @@ class AiTranslatorConfig(TranslatorConfig):
     glossary_dict: dict[str:str] | None = None
     glossary_generate_enable: bool = False
     glossary_agent_config: GlossaryAgentConfig | None = None
+    skip_translate: bool = False
 
 
 T = TypeVar('T', bound=Document)
@@ -35,8 +36,12 @@ class AiTranslator(Translator[T]):
 
     def __init__(self, config: AiTranslatorConfig):
         super().__init__(config=config)
+        self.skip_translate = config.skip_translate
         self.glossary_agent = None
         self.glossary_dict_gen = None
+        if not self.skip_translate and (config.base_url is None or config.api_key is None or config.model_id is None):
+            raise ValueError("skip_translate不为false时，base_url、api_key、model_id为必填项")
+
         if config.glossary_generate_enable:
             if config.glossary_agent_config:
                 self.glossary_agent = GlossaryAgent(config.glossary_agent_config)
@@ -53,6 +58,7 @@ class AiTranslator(Translator[T]):
                     logger=self.logger,
                 )
                 self.glossary_agent = GlossaryAgent(glossary_agent_config)
+
     @abstractmethod
     def translate(self, document: T) -> Document:
         ...

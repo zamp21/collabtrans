@@ -18,18 +18,22 @@ class JsonTranslator(AiTranslator):
     def __init__(self, config: JsonTranslatorConfig):
         super().__init__(config=config)
         self.chunk_size = config.chunk_size
-        agent_config = SegmentsTranslateAgentConfig(custom_prompt=config.custom_prompt,
-                                                    to_lang=config.to_lang,
-                                                    baseurl=config.base_url,
-                                                    key=config.api_key,
-                                                    model_id=config.model_id,
-                                                    temperature=config.temperature,
-                                                    thinking=config.thinking,
-                                                    max_concurrent=config.concurrent,
-                                                    timeout=config.timeout,
-                                                    logger=self.logger,
-                                                    glossary_dict=config.glossary_dict)
-        self.translate_agent = SegmentsTranslateAgent(agent_config)
+        self.translate_agent = None
+        if not self.skip_translate:
+            agent_config = SegmentsTranslateAgentConfig(
+                custom_prompt=config.custom_prompt,
+                to_lang=config.to_lang,
+                baseurl=config.base_url,
+                key=config.api_key,
+                model_id=config.model_id,
+                temperature=config.temperature,
+                thinking=config.thinking,
+                max_concurrent=config.concurrent,
+                timeout=config.timeout,
+                logger=self.logger,
+                glossary_dict=config.glossary_dict
+            )
+            self.translate_agent = SegmentsTranslateAgent(agent_config)
         self.jsonpaths = config.json_paths
 
     def _extract_matches(self, content: dict) -> list[Any]:
@@ -76,10 +80,13 @@ class JsonTranslator(AiTranslator):
         original_texts = [match.value for match in all_matches]
         if self.glossary_agent:
             self.glossary_dict_gen = self.glossary_agent.send_segments(original_texts, self.chunk_size)
-            self.translate_agent.update_glossary_dict(self.glossary_dict_gen)
+            if self.translate_agent:
+                self.translate_agent.update_glossary_dict(self.glossary_dict_gen)
         # 步骤 2: 批量翻译提取出的文本
-        translated_texts = self.translate_agent.send_segments(original_texts, self.chunk_size)
-
+        if self.translate_agent:
+            translated_texts = self.translate_agent.send_segments(original_texts, self.chunk_size)
+        else:
+            translated_texts = original_texts
         # 健壮性检查：确保翻译回来的项目数量与发送的一致
         if len(original_texts) != len(translated_texts):
             raise ValueError("翻译服务返回的项目数量与发送的数量不匹配。")
@@ -107,11 +114,14 @@ class JsonTranslator(AiTranslator):
 
         if self.glossary_agent:
             self.glossary_dict_gen = await self.glossary_agent.send_segments_async(original_texts, self.chunk_size)
-            self.translate_agent.update_glossary_dict(self.glossary_dict_gen)
+            if self.translate_agent:
+                self.translate_agent.update_glossary_dict(self.glossary_dict_gen)
 
-        # 步骤 2: 批量翻译提取出的文本
-        translated_texts = await self.translate_agent.send_segments_async(original_texts, self.chunk_size)
-
+            # 步骤 2: 批量翻译提取出的文本
+        if self.translate_agent:
+            translated_texts = await self.translate_agent.send_segments_async(original_texts, self.chunk_size)
+        else:
+            translated_texts = original_texts
         # 健壮性检查：确保翻译回来的项目数量与发送的一致
         if len(original_texts) != len(translated_texts):
             raise ValueError("翻译服务返回的项目数量与发送的数量不匹配。")

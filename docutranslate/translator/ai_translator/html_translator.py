@@ -85,20 +85,22 @@ class HtmlTranslator(AiTranslator):
     def __init__(self, config: HtmlTranslatorConfig):
         super().__init__(config=config)
         self.chunk_size = config.chunk_size
-        agent_config = SegmentsTranslateAgentConfig(
-            custom_prompt=config.custom_prompt,
-            to_lang=config.to_lang,
-            baseurl=config.base_url,
-            key=config.api_key,
-            model_id=config.model_id,
-            temperature=config.temperature,
-            thinking=config.thinking,
-            max_concurrent=config.concurrent,
-            timeout=config.timeout,
-            logger=self.logger,
-            glossary_dict=config.glossary_dict
-        )
-        self.translate_agent = SegmentsTranslateAgent(agent_config)
+        self.translate_agent = None
+        if not self.skip_translate:
+            agent_config = SegmentsTranslateAgentConfig(
+                custom_prompt=config.custom_prompt,
+                to_lang=config.to_lang,
+                baseurl=config.base_url,
+                key=config.api_key,
+                model_id=config.model_id,
+                temperature=config.temperature,
+                thinking=config.thinking,
+                max_concurrent=config.concurrent,
+                timeout=config.timeout,
+                logger=self.logger,
+                glossary_dict=config.glossary_dict
+            )
+            self.translate_agent = SegmentsTranslateAgent(agent_config)
         self.insert_mode = config.insert_mode
         self.separator = config.separator
 
@@ -199,9 +201,12 @@ class HtmlTranslator(AiTranslator):
 
         if self.glossary_agent:
             self.glossary_dict_gen = self.glossary_agent.send_segments(original_texts, self.chunk_size)
-            self.translate_agent.update_glossary_dict(self.glossary_dict_gen)
-
-        translated_texts = self.translate_agent.send_segments(original_texts, self.chunk_size)
+            if self.translate_agent:
+                self.translate_agent.update_glossary_dict(self.glossary_dict_gen)
+        if self.translate_agent:
+            translated_texts = self.translate_agent.send_segments(original_texts, self.chunk_size)
+        else:
+            translated_texts = original_texts
         document.content = self._after_translate(soup, translatable_items, translated_texts, original_texts)
         return self
 
@@ -218,9 +223,12 @@ class HtmlTranslator(AiTranslator):
 
         if self.glossary_agent:
             self.glossary_dict_gen = await self.glossary_agent.send_segments_async(original_texts, self.chunk_size)
-            self.translate_agent.update_glossary_dict(self.glossary_dict_gen)
-
-        translated_texts = await self.translate_agent.send_segments_async(original_texts, self.chunk_size)
+            if self.translate_agent:
+                self.translate_agent.update_glossary_dict(self.glossary_dict_gen)
+        if self.translate_agent:
+            translated_texts = await self.translate_agent.send_segments_async(original_texts, self.chunk_size)
+        else:
+            translated_texts = original_texts
         document.content = await asyncio.to_thread(
             self._after_translate, soup, translatable_items, translated_texts, original_texts
         )
