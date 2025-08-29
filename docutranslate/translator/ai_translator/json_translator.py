@@ -37,8 +37,6 @@ class JsonTranslator(AiTranslator):
             )
             self.translate_agent = SegmentsTranslateAgent(agent_config)
         self.json_paths = config.json_paths
-        if not self.json_paths:
-            self.json_paths = ["$.*"]  # 翻译所有字符串
 
     def _get_key_or_index_from_path(self, path) -> Any:
         """从jsonpath_ng的Path对象中提取键或索引。"""
