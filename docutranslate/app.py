@@ -159,6 +159,8 @@ async def lifespan(app: FastAPI):
     global_logger.propagate = False
     global_logger.setLevel(logging.INFO)
     print("应用启动完成，多任务状态已初始化。")
+    print(f"服务接口文档: http://127.0.0.1:{app.state.port_to_use}/docs")
+    print(f"请用浏览器访问 http://127.0.0.1:{app.state.port_to_use}\n")
     yield
     # 清理任何可能残留的临时目录
     for task_id, task_state in tasks_state.items():
@@ -1514,9 +1516,8 @@ def run_app(port: int | None = None):
     try:
         port_to_use = find_free_port(initial_port)
         if port_to_use != initial_port: print(f"端口 {initial_port} 被占用，将使用端口 {port_to_use} 代替")
-        print(f"正在启动 DocuTranslate WebUI 版本号：{__version__}\n")
-        print(f"服务接口文档: http://127.0.0.1:{port_to_use}/docs\n")
-        print(f"请用浏览器访问 http://127.0.0.1:{port_to_use}\n")
+        print(f"正在启动 DocuTranslate WebUI 版本号：{__version__}")
+        app.state.port_to_use=port_to_use
         uvicorn.run(app, host=None, port=port_to_use, workers=1)
     except Exception as e:
         print(f"启动失败: {e}")
