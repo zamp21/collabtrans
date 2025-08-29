@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2025 QinHan
+# SPDX-License-Identifier: MPL-2.0
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import TypeVar
@@ -20,7 +22,7 @@ class AiTranslatorConfig(TranslatorConfig):
     timeout: int = 2000
     chunk_size: int = 3000
     concurrent: int = 30
-    glossary_dict: dict[str:str] | None = None
+    glossary_dict: dict[str:str] | None = field(default=None)
     glossary_generate_enable: bool = False
     glossary_agent_config: GlossaryAgentConfig | None = None
     skip_translate: bool = False

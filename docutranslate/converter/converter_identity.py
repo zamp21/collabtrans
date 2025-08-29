@@ -1,7 +1,7 @@
-from dataclasses import dataclass
-from typing import Hashable
+# SPDX-FileCopyrightText: 2025 QinHan
+# SPDX-License-Identifier: MPL-2.0
 
-from docutranslate.converter.base import Converter, ConverterConfig
+from docutranslate.converter.base import Converter
 from docutranslate.ir.document import Document
 
 

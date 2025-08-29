@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 QinHan
+# SPDX-License-Identifier: MPL-2.0
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from logging import Logger

@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2025 QinHan
+# SPDX-License-Identifier: MPL-2.0
 from io import BytesIO, StringIO
 
 import openpyxl

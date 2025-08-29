@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2025 QinHan
+# SPDX-License-Identifier: MPL-2.0
 import argparse
 import sys # 用于检查命令行参数数量
 

@@ -157,6 +157,8 @@ async def main():
         to_lang="English",  # Target language
         chunk_size=3000,  # Text chunk size
         concurrent=10  # Number of concurrent executions
+        # glossary_generate_enable=True, # Enable automatic glossary generation
+        # glossary_dict={"Jobs":"乔布斯"} # Pass in the glossary
     )
 
     # 2. Build converter configuration (using minerU)

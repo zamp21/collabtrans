@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 QinHan
+# SPDX-License-Identifier: MPL-2.0
+
 from docutranslate.exporter.base import ExporterConfig
 from docutranslate.exporter.html.base import HtmlExporter
 from docutranslate.ir.document import Document

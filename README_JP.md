@@ -154,7 +154,9 @@ async def main():
         model_id="glm-4-air",  # モデル ID
         to_lang="English",  # 対象言語
         chunk_size=3000,  # テキストのチャンクサイズ
-        concurrent=10  # 同時実行数
+        concurrent=10,  # 同時実行数
+        # glossary_generate_enable=True, # 自動用語集生成を有効にする
+        # glossary_dict={"Jobs":"乔布斯"} # 用語表を渡す
     )
 
     # 2. コンバーター設定を構築 (minerU を使用)

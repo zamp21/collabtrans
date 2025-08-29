@@ -1,3 +1,2 @@
-"""
-这个包用来处理document之间的格式转换
-"""
+# SPDX-FileCopyrightText: 2025 QinHan
+# SPDX-License-Identifier: MPL-2.0

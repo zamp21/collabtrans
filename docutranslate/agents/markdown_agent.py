@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025 QinHan
+# SPDX-License-Identifier: MPL-2.0
+
 from dataclasses import dataclass
 
 from .agent import Agent, AgentConfig

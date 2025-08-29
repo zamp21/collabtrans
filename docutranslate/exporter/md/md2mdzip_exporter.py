@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2025 QinHan
+# SPDX-License-Identifier: MPL-2.0
 from docutranslate.exporter.md.base import MDExporter
 from docutranslate.ir.markdown_document import MarkdownDocument, Document
 from docutranslate.utils.markdown_utils import unembed_base64_images_to_zip

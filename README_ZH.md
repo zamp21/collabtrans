@@ -157,7 +157,9 @@ async def main():
         model_id="glm-4-air",  # 模型 ID
         to_lang="English",  # 目标语言
         chunk_size=3000,  # 文本分块大小
-        concurrent=10  # 并发数
+        concurrent=10,  # 并发数
+        # glossary_generate_enable=True, # 启用自动生成术语表
+        # glossary_dict={"Jobs":"乔布斯"} # 传入术语表
     )
 
     # 2. 构建转换器配置 (使用 minerU)

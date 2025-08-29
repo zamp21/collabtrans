@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2025 QinHan
+# SPDX-License-Identifier: MPL-2.0
 from dataclasses import dataclass
 
 from docutranslate.exporter.base import Exporter, ExporterConfig
