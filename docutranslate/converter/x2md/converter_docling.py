@@ -17,6 +17,7 @@ from docling_core.types.doc import ImageRefMode
 from huggingface_hub.errors import LocalEntryNotFoundError
 
 from docutranslate.converter.x2md.base import X2MarkdownConverter, X2MarkdownConverterConfig
+from docutranslate.ir.attachment_manager import AttachMent
 from docutranslate.ir.document import Document
 from docutranslate.ir.markdown_document import MarkdownDocument
 
@@ -27,10 +28,10 @@ IMAGE_RESOLUTION_SCALE = 4
 class ConverterDoclingConfig(X2MarkdownConverterConfig):
     code_ocr: bool = True
     formula_ocr: bool = True
-    artifact: Path |str| None = None
+    artifact: Path | str | None = None
 
     def gethash(self):
-        return self.code_ocr,self.formula_ocr
+        return self.code_ocr, self.formula_ocr
 
 
 class ConverterDocling(X2MarkdownConverter):
@@ -44,6 +45,7 @@ class ConverterDocling(X2MarkdownConverter):
             self.artifact = artifact
         else:
             self.artifact = config.artifact
+        self.attachments: list[AttachMent] = []
 
     def convert(self, document) -> MarkdownDocument:
         assert isinstance(document.name, str)
@@ -52,6 +54,7 @@ class ConverterDocling(X2MarkdownConverter):
         document_stream = DocumentStream(name=document.name, stream=BytesIO(document.content))
         content = self.file2markdown_embed_images(document_stream)
         self.logger.info(f"已转换为markdown，耗时{time.time() - time1}秒")
+        self.attachments.append(AttachMent("docling",MarkdownDocument.from_bytes(content=content.encode("utf-8"), suffix=".md", stem="docling")))
         md_document = MarkdownDocument.from_bytes(content=content.encode("utf-8"), suffix=".md", stem=document.stem)
         return md_document
 

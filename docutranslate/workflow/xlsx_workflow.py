@@ -63,7 +63,7 @@ class XlsxWorkflow(Workflow[XlsxWorkflowConfig, Document, Document], HTMLExporta
         document, translator = self._pre_translate(document_xlsx)
         translator.translate(document)
         if translator.glossary_dict_gen:
-            self.attachment.add_attachment("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
+            self.attachment.add_document("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
         self.document_translated = document
         return self
 
@@ -72,7 +72,7 @@ class XlsxWorkflow(Workflow[XlsxWorkflowConfig, Document, Document], HTMLExporta
         document, translator = self._pre_translate(document_xlsx)
         await translator.translate_async(document)
         if translator.glossary_dict_gen:
-            self.attachment.add_attachment("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
+            self.attachment.add_document("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
         self.document_translated = document
         return self
 

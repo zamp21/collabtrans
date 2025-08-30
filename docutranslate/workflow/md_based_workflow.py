@@ -62,6 +62,7 @@ class MarkdownBasedWorkflow(Workflow[MarkdownBasedWorkflowConfig, Document, Mark
         document_cached = md_based_convert_cacher.get_cached_result(self.document_original, convert_engin,
                                                                     convert_config)
         if document_cached:
+            self.attachment.add_document("md_cached",document_cached)
             return document_cached
 
         # 未缓存则解析文件
@@ -74,8 +75,12 @@ class MarkdownBasedWorkflow(Workflow[MarkdownBasedWorkflowConfig, Document, Mark
         else:
             raise ValueError(f"不存在{convert_engin}解析引擎")
         document_md = converter.convert(self.document_original)
+        if hasattr(converter,"attachments"):
+            for attachment in converter.attachments:
+                self.attachment.add_attachment(attachment)
         # 获取缓存解析后文件
         md_based_convert_cacher.cache_result(document_md, self.document_original, convert_engin, convert_config)
+
         return document_md
 
     def _pre_translate(self, document: Document):
@@ -90,7 +95,7 @@ class MarkdownBasedWorkflow(Workflow[MarkdownBasedWorkflowConfig, Document, Mark
         document_md = self._get_document_md(convert_engine, convert_config)
         translator.translate(document_md)
         if translator.glossary_dict_gen:
-            self.attachment.add_attachment("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
+            self.attachment.add_document("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
         self.document_translated = document_md
         return self
 
@@ -99,7 +104,7 @@ class MarkdownBasedWorkflow(Workflow[MarkdownBasedWorkflowConfig, Document, Mark
         document_md = await asyncio.to_thread(self._get_document_md, convert_engine, convert_config)
         await translator.translate_async(document_md)
         if translator.glossary_dict_gen:
-            self.attachment.add_attachment("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
+            self.attachment.add_document("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
         self.document_translated = document_md
         return self
 

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Self, Generic, TypeVar
 
 from docutranslate.exporter.base import Exporter
-from docutranslate.ir.attachment import AttachMent
+from docutranslate.ir.attachment_manager import AttachMentManager
 from docutranslate.ir.document import Document
 
 
@@ -27,7 +27,7 @@ class Workflow(ABC, Generic[T_Config, T_original, T_Translated]):
         self.logger = self.config.logger
         self.document_original: T_original | None = None
         self.document_translated: T_Translated | None = None
-        self.attachment = AttachMent()
+        self.attachment = AttachMentManager()
 
     def read_path(self, path: Path | str) -> Self:
         document = Document.from_path(path)

@@ -38,7 +38,7 @@ class HtmlWorkflow(Workflow[HtmlWorkflowConfig, Document, Document], HTMLExporta
         document, translator = self._pre_translate(self.document_original)
         translator.translate(document)
         if translator.glossary_dict_gen:
-            self.attachment.add_attachment("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
+            self.attachment.add_document("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
         self.document_translated = document
         return self
 
@@ -46,7 +46,7 @@ class HtmlWorkflow(Workflow[HtmlWorkflowConfig, Document, Document], HTMLExporta
         document, translator = self._pre_translate(self.document_original)
         await translator.translate_async(document)
         if translator.glossary_dict_gen:
-            self.attachment.add_attachment("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
+            self.attachment.add_document("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
         self.document_translated = document
         return self
 

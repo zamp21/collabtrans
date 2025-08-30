@@ -10,6 +10,7 @@ from typing import Hashable, Literal
 import httpx
 
 from docutranslate.converter.x2md.base import X2MarkdownConverter, X2MarkdownConverterConfig
+from docutranslate.ir.attachment_manager import AttachMent
 from docutranslate.ir.document import Document
 from docutranslate.ir.markdown_document import MarkdownDocument
 from docutranslate.utils.markdown_utils import embed_inline_image_from_zip
@@ -51,6 +52,7 @@ class ConverterMineru(X2MarkdownConverter):
         self.mineru_token = config.mineru_token.strip()
         self.formula = config.formula_ocr
         self.model_version = config.model_version
+        self.attachments: list[AttachMent] = []
 
     def _get_header(self):
         return {
@@ -136,7 +138,9 @@ class ConverterMineru(X2MarkdownConverter):
         time1 = time.time()
         batch_id = self.upload(document)
         file_url = self.get_file_url(batch_id)
-        content = get_md_from_zip_url_with_inline_images(zip_url=file_url)
+        content, mineru_parsed = get_md_from_zip_url_with_inline_images(zip_url=file_url)
+        if mineru_parsed:
+            self.attachments.append(AttachMent("mineru",Document.from_bytes(content=mineru_parsed, suffix=".zip", stem="mineru")))
         self.logger.info(f"已转换为markdown，耗时{time.time() - time1}秒")
         md_document = MarkdownDocument.from_bytes(content=content.encode("utf-8"), suffix=".md", stem=document.stem)
         return md_document
@@ -146,7 +150,9 @@ class ConverterMineru(X2MarkdownConverter):
         time1 = time.time()
         batch_id = await self.upload_async(document)
         file_url = await self.get_file_url_async(batch_id)
-        content = await get_md_from_zip_url_with_inline_images_async(zip_url=file_url)
+        content, mineru_parsed = await get_md_from_zip_url_with_inline_images_async(zip_url=file_url)
+        if mineru_parsed:
+            self.attachments.append(AttachMent("mineru",Document.from_bytes(content=mineru_parsed, suffix=".zip", stem="mineru")))
         self.logger.info(f"已转换为markdown，耗时{time.time() - time1}秒")
         md_document = MarkdownDocument.from_bytes(content=content.encode("utf-8"), suffix=".md", stem=document.stem)
         return md_document
@@ -159,7 +165,7 @@ def get_md_from_zip_url_with_inline_images(
         zip_url: str,
         filename_in_zip: str = "full.md",
         encoding: str = "utf-8"
-) -> str:
+) -> tuple[str, bytes]:
     """
     从给定的ZIP文件URL中下载并提取指定文件的内容，
     并将Markdown文件中的相对路径图片转换为内联Base64图片。
@@ -169,16 +175,14 @@ def get_md_from_zip_url_with_inline_images(
         filename_in_zip (str): ZIP压缩包内目标Markdown文件的名称（包括路径）。
                                默认为 "full.md"。
         encoding (str): 目标文件的预期编码。默认为 "utf-8"。
-
-    Returns:
-        str | None: 如果成功，返回处理后的Markdown文本内容；否则返回 None。
     """
     try:
         print(f"正在从 {zip_url} 下载ZIP文件 (使用 httpx.get)...")
         response = client.get(zip_url)  # 增加超时
         response.raise_for_status()
         print("ZIP文件下载完成。")
-        return embed_inline_image_from_zip(response.content, filename_in_zip=filename_in_zip, encoding=encoding)
+        return embed_inline_image_from_zip(response.content, filename_in_zip=filename_in_zip,
+                                           encoding=encoding), response.content
 
 
     except httpx.HTTPStatusError as e:
@@ -200,7 +204,7 @@ async def get_md_from_zip_url_with_inline_images_async(
         zip_url: str,
         filename_in_zip: str = "full.md",
         encoding: str = "utf-8"
-) -> str:
+) -> tuple[str, bytes]:
     """
     从给定的ZIP文件URL中下载并提取指定文件的内容，
     并将Markdown文件中的相对路径图片转换为内联Base64图片。
@@ -220,7 +224,7 @@ async def get_md_from_zip_url_with_inline_images_async(
         response.raise_for_status()
         print("ZIP文件下载完成。")
         return await asyncio.to_thread(embed_inline_image_from_zip, response.content, filename_in_zip=filename_in_zip,
-                                       encoding=encoding)
+                                       encoding=encoding), response.content
 
 
     except httpx.HTTPStatusError as e:
