@@ -30,7 +30,7 @@
     "xlsxTranslateRegionsPlaceholder": "每行一个区域, 例如:Sheet1!A1:B10（不指定表名则对所有表生效）",
     "jsonPathLabel": "需要翻译的JSON路径",
     "jsonPathPlaceholder": "每行一个路径, 例如:\n$.name\n$.*",
-    "jsonPathHelp": "采用<code>jsonpath-ng</code>的路径选择语法，每一行表示一个json路径,将翻译路径匹配对象内的所有字符串",
+    "jsonPathHelp": "采用<code>jsonpath-ng</code>的路径选择语法，每一行表示一个json路径。 将翻译路径匹配对象内的所有字符串",
     "parsingEngineLabel": "解析引擎",
     "parsingEngineHelp": "如果上传的文件本身是.md格式，此项可不选。",
     "getMineruTokenTitle": "获取Mineru Token",
