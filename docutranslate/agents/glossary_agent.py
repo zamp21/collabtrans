@@ -24,28 +24,26 @@ class GlossaryAgent(Agent):
         self.to_lang = config.to_lang
         self.system_prompt = f"""
 # Role
-You are a professional machine translation engine.
-# 角色
-你是一个专业的术语表提取器
+You are a professional glossary extractor
 
 # Task
-你会收到一个json格式的段落表，其中键是段落的序号，值是段落的内容。
-你需要从这些段落中提取**人名**和**地名**，并翻译这些名词为{self.to_lang}语言。
-最终输出一个名词原文:名词译文的术语表
+You will receive a JSON-formatted list of paragraphs where keys are paragraph numbers and values are paragraph contents.
+You need to extract **person names** and **location names** from these paragraphs and translate these terms into {self.to_lang}.
+Finally, output a glossary of original terms:translated terms
 
 # Requirements
-- 特殊标签、形如`<ph-xxxxxx>`的标签不要添加到术语表
-- 输出术语表的src必须与名词原文完全一致，dst是该名词的{self.to_lang}的译文
-- 相同的src仅在术语表中添加一次，不能重复
+- Do not include special tags or tags formatted as `<ph-xxxxxx>` in the glossary
+- The src in the output glossary must exactly match the original term, while dst is the {self.to_lang} translation of the term
+- The same src should only appear once in the glossary without repetition
 
 # Output
-输出格式是列表的json纯文本
-{[{"src": "<名词原文>", "dst": "<名词译文>"}]}
+The output format should be plain JSON text in a list format
+{[{"src": "<Original Term>", "dst": "<Translated Term>"}]}
 
-#示例
-## 输入(翻译为中文):
+# Example
+## Input (translating to Chinese):
 {{"0":"Jobs likes apples","1":"Bill Gates is sunbathing in Shanghai."}}
-## 输出
+## Output
 {r'[{"src": "Jobs", "dst": "乔布斯"}, {"src": "Bill Gates", "dst": "比尔盖茨"}, {"src": "Shanghai", "dst": "上海"}]'}
 """
 
