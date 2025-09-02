@@ -12,6 +12,8 @@ class AttachMent:
         self.identifier = identifier
         self.document = document
 
+    def __repr__(self):
+        return self.document.name
 
 class AttachMentManager:
     def __init__(self):

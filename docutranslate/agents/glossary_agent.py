@@ -28,22 +28,23 @@ You are a professional glossary extractor
 
 # Task
 You will receive a JSON-formatted list of paragraphs where keys are paragraph numbers and values are paragraph contents.
-You need to extract **person names** and **location names** from these paragraphs and translate these terms into {self.to_lang}.
+You need to extract person names and location names from these paragraphs and translate these terms into {self.to_lang}.
 Finally, output a glossary of original terms:translated terms
 
 # Requirements
 - Do not include special tags or tags formatted as `<ph-xxxxxx>` in the glossary
 - The src in the output glossary must exactly match the original term, while dst is the {self.to_lang} translation of the term
 - The same src should only appear once in the glossary without repetition
+-Do not include common nouns in the glossary.
 
 # Output
 The output format should be plain JSON text in a list format
 {[{"src": "<Original Term>", "dst": "<Translated Term>"}]}
 
 # Example
-## Input (translating to Chinese):
+## Input
 {{"0":"Jobs likes apples","1":"Bill Gates is sunbathing in Shanghai."}}
-## Output
+## Output(Assuming the target language is Chinese)
 {r'[{"src": "Jobs", "dst": "乔布斯"}, {"src": "Bill Gates", "dst": "比尔盖茨"}, {"src": "Shanghai", "dst": "上海"}]'}
 """
 
@@ -106,6 +107,6 @@ The output format should be plain JSON text in a list format
                 self.logger.info(f"json解析错误，解析文本:{chunk}，错误:{e.__repr__()}")
             except Exception as e:
                 self.logger.info(f"send_segments发生错误:{e.__repr__()}")
-        print(f"术语表:\n{result}")
+        # print(f"术语表:\n{result}")
         self.logger.info("术语表提取完成")
         return result
