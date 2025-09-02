@@ -79,9 +79,9 @@ class Agent:
         "open.bigmodel.cn": ("thinking", {"type": "enabled"}, {"type": "disabled"}),
         "dashscope.aliyuncs.com": ("enable_thinking ", True, False),
         "ark.cn-beijing.volces.com": ("thinking", {"type": "enabled"}, {"type": "disabled"}),
-        "https://generativelanguage.googleapis.com/v1beta/openai/": ("generationConfig",
-                                                                     {"thinkingConfig": {"thinkingBudget": -1}},
-                                                                     {"thinkingConfig": {"thinkingBudget": 0}})
+        "generativelanguage.googleapis.com": ("generationConfig", {"thinkingConfig": {"thinkingBudget": -1}},
+                                              {"thinkingConfig": {"thinkingBudget": 0}}),
+        "api.siliconflow.cn": ("enable_thinking", True, False)
     }
 
     def __init__(self, config: AgentConfig):
@@ -185,7 +185,8 @@ class Agent:
     ) -> list[Any]:
         max_concurrent = self.max_concurrent if max_concurrent is None else max_concurrent
         total = len(prompts)
-        self.logger.info(f"base-url:{self.baseurl},model-id:{self.model_id},concurrent:{self.max_concurrent},temperature:{self.temperature}")
+        self.logger.info(
+            f"base-url:{self.baseurl},model-id:{self.model_id},concurrent:{self.max_concurrent},temperature:{self.temperature}")
         self.logger.info(f"预计发送{total}个请求，并发请求数:{max_concurrent}")
         self.total_error_counter.max_errors_count = len(prompts) // MAX_REQUESTS_PER_ERROR  # 允许多少个异常
         count = 0
@@ -278,7 +279,8 @@ class Agent:
             result_handler: ResultHandlerType = None,
             error_result_handler: ErrorResultHandlerType = None
     ) -> list[Any]:
-        self.logger.info(f"base-url:{self.baseurl},model-id:{self.model_id},concurrent:{self.max_concurrent},temperature:{self.temperature}")
+        self.logger.info(
+            f"base-url:{self.baseurl},model-id:{self.model_id},concurrent:{self.max_concurrent},temperature:{self.temperature}")
         self.logger.info(f"预计发送{len(prompts)}个请求，并发请求数:{self.max_concurrent}")
         self.total_error_counter.max_errors_count = len(prompts) // MAX_REQUESTS_PER_ERROR  # 允许多少个异常
         # 创建单个计数器实例
