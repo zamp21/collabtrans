@@ -79,8 +79,19 @@ class Agent:
         "open.bigmodel.cn": ("thinking", {"type": "enabled"}, {"type": "disabled"}),
         "dashscope.aliyuncs.com": ("enable_thinking ", True, False),
         "ark.cn-beijing.volces.com": ("thinking", {"type": "enabled"}, {"type": "disabled"}),
-        "generativelanguage.googleapis.com": ("generationConfig", {"thinkingConfig": {"thinkingBudget": -1}},
-                                              {"thinkingConfig": {"thinkingBudget": 0}}),
+        "generativelanguage.googleapis.com": ("extra_body",
+                                              {"google": {
+                                                  "thinking_config": {
+                                                      "thinking_budget": -1,
+                                                      "include_thoughts": True
+                                                  }
+                                              }
+                                              }, {"google": {
+                "thinking_config": {
+                    "thinking_budget": 0,
+                    "include_thoughts": False
+                }
+            }}),
         "api.siliconflow.cn": ("enable_thinking", True, False)
     }
 
