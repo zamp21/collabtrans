@@ -259,12 +259,6 @@ class BaseWorkflowParams(BaseModel):
     glossary_agent_config: Optional[GlossaryAgentConfigPayload] = Field(None,
                                                                        description="用于术语表生成的Agent的配置。如果 `glossary_generate_enable` 为 `True`，此项必填。")
 
-    @field_validator('glossary_agent_config')
-    def check_glossary_config(cls, v, values):
-        if values.data.get('glossary_generate_enable') and not v:
-            raise ValueError("当 `glossary_generate_enable` 为 `True` 时, `glossary_agent_config` 字段是必须的。")
-        return v
-
     @model_validator(mode='before')
     @classmethod
     def check_translation_fields(cls, values):
@@ -278,6 +272,15 @@ class BaseWorkflowParams(BaseModel):
                 raise ValueError("当 `skip_translate` 为 `False` 时, `model_id` 字段是必须的。")
         # 如果跳过翻译，则不进行任何检查，允许 base_url 等字段为空
         return values
+
+    @model_validator(mode='after')
+    def check_glossary_config(self) -> 'BaseWorkflowParams':
+        """
+        在所有字段验证后，检查术语表相关配置的逻辑一致性。
+        """
+        if self.glossary_generate_enable and not self.glossary_agent_config:
+            raise ValueError("当 `glossary_generate_enable` 为 `True` 时, `glossary_agent_config` 字段是必须的。")
+        return self
 
 
 # 2. 为每个工作流创建独立的参数模型
@@ -303,6 +306,14 @@ class MarkdownWorkflowParams(BaseWorkflowParams):
 
 class TextWorkflowParams(BaseWorkflowParams):
     workflow_type: Literal['txt'] = Field(..., description="指定使用纯文本的翻译工作流。")
+    insert_mode: Literal["replace", "append", "prepend"] = Field(
+        "replace",
+        description="翻译文本的插入模式。'replace'：替换原文，'append'：附加到原文后，'prepend'：附加到原文前。"
+    )
+    separator: str = Field(
+        "\n",
+        description="当 insert_mode 为 'append' 或 'prepend' 时，用于分隔原文和译文的分隔符。"
+    )
 
 
 class JsonWorkflowParams(BaseWorkflowParams):
@@ -616,7 +627,8 @@ async def _perform_translation(
             task_logger.info("构建 TXTWorkflow 配置。")
             translator_args = payload.model_dump(include={
                 'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
-                'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict'
+                'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict',
+                'insert_mode', 'separator'
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
