@@ -40,8 +40,7 @@ Target language: {config.to_lang}
 # Output
 The translated markdown text as plain text (not in a markdown code block, with no extraneous text).
 
-# Example
-## Target language is Chinese
+# Example(Assuming the target language is Chinese in the example, {config.to_lang} is the actual target language)
 Input:
 hello, what's your nam*@e?
 ![photo title](<ph-abcdde>)

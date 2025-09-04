@@ -273,15 +273,6 @@ class BaseWorkflowParams(BaseModel):
         # 如果跳过翻译，则不进行任何检查，允许 base_url 等字段为空
         return values
 
-    @model_validator(mode='after')
-    def check_glossary_config(self) -> 'BaseWorkflowParams':
-        """
-        在所有字段验证后，检查术语表相关配置的逻辑一致性。
-        """
-        if self.glossary_generate_enable and not self.glossary_agent_config:
-            raise ValueError("当 `glossary_generate_enable` 为 `True` 时, `glossary_agent_config` 字段是必须的。")
-        return self
-
 
 # 2. 为每个工作流创建独立的参数模型
 class MarkdownWorkflowParams(BaseWorkflowParams):

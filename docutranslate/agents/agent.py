@@ -41,8 +41,8 @@ class PartialAgentResultError(ValueError):
 @dataclass(kw_only=True)
 class AgentConfig:
     logger: logging.Logger
-    baseurl: str
-    key: str
+    base_url: str
+    api_key: str
     model_id: str
     temperature: float = 0.7
     max_concurrent: int = 30
@@ -110,11 +110,11 @@ class Agent:
 
     def __init__(self, config: AgentConfig):
 
-        self.baseurl = config.baseurl.strip()
+        self.baseurl = config.base_url.strip()
         if self.baseurl.endswith("/"):
             self.baseurl = self.baseurl[:-1]
         self.domain = urlparse(self.baseurl).netloc
-        self.key = config.key.strip() or "xx"
+        self.key = config.api_key.strip() or "xx"
         self.model_id = config.model_id.strip()
         self.system_prompt = ""
         self.temperature = config.temperature

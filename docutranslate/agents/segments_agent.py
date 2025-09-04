@@ -43,10 +43,10 @@ class SegmentsTranslateAgent(Agent):
 - The translated sequence of segments, represented as JSON text (note: not a code block). The keys are the segment IDs, and the values are the translated segments.
 - The returned JSON text must be a dictionary of the form {{<segment_id>: <translation>}}.
 - The segment IDs in the output must **exactly** match those in the input. And all segment IDs in input must appear in the output.
-# Example
+# Example(Assuming the target language is Chinese in the example, {config.to_lang} is the actual target language)
 ## Input
 {r'{"10":"hello","11":"apple","12":true,"13":"false","14":null}'}
-## Output(Assuming the target language is Chinese)
+## Output
 {r'{"10":"你好","11":"苹果","12":true,"13":"错误","14":null}'}
 > Warning: Never wrap the JSON text in ```.
 """

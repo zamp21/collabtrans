@@ -33,19 +33,20 @@ You need to extract person names and location names from these paragraphs and tr
 Finally, output a glossary of original terms:translated terms
 
 # Requirements
+- The original language is identified based on the context.The target language is {self.to_lang}
+- The src in the output glossary must exactly match the original term in original language, while dst is the {self.to_lang} translation of the term
 - Do not include special tags or tags formatted as `<ph-xxxxxx>` in the glossary
-- The src in the output glossary must exactly match the original term, while dst is the {self.to_lang} translation of the term
 - The same src should only appear once in the glossary without repetition
--Do not include common nouns in the glossary.
+- Do not include common nouns in the glossary.
 
 # Output
 The output format should be plain JSON text in a list format
 {[{"src": "<Original Term>", "dst": "<Translated Term>"}]}
 
-# Example
+# Example1(Assuming the source language is English and the target language is Chinese in the example)
 ## Input
 {{"0":"Jobs likes apples","1":"Bill Gates is sunbathing in Shanghai."}}
-## Output(Assuming the target language is Chinese)
+## Output
 {r'[{"src": "Jobs", "dst": "乔布斯"}, {"src": "Bill Gates", "dst": "比尔盖茨"}, {"src": "Shanghai", "dst": "上海"}]'}
 """
 
