@@ -20,7 +20,7 @@ from fastapi import FastAPI, HTTPException, APIRouter, Body, Path as FastApiPath
 from fastapi.openapi.docs import get_swagger_ui_html, get_swagger_ui_oauth2_redirect_html, get_redoc_html
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator, AliasChoices
 
 from docutranslate import __version__
 from docutranslate.agents.agent import ThinkingMode
@@ -228,8 +228,8 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 # ===================================================================
 
 class GlossaryAgentConfigPayload(BaseModel):
-    base_url: str = Field(..., description="用于术语表生成的Agent的LLM API基础URL。", examples=["https://api.openai.com/v1"])
-    api_key: str = Field(..., description="用于术语表生成的Agent的LLM API密钥。", examples=["sk-agent-api-key"])
+    base_url: str = Field(..., validation_alias=AliasChoices('base_url', 'baseurl'), description="用于术语表生成的Agent的LLM API基础URL。", examples=["https://api.openai.com/v1"])
+    api_key: str = Field(..., validation_alias=AliasChoices('api_key', 'key'), description="用于术语表生成的Agent的LLM API密钥。", examples=["sk-agent-api-key"])
     model_id: str = Field(..., description="用于术语表生成的Agent的模型ID。", examples=["gpt-4-turbo"])
     to_lang: str = Field(..., description="术语表生成的目标语言。", examples=["简体中文", "English"])
     temperature: float = Field(default=0.7, description="用于术语表生成的Agent的温度参数。")
@@ -241,9 +241,9 @@ class GlossaryAgentConfigPayload(BaseModel):
 # 1. 定义所有工作流共享的基础参数
 class BaseWorkflowParams(BaseModel):
     skip_translate: bool = Field(default=False, description="是否跳过翻译步骤。如果为True，则仅执行文档解析和格式转换。")
-    base_url: Optional[str] = Field(default=None, description="LLM API的基础URL。当 `skip_translate` 为 `False` 时必填。",
+    base_url: Optional[str] = Field(default=None, validation_alias=AliasChoices('base_url', 'baseurl'), description="LLM API的基础URL。当 `skip_translate` 为 `False` 时必填。",
                                     examples=["https://api.openai.com/v1"])
-    api_key: Optional[str] = Field(default=None, description="LLM API的密钥。当 `skip_translate` 为 `False` 时必填。",
+    api_key: Optional[str] = Field(default=None, validation_alias=AliasChoices('api_key', 'key'), description="LLM API的密钥。当 `skip_translate` 为 `False` 时必填。",
                                    examples=["sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"])
     model_id: Optional[str] = Field(default=None, description="要使用的LLM模型ID。当 `skip_translate` 为 `False` 时必填。",
                                     examples=["gpt-4o"])
@@ -264,10 +264,11 @@ class BaseWorkflowParams(BaseModel):
     def check_translation_fields(cls, values):
         # 如果不跳过翻译 (值为False或字段不存在)，则验证相关字段必须存在且不为空
         if not values.get('skip_translate'):
-            if not values.get('base_url'):
-                raise ValueError("当 `skip_translate` 为 `False` 时, `base_url` 字段是必须的。")
-            if not values.get('api_key'):
-                raise ValueError("当 `skip_translate` 为 `False` 时, `api_key` 字段是必须的。")
+            # Check for standard keys or their aliases
+            if not (values.get('base_url') or values.get('baseurl')):
+                raise ValueError("当 `skip_translate` 为 `False` 时, `base_url` 或 `baseurl` 字段是必须的。")
+            if not (values.get('api_key') or values.get('key')):
+                raise ValueError("当 `skip_translate` 为 `False` 时, `api_key` 或 `key` 字段是必须的。")
             if not values.get('model_id'):
                 raise ValueError("当 `skip_translate` 为 `False` 时, `model_id` 字段是必须的。")
         # 如果跳过翻译，则不进行任何检查，允许 base_url 等字段为空
