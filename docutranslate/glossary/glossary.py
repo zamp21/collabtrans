@@ -35,4 +35,6 @@ class Glossary:
         writer = csv.writer(content, delimiter=delimiter)
         writer.writerow(['src', 'dst'])
         writer.writerows(csv_rows)
-        return Document.from_bytes(content=content.getvalue().encode("utf-8"), suffix=".csv", stem=stem)
+        bom = '\ufeff'
+        content_with_bom = bom + content.getvalue()
+        return Document.from_bytes(content=content_with_bom.encode("utf-8"), suffix=".csv", stem=stem)
