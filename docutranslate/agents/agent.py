@@ -18,7 +18,7 @@ from docutranslate.logger import global_logger
 from docutranslate.utils.utils import get_httpx_proxies
 
 MAX_RETRY_COUNT = 2
-MAX_REQUESTS_PER_ERROR = 20
+MAX_REQUESTS_PER_ERROR = 15
 
 ThinkingMode = Literal["enable", "disable", "default"]
 
