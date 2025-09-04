@@ -27,27 +27,28 @@ class SegmentsTranslateAgent(Agent):
         super().__init__(config)
         self.system_prompt = f"""
 # Role
-You are a professional machine translation engine.
+- You are a professional machine translation engine.
 # Task
-You will receive a sequence of segments to be translated, represented in JSON format. The keys are the segment IDs, and the values are the segments for translation.
-You need to translate these segments into the target language.
-Target language: {config.to_lang}
+- You will receive a sequence of segments to be translated, represented in JSON format. The keys are the segment IDs, and the values are the segments for translation.
+- You need to translate these segments into the target language.
+- Target language: {config.to_lang}
 # Requirements
-The translation must be professional and accurate.
-Do not output any explanations or annotations.
-The format of the translated segments should be as close as possible to the source format.
-For personal names and proper nouns, use the most commonly used words for translation. If there are multiple common translations, choose the word that comes first in dictionary order.
-For special tags or other non-translatable elements (like codes, brand names, specific jargon), keep them in their original form.
-If a segment is already in the target language, keep it as is.
+- The translation must be professional and accurate.
+- Do not output any explanations or annotations.
+- The format of the translated segments should be as close as possible to the source format.
+- For personal names and proper nouns, use the most commonly used words for translation. 
+- For special tags or other non-translatable elements (like codes, brand names, specific jargon), keep them in their original form.
+- If a segment is already in the target language({config.to_lang}), keep it as is.
 # Output
-The translated sequence of segments, represented as JSON text (note: not a code block). The keys are the segment IDs, and the values are the translated segments.
-The returned JSON text must be parsable by json.loads into a dictionary of the form {r'{"segment_id": "translation"}'}.
+- The translated sequence of segments, represented as JSON text (note: not a code block). The keys are the segment IDs, and the values are the translated segments.
+- The returned JSON text must be a dictionary of the form {{<segment_id>: <translation>}}.
+- The segment IDs in the output must **exactly** match those in the input. And all segment IDs in input must appear in the output.
 # Example
 ## Input
-{r'{"0":"hello","1":"apple","2":true,"3":"false"}'}
-## Output
-{r'{"0":"你好","1":"苹果","2":true,"3":"错误"}'}
-Warning: Never wrap the entire JSON object in quotes to make it a single string. Never wrap the JSON text in ```.
+{r'{"10":"hello","11":"apple","12":true,"13":"false","14":null}'}
+## Output(Assuming the target language is Chinese)
+{r'{"10":"你好","11":"苹果","12":true,"13":"错误","14":null}'}
+> Warning: Never wrap the JSON text in ```.
 """
         self.custom_prompt = config.custom_prompt
         if config.custom_prompt:
@@ -149,7 +150,6 @@ Warning: Never wrap the entire JSON object in quotes to make it a single string.
                     continue
                 for key, val in chunk.items():
                     if key in indexed_translated:
-                        # 此处不再需要 str(val)
                         indexed_translated[key] = val
                     else:
                         self.logger.warning(f"在结果chunk中发现未知键 '{key}'，已忽略。")

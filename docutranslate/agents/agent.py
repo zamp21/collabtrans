@@ -17,8 +17,8 @@ from docutranslate.global_values import USE_PROXY
 from docutranslate.logger import global_logger
 from docutranslate.utils.utils import get_httpx_proxies
 
-MAX_RETRY_COUNT = 2
-MAX_REQUESTS_PER_ERROR = 15
+MAX_RETRY_COUNT = 3
+MAX_REQUESTS_PER_ERROR = 10
 
 ThinkingMode = Literal["enable", "disable", "default"]
 
@@ -154,6 +154,7 @@ class Agent:
             system_prompt = self.system_prompt
         if pre_send_handler:
             system_prompt, prompt = pre_send_handler(system_prompt, prompt)
+        # print(f"system_prompt:\n{system_prompt}")
 
         headers, data = self._prepare_request_data(prompt, system_prompt)
         should_retry = False
@@ -183,7 +184,7 @@ class Agent:
 
         except httpx.HTTPStatusError as e:
             self.logger.error(f"AI请求HTTP状态错误 (async): {e.response.status_code} - {e.response.text}")
-            print(f"prompt:\n{prompt}")
+            # print(f"prompt:\n{prompt}")
             should_retry = True
         except httpx.RequestError as e:
             self.logger.error(f"AI请求连接错误 (async): {repr(e)}")
@@ -298,16 +299,14 @@ class Agent:
 
             return result if result_handler is None else result_handler(result, prompt, self.logger)
 
-        # --- MODIFICATION START ---
         except PartialTranslationError as e:
             self.logger.error(f"收到部分翻译结果，将尝试重试: {e}")
             current_partial_result = e.partial_result
             should_retry = True
-        # --- MODIFICATION END ---
 
         except httpx.HTTPStatusError as e:
             self.logger.error(f"AI请求HTTP状态错误 (sync): {e.response.status_code} - {e.response.text}")
-            print(f"prompt:\n{prompt}")
+            # print(f"prompt:\n{prompt}")
             should_retry = True
         except httpx.RequestError as e:
             self.logger.error(f"AI请求连接错误 (sync): {repr(e)}\nprompt:{prompt}")
@@ -316,10 +315,8 @@ class Agent:
             self.logger.error(f"AI响应格式或值错误 (sync), 将尝试重试: {repr(e)}")
             should_retry = True
 
-        # --- MODIFICATION START ---
         if current_partial_result:
             best_partial_result = current_partial_result
-        # --- MODIFICATION END ---
 
         if should_retry and retry and retry_count < MAX_RETRY_COUNT:
             if retry_count == 0:
@@ -343,11 +340,9 @@ class Agent:
             if should_retry:
                 self.logger.error(f"所有重试均失败，已达到重试次数上限。")
 
-            # --- MODIFICATION START ---
             if best_partial_result:
                 self.logger.info("所有重试失败，但存在部分翻译结果，将使用该结果。")
                 return best_partial_result
-            # --- MODIFICATION END ---
 
             return prompt if error_result_handler is None else error_result_handler(prompt, self.logger)
 
