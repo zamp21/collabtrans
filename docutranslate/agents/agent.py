@@ -123,6 +123,9 @@ class Agent:
         self.thinking = config.thinking
         self.logger = config.logger or global_logger
         self.total_error_counter = TotalErrorCounter(logger=self.logger)
+        # 新增：用于统计最终未解决的错误
+        self.unresolved_error_lock = Lock()
+        self.unresolved_error_count = 0
 
     def _add_thinking_mode(self, data: dict):
         if self.domain not in self._think_factory:
@@ -234,6 +237,9 @@ class Agent:
         else:
             if should_retry:
                 self.logger.error(f"所有重试均失败，已达到重试次数上限。")
+                # 新增：当所有重试失败后，增加未解决错误计数
+                with self.unresolved_error_lock:
+                    self.unresolved_error_count += 1
 
             if best_partial_result:
                 self.logger.info("所有重试失败，但存在部分翻译结果，将使用该结果。")
@@ -256,6 +262,10 @@ class Agent:
             f"base-url:{self.baseurl},model-id:{self.model_id},concurrent:{max_concurrent},temperature:{self.temperature}")
         self.logger.info(f"预计发送{total}个请求，并发请求数:{max_concurrent}")
         self.total_error_counter.max_errors_count = len(prompts) // MAX_REQUESTS_PER_ERROR
+
+        # 新增：在每次批量发送前重置计数器
+        self.unresolved_error_count = 0
+
         count = 0
         semaphore = asyncio.Semaphore(max_concurrent)
         tasks = []
@@ -283,6 +293,10 @@ class Agent:
                 tasks.append(task)
 
             results = await asyncio.gather(*tasks, return_exceptions=False)
+
+            # 新增：在所有任务完成后打印未解决的错误总数
+            self.logger.info(f"所有请求处理完毕。未解决的错误总数: {self.unresolved_error_count}")
+
             return results
 
     def send(self, client: httpx.Client, prompt: str, system_prompt: None | str = None, retry=True, retry_count=0,
@@ -362,6 +376,9 @@ class Agent:
         else:
             if should_retry:
                 self.logger.error(f"所有重试均失败，已达到重试次数上限。")
+                # 新增：当所有重试失败后，增加未解决错误计数
+                with self.unresolved_error_lock:
+                    self.unresolved_error_count += 1
 
             if best_partial_result:
                 self.logger.info("所有重试失败，但存在部分翻译结果，将使用该结果。")
@@ -391,6 +408,10 @@ class Agent:
             f"base-url:{self.baseurl},model-id:{self.model_id},concurrent:{self.max_concurrent},temperature:{self.temperature}")
         self.logger.info(f"预计发送{len(prompts)}个请求，并发请求数:{self.max_concurrent}")
         self.total_error_counter.max_errors_count = len(prompts) // MAX_REQUESTS_PER_ERROR
+
+        # 新增：在每次批量发送前重置计数器
+        self.unresolved_error_count = 0
+
         counter = PromptsCounter(len(prompts), self.logger)
 
         system_prompts = itertools.repeat(system_prompt, len(prompts))
@@ -408,6 +429,10 @@ class Agent:
                                                 result_handlers,
                                                 error_result_handlers)
                 output_list = list(results_iterator)
+
+        # 新增：在所有任务完成后打印未解决的错误总数
+        self.logger.info(f"所有请求处理完毕。未解决的错误总数: {self.unresolved_error_count}")
+
         return output_list
 
 
