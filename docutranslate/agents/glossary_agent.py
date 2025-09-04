@@ -10,6 +10,7 @@ from logging import Logger
 import json_repair
 
 from docutranslate.agents import AgentConfig, Agent
+from docutranslate.agents.agent import AgentResultError
 from docutranslate.utils.json_utils import segments2json_chunks
 
 
@@ -52,16 +53,16 @@ The output format should be plain JSON text in a list format
         if result == "":
             if origin_prompt.strip()!="":
                 logger.error("result为空值但原文不为空")
-                raise ValueError("result为空值但原文不为空")
+                raise AgentResultError("result为空值但原文不为空")
             return []
         try:
             repaired_result = json_repair.loads(result)
             if not isinstance(repaired_result, list):
-                raise ValueError(f"GlossaryAgent返回结果不是list的json形式, result: {result}")
+                raise AgentResultError(f"GlossaryAgent返回结果不是list的json形式, result: {result}")
             return repaired_result
         except (RuntimeError, JSONDecodeError) as e:
             # 将解析错误包装成 ValueError 以便被 send 方法捕获并重试
-            raise ValueError(f"结果不能正确解析: {e.__repr__()}")
+            raise AgentResultError(f"结果不能正确解析: {e.__repr__()}")
 
     def _error_result_handler(self, origin_prompt: str, logger: Logger):
         if origin_prompt == "":

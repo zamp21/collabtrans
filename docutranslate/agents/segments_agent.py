@@ -10,7 +10,7 @@ from logging import Logger
 from json_repair import json_repair
 
 from docutranslate.agents import AgentConfig, Agent
-from docutranslate.agents.agent import PartialTranslationError
+from docutranslate.agents.agent import PartialAgentResultError, AgentResultError
 from docutranslate.glossary.glossary import Glossary
 from docutranslate.utils.json_utils import segments2json_chunks
 
@@ -70,18 +70,17 @@ class SegmentsTranslateAgent(Agent):
         """
         if result == "":
             if origin_prompt.strip() != "":
-                logger.error("result为空值但原文不为空")
-                raise ValueError("result为空值但原文不为空")
+                raise AgentResultError("result为空值但原文不为空")
             return {}
         try:
             original_chunk = json.loads(origin_prompt)
             repaired_result = json_repair.loads(result)
 
             if not isinstance(repaired_result, dict):
-                raise ValueError(f"Agent返回结果不是dict的json形式, result: {result}")
+                raise AgentResultError(f"Agent返回结果不是dict的json形式, result: {result}")
 
             if repaired_result == original_chunk:
-                raise ValueError("翻译结果与原文完全相同，判定为翻译失败，将进行重试。")
+                raise AgentResultError("翻译结果与原文完全相同，疑似翻译失败，将进行重试。")
 
             original_keys = set(original_chunk.keys())
             result_keys = set(repaired_result.keys())
@@ -104,7 +103,7 @@ class SegmentsTranslateAgent(Agent):
                     final_chunk[key] = str(original_chunk[key])
 
                 # 抛出自定义异常，将部分结果和错误信息一起传递出去
-                raise PartialTranslationError("键不匹配，触发重试", partial_result=final_chunk)
+                raise PartialAgentResultError("键不匹配，触发重试", partial_result=final_chunk)
 
             # 如果键完全匹配（理想情况），正常返回
             for key, value in repaired_result.items():
@@ -114,7 +113,7 @@ class SegmentsTranslateAgent(Agent):
 
         except (RuntimeError, JSONDecodeError) as e:
             # 对于JSON解析等硬性错误，继续抛出普通ValueError
-            raise ValueError(f"结果处理失败: {e.__repr__()}")
+            raise AgentResultError(f"结果处理失败: {e.__repr__()}")
 
     def _error_result_handler(self, origin_prompt: str, logger: Logger):
         """

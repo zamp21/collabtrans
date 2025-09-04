@@ -23,8 +23,15 @@ MAX_REQUESTS_PER_ERROR = 15
 ThinkingMode = Literal["enable", "disable", "default"]
 
 
-class PartialTranslationError(ValueError):
-    """一个特殊的异常，用于表示结果不完整但包含了部分成功的数据，以便触发重试。"""
+class AgentResultError(ValueError):
+    """一个特殊的异常，用于表示结果由AI正常返回，但返回的结果有问题。该错误不计入总错误数"""
+
+    def __init__(self, message):
+        super().__init__(message)
+
+
+class PartialAgentResultError(ValueError):
+    """一个特殊的异常，用于表示结果不完整但包含了部分成功的数据，以便触发重试。该错误不计入总错误数"""
 
     def __init__(self, message, partial_result: dict):
         super().__init__(message)
@@ -177,9 +184,12 @@ class Agent:
             # print(f"result:=============================================================\n{result}\n================\n")
             return result if result_handler is None else result_handler(result, prompt, self.logger)
 
+        except AgentResultError as e:
+            self.logger.error(f"AI返回结果有误: {e}")
+            should_retry = True
         # 专门捕获部分翻译错误（软错误）
-        except PartialTranslationError as e:
-            self.logger.error(f"收到部分翻译结果，将尝试重试: {e}")
+        except PartialAgentResultError as e:
+            self.logger.error(f"收到部分返回结果，将尝试重试: {e}")
             current_partial_result = e.partial_result
             should_retry = True
             # is_hard_error 保持 False
@@ -285,7 +295,7 @@ class Agent:
 
         headers, data = self._prepare_request_data(prompt, system_prompt)
         should_retry = False
-        is_hard_error = False # 新增标志，用于区分是否为硬错误
+        is_hard_error = False  # 新增标志，用于区分是否为硬错误
         current_partial_result = None
 
         try:
@@ -302,9 +312,11 @@ class Agent:
                 self.logger.info(f"重试成功 (第 {retry_count + 1}/{MAX_RETRY_COUNT + 1} 次尝试)。")
 
             return result if result_handler is None else result_handler(result, prompt, self.logger)
-
+        except AgentResultError as e:
+            self.logger.error(f"AI返回结果有误: {e}")
+            should_retry = True
         # 专门捕获部分翻译错误（软错误）
-        except PartialTranslationError as e:
+        except PartialAgentResultError as e:
             self.logger.error(f"收到部分翻译结果，将尝试重试: {e}")
             current_partial_result = e.partial_result
             should_retry = True
