@@ -17,8 +17,8 @@ from docutranslate.global_values import USE_PROXY
 from docutranslate.logger import global_logger
 from docutranslate.utils.utils import get_httpx_proxies
 
-MAX_RETRY_COUNT = 3
-MAX_REQUESTS_PER_ERROR = 10
+MAX_RETRY_COUNT = 2
+MAX_REQUESTS_PER_ERROR = 15
 
 ThinkingMode = Literal["enable", "disable", "default"]
 
@@ -158,6 +158,7 @@ class Agent:
 
         headers, data = self._prepare_request_data(prompt, system_prompt)
         should_retry = False
+        is_hard_error = False  # 新增标志，用于区分是否为硬错误
         current_partial_result = None
 
         try:
@@ -176,42 +177,45 @@ class Agent:
             # print(f"result:=============================================================\n{result}\n================\n")
             return result if result_handler is None else result_handler(result, prompt, self.logger)
 
-        # 专门捕获部分翻译错误
+        # 专门捕获部分翻译错误（软错误）
         except PartialTranslationError as e:
             self.logger.error(f"收到部分翻译结果，将尝试重试: {e}")
-            current_partial_result = e.partial_result  # 保存这次的部分结果
+            current_partial_result = e.partial_result
             should_retry = True
+            # is_hard_error 保持 False
 
+        # 捕获硬错误
         except httpx.HTTPStatusError as e:
             self.logger.error(f"AI请求HTTP状态错误 (async): {e.response.status_code} - {e.response.text}")
-            # print(f"prompt:\n{prompt}")
             should_retry = True
+            is_hard_error = True
         except httpx.RequestError as e:
             self.logger.error(f"AI请求连接错误 (async): {repr(e)}")
             should_retry = True
+            is_hard_error = True
         except (KeyError, IndexError, ValueError) as e:
             self.logger.error(f"AI响应格式或值错误 (async), 将尝试重试: {repr(e)}")
             should_retry = True
+            is_hard_error = True
 
-        # 如果当前捕获到了部分结果，就更新“最佳”结果
         if current_partial_result:
             best_partial_result = current_partial_result
 
         if should_retry and retry and retry_count < MAX_RETRY_COUNT:
-            if retry_count == 0:
-                if self.total_error_counter.add():
-                    self.logger.error("错误次数过多，已达到上限，不再重试。")
-                    # 如果有部分结果，优先返回部分结果
+            # 仅在硬错误时才增加总错误计数
+            if is_hard_error:
+                if retry_count == 0:
+                    if self.total_error_counter.add():
+                        self.logger.error("错误次数过多，已达到上限，不再重试。")
+                        return best_partial_result if best_partial_result else (
+                            prompt if error_result_handler is None else error_result_handler(prompt, self.logger))
+                elif self.total_error_counter.reach_limit():
+                    self.logger.error("错误次数过多，已达到上限，不再为该请求重试。")
                     return best_partial_result if best_partial_result else (
                         prompt if error_result_handler is None else error_result_handler(prompt, self.logger))
-            elif self.total_error_counter.reach_limit():
-                self.logger.error("错误次数过多，已达到上限，不再为该请求重试。")
-                return best_partial_result if best_partial_result else (
-                    prompt if error_result_handler is None else error_result_handler(prompt, self.logger))
 
             self.logger.info(f"正在重试第 {retry_count + 1}/{MAX_RETRY_COUNT} 次...")
             await asyncio.sleep(0.5)
-            # 将“最佳”结果传递给下一次递归调用
             return await self.send_async(client, prompt, system_prompt, retry=True, retry_count=retry_count + 1,
                                          pre_send_handler=pre_send_handler,
                                          result_handler=result_handler,
@@ -221,7 +225,6 @@ class Agent:
             if should_retry:
                 self.logger.error(f"所有重试均失败，已达到重试次数上限。")
 
-            # 在最终失败时，检查是否有可用的部分结果
             if best_partial_result:
                 self.logger.info("所有重试失败，但存在部分翻译结果，将使用该结果。")
                 return best_partial_result
@@ -282,6 +285,7 @@ class Agent:
 
         headers, data = self._prepare_request_data(prompt, system_prompt)
         should_retry = False
+        is_hard_error = False # 新增标志，用于区分是否为硬错误
         current_partial_result = None
 
         try:
@@ -299,35 +303,42 @@ class Agent:
 
             return result if result_handler is None else result_handler(result, prompt, self.logger)
 
+        # 专门捕获部分翻译错误（软错误）
         except PartialTranslationError as e:
             self.logger.error(f"收到部分翻译结果，将尝试重试: {e}")
             current_partial_result = e.partial_result
             should_retry = True
+            # is_hard_error 保持 False
 
+        # 捕获硬错误
         except httpx.HTTPStatusError as e:
             self.logger.error(f"AI请求HTTP状态错误 (sync): {e.response.status_code} - {e.response.text}")
-            # print(f"prompt:\n{prompt}")
             should_retry = True
+            is_hard_error = True
         except httpx.RequestError as e:
             self.logger.error(f"AI请求连接错误 (sync): {repr(e)}\nprompt:{prompt}")
             should_retry = True
+            is_hard_error = True
         except (KeyError, IndexError, ValueError) as e:
             self.logger.error(f"AI响应格式或值错误 (sync), 将尝试重试: {repr(e)}")
             should_retry = True
+            is_hard_error = True
 
         if current_partial_result:
             best_partial_result = current_partial_result
 
         if should_retry and retry and retry_count < MAX_RETRY_COUNT:
-            if retry_count == 0:
-                if self.total_error_counter.add():
-                    self.logger.error("错误次数过多，已达到上限，不再重试。")
+            # 仅在硬错误时才增加总错误计数
+            if is_hard_error:
+                if retry_count == 0:
+                    if self.total_error_counter.add():
+                        self.logger.error("错误次数过多，已达到上限，不再重试。")
+                        return best_partial_result if best_partial_result else (
+                            prompt if error_result_handler is None else error_result_handler(prompt, self.logger))
+                elif self.total_error_counter.reach_limit():
+                    self.logger.error("错误次数过多，已达到上限，不再为该请求重试。")
                     return best_partial_result if best_partial_result else (
                         prompt if error_result_handler is None else error_result_handler(prompt, self.logger))
-            elif self.total_error_counter.reach_limit():
-                self.logger.error("错误次数过多，已达到上限，不再为该请求重试。")
-                return best_partial_result if best_partial_result else (
-                    prompt if error_result_handler is None else error_result_handler(prompt, self.logger))
 
             self.logger.info(f"正在重试第 {retry_count + 1}/{MAX_RETRY_COUNT} 次...")
             time.sleep(0.5)
