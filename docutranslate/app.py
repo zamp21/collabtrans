@@ -228,8 +228,8 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 # ===================================================================
 
 class GlossaryAgentConfigPayload(BaseModel):
-    baseurl: str = Field(..., description="用于术语表生成的Agent的LLM API基础URL。", examples=["https://api.openai.com/v1"])
-    key: str = Field(..., description="用于术语表生成的Agent的LLM API密钥。", examples=["sk-agent-api-key"])
+    base_url: str = Field(..., description="用于术语表生成的Agent的LLM API基础URL。", examples=["https://api.openai.com/v1"])
+    api_key: str = Field(..., description="用于术语表生成的Agent的LLM API密钥。", examples=["sk-agent-api-key"])
     model_id: str = Field(..., description="用于术语表生成的Agent的模型ID。", examples=["gpt-4-turbo"])
     to_lang: str = Field(..., description="术语表生成的目标语言。", examples=["简体中文", "English"])
     temperature: float = Field(default=0.7, description="用于术语表生成的Agent的温度参数。")
@@ -251,7 +251,7 @@ class BaseWorkflowParams(BaseModel):
     chunk_size: int = Field(default=default_params["chunk_size"], description="文本分割的块大小（字符）。")
     concurrent: int = Field(default=default_params["concurrent"], description="并发请求数。")
     temperature: float = Field(default=default_params["temperature"], description="LLM温度参数。")
-    thinking: ThinkingMode = Field(default=default_params["thinking"], description="是否启用深度思考",
+    thinking: ThinkingMode = Field(default=default_params["thinking"], description="Agent的思考模式。",
                                    examples=["default", "enable", "disable"])
     custom_prompt: Optional[str] = Field(None, description="用户自定义的翻译Prompt。", alias="custom_prompt")
     glossary_dict: Optional[Dict[str, str]] = Field(None, description="术语表字典，key为原文，value为译文。")
@@ -321,7 +321,7 @@ class JsonWorkflowParams(BaseWorkflowParams):
     json_paths: List[str] = Field(
         ...,
         description="一个jsonpath-ng表达式列表，用于指定需要翻译的JSON字段。",
-        examples=[["$..description", "$.items[0].name", "$.*"]]
+        examples=[["$.product.name", "$.product.description", "$.features[*]"]]
     )
 
 
@@ -413,143 +413,162 @@ class TranslateServiceRequest(BaseModel):
         json_schema_extra = {
             "examples": [
                 {
-                    "summary": "Markdown 工作流示例",
-                    "value": {
-                        "file_name": "annual_report_203.pdf",
-                        "file_content": "JVBERi0xLjcKJeLjz9MKMSAwIG9iago8PC9...",
-                        "payload": {
-                            "workflow_type": "markdown_based",
-                            "base_url": "https://api.openai.com/v1",
-                            "api_key": "sk-your-api-key-here",
-                            "model_id": "gpt-4o",
-                            "to_lang": "简体中文",
-                            "convert_engine": "mineru",
-                            "mineru_token": "your-mineru-token-if-any",
+                    "file_name": "annual_report_203.pdf",
+                    "file_content": "JVBERi0xLjcKJeLjz9MKMSAwIG9iago8PC9...",
+                    "payload": {
+                        "workflow_type": "markdown_based",
+                        "skip_translate": False,
+                        "base_url": "https://api.openai.com/v1",
+                        "api_key": "sk-your-api-key-here",
+                        "model_id": "gpt-4o",
+                        "to_lang": "中文",
+                        "chunk_size": default_params["chunk_size"],
+                        "concurrent": default_params["concurrent"],
+                        "temperature": default_params["temperature"],
+                        "thinking": "default",
+                        "glossary_generate_enable": False,
+                        "convert_engine": "mineru",
+                        "mineru_token": "your-mineru-token-if-any",
+                        "formula_ocr": True,
+                        "model_version": "vlm"
+                    }
+                },
+                {
+                    "file_name": "product_info.json",
+                    "file_content": "ewogICAgImlkIjogIjEyMzQ1IiwK...",
+                    "payload": {
+                        "workflow_type": "json",
+                        "skip_translate": False,
+                        "base_url": "https://api.openai.com/v1",
+                        "api_key": "sk-your-api-key-here",
+                        "model_id": "gpt-4o",
+                        "to_lang": "中文",
+                        "chunk_size": default_params["chunk_size"],
+                        "concurrent": default_params["concurrent"],
+                        "temperature": default_params["temperature"],
+                        "thinking": "default",
+                        "glossary_generate_enable": False,
+                        "json_paths": ["$.product.name", "$.product.description", "$.features[*]"],
+                    }
+                },
+                {
+                    "file_name": "product_list.xlsx",
+                    "file_content": "UEsDBBQAAAAIA... (base64-encoded xlsx)",
+                    "payload": {
+                        "workflow_type": "xlsx",
+                        "skip_translate": False,
+                        "base_url": "https://api.openai.com/v1",
+                        "api_key": "sk-your-api-key-here",
+                        "model_id": "gpt-4o",
+                        "to_lang": "中文",
+                        "chunk_size": default_params["chunk_size"],
+                        "concurrent": default_params["concurrent"],
+                        "temperature": default_params["temperature"],
+                        "thinking": "default",
+                        "glossary_generate_enable": False,
+                        "insert_mode": "replace",
+                        "separator": "\n",
+                        "translate_regions": ["Sheet1!A1:B10", "C:D"],
+                        "glossary_dict": {
+                            "OpenAI": "开放人工智能",
+                            "LLM": "大语言模型"
                         }
                     }
                 },
                 {
-                    "summary": "JSON 工作流示例",
-                    "value": {
-                        "file_name": "product_info.json",
-                        "file_content": "ewogICAgImlkIjogIjEyMzQ1IiwK...",
-                        "payload": {
-                            "workflow_type": "json",
+                    "file_name": "complex_terms.xlsx",
+                    "file_content": "UEsDBBQAAAAIA... (base64-encoded xlsx)",
+                    "payload": {
+                        "workflow_type": "xlsx",
+                        "base_url": "https://api.openai.com/v1",
+                        "api_key": "sk-your-main-translator-key",
+                        "model_id": "gpt-4o",
+                        "to_lang": "中文",
+                        "glossary_generate_enable": True,
+                        "glossary_agent_config": {
                             "base_url": "https://api.openai.com/v1",
-                            "api_key": "sk-your-api-key-here",
-                            "model_id": "gpt-4o",
-                            "to_lang": "日本語",
-                            "json_paths": ["productName", "description.long", "features[*]"],
+                            "api_key": "sk-your-agent-key-for-glossary",
+                            "model_id": "gpt-4-turbo",
+                            "to_lang": "中文",
+                            "temperature": 0.7,
+                            "max_concurrent": 30,
+                            "timeout": 2000,
+                            "thinking": "default"
                         }
                     }
                 },
                 {
-                    "summary": "XLSX 工作流示例",
-                    "value": {
-                        "file_name": "product_list.xlsx",
-                        "file_content": "UEsDBBQAAAAIA... (base64-encoded xlsx)",
-                        "payload": {
-                            "workflow_type": "xlsx",
-                            "base_url": "https://api.openai.com/v1",
-                            "api_key": "sk-your-api-key-here",
-                            "model_id": "gpt-4o",
-                            "to_lang": "简体中文",
-                            "insert_mode": "append",
-                            "separator": " \n---翻译---\n ",
-                            "chunk_size": 2000,
-                            "concurrent": 5,
-                            "translate_regions": ["Sheet1!A1:B10", "C:D"],
-                            "glossary_dict": {
-                                "OpenAI": "开放人工智能",
-                                "LLM": "大语言模型"
-                            }
-                        }
+                    "file_name": "contract.docx",
+                    "file_content": "UEsDBBQAAAAIA... (base64-encoded docx)",
+                    "payload": {
+                        "workflow_type": "docx",
+                        "skip_translate": False,
+                        "base_url": "https://api.openai.com/v1",
+                        "api_key": "sk-your-api-key-here",
+                        "model_id": "gpt-4o",
+                        "to_lang": "中文",
+                        "insert_mode": "replace",
+                        "separator": "\n",
+                        "chunk_size": default_params["chunk_size"],
+                        "concurrent": default_params["concurrent"],
+                        "temperature": default_params["temperature"],
+                        "thinking": "default",
                     }
                 },
                 {
-                    "summary": "XLSX 带术语表生成",
-                    "value": {
-                        "file_name": "complex_terms.xlsx",
-                        "file_content": "UEsDBBQAAAAIA... (base64-encoded xlsx)",
-                        "payload": {
-                            "workflow_type": "xlsx",
-                            "base_url": "https://api.openai.com/v1",
-                            "api_key": "sk-your-main-translator-key",
-                            "model_id": "gpt-4o",
-                            "to_lang": "简体中文",
-                            "glossary_generate_enable": True,
-                            "glossary_agent_config": {
-                                "baseurl": "https://api.openai.com/v1",
-                                "key": "sk-your-agent-key-for-glossary",
-                                "model_id": "gpt-4-turbo",
-                                "to_lang": "简体中文",
-                                "temperature": 0.5
-                            }
-                        }
+                    "file_name": "movie.srt",
+                    "file_content": "MSAKMDA6MDA6MDEsMjAwIC0tPiAwMDowMD...",
+                    "payload": {
+                        "workflow_type": "srt",
+                        "skip_translate": False,
+                        "base_url": "https://api.openai.com/v1",
+                        "api_key": "sk-your-api-key-here",
+                        "model_id": "gpt-4o",
+                        "to_lang": "中文",
+                        "insert_mode": "replace",
+                        "separator": "\n",
+                        "chunk_size": default_params["chunk_size"],
+                        "concurrent": default_params["concurrent"],
+                        "temperature": default_params["temperature"],
+                        "thinking": "default",
                     }
                 },
                 {
-                    "summary": "DOCX 工作流示例",
-                    "value": {
-                        "file_name": "contract.docx",
-                        "file_content": "UEsDBBQAAAAIA... (base64-encoded docx)",
-                        "payload": {
-                            "workflow_type": "docx",
-                            "base_url": "https://api.openai.com/v1",
-                            "api_key": "sk-your-api-key-here",
-                            "model_id": "gpt-4o",
-                            "to_lang": "English",
-                            "insert_mode": "replace",
-                        }
+                    "file_name": "my_book.epub",
+                    "file_content": "UEsDBBQAAAAIA... (base64-encoded epub)",
+                    "payload": {
+                        "workflow_type": "epub",
+                        "skip_translate": False,
+                        "base_url": "https://api.openai.com/v1",
+                        "api_key": "sk-your-api-key-here",
+                        "model_id": "gpt-4o",
+                        "to_lang": "中文",
+                        "insert_mode": "replace",
+                        "separator": "\n",
+                        "chunk_size": default_params["chunk_size"],
+                        "concurrent": default_params["concurrent"],
+                        "temperature": default_params["temperature"],
+                        "thinking": "default",
                     }
                 },
                 {
-                    "summary": "SRT 工作流示例",
-                    "value": {
-                        "file_name": "movie.srt",
-                        "file_content": "MSAKMDA6MDA6MDEsMjAwIC0tPiAwMDowMD...",
-                        "payload": {
-                            "workflow_type": "srt",
-                            "base_url": "https://api.openai.com/v1",
-                            "api_key": "sk-your-api-key-here",
-                            "model_id": "gpt-4o",
-                            "to_lang": "English",
-                            "insert_mode": "replace",
-                        }
-                    }
-                },
-                {
-                    "summary": "EPUB 工作流示例",
-                    "value": {
-                        "file_name": "my_book.epub",
-                        "file_content": "UEsDBBQAAAAIA... (base64-encoded epub)",
-                        "payload": {
-                            "workflow_type": "epub",
-                            "base_url": "https://api.openai.com/v1",
-                            "api_key": "sk-your-api-key-here",
-                            "model_id": "gpt-4o",
-                            "to_lang": "简体中文",
-                            "insert_mode": "replace",
-                        }
-                    }
-                },
-                # --- HTML EXAMPLE START ---
-                {
-                    "summary": "HTML 工作流示例",
-                    "value": {
-                        "file_name": "company_about_us.html",
-                        "file_content": "PGh0bWw+PGhlYWQ+PHRpdGxlPkFib3V0IFVzPC90aXRsZT48L2hlYWQ+PGJvZHk+PGgxPk91ciBDb21wYW55PC9oMT48cD5XZSBhcmUgYSBsZWFkaW5nIHByb3ZpZGVyIG9mIGlubm92YXRpdmUgc29sdXRpb25zLjwvcD48L2JvZHk+PC9odG1sPg==",
-                        "payload": {
-                            "workflow_type": "html",
-                            "base_url": "https://api.openai.com/v1",
-                            "api_key": "sk-your-api-key-here",
-                            "model_id": "gpt-4o",
-                            "to_lang": "简体中文",
-                            "insert_mode": "replace"
-                        }
+                    "file_name": "company_about_us.html",
+                    "file_content": "PGh0bWw+PGhlYWQ+PHRpdGxlPkFib3V0IFVzPC90aXRsZT48L2hlYWQ+PGJvZHk+PGgxPk91ciBDb21wYW55PC9oMT48cD5XZSBhcmUgYSBsZWFkaW5nIHByb3ZpZGVyIG9mIGlubm92YXRpdmUgc29sdXRpb25zLjwvcD48L2JvZHk+PC9odG1sPg==",
+                    "payload": {
+                        "workflow_type": "html",
+                        "skip_translate": False,
+                        "base_url": "https://api.openai.com/v1",
+                        "api_key": "sk-your-api-key-here",
+                        "model_id": "gpt-4o",
+                        "to_lang": "中文",
+                        "insert_mode": "replace",
+                        "separator": " ",
+                        "chunk_size": default_params["chunk_size"],
+                        "concurrent": default_params["concurrent"],
+                        "temperature": default_params["temperature"],
+                        "thinking": "default",
                     }
                 }
-                # --- HTML EXAMPLE END ---
             ]
         }
 
