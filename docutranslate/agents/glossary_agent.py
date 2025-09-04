@@ -50,24 +50,27 @@ The output format should be plain JSON text in a list format
 
     def _result_handler(self, result: str, origin_prompt: str, logger: Logger):
         if result == "":
+            if origin_prompt.strip()!="":
+                logger.error("result为空值但原文不为空")
+                raise ValueError("result为空值但原文不为空")
             return []
         try:
-            result = json_repair.loads(result)
-            if not isinstance(result, list):
-                raise ValueError("GlossaryAgent返回结果不是list的json形式")
-        except:
-            logger.error("结果不能正确解析")
-            return self._error_result_handler(origin_prompt, logger)
-        return result
+            repaired_result = json_repair.loads(result)
+            if not isinstance(repaired_result, list):
+                raise ValueError(f"GlossaryAgent返回结果不是list的json形式, result: {result}")
+            return repaired_result
+        except (RuntimeError, JSONDecodeError) as e:
+            # 将解析错误包装成 ValueError 以便被 send 方法捕获并重试
+            raise ValueError(f"结果不能正确解析: {e.__repr__()}")
 
     def _error_result_handler(self, origin_prompt: str, logger: Logger):
         if origin_prompt == "":
             return []
         try:
             return json_repair.loads(origin_prompt)
-        except:
-            logger.error("prompt不是json格式")
-            return origin_prompt
+        except (RuntimeError, JSONDecodeError):
+            logger.error(f"原始prompt也不是有效的json格式: {origin_prompt}")
+            return [] # 如果原始prompt也无效，返回空列表
 
     def send_segments(self, segments: list[str], chunk_size: int):
         self.logger.info(f"开始提取术语表,to_lang:{self.to_lang}")
@@ -78,14 +81,17 @@ The output format should be plain JSON text in a list format
                                                  result_handler=self._result_handler,
                                                  error_result_handler=self._error_result_handler)
         for chunk in translated_chunks:
-            chunk: list[dict[str, str]]
             try:
-                glossary_dict = {d["src"]: d["dst"] for d in chunk}
+                if not isinstance(chunk, list):
+                    self.logger.error(f"接收到的chunk不是有效的列表，已跳过: {chunk}")
+                    continue
+                glossary_dict = {d["src"]: d["dst"] for d in chunk if isinstance(d, dict) and "src" in d and "dst" in d}
                 result = glossary_dict | result
-            except JSONDecodeError as e:
-                self.logger.info(f"json解析错误，解析文本:{chunk}，错误:{e.__repr__()}")
+            except (TypeError, KeyError) as e:
+                self.logger.error(f"处理glossary chunk时发生键或类型错误，已跳过。Chunk: {chunk}, 错误: {e.__repr__()}")
             except Exception as e:
-                self.logger.info(f"send_segments发生错误:{e.__repr__()}")
+                self.logger.error(f"处理glossary chunk时发生未知错误: {e.__repr__()}")
+
         self.logger.info("术语表提取完成")
         return result
 
@@ -99,14 +105,16 @@ The output format should be plain JSON text in a list format
                                                              result_handler=self._result_handler,
                                                              error_result_handler=self._error_result_handler)
         for chunk in translated_chunks:
-            chunk: list[dict[str, str]]
             try:
-                glossary_dict = {d["src"]: d["dst"] for d in chunk}
+                if not isinstance(chunk, list):
+                    self.logger.error(f"接收到的chunk不是有效的列表，已跳过: {chunk}")
+                    continue
+                glossary_dict = {d["src"]: d["dst"] for d in chunk if isinstance(d, dict) and "src" in d and "dst" in d}
                 result = result | glossary_dict
-            except JSONDecodeError as e:
-                self.logger.info(f"json解析错误，解析文本:{chunk}，错误:{e.__repr__()}")
+            except (TypeError, KeyError) as e:
+                self.logger.error(f"处理glossary chunk时发生键或类型错误，已跳过。Chunk: {chunk}, 错误: {e.__repr__()}")
             except Exception as e:
-                self.logger.info(f"send_segments发生错误:{e.__repr__()}")
-        # print(f"术语表:\n{result}")
+                self.logger.error(f"处理glossary chunk时发生未知错误: {e.__repr__()}")
+
         self.logger.info("术语表提取完成")
         return result

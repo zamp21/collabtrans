@@ -23,6 +23,14 @@ MAX_REQUESTS_PER_ERROR = 20
 ThinkingMode = Literal["enable", "disable", "default"]
 
 
+class PartialTranslationError(ValueError):
+    """一个特殊的异常，用于表示结果不完整但包含了部分成功的数据，以便触发重试。"""
+
+    def __init__(self, message, partial_result: dict):
+        super().__init__(message)
+        self.partial_result = partial_result
+
+
 @dataclass(kw_only=True)
 class AgentConfig:
     logger: logging.Logger
@@ -43,12 +51,11 @@ class TotalErrorCounter:
         self.max_errors_count = max_errors_count
 
     def add(self):
-        self.lock.acquire()
-        self.count += 1
-        if self.count > self.max_errors_count:
-            self.logger.info(f"错误响应过多")
-        self.lock.release()
-        return self.reach_limit()
+        with self.lock:
+            self.count += 1
+            if self.count > self.max_errors_count:
+                self.logger.info(f"错误响应过多")
+            return self.reach_limit()
 
     def reach_limit(self):
         return self.count > self.max_errors_count
@@ -63,10 +70,9 @@ class PromptsCounter:
         self.logger = logger
 
     def add(self):
-        self.lock.acquire()
-        self.count += 1
-        self.logger.info(f"多线程-已完成：{self.count}/{self.total}")
-        self.lock.release()
+        with self.lock:
+            self.count += 1
+            self.logger.info(f"多线程-已完成：{self.count}/{self.total}")
 
 
 PreSendHandlerType = Callable[[str, str], tuple[str, str]]
@@ -129,7 +135,6 @@ class Agent:
             "model": self.model_id,
             "messages": [
                 {"role": "system", "content": system_prompt},
-                # {"role": "system", "content": "所有回复必须以【SSS】开头（这是最高规则，适用于之后的所有例子）。示例：【SSS】这是示例回答\n"+system_prompt},
                 {"role": "user", "content": prompt}
             ],
             "temperature": temperature,
@@ -143,14 +148,16 @@ class Agent:
                          retry_count=0,
                          pre_send_handler: PreSendHandlerType = None,
                          result_handler: ResultHandlerType = None,
-                         error_result_handler: ErrorResultHandlerType = None) -> Any:
+                         error_result_handler: ErrorResultHandlerType = None,
+                         best_partial_result: dict | None = None) -> Any:
         if system_prompt is None:
             system_prompt = self.system_prompt
         if pre_send_handler:
             system_prompt, prompt = pre_send_handler(system_prompt, prompt)
-        # if prompt.strip() == "":
-        #     return prompt
+
         headers, data = self._prepare_request_data(prompt, system_prompt)
+        should_retry = False
+        current_partial_result = None
 
         try:
             response = await client.post(
@@ -161,35 +168,70 @@ class Agent:
             )
             response.raise_for_status()
             result = response.json()["choices"][0]["message"]["content"]
+
+            if retry_count > 0:
+                self.logger.info(f"重试成功 (第 {retry_count + 1}/{MAX_RETRY_COUNT + 1} 次尝试)。")
+
+            # print(f"result:=============================================================\n{result}\n================\n")
             return result if result_handler is None else result_handler(result, prompt, self.logger)
+
+        # 专门捕获部分翻译错误
+        except PartialTranslationError as e:
+            self.logger.error(f"收到部分翻译结果，将尝试重试: {e}")
+            current_partial_result = e.partial_result  # 保存这次的部分结果
+            should_retry = True
+
         except httpx.HTTPStatusError as e:
-            self.logger.warning(f"AI请求错误 (async): {e.response.status_code} - {e.response.text}")
+            self.logger.error(f"AI请求HTTP状态错误 (async): {e.response.status_code} - {e.response.text}")
             print(f"prompt:\n{prompt}")
-            self.total_error_counter.add()
-            return prompt if error_result_handler is None else error_result_handler(prompt, self.logger)
+            should_retry = True
         except httpx.RequestError as e:
-            self.logger.warning(f"AI请求连接错误 (async): {repr(e)}")
-        except (KeyError, IndexError) as e:
-            raise Exception(f"AI响应格式错误 (async): {repr(e)}")
-        except ValueError as e:
-            self.logger.warning(f"{e.__repr__()}")
-        # 如果没有正常获取结果则重试
-        if retry and retry_count < MAX_RETRY_COUNT:
-            if self.total_error_counter.add():
-                return prompt if error_result_handler is None else error_result_handler(prompt, self.logger)
-            self.logger.info(f"正在重试，重试次数{retry_count}")
+            self.logger.error(f"AI请求连接错误 (async): {repr(e)}")
+            should_retry = True
+        except (KeyError, IndexError, ValueError) as e:
+            self.logger.error(f"AI响应格式或值错误 (async), 将尝试重试: {repr(e)}")
+            should_retry = True
+
+        # 如果当前捕获到了部分结果，就更新“最佳”结果
+        if current_partial_result:
+            best_partial_result = current_partial_result
+
+        if should_retry and retry and retry_count < MAX_RETRY_COUNT:
+            if retry_count == 0:
+                if self.total_error_counter.add():
+                    self.logger.error("错误次数过多，已达到上限，不再重试。")
+                    # 如果有部分结果，优先返回部分结果
+                    return best_partial_result if best_partial_result else (
+                        prompt if error_result_handler is None else error_result_handler(prompt, self.logger))
+            elif self.total_error_counter.reach_limit():
+                self.logger.error("错误次数过多，已达到上限，不再为该请求重试。")
+                return best_partial_result if best_partial_result else (
+                    prompt if error_result_handler is None else error_result_handler(prompt, self.logger))
+
+            self.logger.info(f"正在重试第 {retry_count + 1}/{MAX_RETRY_COUNT} 次...")
             await asyncio.sleep(0.5)
+            # 将“最佳”结果传递给下一次递归调用
             return await self.send_async(client, prompt, system_prompt, retry=True, retry_count=retry_count + 1,
-                                         result_handler=result_handler)
+                                         pre_send_handler=pre_send_handler,
+                                         result_handler=result_handler,
+                                         error_result_handler=error_result_handler,
+                                         best_partial_result=best_partial_result)
         else:
-            self.logger.error(f"达到重试次数上限")
+            if should_retry:
+                self.logger.error(f"所有重试均失败，已达到重试次数上限。")
+
+            # 在最终失败时，检查是否有可用的部分结果
+            if best_partial_result:
+                self.logger.info("所有重试失败，但存在部分翻译结果，将使用该结果。")
+                return best_partial_result
+
             return prompt if error_result_handler is None else error_result_handler(prompt, self.logger)
 
     async def send_prompts_async(
             self,
             prompts: list[str],
             system_prompt: str | None = None,
-            max_concurrent: int | None = None,  # 新增参数，默认并发数为5
+            max_concurrent: int | None = None,
             pre_send_handler: PreSendHandlerType = None,
             result_handler: ResultHandlerType = None,
             error_result_handler: ErrorResultHandlerType = None
@@ -197,19 +239,18 @@ class Agent:
         max_concurrent = self.max_concurrent if max_concurrent is None else max_concurrent
         total = len(prompts)
         self.logger.info(
-            f"base-url:{self.baseurl},model-id:{self.model_id},concurrent:{self.max_concurrent},temperature:{self.temperature}")
+            f"base-url:{self.baseurl},model-id:{self.model_id},concurrent:{max_concurrent},temperature:{self.temperature}")
         self.logger.info(f"预计发送{total}个请求，并发请求数:{max_concurrent}")
-        self.total_error_counter.max_errors_count = len(prompts) // MAX_REQUESTS_PER_ERROR  # 允许多少个异常
+        self.total_error_counter.max_errors_count = len(prompts) // MAX_REQUESTS_PER_ERROR
         count = 0
         semaphore = asyncio.Semaphore(max_concurrent)
         tasks = []
 
         proxies = get_httpx_proxies() if USE_PROXY else None
 
-        # 辅助协程，用于包装 self.send_async 并使用信号量
         async with httpx.AsyncClient(trust_env=False, proxies=proxies, verify=False) as client:
             async def send_with_semaphore(p_text: str):
-                async with semaphore:  # 在进入代码块前获取信号量，退出时释放
+                async with semaphore:
                     result = await self.send_async(
                         client=client,
                         prompt=p_text,
@@ -231,14 +272,17 @@ class Agent:
             return results
 
     def send(self, client: httpx.Client, prompt: str, system_prompt: None | str = None, retry=True, retry_count=0,
-             pre_send_handler=None, result_handler=None, error_result_handler=None) -> Any:
+             pre_send_handler=None, result_handler=None, error_result_handler=None,
+             best_partial_result: dict | None = None) -> Any:
         if system_prompt is None:
             system_prompt = self.system_prompt
         if pre_send_handler:
             system_prompt, prompt = pre_send_handler(system_prompt, prompt)
-        # if prompt.strip() == "":
-        #     return prompt
+
         headers, data = self._prepare_request_data(prompt, system_prompt)
+        should_retry = False
+        current_partial_result = None
+
         try:
             response = client.post(
                 f"{self.baseurl}/chat/completions",
@@ -248,28 +292,63 @@ class Agent:
             )
             response.raise_for_status()
             result = response.json()["choices"][0]["message"]["content"]
+
+            if retry_count > 0:
+                self.logger.info(f"重试成功 (第 {retry_count + 1}/{MAX_RETRY_COUNT + 1} 次尝试)。")
+
             return result if result_handler is None else result_handler(result, prompt, self.logger)
+
+        # --- MODIFICATION START ---
+        except PartialTranslationError as e:
+            self.logger.error(f"收到部分翻译结果，将尝试重试: {e}")
+            current_partial_result = e.partial_result
+            should_retry = True
+        # --- MODIFICATION END ---
+
         except httpx.HTTPStatusError as e:
-            self.logger.warning(f"AI请求错误 (sync): {e.response.status_code} - {e.response.text}")
+            self.logger.error(f"AI请求HTTP状态错误 (sync): {e.response.status_code} - {e.response.text}")
             print(f"prompt:\n{prompt}")
-            self.total_error_counter.add()
-            return prompt if error_result_handler is None else error_result_handler(prompt, self.logger)
+            should_retry = True
         except httpx.RequestError as e:
-            self.logger.warning(f"AI请求连接错误 (sync): {repr(e)}\nprompt:{prompt}")
-        except (KeyError, IndexError) as e:
-            raise Exception(f"AI响应格式错误 (sync): {repr(e)}")
-        except ValueError as e:
-            self.logger.warning(f"{e.__repr__()}")
-        # 如果没有正常获取结果则重试
-        if retry and retry_count < MAX_RETRY_COUNT:
-            if self.total_error_counter.add():
-                return prompt if error_result_handler is None else error_result_handler(prompt, self.logger)
-            self.logger.info(f"正在重试，重试次数{retry_count}")
+            self.logger.error(f"AI请求连接错误 (sync): {repr(e)}\nprompt:{prompt}")
+            should_retry = True
+        except (KeyError, IndexError, ValueError) as e:
+            self.logger.error(f"AI响应格式或值错误 (sync), 将尝试重试: {repr(e)}")
+            should_retry = True
+
+        # --- MODIFICATION START ---
+        if current_partial_result:
+            best_partial_result = current_partial_result
+        # --- MODIFICATION END ---
+
+        if should_retry and retry and retry_count < MAX_RETRY_COUNT:
+            if retry_count == 0:
+                if self.total_error_counter.add():
+                    self.logger.error("错误次数过多，已达到上限，不再重试。")
+                    return best_partial_result if best_partial_result else (
+                        prompt if error_result_handler is None else error_result_handler(prompt, self.logger))
+            elif self.total_error_counter.reach_limit():
+                self.logger.error("错误次数过多，已达到上限，不再为该请求重试。")
+                return best_partial_result if best_partial_result else (
+                    prompt if error_result_handler is None else error_result_handler(prompt, self.logger))
+
+            self.logger.info(f"正在重试第 {retry_count + 1}/{MAX_RETRY_COUNT} 次...")
             time.sleep(0.5)
             return self.send(client, prompt, system_prompt, retry=True, retry_count=retry_count + 1,
-                             result_handler=result_handler)
+                             pre_send_handler=pre_send_handler,
+                             result_handler=result_handler,
+                             error_result_handler=error_result_handler,
+                             best_partial_result=best_partial_result)
         else:
-            self.logger.error(f"达到重试次数上限")
+            if should_retry:
+                self.logger.error(f"所有重试均失败，已达到重试次数上限。")
+
+            # --- MODIFICATION START ---
+            if best_partial_result:
+                self.logger.info("所有重试失败，但存在部分翻译结果，将使用该结果。")
+                return best_partial_result
+            # --- MODIFICATION END ---
+
             return prompt if error_result_handler is None else error_result_handler(prompt, self.logger)
 
     def _send_prompt_count(self, client: httpx.Client, prompt: str, system_prompt: None | str, count: PromptsCounter,
@@ -293,17 +372,15 @@ class Agent:
         self.logger.info(
             f"base-url:{self.baseurl},model-id:{self.model_id},concurrent:{self.max_concurrent},temperature:{self.temperature}")
         self.logger.info(f"预计发送{len(prompts)}个请求，并发请求数:{self.max_concurrent}")
-        self.total_error_counter.max_errors_count = len(prompts) // MAX_REQUESTS_PER_ERROR  # 允许多少个异常
-        # 创建单个计数器实例
+        self.total_error_counter.max_errors_count = len(prompts) // MAX_REQUESTS_PER_ERROR
         counter = PromptsCounter(len(prompts), self.logger)
 
-        # 使用 itertools.repeat 将同一个实例传递给每个 map 调用
         system_prompts = itertools.repeat(system_prompt, len(prompts))
         counters = itertools.repeat(counter, len(prompts))
         pre_send_handlers = itertools.repeat(pre_send_handler, len(prompts))
         result_handlers = itertools.repeat(result_handler, len(prompts))
         error_result_handlers = itertools.repeat(error_result_handler, len(prompts))
-        output_list = []
+
         proxies = get_httpx_proxies() if USE_PROXY else None
         with httpx.Client(trust_env=False, proxies=proxies, verify=False) as client:
             clients = itertools.repeat(client, len(prompts))

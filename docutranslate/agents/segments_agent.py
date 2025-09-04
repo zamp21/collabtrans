@@ -10,6 +10,7 @@ from logging import Logger
 from json_repair import json_repair
 
 from docutranslate.agents import AgentConfig, Agent
+from docutranslate.agents.agent import PartialTranslationError
 from docutranslate.glossary.glossary import Glossary
 from docutranslate.utils.json_utils import segments2json_chunks
 
@@ -50,7 +51,7 @@ Warning: Never wrap the entire JSON object in quotes to make it a single string.
 """
         self.custom_prompt = config.custom_prompt
         if config.custom_prompt:
-            self.system_prompt += "\n# **Important rules or background** \n" + self.custom_prompt + '\n'
+            self.system_prompt += "\n# **Important rules or background** \n" + self.custom_prompt + '\nEND\n'
         self.glossary_dict = config.glossary_dict
 
     def _pre_send_handler(self, system_prompt, prompt):
@@ -60,94 +61,152 @@ Warning: Never wrap the entire JSON object in quotes to make it a single string.
         return system_prompt, prompt
 
     def _result_handler(self, result: str, origin_prompt: str, logger: Logger):
+        """
+        处理成功的API响应。
+        - 如果键完全匹配，返回翻译结果。
+        - 如果键不匹配，构造一个部分成功的结果，并通过 PartialTranslationError 异常抛出，以触发重试。
+        - 其他错误（如JSON解析失败、模型偷懒）则抛出普通 ValueError 触发重试。
+        """
         if result == "":
+            if origin_prompt.strip() != "":
+                logger.error("result为空值但原文不为空")
+                raise ValueError("result为空值但原文不为空")
             return {}
         try:
-            result = json_repair.loads(result)
-            if not isinstance(result, dict):
-                raise ValueError(f"agent返回结果不是dict的json形式,result:{result}")
-        except RuntimeError as e:
-            raise ValueError(f"结果不能正确解析:{e.__repr__()}")
-        return result
+            original_chunk = json.loads(origin_prompt)
+            repaired_result = json_repair.loads(result)
+
+            if not isinstance(repaired_result, dict):
+                raise ValueError(f"Agent返回结果不是dict的json形式, result: {result}")
+
+            if repaired_result == original_chunk:
+                raise ValueError("翻译结果与原文完全相同，判定为翻译失败，将进行重试。")
+
+            original_keys = set(original_chunk.keys())
+            result_keys = set(repaired_result.keys())
+
+            # 如果键不完全匹配
+            if original_keys != result_keys:
+                # 仍然先构造一个最完整的“部分结果”
+                final_chunk = {}
+                common_keys = original_keys.intersection(result_keys)
+                missing_keys = original_keys - result_keys
+                extra_keys = result_keys - original_keys
+
+                logger.warning(f"翻译结果的键与原文不匹配！将尝试重试。")
+                if missing_keys: logger.warning(f"缺失的键: {missing_keys}")
+                if extra_keys: logger.warning(f"多余的键: {extra_keys}")
+
+                for key in common_keys:
+                    final_chunk[key] = str(repaired_result[key])
+                for key in missing_keys:
+                    final_chunk[key] = str(original_chunk[key])
+
+                # 抛出自定义异常，将部分结果和错误信息一起传递出去
+                raise PartialTranslationError("键不匹配，触发重试", partial_result=final_chunk)
+
+            # 如果键完全匹配（理想情况），正常返回
+            for key, value in repaired_result.items():
+                repaired_result[key] = str(value)
+
+            return repaired_result
+
+        except (RuntimeError, JSONDecodeError) as e:
+            # 对于JSON解析等硬性错误，继续抛出普通ValueError
+            raise ValueError(f"结果处理失败: {e.__repr__()}")
 
     def _error_result_handler(self, origin_prompt: str, logger: Logger):
+        """
+        处理在所有重试后仍然失败的请求。
+        作为备用方案，返回原文内容，并将所有值转换为字符串。
+        """
         if origin_prompt == "":
             return {}
         try:
-            return json_repair.loads(origin_prompt)
-        except:
-            logger.error("prompt不是json格式")
-            return origin_prompt
+            original_chunk = json.loads(origin_prompt)
+            # 此处逻辑保留，作为最终的兜底方案
+            for key, value in original_chunk.items():
+                original_chunk[key] = f"{value}"
+            return original_chunk
+        except (RuntimeError, JSONDecodeError):
+            logger.error(f"原始prompt也不是有效的json格式: {origin_prompt}")
+            # 如果原始prompt本身也无效，返回一个清晰的错误对象
+            return {"error": f"{origin_prompt}"}
 
-    def send_segments(self, segments: list[str], chunk_size: int):
+    def send_segments(self, segments: list[str], chunk_size: int) -> list[str]:
         indexed_originals, chunks, merged_indices_list = segments2json_chunks(segments, chunk_size)
         prompts = [json.dumps(chunk, ensure_ascii=False) for chunk in chunks]
+
         translated_chunks = super().send_prompts(prompts=prompts, pre_send_handler=self._pre_send_handler,
                                                  result_handler=self._result_handler,
                                                  error_result_handler=self._error_result_handler)
+
         indexed_translated = indexed_originals.copy()
         for chunk in translated_chunks:
             try:
+                if not isinstance(chunk, dict):
+                    self.logger.warning(f"接收到的chunk不是有效的字典，已跳过: {chunk}")
+                    continue
                 for key, val in chunk.items():
                     if key in indexed_translated:
+                        # 此处不再需要 str(val)
                         indexed_translated[key] = val
-            except JSONDecodeError as e:
-                self.logger.info(f"json解析错误，解析文本:{chunk}，错误:{e.__repr__()}")
-            except ValueError as e:
-                self.logger.info(f"value错误，更新对象:{indexed_translated}，错误:{e.__repr__()}")
+                    else:
+                        self.logger.warning(f"在结果chunk中发现未知键 '{key}'，已忽略。")
+            except (AttributeError, TypeError) as e:
+                self.logger.error(f"处理chunk时发生类型或属性错误，已跳过。Chunk: {chunk}, 错误: {e.__repr__()}")
             except Exception as e:
-                self.logger.info(f"send_segments发生错误:{e.__repr__()}")
+                self.logger.error(f"处理chunk时发生未知错误: {e.__repr__()}")
 
-        # 初始化结果列表
+        # 重建最终列表
         result = []
         last_end = 0
         ls = list(indexed_translated.values())
         for start, end in merged_indices_list:
-            # 添加未处理的部分
             result.extend(ls[last_end:start])
-            # 合并切片范围内的元素
-            merged_item = "".join(ls[start:end])
+            merged_item = "".join(map(str, ls[start:end]))
             result.append(merged_item)
             last_end = end
 
-        # 添加剩余部分
         result.extend(ls[last_end:])
         return result
 
-    # todo:增加协程粒度
-    async def send_segments_async(self, segments: list[str], chunk_size: int):
+    async def send_segments_async(self, segments: list[str], chunk_size: int) -> list[str]:
         indexed_originals, chunks, merged_indices_list = await asyncio.to_thread(segments2json_chunks, segments,
                                                                                  chunk_size)
         prompts = [json.dumps(chunk, ensure_ascii=False) for chunk in chunks]
+
         translated_chunks = await super().send_prompts_async(prompts=prompts, pre_send_handler=self._pre_send_handler,
                                                              result_handler=self._result_handler,
                                                              error_result_handler=self._error_result_handler)
+
         indexed_translated = indexed_originals.copy()
         for chunk in translated_chunks:
             try:
+                if not isinstance(chunk, dict):
+                    self.logger.error(f"接收到的chunk不是有效的字典，已跳过: {chunk}")
+                    continue
                 for key, val in chunk.items():
                     if key in indexed_translated:
-                        indexed_translated[key] = str(val)
-            except JSONDecodeError as e:
-                self.logger.info(f"json解析错误，解析文本:{chunk}，错误:{e.__repr__()}")
-            except ValueError as e:
-                self.logger.info(f"value错误，更新对象:{indexed_translated}，错误:{e.__repr__()}")
+                        # 此处不再需要 str(val)，因为 _result_handler 已经处理好了
+                        indexed_translated[key] = val
+                    else:
+                        self.logger.warning(f"在结果chunk中发现未知键 '{key}'，已忽略。")
+            except (AttributeError, TypeError) as e:
+                self.logger.error(f"处理chunk时发生类型或属性错误，已跳过。Chunk: {chunk}, 错误: {e.__repr__()}")
             except Exception as e:
-                self.logger.info(f"send_segments发生错误:{e.__repr__()}")
+                self.logger.error(f"处理chunk时发生未知错误: {e.__repr__()}")
 
-        # 初始化结果列表
+        # 重建最终列表
         result = []
         last_end = 0
         ls = list(indexed_translated.values())
         for start, end in merged_indices_list:
-            # 添加未处理的部分
             result.extend(ls[last_end:start])
-            # 合并切片范围内的元素
-            merged_item = "".join(ls[start:end])
+            merged_item = "".join(map(str, ls[start:end]))
             result.append(merged_item)
             last_end = end
 
-        # 添加剩余部分
         result.extend(ls[last_end:])
         return result
 

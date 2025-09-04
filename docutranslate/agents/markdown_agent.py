@@ -57,7 +57,7 @@ $$1+1=2$$
 \\((c_0,c_1,c_2^2)\\)是一个坐标。"""
         self.custom_prompt = config.custom_prompt
         if config.custom_prompt:
-            self.system_prompt += "\n# **Important rules or background** \n" + self.custom_prompt + '\n'
+            self.system_prompt += "\n# **Important rules or background** \n" + self.custom_prompt + '\nEND\n'
         self.glossary_dict = config.glossary_dict
 
     def _pre_send_handler(self, system_prompt, prompt):
