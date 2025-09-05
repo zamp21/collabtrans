@@ -228,37 +228,42 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 # ===================================================================
 
 class GlossaryAgentConfigPayload(BaseModel):
-    base_url: str = Field(..., validation_alias=AliasChoices('base_url', 'baseurl'), description="用于术语表生成的Agent的LLM API基础URL。", examples=["https://api.openai.com/v1"])
-    api_key: str = Field(..., validation_alias=AliasChoices('api_key', 'key'), description="用于术语表生成的Agent的LLM API密钥。", examples=["sk-agent-api-key"])
+    base_url: str = Field(..., validation_alias=AliasChoices('base_url', 'baseurl'),
+                          description="用于术语表生成的Agent的LLM API基础URL。", examples=["https://api.openai.com/v1"])
+    api_key: str = Field(..., validation_alias=AliasChoices('api_key', 'key'),
+                         description="用于术语表生成的Agent的LLM API密钥。", examples=["sk-agent-api-key"])
     model_id: str = Field(..., description="用于术语表生成的Agent的模型ID。", examples=["gpt-4-turbo"])
     to_lang: str = Field(..., description="术语表生成的目标语言。", examples=["简体中文", "English"])
     temperature: float = Field(default=0.7, description="用于术语表生成的Agent的温度参数。")
     concurrent: int = Field(default=30, description="Agent的最大并发请求数。")
-    timeout: int = Field(default=2000, description="Agent的API调用超时时间。")
+    timeout: int = Field(default=default_params["timeout"], description="等待API回复的时间（秒）。")
     thinking: ThinkingMode = Field(default="default", description="Agent的思考模式。")
 
 
 # 1. 定义所有工作流共享的基础参数
 class BaseWorkflowParams(BaseModel):
     skip_translate: bool = Field(default=False, description="是否跳过翻译步骤。如果为True，则仅执行文档解析和格式转换。")
-    base_url: Optional[str] = Field(default=None, validation_alias=AliasChoices('base_url', 'baseurl'), description="LLM API的基础URL。当 `skip_translate` 为 `False` 时必填。",
+    base_url: Optional[str] = Field(default=None, validation_alias=AliasChoices('base_url', 'baseurl'),
+                                    description="LLM API的基础URL。当 `skip_translate` 为 `False` 时必填。",
                                     examples=["https://api.openai.com/v1"])
-    api_key: Optional[str] = Field(default=None, validation_alias=AliasChoices('api_key', 'key'), description="LLM API的密钥（可选）。",
+    api_key: Optional[str] = Field(default=None, validation_alias=AliasChoices('api_key', 'key'),
+                                   description="LLM API的密钥（可选）。",
                                    examples=["sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"])
-    model_id: Optional[str] = Field(default=None, description="要使用的LLM模型ID。当 `skip_translate` 为 `False` 时必填。",
+    model_id: Optional[str] = Field(default=None,
+                                    description="要使用的LLM模型ID。当 `skip_translate` 为 `False` 时必填。",
                                     examples=["gpt-4o"])
     to_lang: str = Field(default="中文", description="目标翻译语言。", examples=["简体中文", "English"])
     chunk_size: int = Field(default=default_params["chunk_size"], description="文本分割的块大小（字符）。")
     concurrent: int = Field(default=default_params["concurrent"], description="并发请求数。")
     temperature: float = Field(default=default_params["temperature"], description="LLM温度参数。")
-    timeout: int = Field(default=2000, description="API调用超时时间（毫秒）。")
+    timeout: int = Field(default=default_params["timeout"], description="等待API回复的时间（秒）。")
     thinking: ThinkingMode = Field(default=default_params["thinking"], description="Agent的思考模式。",
                                    examples=["default", "enable", "disable"])
     custom_prompt: Optional[str] = Field(None, description="用户自定义的翻译Prompt。", alias="custom_prompt")
     glossary_dict: Optional[Dict[str, str]] = Field(None, description="术语表字典，key为原文，value为译文。")
     glossary_generate_enable: bool = Field(default=False, description="是否开启术语表自动生成。")
     glossary_agent_config: Optional[GlossaryAgentConfigPayload] = Field(None,
-                                                                       description="用于术语表生成的Agent的配置。如果 `glossary_generate_enable` 为 `True`，此项必填。")
+                                                                        description="用于术语表生成的Agent的配置。如果 `glossary_generate_enable` 为 `True`，此项必填。")
 
     @model_validator(mode='before')
     @classmethod
@@ -416,7 +421,7 @@ class TranslateServiceRequest(BaseModel):
                         "chunk_size": default_params["chunk_size"],
                         "concurrent": default_params["concurrent"],
                         "temperature": default_params["temperature"],
-                        "timeout": 2000,
+                        "timeout": default_params["timeout"],
                         "thinking": "default",
                         "glossary_generate_enable": False,
                         "convert_engine": "mineru",
@@ -438,7 +443,7 @@ class TranslateServiceRequest(BaseModel):
                         "chunk_size": default_params["chunk_size"],
                         "concurrent": default_params["concurrent"],
                         "temperature": default_params["temperature"],
-                        "timeout": 2000,
+                        "timeout": default_params["timeout"],
                         "thinking": "default",
                         "glossary_generate_enable": False,
                         "json_paths": ["$.product.name", "$.product.description", "$.features[*]"],
@@ -457,7 +462,7 @@ class TranslateServiceRequest(BaseModel):
                         "chunk_size": default_params["chunk_size"],
                         "concurrent": default_params["concurrent"],
                         "temperature": default_params["temperature"],
-                        "timeout": 2000,
+                        "timeout": default_params["timeout"],
                         "thinking": "default",
                         "glossary_generate_enable": False,
                         "insert_mode": "replace",
@@ -486,7 +491,7 @@ class TranslateServiceRequest(BaseModel):
                             "to_lang": "中文",
                             "temperature": 0.7,
                             "concurrent": 30,
-                            "timeout": 2000,
+                            "timeout": default_params["timeout"],
                             "thinking": "default"
                         }
                     }
@@ -506,7 +511,7 @@ class TranslateServiceRequest(BaseModel):
                         "chunk_size": default_params["chunk_size"],
                         "concurrent": default_params["concurrent"],
                         "temperature": default_params["temperature"],
-                        "timeout": 2000,
+                        "timeout": default_params["timeout"],
                         "thinking": "default",
                     }
                 },
@@ -525,7 +530,7 @@ class TranslateServiceRequest(BaseModel):
                         "chunk_size": default_params["chunk_size"],
                         "concurrent": default_params["concurrent"],
                         "temperature": default_params["temperature"],
-                        "timeout": 2000,
+                        "timeout": default_params["timeout"],
                         "thinking": "default",
                     }
                 },
@@ -544,7 +549,7 @@ class TranslateServiceRequest(BaseModel):
                         "chunk_size": default_params["chunk_size"],
                         "concurrent": default_params["concurrent"],
                         "temperature": default_params["temperature"],
-                        "timeout": 2000,
+                        "timeout": default_params["timeout"],
                         "thinking": "default",
                     }
                 },
@@ -563,7 +568,7 @@ class TranslateServiceRequest(BaseModel):
                         "chunk_size": default_params["chunk_size"],
                         "concurrent": default_params["concurrent"],
                         "temperature": default_params["temperature"],
-                        "timeout": 2000,
+                        "timeout": default_params["timeout"],
                         "thinking": "default",
                     }
                 }
@@ -1411,7 +1416,7 @@ async def service_content(
     file_info = task_state.get("downloadable_files", {}).get(file_type)
     if not file_info or not os.path.exists(file_info.get("path")):
         raise HTTPException(status_code=404,
-                            detail=f"任务 '{task_id}' 不支持获取 '{file_type}' 类型的内容，或文件已丢失。")
+                            detail=f"任务 '{task_id}' 不支持获取 '{file_type}' 类型の内容，或文件已丢失。")
 
     file_path = file_info["path"]
     filename = file_info["filename"]
@@ -1546,7 +1551,7 @@ def run_app(port: int | None = None):
         port_to_use = find_free_port(initial_port)
         if port_to_use != initial_port: print(f"端口 {initial_port} 被占用，将使用端口 {port_to_use} 代替")
         print(f"正在启动 DocuTranslate WebUI 版本号：{__version__}")
-        app.state.port_to_use=port_to_use
+        app.state.port_to_use = port_to_use
         uvicorn.run(app, host=None, port=port_to_use, workers=1)
     except Exception as e:
         print(f"启动失败: {e}")

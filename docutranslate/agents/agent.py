@@ -46,7 +46,7 @@ class AgentConfig:
     model_id: str
     temperature: float = 0.7
     concurrent: int = 30
-    timeout: int = 2000
+    timeout: int = 1200  # 单位(秒)，这个值是httpx.TimeOut中read的值,并非总的超时时间
     thinking: ThinkingMode = "default"
 
 
@@ -119,7 +119,7 @@ class Agent:
         self.system_prompt = ""
         self.temperature = config.temperature
         self.max_concurrent = config.concurrent
-        self.timeout = config.timeout
+        self.timeout = httpx.Timeout(connect=5, read=config.timeout, write=300, pool=10)
         self.thinking = config.thinking
         self.logger = config.logger or global_logger
         self.total_error_counter = TotalErrorCounter(logger=self.logger)
@@ -272,7 +272,12 @@ class Agent:
 
         proxies = get_httpx_proxies() if USE_PROXY else None
 
-        async with httpx.AsyncClient(trust_env=False, proxies=proxies, verify=False) as client:
+        limits = httpx.Limits(
+            max_connections=self.max_concurrent * 2,  # 为重试和并发预留空间
+            max_keepalive_connections=self.max_concurrent  # 保持活动的连接数
+        )
+
+        async with httpx.AsyncClient(trust_env=False, proxies=proxies, verify=False, limits=limits) as client:
             async def send_with_semaphore(p_text: str):
                 async with semaphore:
                     result = await self.send_async(
@@ -419,9 +424,12 @@ class Agent:
         pre_send_handlers = itertools.repeat(pre_send_handler, len(prompts))
         result_handlers = itertools.repeat(result_handler, len(prompts))
         error_result_handlers = itertools.repeat(error_result_handler, len(prompts))
-
+        limits = httpx.Limits(
+            max_connections=self.max_concurrent * 2,  # 允许连接复用
+            max_keepalive_connections=self.max_concurrent  # 保持活跃连接
+        )
         proxies = get_httpx_proxies() if USE_PROXY else None
-        with httpx.Client(trust_env=False, proxies=proxies, verify=False) as client:
+        with httpx.Client(trust_env=False, proxies=proxies, verify=False, limits=limits) as client:
             clients = itertools.repeat(client, len(prompts))
             with ThreadPoolExecutor(max_workers=self.max_concurrent) as executor:
                 results_iterator = executor.map(self._send_prompt_count, clients, prompts, system_prompts, counters,
