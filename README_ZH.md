@@ -2,29 +2,34 @@
   <img src="./DocuTranslate.png" alt="项目Logo" style="width: 150px">
 </p>
 
-# DocuTranslate
+<h1 align="center">DocuTranslate</h1>
 
-[![GitHub stars](https://img.shields.io/github/stars/xunbu/docutranslate?style=flats&logo=github&color=blue)](https://github.com/xunbu/docutranslate)
-[![github下载数](https://img.shields.io/github/downloads/xunbu/docutranslate/total?logo=github)](https://github.com/xunbu/docutranslate/releases)
-[![PyPI version](https://img.shields.io/pypi/v/docutranslate)](https://pypi.org/project/docutranslate/)
-[![python版本](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![开源协议](https://img.shields.io/github/license/xunbu/docutranslate)](./LICENSE)
+<p align="center">
+  <a href="https://github.com/xunbu/docutranslate/stargazers"><img src="https://img.shields.io/github/stars/xunbu/docutranslate?style=flat-square&logo=github&color=blue" alt="GitHub stars"></a>
+  <a href="https://github.com/xunbu/docutranslate/releases"><img src="https://img.shields.io/github/downloads/xunbu/docutranslate/total?logo=github&style=flat-square" alt="GitHub Downloads"></a>
+  <a href="https://pypi.org/project/docutranslate/"><img src="https://img.shields.io/pypi/v/docutranslate?style=flat-square" alt="PyPI version"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white&style=flat-square" alt="Python Version"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/github/license/xunbu/docutranslate?style=flat-square" alt="License"></a>
+</p>
 
-[**简体中文**](/README_ZH.md) / [**English**](/README.md) / [**日本語**](/README_JP.md)
+<p align="center">
+  <a href="/README_ZH.md"><strong>简体中文</strong></a> / <a href="/README.md"><strong>English</strong></a> / <a href="/README_JP.md"><strong>日本語</strong></a>
+</p>
 
-**DocuTranslate** 是一个文件翻译工具，利用先进的文档解析引擎（如 [docling](https://github.com/docling-project/docling)
-和 [minerU](https://mineru.net/)）与大型语言模型（LLM）相结合，实现对多种格式文档的精准翻译。
-
-新版架构采用 **工作流(Workflow)** 为核心，为不同类型的翻译任务提供了高度可配置和可扩展的解决方案。
+<p align="center">
+  一个基于大语言模型（LLM）的、超轻量级的本地文件翻译工具，致力于提供精准、快速、可扩展的翻译体验。
+</p>
 
 - ✅ **支持多种格式**：能翻译 `pdf`、`docx`、`xlsx`、`md`、`txt`、`json`、`epub`、`srt` 等多种文件。
-- ✅ **表格、公式、代码识别**：凭借`docling`、`mineru`实现对学术论文中经常出现的表格、公式、代码的识别与翻译
 - ✅ **自动生成术语表**：支持自动生成术语表实现术语的对齐。
+- ✅ **PDF表格、公式、代码识别**：凭借`docling`、`mineru`pdf解析引擎实现对学术论文中经常出现的表格、公式、代码的识别与翻译
 - ✅ **json翻译**：支持通过json路径(`jsonpath-ng`语法规范)指定json中需要被翻译的值。
-- ✅ **Word/Excel高保真翻译**：支持`docx`、`xlsx`文件（暂不支持`doc`、`xls`文件）的翻译，保持原格式进行翻译。
+- ✅ **Word/Excel保持格式翻译**：支持`docx`、`xlsx`文件（暂不支持`doc`、`xls`文件）保持原格式进行翻译。
 - ✅ **多ai平台支持**：支持绝大部分的ai平台，可以实现自定义提示词的并发高性能ai翻译。
 - ✅ **异步支持**：专为高性能场景设计，提供完整的异步支持，实现了可以多任务并行的服务接口。
+- ✅ **局域网、多人使用支持**：支持在局域网中多人同时使用。
 - ✅ **交互式Web界面**：提供开箱即用的 Web UI 和 RESTful API，方便集成与使用。
+- ✅ **小体积、多平台懒人包支持**：不到40M的windows、mac懒人包（不使用`docling`本地解析pdf的版本）。
 
 > 在翻译`pdf`时会先转换为markdown，这会**丢失**原先的排版，对排版有要求的用户请注意
 
@@ -44,8 +49,8 @@
 对于希望快速上手的用户，我们在 [GitHub Releases](https://github.com/xunbu/docutranslate/releases) 上提供整合包。您只需下载、解压，并填入您的
 AI 平台 API-Key 即可开始使用。
 
-- **DocuTranslate**: 标准版，使用在线的 `minerU` 引擎解析文档，推荐大多数用户使用。
-- **DocuTranslate_full**: 完整版，内置 `docling` 本地解析引擎，支持离线或对数据隐私有更高要求的场景。
+- **DocuTranslate**: 标准版，使用在线的 `minerU` 引擎解析PDF文档，如果不需要本地解析pdf选这个版本（推荐）。
+- **DocuTranslate_full**: 完整版，内置 `docling` 本地PDF解析引擎，需要本地解析pdf选这个版本。
 
 ## 安装
 
@@ -55,7 +60,7 @@ AI 平台 API-Key 即可开始使用。
 # 基础安装
 pip install docutranslate
 
-# 如需使用 docling 本地解析引擎
+# 如需使用 docling 本地解析PDF
 pip install docutranslate[docling]
 ```
 
@@ -107,7 +112,7 @@ uv sync
 | **`TXTWorkflow`**           | 处理纯文本文档。流程为：`txt -> 翻译 -> 导出`。                          | `.txt` 及其他纯文本格式                          | `.txt`, `.html`        | `TXTWorkflowConfig`           |
 | **`JsonWorkflow`**          | 处理json文件。流程为：`json -> 翻译 -> 导出`。                        | `.json`                                  | `.json`, `.html`       | `JsonWorkflowConfig`          |
 | **`DocxWorkflow`**          | 处理docx文件。流程为：`docx -> 翻译 -> 导出`。                        | `.docx`                                  | `.docx`, `.html`       | `docxWorkflowConfig`          |
-| **`XlsxWorkflow`**          | 处理xlsx文件。流程为：`xlsx -> 翻译 -> 导出`。                        | `.xlsx`                                  | `.xlsx`, `.html`       | `XlsxWorkflowConfig`          |
+| **`XlsxWorkflow`**          | 处理xlsx文件。流程为：`xlsx -> 翻译 -> 导出`。                        | `.xlsx`、`.csv`                           | `.xlsx`, `.html`       | `XlsxWorkflowConfig`          |
 | **`SrtWorkflow`**           | 处理srt文件。流程为：`srt -> 翻译 -> 导出`。                          | `.srt`                                   | `.srt`, `.html`        | `SrtWorkflowConfig`           |
 | **`EpubWorkflow`**          | 处理epub文件。流程为：`epub -> 翻译 -> 导出`。                        | `.epub`                                  | `.epub`, `.html`       | `EpubWorkflowConfig`          |
 | **`HtmlWorkflow`**          | 处理html文件。流程为：`html -> 翻译 -> 导出`。                        | `.html`, `.htm`                          | `.html`                | `HtmlWorkflowConfig`          |
@@ -425,7 +430,9 @@ if __name__ == "__main__":
 | 硅基流动       | [点击获取](https://cloud.siliconflow.cn/account/ak)                                       | https://api.siliconflow.cn/v1                            |
 | DMXAPI     | [点击获取](https://www.dmxapi.cn/token)                                                   | https://www.dmxapi.cn/v1                                 |
 
-### 2. 获取 minerU Token (在线解析)
+### 2. PDF解析引擎（不需要翻译PDF的无需关心此处）
+
+### 2.1 获取 minerU Token (在线解析PDF，免费，推荐)
 
 如果您选择 `mineru`作为文档解析引擎（`convert_engine="mineru"`），则需要申请一个免费的 Token。
 
@@ -434,11 +441,13 @@ if __name__ == "__main__":
 
 > **注意**: minerU Token 有 14 天有效期，过期后请重新创建。
 
-### 3. docling 引擎配置 (本地解析)
+### 2.2. docling 引擎配置 (本地解析PDF)
 
 如果您选择 `docling` 作为文档解析引擎（`convert_engine="docling"`），它会在首次使用时从 Hugging Face 下载所需的模型。
 
-**网络问题解决方案:**
+> 更好的选择是在[github releases](https://github.com/xunbu/docutranslate/releases)下载`docling_artifact.zip`解压到工作目录下。
+
+**下载`docling`模型网络问题解决方案:**
 
 1. **设置 Hugging Face 镜像 (推荐)**:
 
@@ -458,7 +467,7 @@ os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 
 * 从 [GitHub Releases](https://github.com/xunbu/docutranslate/releases) 下载 `docling_artifact.zip`。
 * 将其解压到您的项目目录中。
-* 在配置中指定模型路径：
+* 在配置中指定模型路径（若模型不在脚本同级目录里）：
 
 ```python
 from docutranslate.converter.x2md.converter_docling import ConverterDoclingConfig
@@ -475,20 +484,20 @@ converter_config = ConverterDoclingConfig(
 **Q: 8010 端口被占用了怎么办？**
 A: 使用 `-p` 参数指定一个新端口，或设置 `DOCUTRANSLATE_PORT` 环境变量。
 
-**Q: 支持扫描件的翻译吗？**
+**Q: 支持PDF扫描件的翻译吗？**
 A: 支持。请使用 `mineru` 解析引擎，它具备强大的 OCR 能力。
 
-**Q: 第一次使用为什么很慢？**
+**Q: 第一次翻译PDF为什么很慢？**
 A: 如果您使用 `docling` 引擎，它首次运行时需要从 Hugging Face 下载模型。请参考上文的“网络问题解决方案”来加速此过程。
 
 **Q: 如何在内网（离线）环境使用？**
-A: 完全可以。您需要满足两个条件：
+A: 完全可以。您需要满足以下条件：
 
-1. **本地解析引擎**: 使用 `docling` 引擎，并按照上文“离线使用”的指引提前下载模型包。
-2. **本地 LLM**: 使用 [Ollama](https://ollama.com/) 或 [LM Studio](https://lmstudio.ai/) 等工具在本地部署语言模型，并在
+1. **本地 LLM**: 使用 [Ollama](https://ollama.com/) 或 [LM Studio](https://lmstudio.ai/) 等工具在本地部署语言模型，并在
    `TranslatorConfig` 中填入本地模型的 `base_url`。
+2. **本地PDF解析引擎**（仅解析pdf需要）: 使用 `docling` 引擎，并按照上文“离线使用”的指引提前下载模型包。
 
-**Q: 缓存机制是如何工作的？**
+**Q: PDF解析缓存机制是如何工作的？**
 A: `MarkdownBasedWorkflow` 会自动缓存文档解析（文件到Markdown的转换）的结果，以避免重复解析消耗时间和资源。缓存默认保存在内存中，并会记录最近的10次解析。您可以通过
 `DOCUTRANSLATE_CACHE_NUM` 环境变量来修改缓存数量。
 

@@ -2,48 +2,53 @@
   <img src="./DocuTranslate.png" alt="Project Logo" style="width: 150px">
 </p>
 
-# DocuTranslate
+<h1 align="center">DocuTranslate</h1>
 
-[![GitHub stars](https://img.shields.io/github/stars/xunbu/docutranslate?style=flats&logo=github&color=blue)](https://github.com/xunbu/docutranslate)
-[![github下载数](https://img.shields.io/github/downloads/xunbu/docutranslate/total?logo=github)](https://github.com/xunbu/docutranslate/releases)
-[![PyPI version](https://img.shields.io/pypi/v/docutranslate)](https://pypi.org/project/docutranslate/)
-[![python版本](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![开源协议](https://img.shields.io/github/license/xunbu/docutranslate)](./LICENSE)
+<p align="center">
+  <a href="https://github.com/xunbu/docutranslate/stargazers"><img src="https://img.shields.io/github/stars/xunbu/docutranslate?style=flat-square&logo=github&color=blue" alt="GitHub stars"></a>
+  <a href="https://github.com/xunbu/docutranslate/releases"><img src="https://img.shields.io/github/downloads/xunbu/docutranslate/total?logo=github&style=flat-square" alt="GitHub Downloads"></a>
+  <a href="https://pypi.org/project/docutranslate/"><img src="https://img.shields.io/pypi/v/docutranslate?style=flat-square" alt="PyPI version"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white&style=flat-square" alt="Python Version"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/github/license/xunbu/docutranslate?style=flat-square" alt="License"></a>
+</p>
 
-[**简体中文**](/README_ZH.md) / [**English**](/README.md) / [**日本語**](/README_JP.md)
+<p align="center">
+  <a href="/README_ZH.md"><strong>简体中文</strong></a> / <a href="/README.md"><strong>English</strong></a> / <a href="/README_JP.md"><strong>日本語</strong></a>
+</p>
 
-**DocuTranslate** is a file translation tool that combines advanced document analysis engines (such as [docling](https://github.com/docling-project/docling) and [minerU](https://mineru.net/)) with large language models (LLMs). It can accurately translate documents in a wide variety of formats.
+<p align="center">
+  An ultra-lightweight local file translation tool based on Large Language Models (LLMs), dedicated to providing an accurate, fast, and extensible translation experience.
+</p>
 
-The new version's architecture adopts **Workflow** as its core, providing a highly configurable and extensible solution for various types of translation tasks.
+- ✅ **Supports Multiple Formats**: Can translate various files such as `pdf`, `docx`, `xlsx`, `md`, `txt`, `json`, `epub`, `srt`, and more.
+- ✅ **Automatic Glossary Generation**: Supports automatic generation of glossaries to ensure term alignment.
+- ✅ **PDF Table, Formula, and Code Recognition**: With the `docling` and `mineru` PDF parsing engines, it can recognize and translate tables, formulas, and code frequently found in academic papers.
+- ✅ **JSON Translation**: Supports specifying the values to be translated in JSON via JSON paths (using `jsonpath-ng` syntax).
+- ✅ **Word/Excel Format-Preserving Translation**: Supports translating `docx` and `xlsx` files (currently not `doc` or `xls` files) while preserving the original formatting.
+- ✅ **Multi-AI Platform Support**: Supports most AI platforms, enabling high-performance, concurrent AI translation with custom prompts.
+- ✅ **Asynchronous Support**: Designed for high-performance scenarios, it offers complete asynchronous support, providing service interfaces for parallel multitasking.
+- ✅ **LAN and Multi-user Support**: Supports simultaneous use by multiple users on a local area network.
+- ✅ **Interactive Web Interface**: Provides an out-of-the-box Web UI and RESTful API for easy integration and use.
+- ✅ **Small-Footprint, Multi-Platform "Lazy" Packages**: Windows and Mac "lazy" packages under 40MB (for versions not using `docling` for local PDF parsing).
 
-- ✅ **Supports Multiple Formats**: Capable of translating various files such as `pdf`, `docx`, `xlsx`, `md`, `txt`, `json`, `epub`, `srt`, and more.  
-- ✅ **Table, Formula, and Code Recognition**: Utilizes `docling` and `mineru` to recognize and translate tables, formulas, and code frequently found in academic papers.  
-- ✅ **Automatic Glossary Generation**: Supports automatic glossary creation to ensure terminology consistency.  
-- ✅ **JSON Translation**: Allows specifying values to be translated in JSON using JSONPath (`jsonpath-ng` syntax) specifications.  
-- ✅ **High-Fidelity Word/Excel Translation**: Supports translation of `docx` and `xlsx` files (currently does not support `doc` or `xls` files) while preserving the original formatting.  
-- ✅ **Multi-AI Platform Support**: Compatible with most AI platforms, enabling high-performance concurrent AI translation with customizable prompts.  
-- ✅ **Asynchronous Support**: Designed for high-performance scenarios, offering full asynchronous support and service interfaces for parallel task execution.  
-- ✅ **Interactive Web Interface**: Provides an out-of-the-box Web UI and RESTful API for easy integration and use.  
-
-> When translating `pdf` files, they are first converted to markdown, so the original typesetting will be **lost**. Users with typesetting requirements should note this.
+> When translating `pdf` files, they are first converted to Markdown, which will **lose** the original layout. Users with layout requirements should take note.
 
 > QQ Discussion Group: 1047781902
 
 **UI Interface**:
-![翻译效果](/images/UI界面.png)
+![Translation Effect](/images/UI界面.png)
 
-**Paper Translation**:
-![翻译效果](/images/论文翻译.png)
+**Thesis Translation**:
+![Translation Effect](/images/论文翻译.png)
 
-**Novel Translation**:
-![翻译效果](/images/小说翻译.png)
+**Novel Translation**:![Translation Effect](/images/小说翻译.png)
 
-## Integrated Packages
+## All-in-One Packages
 
-For users who want to get started quickly, we provide integrated packages on [GitHub Releases](https://github.com/xunbu/docutranslate/releases). Simply download, unzip, and enter your AI platform's API key to start using.
+For users who want to get started quickly, we provide all-in-one packages on [GitHub Releases](https://github.com/xunbu/docutranslate/releases). Simply download, unzip, and enter your AI platform API-Key to start using.
 
-- **DocuTranslate**: The standard version, which uses the online `minerU` engine to parse documents. Recommended for most users.
-- **DocuTranslate_full**: The full version, which includes the `docling` local parsing engine. Suitable for offline scenarios or those with higher data privacy requirements.
+- **DocuTranslate**: Standard version, uses the online `minerU` engine to parse PDF documents. Choose this version if you don't need local PDF parsing (recommended).
+- **DocuTranslate_full**: Full version, includes the built-in `docling` local PDF parsing engine. Choose this version if you need local PDF parsing.
 
 ## Installation
 
@@ -53,14 +58,14 @@ For users who want to get started quickly, we provide integrated packages on [Gi
 # Basic installation
 pip install docutranslate
 
-# If using the docling local parsing engine
+# To use docling for local PDF parsing
 pip install docutranslate[docling]
 ```
 
 ### Using uv
 
 ```bash
-# Initialize the environment
+# Initialize environment
 uv init
 
 # Basic installation
@@ -73,72 +78,70 @@ uv add docutranslate[docling]
 ### Using git
 
 ```bash
-# Initialize the environment
+# Initialize environment
 git clone https://github.com/xunbu/docutranslate.git
 
 cd docutranslate
 
 uv sync
-
 ```
 
 ## Core Concept: Workflow
 
-The core of the new version of DocuTranslate is the **Workflow**. Each workflow is a complete end-to-end translation pipeline designed for a specific file type. Instead of interacting with large classes as before, you will select and configure the appropriate workflow according to the file type.
+The core of the new DocuTranslate is the **Workflow**. Each workflow is a complete, end-to-end translation pipeline designed specifically for a particular file type. You no longer interact with a monolithic class; instead, you select and configure a suitable workflow based on your file type.
 
-**The basic usage steps are as follows:**
+**The basic usage process is as follows:**
 
-1. **Select a Workflow**: Choose a workflow based on the input file type (e.g., PDF/Word or TXT). For example, `MarkdownBasedWorkflow` or `TXTWorkflow`.
-2. **Build Configuration**: Create a configuration object corresponding to the selected workflow (such as `MarkdownBasedWorkflowConfig`). This configuration object contains all the necessary sub-configurations, such as:
+1. **Select a Workflow**: Choose a workflow based on your input file type (e.g., PDF/Word or TXT), such as `MarkdownBasedWorkflow` or `TXTWorkflow`.
+2. **Build the Configuration**: Create the corresponding configuration object for the selected workflow (e.g., `MarkdownBasedWorkflowConfig`). This configuration object contains all the necessary sub-configurations, such as:
     * **Converter Config**: Defines how to convert the original file (e.g., PDF) to Markdown.
-    * **Translator Config**: Defines the LLM to use, API-Key, target language, etc.
+    * **Translator Config**: Defines which LLM, API-Key, target language, etc., to use.
     * **Exporter Config**: Defines specific options for the output format (e.g., HTML).
-3. **Instantiate the Workflow**: Create an instance of the workflow using the configuration object.
-4. **Execute Translation**: Call the workflow's `.read_*()` method and `.translate()` / `.translate_async()` method.
-5. **Export/Save Results**: Call the `.export_to_*()` method or `.save_as_*()` method to retrieve or save the translation results.
+3. **Instantiate the Workflow**: Create a workflow instance using the configuration object.
+4. **Execute the Translation**: Call the workflow's `.read_*()` and `.translate()` / `.translate_async()` methods.
+5. **Export/Save the Result**: Call the `.export_to_*()` or `.save_as_*()` methods to get or save the translation result.
 
 ## Available Workflows
 
-| Workflow                   | Application Scenario                                                                 | Input Format                               | Output Format          | Core Configuration Class         |
-|:---------------------------|:-------------------------------------------------------------------------------------|:-------------------------------------------|:-----------------------|:----------------------------------|
-| **`MarkdownBasedWorkflow`** | Process rich text documents such as PDF, Word, and images. Flow: `File -> Markdown -> Translation -> Export`. | `.pdf`, `.docx`, `.md`, `.png`, `.jpg`, etc. | `.md`, `.zip`, `.html` | `MarkdownBasedWorkflowConfig`     |
-| **`TXTWorkflow`**           | Process plain text documents. Flow: `txt -> Translation -> Export`.                  | `.txt` and other plain text formats        | `.txt`, `.html`        | `TXTWorkflowConfig`               |
-| **`JsonWorkflow`**          | Process json files. Flow: `json -> Translation -> Export`.                           | `.json`                                    | `.json`, `.html`       | `JsonWorkflowConfig`              |
-| **`DocxWorkflow`**          | Process docx files. Flow: `docx -> Translation -> Export`.                           | `.docx`                                    | `.docx`, `.html`       | `docxWorkflowConfig`              |
-| **`XlsxWorkflow`**          | Process xlsx files. Flow: `xlsx -> Translation -> Export`.                           | `.xlsx`                                    | `.xlsx`, `.html`       | `XlsxWorkflowConfig`              |
-| **`SrtWorkflow`**           | Process srt files. Flow: `srt -> Translation -> Export`.                              | `.srt`                                     | `.srt`, `.html`        | `SrtWorkflowConfig`               |
-| **`EpubWorkflow`**          | Process epub files. Flow: `epub -> Translation -> Export`.                           | `.epub`                                    | `.epub`, `.html`       | `EpubWorkflowConfig`              |
-| **`HtmlWorkflow`**          | Process html files. Flow: `html -> Translation -> Export`.                           | `.html`, `.htm`                            | `.html`                | `HtmlWorkflowConfig`              |
+| Workflow | Use Case | Input Formats | Output Formats | Core Config Class |
+|:---|:---|:---|:---|:---|
+| **`MarkdownBasedWorkflow`** | Processes rich text documents like PDF, Word, images, etc. The process is: `File -> Markdown -> Translate -> Export`. | `.pdf`, `.docx`, `.md`, `.png`, `.jpg`, etc. | `.md`, `.zip`, `.html` | `MarkdownBasedWorkflowConfig` |
+| **`TXTWorkflow`** | Processes plain text documents. The process is: `txt -> Translate -> Export`. | `.txt` and other plain text formats | `.txt`, `.html` | `TXTWorkflowConfig` |
+| **`JsonWorkflow`** | Processes JSON files. The process is: `json -> Translate -> Export`. | `.json` | `.json`, `.html` | `JsonWorkflowConfig` |
+| **`DocxWorkflow`** | Processes docx files. The process is: `docx -> Translate -> Export`. | `.docx` | `.docx`, `.html` | `docxWorkflowConfig` |
+| **`XlsxWorkflow`** | Processes xlsx files. The process is: `xlsx -> Translate -> Export`. | `.xlsx`, `.csv` | `.xlsx`, `.html` | `XlsxWorkflowConfig` |
+| **`SrtWorkflow`** | Processes srt files. The process is: `srt -> Translate -> Export`. | `.srt` | `.srt`, `.html` | `SrtWorkflowConfig` |
+| **`EpubWorkflow`** | Processes epub files. The process is: `epub -> Translate -> Export`. | `.epub` | `.epub`, `.html` | `EpubWorkflowConfig` |
+| **`HtmlWorkflow`** | Processes html files. The process is: `html -> Translate -> Export`. | `.html`, `.htm` | `.html` | `HtmlWorkflowConfig` |
 
-> The interactive interface allows export in pdf format.
+> In the interactive interface, you can export to PDF format.
 
 ## Starting the Web UI and API Service
 
-For ease of use, DocuTranslate provides a feature-rich web interface and RESTful API.
+For ease of use, DocuTranslate provides a full-featured Web interface and RESTful API.
 
 **Starting the Service:**
 
 ```bash
-# Start the service, which monitors port 8010 by default
+# Start the service, listening on port 8010 by default
 docutranslate -i
 
-# Start with a specified port
+# Start on a specific port
 docutranslate -i -p 8011
 
-# You can also specify the port using an environment variable
+# You can also specify the port via an environment variable
 export DOCUTRANSLATE_PORT=8011
 docutranslate -i
 ```
 
-
-- **Interactive Interface**: After starting the service, access `http://127.0.0.1:8010` (or the specified port) in your browser.
+- **Interactive Interface**: After starting the service, please visit `http://127.0.0.1:8010` (or your specified port) in your browser.
 - **API Documentation**: The complete API documentation (Swagger UI) is available at `http://127.0.0.1:8010/docs`.
 
 ## Usage
 
-### Example 1: Translating a PDF File (Using `MarkdownBasedWorkflow`)
+### Example 1: Translating a PDF File (using `MarkdownBasedWorkflow`)
 
-This is the most common use case. Convert the PDF to Markdown using the `minerU` engine and translate it with an LLM. Here, we use the asynchronous method as an example.
+This is the most common use case. We will use the `minerU` engine to convert the PDF to Markdown, and then use an LLM for translation. Here is an example using the asynchronous approach.
 
 ```python
 import asyncio
@@ -149,52 +152,52 @@ from docutranslate.exporter.md.md2html_exporter import MD2HTMLExporterConfig
 
 
 async def main():
-    # 1. Build translator configuration
+    # 1. Build the translator configuration
     translator_config = MDTranslatorConfig(
-        base_url="https://open.bigmodel.cn/api/paas/v4",  # Base URL of the AI platform
-        api_key="YOUR_ZHIPU_API_KEY",  # API Key of the AI platform
+        base_url="https://open.bigmodel.cn/api/paas/v4",  # AI platform Base URL
+        api_key="YOUR_ZHIPU_API_KEY",  # AI platform API Key
         model_id="glm-4-air",  # Model ID
         to_lang="English",  # Target language
         chunk_size=3000,  # Text chunk size
-        concurrent=10  # Number of concurrent executions
+        concurrent=10,  # Concurrency
         # glossary_generate_enable=True, # Enable automatic glossary generation
-        # glossary_dict={"Jobs":"乔布斯"} # Pass in the glossary
+        # glossary_dict={"Jobs":"乔布斯"} # Pass in a glossary
     )
 
-    # 2. Build converter configuration (using minerU)
+    # 2. Build the converter configuration (using minerU)
     converter_config = ConverterMineruConfig(
         mineru_token="YOUR_MINERU_TOKEN",  # Your minerU Token
         formula_ocr=True  # Enable formula recognition
     )
 
-    # 3. Build main workflow configuration
+    # 3. Build the main workflow configuration
     workflow_config = MarkdownBasedWorkflowConfig(
         convert_engine="mineru",  # Specify the parsing engine
-        converter_config=converter_config,  # Pass the converter configuration
-        translator_config=translator_config,  # Pass the translator configuration
+        converter_config=converter_config,  # Pass in the converter configuration
+        translator_config=translator_config,  # Pass in the translator configuration
         html_exporter_config=MD2HTMLExporterConfig(cdn=True)  # HTML export configuration
     )
 
     # 4. Instantiate the workflow
     workflow = MarkdownBasedWorkflow(config=workflow_config)
 
-    # 5. Load the file and execute translation
-    print("Starting file loading and translation...")
+    # 5. Read the file and execute the translation
+    print("Starting to read and translate the file...")
     workflow.read_path("path/to/your/document.pdf")
     await workflow.translate_async()
     # Or use the synchronous method
     # workflow.translate()
-    print("Translation completed!")
+    print("Translation complete!")
 
     # 6. Save the results
     workflow.save_as_html(name="translated_document.html")
     workflow.save_as_markdown_zip(name="translated_document.zip")
     workflow.save_as_markdown(name="translated_document.md")  # Markdown with embedded images
-    print("Files saved to the ./output folder.")
+    print("Files have been saved to the ./output folder.")
 
-    # Or directly get the content string
+    # Or get the content strings directly
     html_content = workflow.export_to_html()
-    html_content = workflow.export_to_markdown()
+    markdown_content = workflow.export_to_markdown()
     # print(html_content)
 
 
@@ -202,9 +205,9 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-### Example 2: Translating TXT Files (Using `TXTWorkflow`)
+### Example 2: Translating a TXT File (using `TXTWorkflow`)
 
-For pure text files, the process is simpler as there is no need for document parsing (conversion). Here is an example using the asynchronous method.
+For plain text files, the process is simpler as it doesn't require a document parsing (conversion) step. Here is an example using the asynchronous approach.
 
 ```python
 import asyncio
@@ -219,7 +222,7 @@ async def main():
         base_url="https://api.openai.com/v1/",
         api_key="YOUR_OPENAI_API_KEY",
         model_id="gpt-4o",
-        to_lang="中文",
+        to_lang="Chinese",
     )
 
     # 2. Build the main workflow configuration
@@ -231,7 +234,7 @@ async def main():
     # 3. Instantiate the workflow
     workflow = TXTWorkflow(config=workflow_config)
 
-    # 4. Read the file and execute translation
+    # 4. Read the file and execute the translation
     workflow.read_path("path/to/your/notes.txt")
     await workflow.translate_async()
     # Or use the synchronous method
@@ -239,7 +242,7 @@ async def main():
 
     # 5. Save the result
     workflow.save_as_txt(name="translated_notes.txt")
-    print("TXT file saved.")
+    print("TXT file has been saved.")
 
     # You can also export the translated plain text
     text = workflow.export_to_txt()
@@ -249,12 +252,9 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
+### Example 3: Translating a JSON File (using `JsonWorkflow`)
 
-
-### Example 3: Translating a JSON file (using `JsonWorkflow`)
-
-Here, we show an example using the asynchronous method. In the `json_paths` item of `JsonTranslatorConfig`, you need to specify the JSON paths to be translated (following the jsonpath-ng syntax rules).
-Only the values matching the JSON paths will be translated.
+Here is an example using the asynchronous approach. The `json_paths` item in `JsonTranslatorConfig` needs to specify the JSON paths to be translated (satisfying the `jsonpath-ng` syntax). Only values matching the JSON paths will be translated.
 
 ```python
 import asyncio
@@ -271,7 +271,7 @@ async def main():
         api_key="YOUR_OPENAI_API_KEY",
         model_id="gpt-4o",
         to_lang="Chinese",
-        json_paths=["$.*", "$.name"]  # Compliant with the jsonpath-ng path syntax; all values matching the path will be translated
+        json_paths=["$.*", "$.name"]  # Satisfies jsonpath-ng syntax, values at matching paths will be translated
     )
 
     # 2. Build the main workflow configuration
@@ -283,17 +283,17 @@ async def main():
     # 3. Instantiate the workflow
     workflow = JsonWorkflow(config=workflow_config)
 
-    # 4. Read the file and execute translation
+    # 4. Read the file and execute the translation
     workflow.read_path("path/to/your/notes.json")
     await workflow.translate_async()
     # Or use the synchronous method
     # workflow.translate()
 
-    # 5. Save the results
+    # 5. Save the result
     workflow.save_as_json(name="translated_notes.json")
-    print("The JSON file has been saved.")
+    print("JSON file has been saved.")
 
-    # You can also export the translated json text
+    # You can also export the translated JSON text
     text = workflow.export_to_json()
 
 
@@ -301,11 +301,9 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
+### Example 4: Translating a docx File (using `DocxWorkflow`)
 
-
-### Example 4: Translating a docx File (Using `DocxWorkflow`)
-
-Here, the asynchronous method is shown as an example.
+Here is an example using the asynchronous approach.
 
 ```python
 import asyncio
@@ -321,8 +319,8 @@ async def main():
         base_url="https://api.openai.com/v1/",
         api_key="YOUR_OPENAI_API_KEY",
         model_id="gpt-4o",
-        to_lang="日本語",
-        insert_mode="replace",  # Optional: "replace", "append", "prepend"
+        to_lang="Chinese",
+        insert_mode="replace",  # Options: "replace", "append", "prepend"
         separator="\n",  # Separator used in "append" and "prepend" modes
     )
 
@@ -335,7 +333,7 @@ async def main():
     # 3. Instantiate the workflow
     workflow = DocxWorkflow(config=workflow_config)
 
-    # 4. Load the file and execute translation
+    # 4. Read the file and execute the translation
     workflow.read_path("path/to/your/notes.docx")
     await workflow.translate_async()
     # Or use the synchronous method
@@ -343,7 +341,7 @@ async def main():
 
     # 5. Save the result
     workflow.save_as_docx(name="translated_notes.docx")
-    print("The docx file has been saved.")
+    print("docx file has been saved.")
 
     # You can also export the translated docx as binary
     text_bytes = workflow.export_to_docx()
@@ -353,11 +351,9 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
+### Example 5: Translating a xlsx File (using `XlsxWorkflow`)
 
-
-### Example 5: Translating an xlsx file (using `XlsxWorkflow`)
-
-Here, we will use the asynchronous method as an example.
+Here is an example using the asynchronous approach.
 
 ```python
 import asyncio
@@ -373,8 +369,8 @@ async def main():
         base_url="https://api.openai.com/v1/",
         api_key="YOUR_OPENAI_API_KEY",
         model_id="gpt-4o",
-        to_lang="日本語",
-        insert_mode="replace",  # Optional: "replace", "append", "prepend"
+        to_lang="Chinese",
+        insert_mode="replace",  # Options: "replace", "append", "prepend"
         separator="\n",  # Separator used in "append" and "prepend" modes
     )
 
@@ -387,7 +383,7 @@ async def main():
     # 3. Instantiate the workflow
     workflow = XlsxWorkflow(config=workflow_config)
 
-    # 4. Load the file and execute translation
+    # 4. Read the file and execute the translation
     workflow.read_path("path/to/your/notes.xlsx")
     await workflow.translate_async()
     # Or use the synchronous method
@@ -395,9 +391,9 @@ async def main():
 
     # 5. Save the result
     workflow.save_as_xlsx(name="translated_notes.xlsx")
-    print("The XLSX file has been saved.")
+    print("xlsx file has been saved.")
 
-    # You can also export the binary data of the translated XLSX
+    # You can also export the translated xlsx as binary
     text_bytes = workflow.export_to_xlsx()
 
 
@@ -405,81 +401,69 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
+## Prerequisites and Configuration Details
 
+### 1. Get a Large Language Model API Key
 
-## Detailed Explanation of Prerequisites and Settings
+The translation functionality relies on large language models. You need to obtain a `base_url`, `api_key`, and `model_id` from the respective AI platform.
 
-### 1. Obtaining a Large Language Model API Key
+> Recommended models: Volcengine's `doubao-seed-1-6-250615`, `doubao-seed-1-6-flash-250715`, Zhipu's `glm-4-flash`, Alibaba Cloud's `qwen-plus`, `qwen-turbo`, Deepseek's `deepseek-chat`, etc.
 
-The translation function relies on a large language model, and you need to obtain the `base_url`, `api_key`, and `model_id` from the corresponding AI platform.
+| Platform Name | Get API Key | baseurl |
+|---|---|---|
+| ollama | | http://127.0.0.1:11434/v1 |
+| lm studio | | http://127.0.0.1:1234/v1 |
+| openrouter | [Click to get](https://openrouter.ai/settings/keys) | https://openrouter.ai/api/v1 |
+| openai | [Click to get](https://platform.openai.com/api-keys) | https://api.openai.com/v1/ |
+| gemini | [Click to get](https://aistudio.google.com/u/0/apikey) | https://generativelanguage.googleapis.com/v1beta/openai/ |
+| deepseek | [Click to get](https://platform.deepseek.com/api_keys) | https://api.deepseek.com/v1 |
+| Zhipu AI | [Click to get](https://open.bigmodel.cn/usercenter/apikeys) | https://open.bigmodel.cn/api/paas/v4 |
+| Tencent Hunyuan | [Click to get](https://console.cloud.tencent.com/hunyuan/api-key) | https://api.hunyuan.cloud.tencent.com/v1 |
+| Alibaba Cloud Bailian | [Click to get](https://bailian.console.aliyun.com/?tab=model#/api-key) | https://dashscope.aliyuncs.com/compatible-mode/v1 |
+| Volcengine | [Click to get](https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey?apikey=%7B%7D) | https://ark.cn-beijing.volces.com/api/v3 |
+| SiliconFlow | [Click to get](https://cloud.siliconflow.cn/account/ak) | https://api.siliconflow.cn/v1 |
+| DMXAPI | [Click to get](https://www.dmxapi.cn/token) | https://www.dmxapi.cn/v1 |
 
-> Recommended models: Volcano Engine's `doubao-seed-1-6-250615`, `doubao-seed-1-6-flash-250715`, Zhipu's `glm-4-flash`, Alibaba Cloud's `qwen-plus`, `qwen-turbo`, DeepSeek's `deepseek-chat`, etc.
+### 2. PDF Parsing Engine (ignore if not translating PDFs)
 
-| Platform Name | Method to Obtain API Key                                                          | baseurl                                                  |
-|------------|-----------------------------------------------------------------------------------|----------------------------------------------------------|
-| ollama     |                                                                                   | http://127.0.0.1:11434/v1                                |
-| lm studio  |                                                                                   | http://127.0.0.1:1234/v1                                 |
-| openrouter | [Click to Obtain](https://openrouter.ai/settings/keys)                               | https://openrouter.ai/api/v1                             |
-| openai     | [Click to Obtain](https://platform.openai.com/api-keys)                                | https://api.openai.com/v1/                               |
-| gemini     | [Click to Obtain](https://aistudio.google.com/u/0/apikey)                              | https://generativelanguage.googleapis.com/v1beta/openai/ |
-| deepseek   | [Click to Obtain](https://platform.deepseek.com/api_keys)                              | https://api.deepseek.com/v1                              |
-| 智譜ai       | [Click to Obtain](https://open.bigmodel.cn/usercenter/apikeys)                         | https://open.bigmodel.cn/api/paas/v4                     |
-| 騰訊混元       | [Click to Obtain](https://console.cloud.tencent.com/hunyuan/api-key)                   | https://api.hunyuan.cloud.tencent.com/v1                 |
-| 阿里云百煉      | [Click to Obtain](https://bailian.console.aliyun.com/?tab=model#/api-key)              | https://dashscope.aliyuncs.com/compatible-mode/v1        |
-| 火山引擎       | [Click to Obtain](https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey?apikey=%7B%7D) | https://ark.cn-beijing.volces.com/api/v3                 |
-| 硅基流動       | [Click to Obtain](https://cloud.siliconflow.cn/account/ak)                             | https://api.siliconflow.cn/v1                            |
-| DMXAPI     | [Click to Obtain](https://www.dmxapi.cn/token)                                           | https://www.dmxapi.cn/v1                                 |
+### 2.1 Get a minerU Token (online PDF parsing, free, recommended)
 
-### 2. Obtaining minerU Token (Online Parsing)
+If you choose `mineru` as the document parsing engine (`convert_engine="mineru"`), you need to apply for a free token.
 
-If you select `mineru` as the document parsing engine (`convert_engine="mineru"`), you need to apply for a free Token.
+1. Visit the [minerU official website](https://mineru.net/apiManage/docs) to register and apply for an API.
+2. Create a new API Token in the [API Token management interface](https://mineru.net/apiManage/token).
 
-1. Visit the [minerU official website](https://mineru.net/apiManage/docs), register, and apply for the API.
-2. Create a new API Token on the [API Token management page](https://mineru.net/apiManage/token).
+> **Note**: minerU tokens have a 14-day validity period. Please re-create them after they expire.
 
-> **Note**: The minerU Token is valid for 14 days. If it expires, please recreate it.
+### 2.2. docling Engine Configuration (local PDF parsing)
 
-### 3. Configuring the docling Engine (Local Parsing)
+If you choose `docling` as the document parsing engine (`convert_engine="docling"`), it will download the required models from Hugging Face on first use.
 
-If you select `docling` as the document parsing engine (`convert_engine="docling"`), the required models will be downloaded from Hugging Face during the first use.
+> A better option is to download `docling_artifact.zip` from [GitHub releases](https://github.com/xunbu/docutranslate/releases) and unzip it to your working directory.
 
-**Solutions for Network Issues:**
+**Solution for network issues when downloading `docling` models:**
 
-1. **Setting up a Hugging Face Mirror (Recommended)**:
-
-* **Method A (Environment Variable)**: Set the system environment variable `HF_ENDPOINT` and restart your IDE or terminal.
-   
-
-```
+1. **Set a Hugging Face mirror (recommended)**:
+* **Method A (environment variable)**: Set the system environment variable `HF_ENDPOINT` and restart your IDE or terminal.
+   ```
    HF_ENDPOINT=https://hf-mirror.com
    ```
-
-
-* **Method B (Setting in Code)**: Add the following code at the beginning of your Python script.
-
-
-
+* **Method B (set in code)**: Add the following code at the beginning of your Python script.
 ```python
 import os
 
 os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 ```
 
-
-
-2. **Offline Use (Download Model Packages in Advance)**:
-
+2. **Offline use (download the model package in advance)**:
 * Download `docling_artifact.zip` from [GitHub Releases](https://github.com/xunbu/docutranslate/releases).
-* Extract it to your project directory.
-* Specify the model path in the configuration:
-
-
-
+* Unzip it to your project directory.
+* Specify the model path in the configuration (if the model is not in the same directory as the script):
 ```python
 from docutranslate.converter.x2md.converter_docling import ConverterDoclingConfig
 
 converter_config = ConverterDoclingConfig(
-    artifact="./docling_artifact",  # Specify the extracted folder
+    artifact="./docling_artifact",  # Point to the unzipped folder
     code_ocr=True,
     formula_ocr=True
 )
@@ -487,26 +471,26 @@ converter_config = ConverterDoclingConfig(
 
 ## FAQ
 
-**Q: What should I do if port 8010 is occupied?**
-A: Specify a new port using the `-p` parameter or set the `DOCUTRANSLATE_PORT` environment variable.
+**Q: What if port 8010 is occupied?**
+A: Use the `-p` parameter to specify a new port, or set the `DOCUTRANSLATE_PORT` environment variable.
 
-**Q: Is translation of scanned documents supported?**
-A: Yes, it is supported. Please use the `mineru` parsing engine, which is equipped with powerful OCR capabilities.
+**Q: Does it support translation of scanned PDFs?**
+A: Yes. Please use the `mineru` parsing engine, which has powerful OCR capabilities.
 
-**Q: Why is it slow on first use?**
-A: When using the `docling` engine, the model needs to be downloaded from Hugging Face during the first run. To speed up this process, refer to the "Solutions for Network Issues" section above.
+**Q: Why is the first PDF translation so slow?**
+A: If you are using the `docling` engine, it needs to download models from Hugging Face on its first run. Please refer to the "Network Issues Solution" above to speed up this process.
 
-**Q: How can it be used in an intranet (offline) environment?**
-A: It is completely possible. The following two conditions need to be met:
+**Q: How to use it in an intranet (offline) environment?**
+A: It is entirely possible. You need to meet the following conditions:
 
-1. **Local Parsing Engine**: Use the `docling` engine and download the model package in advance according to the "Offline Use" guide above.
-2. **Local LLM**: Deploy a language model locally using tools such as [Ollama](https://ollama.com/) or [LM Studio](https://lmstudio.ai/), and enter the `base_url` of the local model in `TranslatorConfig`.
+1. **Local LLM**: Use tools like [Ollama](https://ollama.com/) or [LM Studio](https://lmstudio.ai/) to deploy a language model locally, and fill in the `base_url` of the local model in `TranslatorConfig`.
+2. **Local PDF parsing engine** (only needed for parsing PDFs): Use the `docling` engine and follow the "Offline use" instructions above to download the model package in advance.
 
-**Q: How does the caching mechanism work?**
-A: `MarkdownBasedWorkflow` automatically caches the results of document parsing (conversion from files to Markdown) to avoid wasting time and resources on repeated parsing. The cache is stored in memory by default and records the most recent 10 parsing operations. The number of cached items can be changed via the `DOCUTRANSLATE_CACHE_NUM` environment variable.
+**Q: How does the PDF parsing cache mechanism work?**
+A: `MarkdownBasedWorkflow` automatically caches the results of document parsing (file to Markdown conversion) to avoid repeated parsing that consumes time and resources. The cache is stored in memory by default and records the last 10 parses. You can modify the cache size using the `DOCUTRANSLATE_CACHE_NUM` environment variable.
 
-**Q: How can I use the software via a proxy?**
-A: The software does not use a proxy by default. Set the `DOCUTRANSLATE_PROXY_ENABLED` environment variable to `true` to enable communication via a proxy.
+**Q: How to make the software go through a proxy?**
+A: The software does not use a proxy by default. You can enable it by setting the environment variable `DOCUTRANSLATE_PROXY_ENABLED` to `true`.
 
 ## Star History
 
