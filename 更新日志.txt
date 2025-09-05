@@ -6,7 +6,7 @@ v1.4.1版 2025.9.5
 
 接口变化
 - API新增timeout选项设置等待agent回复时间
-- AgentConfig的max_concurrent字段改名为concurrent【breaking change】
+- AgentConfig的max_concurrent字段改名为concurrent【breaking change，使用API自动生成术语表功能且自定义配置时需要更改】
 ----------------
 v1.4.0版 2025.9.4
 特性
