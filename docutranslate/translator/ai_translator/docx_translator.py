@@ -49,7 +49,7 @@ class DocxTranslator(AiTranslator):
                 model_id=config.model_id,
                 temperature=config.temperature,
                 thinking=config.thinking,
-                max_concurrent=config.concurrent,
+                concurrent=config.concurrent,
                 timeout=config.timeout,
                 logger=self.logger,
                 glossary_dict=config.glossary_dict

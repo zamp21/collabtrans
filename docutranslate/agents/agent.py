@@ -42,10 +42,10 @@ class PartialAgentResultError(ValueError):
 class AgentConfig:
     logger: logging.Logger
     base_url: str
-    api_key: str
+    api_key: str | None = None
     model_id: str
     temperature: float = 0.7
-    max_concurrent: int = 30
+    concurrent: int = 30
     timeout: int = 2000
     thinking: ThinkingMode = "default"
 
@@ -114,11 +114,11 @@ class Agent:
         if self.baseurl.endswith("/"):
             self.baseurl = self.baseurl[:-1]
         self.domain = urlparse(self.baseurl).netloc
-        self.key = config.api_key.strip() or "xx"
+        self.key = config.api_key.strip() if config.api_key else "xx"
         self.model_id = config.model_id.strip()
         self.system_prompt = ""
         self.temperature = config.temperature
-        self.max_concurrent = config.max_concurrent
+        self.max_concurrent = config.concurrent
         self.timeout = config.timeout
         self.thinking = config.thinking
         self.logger = config.logger or global_logger
