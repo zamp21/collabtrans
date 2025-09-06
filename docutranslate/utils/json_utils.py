@@ -87,17 +87,12 @@ list[dict[str, str]], list[tuple[int, int]]]:
 
 def fix_json_string(json_string):
     def repl(m:re.Match):
-        result=""
-        if m.group(1):
-            result+='",'
-        result+=f'"{m.group(2)}":'
-        if m.group(3):
-            result+='"'
-        return result
+        return f'{'"' if m.group(1) else ""},\n"{m.group(2)}":{'"' if m.group(3) else ""}'
     fixed_json = re.sub(
-        r'([”"])?\s?[，|,]\s?[\"|“]\s?(\d+?)\s?[\"|”]\s?[：|:]\s?([\"|“])?',
+        r'([“”"])?\s*[，,]\s*["“”]\s*(\d+)\s*["“”]\s*[：:]\s*(["“”])?',
         repl,
-        json_string
+        json_string,
+        re.MULTILINE
     )
     return fixed_json
 

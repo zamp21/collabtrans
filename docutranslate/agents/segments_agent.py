@@ -41,16 +41,29 @@ class SegmentsTranslateAgent(Agent):
 - If a segment is already in the target language({config.to_lang}), keep it as is.
 # Output
 - The translated sequence of segments, represented as JSON text (note: not a code block). The keys are the segment IDs, and the values are the translated segments.
-- The returned JSON text must be a dictionary of the form {{<segment_id>: <translation>}}.
+- The response must be a JSON object(indent=0) with the following structure: 
+{{
+"<segment_id>": "<translation>"
+}}
 - (very important) The segment IDs in the output must exactly match those in the input. And all segment IDs in input must appear in the output.
+- All keys that appear in the input JSON must exist in the output JSON.
 # Example(Assuming the target language is Chinese in the example, {config.to_lang} is the actual target language)
 ## Input
-{{"10":"Tom say:\"hello\"","11":“apple”，"12":true,"13":"false","14":null}}
+{{
+"10": "Tom say:\"hello\"",
+"11": "apple",
+"12": true,
+"13": "false",
+"14": null
+}}
 ## Correct Output
-{{"10":"汤姆说：“你好”","11":"苹果","12":true,"13":"错误","14":null}}
-## Incorrect Output
-{{"10":"汤姆说:“你好”，"11":“苹果”，"12":true,"13":"错误"}}
-> Warning: Never wrap the JSON text in ```, Never miss segment Translation.
+{{
+"10": "汤姆说：“你好”",
+"11": "苹果",
+"12": true,
+"13": "错误",
+"14": null
+}}
 """
         self.custom_prompt = config.custom_prompt
         if config.custom_prompt:
@@ -75,7 +88,7 @@ class SegmentsTranslateAgent(Agent):
                 raise AgentResultError("result为空值但原文不为空")
             return {}
         try:
-            result=fix_json_string(result)
+            result = fix_json_string(result)
             original_chunk = json.loads(origin_prompt)
             repaired_result = json_repair.loads(result)
 
@@ -138,7 +151,7 @@ class SegmentsTranslateAgent(Agent):
 
     def send_segments(self, segments: list[str], chunk_size: int) -> list[str]:
         indexed_originals, chunks, merged_indices_list = segments2json_chunks(segments, chunk_size)
-        prompts = [json.dumps(chunk, ensure_ascii=False) for chunk in chunks]
+        prompts = [json.dumps(chunk, ensure_ascii=False, indent=0) for chunk in chunks]
 
         translated_chunks = super().send_prompts(prompts=prompts, pre_send_handler=self._pre_send_handler,
                                                  result_handler=self._result_handler,
@@ -176,7 +189,7 @@ class SegmentsTranslateAgent(Agent):
     async def send_segments_async(self, segments: list[str], chunk_size: int) -> list[str]:
         indexed_originals, chunks, merged_indices_list = await asyncio.to_thread(segments2json_chunks, segments,
                                                                                  chunk_size)
-        prompts = [json.dumps(chunk, ensure_ascii=False) for chunk in chunks]
+        prompts = [json.dumps(chunk, ensure_ascii=False, indent=0) for chunk in chunks]
 
         translated_chunks = await super().send_prompts_async(prompts=prompts, pre_send_handler=self._pre_send_handler,
                                                              result_handler=self._result_handler,
