@@ -12,7 +12,7 @@ from json_repair import json_repair
 from docutranslate.agents import AgentConfig, Agent
 from docutranslate.agents.agent import PartialAgentResultError, AgentResultError
 from docutranslate.glossary.glossary import Glossary
-from docutranslate.utils.json_utils import segments2json_chunks
+from docutranslate.utils.json_utils import segments2json_chunks, fix_json_string
 
 
 @dataclass
@@ -42,13 +42,15 @@ class SegmentsTranslateAgent(Agent):
 # Output
 - The translated sequence of segments, represented as JSON text (note: not a code block). The keys are the segment IDs, and the values are the translated segments.
 - The returned JSON text must be a dictionary of the form {{<segment_id>: <translation>}}.
-- The segment IDs in the output must **exactly** match those in the input. And all segment IDs in input must appear in the output.
+- (very important) The segment IDs in the output must exactly match those in the input. And all segment IDs in input must appear in the output.
 # Example(Assuming the target language is Chinese in the example, {config.to_lang} is the actual target language)
 ## Input
-{r'{"10":"hello","11":"apple","12":true,"13":"false","14":null}'}
-## Output
-{r'{"10":"你好","11":"苹果","12":true,"13":"错误","14":null}'}
-> Warning: Never wrap the JSON text in ```.
+{{"10":"Tom say:\"hello\"","11":“apple”，"12":true,"13":"false","14":null}}
+## Correct Output
+{{"10":"汤姆说：“你好”","11":"苹果","12":true,"13":"错误","14":null}}
+## Incorrect Output
+{{"10":"汤姆说:“你好”，"11":“苹果”，"12":true,"13":"错误"}}
+> Warning: Never wrap the JSON text in ```, Never miss segment Translation.
 """
         self.custom_prompt = config.custom_prompt
         if config.custom_prompt:
@@ -73,6 +75,7 @@ class SegmentsTranslateAgent(Agent):
                 raise AgentResultError("result为空值但原文不为空")
             return {}
         try:
+            result=fix_json_string(result)
             original_chunk = json.loads(origin_prompt)
             repaired_result = json_repair.loads(result)
 

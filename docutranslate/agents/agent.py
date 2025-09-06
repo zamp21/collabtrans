@@ -180,7 +180,6 @@ class Agent:
             )
             response.raise_for_status()
             result = response.json()["choices"][0]["message"]["content"]
-
             if retry_count > 0:
                 self.logger.info(f"重试成功 (第 {retry_count}/{MAX_RETRY_COUNT} 次尝试)。")
 
@@ -192,6 +191,7 @@ class Agent:
             should_retry = True
         # 专门捕获部分翻译错误（软错误）
         except PartialAgentResultError as e:
+            # print(f"【测试】\nprompt:\n{prompt}\nresp:\n{result}")
             self.logger.error(f"收到部分返回结果，将尝试重试: {e}")
             current_partial_result = e.partial_result
             should_retry = True

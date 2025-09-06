@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2025 QinHan
 # SPDX-License-Identifier: MPL-2.0
 import json
+import re
 
 
 def get_json_size(js: dict) -> int:
@@ -82,6 +83,23 @@ list[dict[str, str]], list[tuple[int, int]]]:
     # ================================================
 
     return js, json_chunks_list, merged_indices_list
+
+
+def fix_json_string(json_string):
+    def repl(m:re.Match):
+        result=""
+        if m.group(1):
+            result+='",'
+        result+=f'"{m.group(2)}":'
+        if m.group(3):
+            result+='"'
+        return result
+    fixed_json = re.sub(
+        r'([”"])?\s?[，|,]\s?[\"|“]\s?(\d+?)\s?[\"|”]\s?[：|:]\s?([\"|“])?',
+        repl,
+        json_string
+    )
+    return fixed_json
 
 
 if __name__ == '__main__':
