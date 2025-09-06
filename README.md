@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  An ultra-lightweight local file translation tool based on Large Language Models (LLMs), dedicated to providing an accurate, fast, and extensible translation experience.
+  A lightweight local file translation tool based on a large language model.
 </p>
 
 - ✅ **Supports Multiple Formats**: Can translate various files such as `pdf`, `docx`, `xlsx`, `md`, `txt`, `json`, `epub`, `srt`, and more.
