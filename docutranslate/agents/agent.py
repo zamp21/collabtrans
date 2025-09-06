@@ -328,7 +328,7 @@ class Agent:
             result = response.json()["choices"][0]["message"]["content"]
 
             if retry_count > 0:
-                self.logger.info(f"重试成功 (第 {retry_count + 1}/{MAX_RETRY_COUNT + 1} 次尝试)。")
+                self.logger.info(f"重试成功 (第 {retry_count}/{MAX_RETRY_COUNT} 次尝试)。")
 
             return result if result_handler is None else result_handler(result, prompt, self.logger)
         except AgentResultError as e:
