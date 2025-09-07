@@ -513,3 +513,11 @@ A: 软件默认不使用代理，可以通过设置环境变量`DOCUTRANSLATE_PR
    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=xunbu/docutranslate&type=Date" />
  </picture>
 </a>
+
+## 赞赏支持
+
+欢迎支持作者，烦请在备注中说明一下赞赏原因哟
+
+<p align="center">
+  <img src="./images/赞赏码.jpg" alt="赞赏码" style="width: 50vw">
+</p>
