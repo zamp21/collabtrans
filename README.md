@@ -544,5 +544,5 @@ A: The software does not use a proxy by default. You can enable it by setting th
 Welcome to support the author. Please kindly mention the reason for your appreciation in the notes. ❤
 
 <p align="center">
-  <img src="./images/赞赏码.jpg" alt="赞赏码" style="width: 50vw; max-width: 300px;">
+  <img src="./images/赞赏码.jpg" alt="赞赏码" style="width: 250px;">
 </p>
