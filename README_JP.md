@@ -528,4 +528,5 @@ A: デフォルトではプロキシを使用しません。環境変数`DOCUTRA
 作者へのサポートを歓迎します。備考欄に応援の理由を記載していただけると幸いです。
 
 <p align="center">
-  <img src="./images/赞赏码.jpg" alt="赞赏码" style="width: 50vw;max-width: 300px"></p>
+  <img src="./images/赞赏码.jpg" alt="赞赏码" style="width: 50vw; max-width: 300px;">
+</p>
