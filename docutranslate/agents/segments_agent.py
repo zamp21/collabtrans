@@ -59,11 +59,10 @@ class SegmentsTranslateAgent(Agent):
 }}
 ## Correct Output
 {{
-"10": "Tom say:\"hello\"",
-"11": "apple",
-"12": true,
-"13": "false",
-"14": null
+"21": "Tom says:\\\"hello\\\"",
+"22": "apple",
+"23": "error",
+"24": "banana"
 }}
 """
         self.custom_prompt = config.custom_prompt
