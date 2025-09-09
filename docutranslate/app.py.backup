@@ -48,19 +48,6 @@ if DOCLING_EXIST or TYPE_CHECKING:
 from docutranslate.converter.x2md.converter_mineru import ConverterMineruConfig
 from docutranslate.exporter.md.md2html_exporter import MD2HTMLExporterConfig
 from docutranslate.exporter.txt.txt2html_exporter import TXT2HTMLExporterConfig
-
-# --- 认证模块 Imports ---
-try:
-    from docutranslate.auth import AuthConfig, AuthMiddleware, auth_router, auth_compat_router, init_auth
-    AUTH_AVAILABLE = True
-    print("认证模块导入成功")
-except ImportError as e:
-    AUTH_AVAILABLE = False
-    print(f"警告: 认证模块不可用，将跳过认证功能。错误: {e}")
-except Exception as e:
-    AUTH_AVAILABLE = False
-    print(f"警告: 认证模块初始化失败，将跳过认证功能。错误: {e}")
-# --- 认证模块 Imports END ---
 from docutranslate.translator.ai_translator.md_translator import MDTranslatorConfig
 from docutranslate.translator.ai_translator.txt_translator import TXTTranslatorConfig
 from docutranslate.translator.ai_translator.json_translator import JsonTranslatorConfig
@@ -163,7 +150,7 @@ class QueueAndHistoryHandler(logging.Handler):
 # --- 应用生命周期事件 ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global httpx_client, AUTH_AVAILABLE
+    global httpx_client
     app.state.main_event_loop = asyncio.get_running_loop()
     httpx_client = httpx.AsyncClient()
     tasks_state.clear()
@@ -172,8 +159,6 @@ async def lifespan(app: FastAPI):
     global_logger.propagate = False
     global_logger.setLevel(logging.INFO)
     print("应用启动完成，多任务状态已初始化。")
-
-    # 认证模块已在应用启动时初始化
     print(f"服务接口文档: http://127.0.0.1:{app.state.port_to_use}/docs")
     print(f"请用浏览器访问 http://127.0.0.1:{app.state.port_to_use}\n")
     yield
@@ -237,31 +222,6 @@ service_router = APIRouter(prefix="/service", tags=["Service API"])
 STATIC_DIR = resource_path("static")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-# 初始化认证模块并添加中间件和路由
-if AUTH_AVAILABLE:
-    try:
-        # 初始化认证模块
-        auth_config = AuthConfig.get_config()
-        init_auth(auth_config)
-        print(f"认证模块已初始化 - LDAP: {"启用" if auth_config.ldap_enabled else "禁用"}")
-        
-        # 获取会话管理器和配置
-        from docutranslate.auth import get_session_manager, get_auth_config
-        session_manager = get_session_manager()
-        auth_config = get_auth_config()
-        
-        # 添加认证中间件
-        app.add_middleware(AuthMiddleware, session_manager=session_manager, config=auth_config)
-        
-        # 添加认证路由
-        app.include_router(auth_router)
-        app.include_router(auth_compat_router)
-        
-        print("认证中间件和路由已添加")
-    except Exception as e:
-        print(f"认证模块初始化失败: {e}")
-        AUTH_AVAILABLE = False
-
 
 # ===================================================================
 # --- Pydantic Models for Service API ---
@@ -274,7 +234,7 @@ class GlossaryAgentConfigPayload(BaseModel):
     to_lang: str = Field(..., description="术语表生成的目标语言。", examples=["简体中文", "English"])
     temperature: float = Field(default=0.7, description="用于术语表生成的Agent的温度参数。")
     max_concurrent: int = Field(default=30, description="Agent的最大并发请求数。")
-    timeout: int = Field(default=2000, description="Agent的API调用超时时间。")
+    timeout: int = Field(default=60000, description="Agent的API调用超时时间。")
     thinking: ThinkingMode = Field(default="default", description="Agent的思考模式。")
 
 
@@ -304,11 +264,14 @@ class BaseWorkflowParams(BaseModel):
     def check_translation_fields(cls, values):
         # 如果不跳过翻译 (值为False或字段不存在)，则验证相关字段必须存在且不为空
         if not values.get('skip_translate'):
-            # Check for standard keys or their aliases
-            if not (values.get('base_url') or values.get('baseurl')):
-                raise ValueError("当 `skip_translate` 为 `False` 时, `base_url` 或 `baseurl` 字段是必须的。")
-            if not (values.get('api_key') or values.get('key')):
-                raise ValueError("当 `skip_translate` 为 `False` 时, `api_key` 或 `key` 字段是必须的。")
+            if not values.get('base_url'):
+                raise ValueError("当 `skip_translate` 为 `False` 时, `base_url` 字段是必须的。")
+            # 在自定义接口模式下（如Ollama），允许api_key为空
+            # 检查base_url是否包含ollama相关的地址模式
+            base_url = values.get('base_url', '')
+            is_custom_interface = 'ollama' in base_url.lower() or ':11434' in base_url
+            if not is_custom_interface and not values.get('api_key'):
+                raise ValueError("当 `skip_translate` 为 `False` 时, `api_key` 字段是必须的。")
             if not values.get('model_id'):
                 raise ValueError("当 `skip_translate` 为 `False` 时, `model_id` 字段是必须的。")
         # 如果跳过翻译，则不进行任何检查，允许 base_url 等字段为空

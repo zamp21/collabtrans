@@ -11,4 +11,5 @@ docutranslate/output/
 # Virtual environments
 .venv
 #idea
-.idea/
+.idea/# Temporary files
+cookies*.txt

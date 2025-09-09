@@ -1,0 +1,20 @@
+{
+  "ldap_enabled": true,
+  "ldap_uri": "ldap://192.168.220.38:389",
+  "ldap_bind_dn_template": "{username}@adtest.com",
+  "ldap_base_dn": "OU=TestAdmin,DC=adtest,DC=com",
+  "ldap_user_filter": "(sAMAccountName={username})",
+  "ldap_tls_cacertfile": null,
+  "default_username": "admin",
+  "default_password": "admin123",
+  "session_secret_key": "your-secret-key-change-in-production",
+  "session_cookie_name": "docutranslate_session",
+  "session_max_age": 604800,
+  "redis_host": "localhost",
+  "redis_port": 6379,
+  "redis_db": 0,
+  "redis_password": null,
+  "max_login_attempts": 5,
+  "login_attempt_window": 300,
+  "rate_limit_window": 300
+}
