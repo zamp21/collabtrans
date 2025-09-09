@@ -191,7 +191,7 @@
     "configSaveSuccessTitle": "配置保存成功",
     "configSaveSuccessMessage": "您的设置已保存到配置文件",
     "settingUpdateError": "更新设置时发生错误：",
-    "ldapUserLimitedAccess": "您当前以LDAP用户身份登录，只能访问基础翻译设置"
+    "ldapUserLimitedAccess": "您当前以用户身份登录"
   },
   "en": {
     "pageTitle": "DocuTranslate - Interactive Document Translation",
@@ -385,6 +385,6 @@
     "configSaveSuccessTitle": "Configuration Saved",
     "configSaveSuccessMessage": "Your settings have been saved to the configuration file",
     "settingUpdateError": "Error updating setting:",
-    "ldapUserLimitedAccess": "You are currently logged in as an LDAP user and can only access basic translation settings"
+    "ldapUserLimitedAccess": "You are currently logged in as a user"
   }
 }

@@ -7,6 +7,7 @@ from .session_manager import AuthSessionManager
 from .middleware import AuthMiddleware
 from .routes import auth_router, auth_compat_router, init_auth, get_session_manager, get_auth_config
 from .models import LoginRequest, User
+from .user_profile import UserProfile, UserProfileManager, get_user_profile_manager
 
 __all__ = [
     "AuthConfig",
@@ -19,5 +20,8 @@ __all__ = [
     "get_session_manager",
     "get_auth_config",
     "LoginRequest",
-    "User"
+    "User",
+    "UserProfile",
+    "UserProfileManager",
+    "get_user_profile_manager"
 ]

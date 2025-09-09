@@ -771,7 +771,7 @@ $.*"></textarea>
                                         <textarea class="form-control" id="custom_prompt"
                                                   name="custom_prompt" rows="3"
                                                   data-i18n-placeholder="customPromptPlaceholder"
-                                                  placeholder="可选，如“人名保持原文不翻译”"></textarea>
+                                                  placeholder="可选，如"人名保持原文不翻译"></textarea>
                                     </div>
                                     <!-- MOVED FROM ADVANCED SETTINGS -->
                                     <div class="mb-3 border-top pt-3">
@@ -1200,7 +1200,7 @@ $.*"></textarea>
                 </div>
                 <div id="no-task-placeholder" class="text-center text-muted mt-5">
                     <img src="/static/favicon.ico" alt="LOGO" style="width:10%;min-width: 55px; height: auto;">
-                    <p class="mt-3" data-i18n="noTaskPlaceholder">当前没有任务，点击“新建任务”开始吧！</p>
+                    <p class="mt-3" data-i18n="noTaskPlaceholder">当前没有任务，点击"新建任务"开始吧！</p>
                 </div>
             </div>
         </div>
@@ -1433,7 +1433,7 @@ $.*"></textarea>
                         <strong><i class="bi bi-gear-fill me-2"></i>配置参数</strong>
                         <p class="mt-2">根据您选择的工作流，完成相应的配置。所有配置项都会自动保存在您的浏览器中。</p>
                         <ul>
-                            <li class="mb-2"><strong>解析配置</strong> (仅在“转Markdown再翻译”工作流下显示):
+                            <li class="mb-2"><strong>解析配置</strong> (仅在"转Markdown再翻译"工作流下显示):
                                 <ul class="mt-1">
                                     <li><strong>解析引擎</strong>:
                                         选择一个引擎将您的文件（如PDF）转换为适合翻译的Markdown格式。如果您的文件已经是Markdown格式，则无需选择。
@@ -1445,13 +1445,13 @@ $.*"></textarea>
                             <li class="mb-2"><strong>TXT/DOCX/XLSX/SRT/EPUB/HTML翻译选项</strong> (在对应工作流下显示):
                                 <ul class="mt-1">
                                     <li><strong>插入模式</strong>:
-                                        定义翻译结果如何放入文档或字幕。您可以选择直接“替换”原文，或是在原文之后“附加”，或是在原文之前“前置”。
+                                        定义翻译结果如何放入文档或字幕。您可以选择直接"替换"原文，或是在原文之后"附加"，或是在原文之前"前置"。
                                     </li>
-                                    <li><strong>分隔符</strong>: 当选择“附加”或“前置”模式时，此项用于在原文和译文之间插入分隔符。
+                                    <li><strong>分隔符</strong>: 当选择"附加"或"前置"模式时，此项用于在原文和译文之间插入分隔符。
                                     </li>
                                 </ul>
                             </li>
-                            <li class="mb-2"><strong>JSON路径配置</strong> (仅在“JSON翻译”工作流下显示):
+                            <li class="mb-2"><strong>JSON路径配置</strong> (仅在"JSON翻译"工作流下显示):
                                 <ul class="mt-1">
                                     <li><strong>需要翻译的JSON路径</strong>: 每行输入一个 <a
                                             href="https://goessner.net/articles/JsonPath/" target="_blank">JSONPath</a>
@@ -1988,9 +1988,10 @@ $.*"></textarea>
         return ldapAllowedSettings.includes(settingKey);
     };
     
-    // 显示访问被拒绝消息
+    // 显示访问被拒绝消息（静默处理，不显示弹窗）
     const showAccessDeniedMessage = () => {
-        alert(getText('accessDeniedTitle', '访问被拒绝') + ': ' + getText('accessDeniedMessage', '您没有权限访问此设置项'));
+        // 静默处理，只在控制台记录警告信息
+        console.warn('Access denied for setting - silently ignored for better user experience');
     };
     
     // 检查并隐藏受限设置项
@@ -2008,14 +2009,21 @@ $.*"></textarea>
     const hideAdminOnlySettings = () => {
         console.log('Applying LDAP user restrictions...');
         
-        // 1. 隐藏解析设置中的Mineru Token
+        // 1. 隐藏整个认证设置模块
+        const authSettingsContainer = document.getElementById('authSettingsContainer');
+        if (authSettingsContainer) {
+            authSettingsContainer.style.display = 'none';
+            console.log('Hidden: Auth Settings container');
+        }
+        
+        // 2. 隐藏解析设置中的Mineru Token
         const mineruTokenGroup = document.getElementById('mineruTokenGroup');
         if (mineruTokenGroup) {
             mineruTokenGroup.style.display = 'none';
             console.log('Hidden: Mineru Token group');
         }
         
-        // 2. 隐藏AI设置中的API Key相关
+        // 3. 隐藏AI设置中的API Key相关
         const apikeyInput = document.getElementById('api_key');
         if (apikeyInput) {
             const apiKeyGroup = apikeyInput.closest('.mb-3') || apikeyInput.parentElement;
@@ -2023,13 +2031,6 @@ $.*"></textarea>
                 apiKeyGroup.style.display = 'none';
                 console.log('Hidden: API Key input');
             }
-        }
-        
-        // 3. 隐藏整个登录设置部分
-        const authSettingsAccordionItem = document.getElementById('authSettingsAccordionItem');
-        if (authSettingsAccordionItem) {
-            authSettingsAccordionItem.style.display = 'none';
-            console.log('Hidden: Auth Settings accordion');
         }
         
         // 4. 隐藏术语表设置中的API Key
@@ -2383,7 +2384,31 @@ $.*"></textarea>
         return () => {
             const selectedPlatformValue = platformSelect.value;
             apikeyInput.value = getFromConfig(`${storagePrefix}_${selectedPlatformValue}_apikey`);
-            modelInput.value = getFromConfig(`${storagePrefix}_${selectedPlatformValue}_model_id`);
+            // 解析平台类型
+            const platformTypeForModel = (() => {
+                if (appConfig.platform_urls && selectedPlatformValue && selectedPlatformValue.startsWith('http')) {
+                    for (const [ptype, purl] of Object.entries(appConfig.platform_urls)) {
+                        if (purl === selectedPlatformValue) return ptype;
+                    }
+                }
+                return getFromConfig(`${storagePrefix}_type`) || selectedPlatformValue || 'openai';
+            })();
+            const userModelsDictKey = storagePrefix === 'translator_platform' ? 'translator_platform_models' : 'glossary_agent_platform_models';
+            const userModels = (appConfig && appConfig[userModelsDictKey]) || {};
+            // 直接依据“用户覆盖→全局默认”覆盖模型输入框
+            const userModel = userModels[platformTypeForModel];
+            const globalDefaultModel = (appConfig.platform_models && appConfig.platform_models[platformTypeForModel]) || '';
+            const nextModel = userModel || globalDefaultModel || '';
+            modelInput.value = nextModel;
+            // 若没有用户覆盖而有全局默认，则把默认写入用户字典，形成用户持久化
+            if (!userModel && globalDefaultModel) {
+                try {
+                    saveToConfig(`${storagePrefix}_type`, platformTypeForModel);
+                    const existing = getFromConfig(userModelsDictKey) || {};
+                    existing[platformTypeForModel] = globalDefaultModel;
+                    saveToConfig(userModelsDictKey, existing);
+                } catch (e) {}
+            }
 
             const isCustom = selectedPlatformValue === 'custom';
             baseUrlGroup.style.display = isCustom ? 'block' : 'none';
@@ -2402,7 +2427,8 @@ $.*"></textarea>
                     platformApiHref.style.display = 'none';
                 }
             }
-            saveToConfig(`${storagePrefix}_last_platform`, selectedPlatformValue);
+            // 移除对旧键 last_platform 的写入，避免不必要的后端请求
+            // saveToConfig(`${storagePrefix}_last_platform`, selectedPlatformValue);
         };
     }
 
@@ -2410,6 +2436,10 @@ $.*"></textarea>
         platformSelect, apikeyInput, modelInput, baseUrlGroup, baseUrlInput, apiHref,
         baseUrlDisplay: mainBaseUrlDisplay
     }, 'translator_platform');
+    if (platformSelect) {
+        platformSelect.addEventListener('change', () => mainPlatformUpdater());
+        try { mainPlatformUpdater(); } catch (e) {}
+    }
 
     /**
      * Updates the visibility of parsing options (formula/code OCR) based on the selected engine.
@@ -2482,6 +2512,10 @@ $.*"></textarea>
         baseUrlInput: glossaryAgentBaseUrlInput,
         baseUrlDisplay: glossaryBaseUrlDisplay
     }, 'glossary_agent_platform');
+    if (glossaryAgentPlatformSelect) {
+        glossaryAgentPlatformSelect.addEventListener('change', () => glossaryAgentPlatformUpdater());
+        try { glossaryAgentPlatformUpdater(); } catch (e) {}
+    }
 
 
     function setupGlossaryAgentPlatformUI() {
@@ -2760,6 +2794,30 @@ $.*"></textarea>
         // --- Common settings validation ---
         if (!skipTranslate) {
             const requiredCommonInputs = [apikeyInput, modelInput];
+            // 若用户未填写模型，则按平台默认模型填充一次（与上方选择变更逻辑一致）
+            try {
+                if (!modelInput.value && window.appConfig && appConfig.platform_models) {
+                    let platformType = getFromConfig('translator_platform_type');
+                    const selectedPlatformValue = platformSelect.value;
+                    if (appConfig.platform_urls && selectedPlatformValue) {
+                        for (const [ptype, purl] of Object.entries(appConfig.platform_urls)) {
+                            if (purl === selectedPlatformValue) { platformType = ptype; break; }
+                        }
+                    }
+                    platformType = platformType || selectedPlatformValue || 'openai';
+                    const defModel = (appConfig[userModelsDictKey] && appConfig[userModelsDictKey][platformType]) || appConfig.platform_models[platformType];
+                    if (defModel) {
+                        modelInput.value = defModel;
+                        try {
+                            saveToConfig(`${storagePrefix}_type`, platformType);
+                            saveToConfig(userModelsDictKey, {
+                                ...(getFromConfig(userModelsDictKey) || {}),
+                                [platformType]: defModel
+                            });
+                        } catch (e) {}
+                    }
+                }
+            } catch (e) { /* noop */ }
             if (platformSelect.value === 'custom') requiredCommonInputs.push(baseUrlInput);
 
             requiredCommonInputs.forEach(input => {
@@ -3401,6 +3459,9 @@ $.*"></textarea>
             if (response.ok) {
                 appConfig = await response.json();
                 console.log('App config loaded:', Object.keys(appConfig).length, 'settings');
+                // 配置加载后，尝试根据平台回填默认模型（放到微任务队列，确保晚于其它初始化）
+                Promise.resolve().then(() => { try { if (typeof mainPlatformUpdater === 'function') mainPlatformUpdater(); } catch (e) {} });
+                Promise.resolve().then(() => { try { if (typeof glossaryAgentPlatformUpdater === 'function') glossaryAgentPlatformUpdater(); } catch (e) {} });
                 return true;
             } else {
                 console.error('Failed to load app config');
@@ -3687,7 +3748,7 @@ $.*"></textarea>
             {element: platformSelect, key: 'translator_last_platform', defaultValue: 'https://api.openai.com/v1'},
             {element: convertEnginSelect, key: 'translator_convert_engin', defaultValue: 'mineru'},
             {element: modelVersionSelect, key: 'translator_model_version', defaultValue: 'vlm'},
-            {element: toLangSelect, key: 'translator_target_language', defaultValue: '中文'},
+            {element: toLangSelect, key: 'translator_target_language', defaultValue: '英文'},
             {element: customLangInput, key: 'translator_custom_language', defaultValue: ''},
             {element: formulaCheckbox, key: 'translator_formula_ocr', defaultValue: 'true', type: 'boolean'},
             {element: codeCheckbox, key: 'translator_code_ocr', defaultValue: 'true', type: 'boolean'},
@@ -3711,7 +3772,7 @@ $.*"></textarea>
                 key: 'glossary_agent_config_choice',
                 defaultValue: 'same'
             },
-            {element: glossaryAgentToLangSelect, key: 'glossary_agent_to_lang', defaultValue: '中文'},
+            {element: glossaryAgentToLangSelect, key: 'glossary_agent_to_lang', defaultValue: '英文'},
             {element: glossaryAgentCustomLangInput, key: 'glossary_agent_custom_to_lang', defaultValue: ''},
             {
                 type: 'radio',
@@ -3737,7 +3798,7 @@ $.*"></textarea>
         // Setup sliders
         setupSlider(chunkSizeSlider, chunkSizeDisplay, chunkSizeReset, 'chunk_size', defaultParams);
         setupSlider(concurrentSlider, concurrentDisplay, concurrentReset, 'concurrent', defaultParams);
-        setupSlider(temperatureSlider, temperatureDisplay, temperatureReset, 'temperature', defaultParams);
+        setupSlider(temperatureSlider, temperatureDisplay, temperatureReset, 'translator_temperature', defaultParams);
         const agentDefaultParams = { // Agent sliders default to main config defaults
             'glossary_agent_temperature': defaultParams.temperature,
             'glossary_agent_chunk_size': defaultParams.chunk_size,
@@ -3819,7 +3880,21 @@ $.*"></textarea>
             {
                 element: modelInput,
                 event: 'input',
-                handler: e => saveToConfig(`translator_platform_${platformSelect.value}_model_id`, e.target.value)
+                handler: e => {
+                    const platformType = (function() {
+                        const val = platformSelect.value;
+                        if (appConfig && appConfig.platform_urls && val && val.startsWith('http')) {
+                            for (const [ptype, purl] of Object.entries(appConfig.platform_urls)) {
+                                if (purl === val) return ptype;
+                            }
+                        }
+                        return getFromConfig('translator_platform_type') || val || 'openai';
+                    })();
+                    const dictKey = 'translator_platform_models';
+                    const dict = getFromConfig(dictKey) || {};
+                    dict[platformType] = e.target.value;
+                    saveToConfig(dictKey, dict);
+                }
             },
             {
                 element: baseUrlInput, event: 'input', handler: e => {
@@ -3863,7 +3938,21 @@ $.*"></textarea>
             {
                 element: glossaryAgentModelIdInput,
                 event: 'input',
-                handler: e => saveToConfig(`glossary_agent_platform_${glossaryAgentPlatformSelect.value}_model_id`, e.target.value)
+                handler: e => {
+                    const val = glossaryAgentPlatformSelect.value;
+                    const platformType = (function() {
+                        if (appConfig && appConfig.platform_urls && val && val.startsWith('http')) {
+                            for (const [ptype, purl] of Object.entries(appConfig.platform_urls)) {
+                                if (purl === val) return ptype;
+                            }
+                        }
+                        return getFromConfig('glossary_agent_platform_type') || val || 'openai';
+                    })();
+                    const dictKey = 'glossary_agent_platform_models';
+                    const dict = getFromConfig(dictKey) || {};
+                    dict[platformType] = e.target.value;
+                    saveToConfig(dictKey, dict);
+                }
             },
             {
                 element: glossaryAgentToLangSelect,

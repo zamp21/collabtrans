@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 from typing import Optional
 import time
 import logging
+import os
 
 from .config import AuthConfig
 from .ldap_client import LDAPClient, InvalidCredentials
@@ -159,6 +160,17 @@ async def login(
         logger.info(f"为用户 {_mask_username(username)} 创建会话")
         await session_manager.create_session(request, response, user)
         
+        # 确保用户有个人配置Profile
+        from .user_profile import get_user_profile_manager
+        profile_manager = get_user_profile_manager()
+        
+        # 检查用户是否已有Profile，如果没有则创建
+        if not os.path.exists(f"user_profiles/{username}_profile.json"):
+            logger.info(f"为用户 {_mask_username(username)} 创建默认Profile")
+            profile_manager.create_default_profile(username)
+        else:
+            logger.info(f"用户 {_mask_username(username)} 已有Profile，跳过创建")
+        
         # 重置登录尝试次数
         session_manager.reset_login_attempts(client_ip)
         logger.info(f"重置IP {client_ip} 的登录尝试次数")
@@ -298,8 +310,20 @@ async def get_app_config_api(
     user: User = Depends(get_current_user)
 ):
     """获取应用配置（需要登录）"""
-    app_config = get_app_config()
-    config_dict = app_config.get_config_dict()
+    from .user_profile import get_user_profile_manager
+    from ..config.global_config import get_global_config
+    
+    # 获取用户个人配置
+    profile_manager = get_user_profile_manager()
+    user_profile = profile_manager.get_user_profile(user.username)
+    user_config = user_profile.get_config_dict()
+    
+    # 获取全局配置
+    global_config = get_global_config()
+    global_config_dict = global_config.get_config_dict()
+    
+    # 合并配置：用户配置 + 全局配置
+    config_dict = {**global_config_dict, **user_config}
     
     # 根据用户权限过滤敏感配置
     if not user.is_admin():
@@ -315,7 +339,20 @@ async def get_app_config_api(
             'translator_epub_insert_mode', 'translator_epub_separator',
             'translator_html_insert_mode', 'translator_html_separator',
             'translator_json_paths', 'translator_target_language', 'translator_custom_language',
-            'translator_custom_prompt', 'translator_thinking_mode', 'theme'
+            'translator_custom_prompt', 'translator_thinking_mode', 'theme',
+            'translator_platform_type', 'translator_temperature', 'translator_max_tokens', 'translator_top_p',
+            'translator_frequency_penalty', 'translator_presence_penalty',
+            'chunk_size', 'concurrent',
+            'glossary_generate_enable', 'glossary_agent_config_choice', 'glossary_agent_thinking_mode',
+            'glossary_agent_platform_type', 'glossary_agent_temperature', 'glossary_agent_max_tokens', 'glossary_agent_top_p',
+            'glossary_agent_frequency_penalty', 'glossary_agent_presence_penalty', 'glossary_agent_to_lang',
+            'glossary_agent_chunk_size', 'glossary_agent_concurrent',
+            # 全局配置中的非敏感设置
+            'translator_convert_engin', 'translator_mineru_model_version', 
+            'translator_formula_ocr', 'translator_code_ocr', 'translator_skip_translate',
+            'platform_urls', 'platform_models',
+            # 用户维度模型覆盖
+            'translator_platform_models', 'glossary_agent_platform_models'
         ]
         for key in allowed_keys:
             if key in config_dict:
@@ -333,14 +370,6 @@ async def get_app_config_api(
                     masked_keys[platform] = ""
             config_dict['platform_api_keys'] = masked_keys
         
-        if 'glossary_platform_api_keys' in config_dict:
-            masked_keys = {}
-            for platform, key in config_dict['glossary_platform_api_keys'].items():
-                if key:
-                    masked_keys[platform] = key[:8] + "***" if len(key) > 8 else "***"
-                else:
-                    masked_keys[platform] = ""
-            config_dict['glossary_platform_api_keys'] = masked_keys
         
         # 脱敏Mineru Token
         if config_dict.get('translator_mineru_token'):
@@ -369,11 +398,6 @@ async def update_app_config_api(
                     app_config.update_platform_api_key(platform, key)
             del config_data['platform_api_keys']
         
-        if 'glossary_platform_api_keys' in config_data:
-            for platform, key in config_data['glossary_platform_api_keys'].items():
-                if key and not key.endswith('***'):
-                    app_config.update_glossary_platform_api_key(platform, key)
-            del config_data['glossary_platform_api_keys']
         
         # 防止覆盖脱敏的Mineru Token
         if 'translator_mineru_token' in config_data:
@@ -390,7 +414,6 @@ async def update_app_config_api(
             return {"success": True, "message": "Configuration updated successfully"}
         else:
             raise HTTPException(status_code=500, detail="Failed to save configuration")
-            
     except Exception as e:
         logger.error(f"更新应用配置失败: {e}")
         raise HTTPException(status_code=400, detail=f"Failed to update configuration: {str(e)}")
@@ -410,68 +433,95 @@ async def update_single_setting(
         if not key:
             raise HTTPException(status_code=400, detail="Setting key is required")
         
-        app_config = get_app_config()
+        from .user_profile import get_user_profile_manager
+        from ..config.global_config import get_global_config, save_global_config
         
-        # 权限检查：非管理员只能修改基础设置
-        if not user.is_admin():
-            allowed_keys = [
-                'ui_language', 'translator_last_workflow', 'translator_auto_workflow_enabled',
-                'translator_txt_insert_mode', 'translator_txt_separator',
-                'translator_xlsx_insert_mode', 'translator_xlsx_separator', 'translator_xlsx_translate_regions',
-                'translator_docx_insert_mode', 'translator_docx_separator',
-                'translator_srt_insert_mode', 'translator_srt_separator',
-                'translator_epub_insert_mode', 'translator_epub_separator',
-                'translator_html_insert_mode', 'translator_html_separator',
-                'translator_json_paths', 'translator_target_language', 'translator_custom_language',
-                'translator_custom_prompt', 'translator_thinking_mode', 'theme'
-            ]
-            
-            # 明确禁止的设置
-            forbidden_keys = [
-                'translator_mineru_token', 'translator_convert_engin',
-                'translator_platform_custom_base_url', 'glossary_agent_platform_custom_baseurl',
-                'translator_platform_last_platform', 'glossary_agent_last_platform'
-            ]
-            
-            # 检查API Key相关设置
-            is_api_key_setting = ('_apikey' in key or 
-                                ('platform_' in key and '_model_id' in key) or
-                                ('glossary_agent_platform_' in key and '_model_id' in key))
-            
-            if key in forbidden_keys or is_api_key_setting or key not in allowed_keys:
-                logger.warning(f"LDAP用户 {_mask_username(user.username)} 尝试访问受限设置: {key}")
-                raise HTTPException(status_code=403, detail="Access denied: Cannot modify this setting")
+        profile_manager = get_user_profile_manager()
+        global_config = get_global_config()
+
+        # 定义全局配置键（只有管理员可以修改）
+        global_config_keys = [
+            'translator_convert_engin', 'translator_mineru_token', 'translator_mineru_model_version',
+            'translator_formula_ocr', 'translator_code_ocr', 'translator_skip_translate',
+            'platform_urls', 'platform_api_keys', 'platform_models', 'active_task_ids'
+        ]
+
+        # 定义用户配置键（所有用户都可以修改）
+        user_config_keys = [
+            'ui_language', 'translator_last_workflow', 'translator_auto_workflow_enabled',
+            'translator_txt_insert_mode', 'translator_txt_separator',
+            'translator_xlsx_insert_mode', 'translator_xlsx_separator', 'translator_xlsx_translate_regions',
+            'translator_docx_insert_mode', 'translator_docx_separator',
+            'translator_srt_insert_mode', 'translator_srt_separator',
+            'translator_epub_insert_mode', 'translator_epub_separator',
+            'translator_html_insert_mode', 'translator_html_separator',
+            'translator_json_paths', 'translator_target_language', 'translator_custom_language',
+            'translator_custom_prompt', 'translator_thinking_mode', 'theme',
+            'translator_platform_type', 'translator_temperature', 'translator_max_tokens', 'translator_top_p',
+            'translator_frequency_penalty', 'translator_presence_penalty',
+            'chunk_size', 'concurrent',
+            'glossary_generate_enable', 'glossary_agent_config_choice', 'glossary_agent_thinking_mode',
+            'glossary_agent_platform_type', 'glossary_agent_temperature', 'glossary_agent_max_tokens', 'glossary_agent_top_p',
+            'glossary_agent_frequency_penalty', 'glossary_agent_presence_penalty', 'glossary_agent_to_lang',
+            'glossary_agent_chunk_size', 'glossary_agent_concurrent',
+            # 用户维度模型覆盖字典键
+            'translator_platform_models', 'glossary_agent_platform_models'
+        ]
         
-        # 特殊处理一些键值
-        if key.startswith('platform_') and key.endswith('_apikey'):
-            # 处理平台API密钥
-            platform = key.replace('translator_platform_', '').replace('_apikey', '')
-            app_config.update_platform_api_key(platform, value)
-        elif key.startswith('platform_') and key.endswith('_model_id'):
-            # 处理平台模型
-            platform = key.replace('translator_platform_', '').replace('_model_id', '')
-            app_config.update_platform_model(platform, value)
-        elif key.startswith('glossary_agent_platform_') and key.endswith('_apikey'):
-            # 处理术语表平台API密钥
-            platform = key.replace('glossary_agent_platform_', '').replace('_apikey', '')
-            app_config.update_glossary_platform_api_key(platform, value)
-        elif key.startswith('glossary_agent_platform_') and key.endswith('_model_id'):
-            # 处理术语表平台模型
-            platform = key.replace('glossary_agent_platform_', '').replace('_model_id', '')
-            app_config.update_glossary_platform_model(platform, value)
+        # 权限检查
+        if key in global_config_keys:
+            # 全局配置，只有管理员可以修改
+            if not user.is_admin():
+                logger.warning(f"LDAP用户 {_mask_username(user.username)} 尝试修改全局配置: {key}")
+                raise HTTPException(status_code=403, detail="Access denied: Only admin can modify global settings")
+        elif key in user_config_keys:
+            # 用户配置，所有用户都可以修改
+            pass
         else:
-            # 处理普通配置项
-            if hasattr(app_config, key):
-                setattr(app_config, key, value)
+            # 未知配置键
+            logger.warning(f"用户 {_mask_username(user.username)} 尝试修改未知配置: {key}")
+            raise HTTPException(status_code=400, detail=f"Unknown setting key: {key}")
+        
+        # 根据配置类型进行更新
+        if key in global_config_keys:
+            # 更新全局配置
+            if key.startswith('platform_') and key.endswith('_apikey'):
+                # 处理平台API密钥
+                platform = key.replace('translator_platform_', '').replace('_apikey', '')
+                global_config.update_platform_api_key(platform, value)
+            elif key.startswith('platform_') and key.endswith('_model_id'):
+                # 处理平台模型
+                platform = key.replace('translator_platform_', '').replace('_model_id', '')
+                global_config.update_platform_model(platform, value)
+            elif key.startswith('glossary_agent_platform_') and key.endswith('_apikey'):
+                # 处理术语表平台API密钥
+                platform = key.replace('glossary_agent_platform_', '').replace('_apikey', '')
+                global_config.update_glossary_platform_api_key(platform, value)
+            elif key.startswith('glossary_agent_platform_') and key.endswith('_model_id'):
+                # 处理术语表平台模型
+                platform = key.replace('glossary_agent_platform_', '').replace('_model_id', '')
+                global_config.update_glossary_platform_model(platform, value)
             else:
-                raise HTTPException(status_code=400, detail=f"Unknown setting key: {key}")
+                # 处理普通全局配置项
+                if hasattr(global_config, key):
+                    setattr(global_config, key, value)
+                else:
+                    raise HTTPException(status_code=400, detail=f"Unknown global setting key: {key}")
+            
+            # 保存全局配置
+            if save_global_config():
+                logger.info(f"全局设置项 {key} 已由用户 {_mask_username(user.username)} 更新")
+                return {"success": True, "message": f"Global setting {key} updated successfully"}
+            else:
+                raise HTTPException(status_code=500, detail="Failed to save global configuration")
         
-        # 保存配置
-        if save_app_config():
-            logger.info(f"设置项 {key} 已由用户 {_mask_username(user.username)} 更新")
-            return {"success": True, "message": f"Setting {key} updated successfully"}
         else:
-            raise HTTPException(status_code=500, detail="Failed to save configuration")
+            # 更新用户配置（包括按用户维度的模型键）
+            if profile_manager.update_user_setting(user.username, key, value):
+                logger.info(f"用户设置项 {key} 已由用户 {_mask_username(user.username)} 更新")
+                return {"success": True, "message": f"User setting {key} updated successfully"}
+            else:
+                raise HTTPException(status_code=500, detail="Failed to save user configuration")
             
     except HTTPException:
         raise
