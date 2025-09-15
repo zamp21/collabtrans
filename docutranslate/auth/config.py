@@ -18,11 +18,14 @@ class AuthConfig:
     
     # LDAP 配置
     ldap_enabled: bool = False
-    ldap_uri: str = "ldap://dc.example.com:389"
+    ldap_protocol: str = "ldap"  # "ldap" 或 "ldaps"
+    ldap_host: str = "dc.example.com"
+    ldap_port: int = 389
     ldap_bind_dn_template: str = "EXAMPLE\\{username}"
     ldap_base_dn: str = "OU=Users,DC=example,DC=com"
     ldap_user_filter: str = "(sAMAccountName={username})"
     ldap_tls_cacertfile: Optional[str] = None
+    ldap_tls_verify: bool = True  # 是否验证TLS证书
     
     # 默认用户配置（LDAP 关闭时使用）
     default_username: str = "admin"
@@ -49,11 +52,14 @@ class AuthConfig:
         """从环境变量创建配置"""
         return cls(
             ldap_enabled=os.getenv("LDAP_ENABLED", "false").lower() == "true",
-            ldap_uri=os.getenv("LDAP_URI", "ldap://dc.example.com:389"),
+            ldap_protocol=os.getenv("LDAP_PROTOCOL", "ldap"),
+            ldap_host=os.getenv("LDAP_HOST", "dc.example.com"),
+            ldap_port=int(os.getenv("LDAP_PORT", "389")),
             ldap_bind_dn_template=os.getenv("LDAP_BIND_DN_TEMPLATE", "EXAMPLE\\{username}"),
             ldap_base_dn=os.getenv("LDAP_BASE_DN", "OU=Users,DC=example,DC=com"),
             ldap_user_filter=os.getenv("LDAP_USER_FILTER", "(sAMAccountName={username})"),
             ldap_tls_cacertfile=os.getenv("LDAP_TLS_CACERTFILE"),
+            ldap_tls_verify=os.getenv("LDAP_TLS_VERIFY", "true").lower() == "true",
             default_username=os.getenv("DEFAULT_USERNAME", "admin"),
             default_password=os.getenv("DEFAULT_PASSWORD", "admin123"),
             session_secret_key=os.getenv("SESSION_SECRET_KEY", "your-secret-key-change-in-production"),
@@ -67,6 +73,10 @@ class AuthConfig:
             login_attempt_window=int(os.getenv("LOGIN_ATTEMPT_WINDOW", "300")),
             rate_limit_window=int(os.getenv("RATE_LIMIT_WINDOW", "300")),
         )
+    
+    def get_ldap_uri(self) -> str:
+        """获取完整的LDAP URI"""
+        return f"{self.ldap_protocol}://{self.ldap_host}:{self.ldap_port}"
     
     @classmethod
     def load_from_file(cls, config_file: str = "auth_config.json") -> "AuthConfig":

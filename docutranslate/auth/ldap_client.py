@@ -41,21 +41,31 @@ class LDAPClient:
     def _get_connection(self) -> ldap.ldapobject.LDAPObject:
         """获取LDAP连接"""
         if self._connection is None:
-            logger.info(f"正在初始化LDAP连接到: {self.config.ldap_uri}")
+            ldap_uri = self.config.get_ldap_uri()
+            logger.info(f"正在初始化LDAP连接到: {ldap_uri}")
+            logger.info(f"LDAP协议: {self.config.ldap_protocol}")
+            logger.info(f"LDAP主机: {self.config.ldap_host}:{self.config.ldap_port}")
             
             try:
                 # 创建LDAP连接
-                conn = ldap.initialize(self.config.ldap_uri)
+                conn = ldap.initialize(ldap_uri)
                 logger.info(f"LDAP连接对象创建成功")
                 
                 # 设置TLS选项
-                if self.config.ldap_tls_cacertfile:
-                    logger.info(f"设置TLS证书文件: {self.config.ldap_tls_cacertfile}")
-                    conn.set_option(ldap.OPT_X_TLS_CACERTFILE, self.config.ldap_tls_cacertfile)
+                if self.config.ldap_protocol == "ldaps":
+                    logger.info("使用LDAPS协议，配置TLS选项")
+                    if self.config.ldap_tls_cacertfile:
+                        logger.info(f"设置TLS证书文件: {self.config.ldap_tls_cacertfile}")
+                        conn.set_option(ldap.OPT_X_TLS_CACERTFILE, self.config.ldap_tls_cacertfile)
+                    
+                    if self.config.ldap_tls_verify:
+                        logger.info("启用TLS证书验证")
+                        conn.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_DEMAND)
+                    else:
+                        logger.info("禁用TLS证书验证")
+                        conn.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
                 else:
-                    # 开发环境忽略证书验证
-                    logger.info("未设置TLS证书文件，忽略证书验证")
-                    conn.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
+                    logger.info("使用LDAP协议，无需TLS配置")
                 
                 # 设置协议版本
                 conn.protocol_version = ldap.VERSION3
@@ -81,11 +91,14 @@ class LDAPClient:
         
         logger.info(f"开始LDAP认证用户: {_mask_username(username)}")
         logger.info(f"LDAP配置信息:")
-        logger.info(f"  - LDAP URI: {self.config.ldap_uri}")
+        logger.info(f"  - LDAP URI: {self.config.get_ldap_uri()}")
+        logger.info(f"  - 协议: {self.config.ldap_protocol}")
+        logger.info(f"  - 主机: {self.config.ldap_host}:{self.config.ldap_port}")
         logger.info(f"  - Bind DN Template: {self.config.ldap_bind_dn_template}")
         logger.info(f"  - Base DN: {self.config.ldap_base_dn}")
         logger.info(f"  - User Filter: {self.config.ldap_user_filter}")
         logger.info(f"  - TLS Cert File: {self.config.ldap_tls_cacertfile}")
+        logger.info(f"  - TLS Verify: {self.config.ldap_tls_verify}")
         
         try:
             conn = self._get_connection()

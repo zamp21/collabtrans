@@ -249,11 +249,14 @@ async def get_auth_config_api(request: Request):
     # 返回配置，但不包含敏感信息如密码
     return {
         "ldap_enabled": config.ldap_enabled,
-        "ldap_uri": config.ldap_uri,
+        "ldap_protocol": config.ldap_protocol,
+        "ldap_host": config.ldap_host,
+        "ldap_port": config.ldap_port,
         "ldap_bind_dn_template": config.ldap_bind_dn_template,
         "ldap_base_dn": config.ldap_base_dn,
         "ldap_user_filter": config.ldap_user_filter,
         "ldap_tls_cacertfile": config.ldap_tls_cacertfile,
+        "ldap_tls_verify": config.ldap_tls_verify,
         "default_username": config.default_username,
         "default_password": "***",  # 不返回真实密码
         "session_max_age": config.session_max_age,
@@ -292,6 +295,64 @@ async def update_auth_config_api(request: Request, config_data: dict):
         raise HTTPException(status_code=500, detail=f"Failed to update configuration: {str(e)}")
 
 
+@auth_router.post("/test-ldap")
+async def test_ldap_connection(request: Request, payload: dict):
+    """测试LDAP/LDAPS连接（仅管理员可用）
+    入参：{"username": "testuser", "password": "***"}
+    使用当前认证配置执行一次简单绑定与检索。
+    """
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    if not user.is_admin():
+        return JSONResponse(status_code=403, content={"ok": False, "message": "forbidden"})
+
+    username = (payload or {}).get("username", "").strip()
+    password = (payload or {}).get("password", "")
+    if not username or not password:
+        return JSONResponse(status_code=400, content={"ok": False, "message": "username/password required"})
+
+    base_config = get_auth_config()
+    if not base_config.ldap_enabled:
+        return JSONResponse(status_code=400, content={"ok": False, "message": "LDAP is disabled"})
+
+    # 允许用当前UI中的值临时覆盖（不持久化）
+    try:
+        from dataclasses import asdict
+        override = payload or {}
+        cfg_dict = asdict(base_config)
+        for key in [
+            'ldap_protocol', 'ldap_host', 'ldap_port', 'ldap_bind_dn_template', 'ldap_base_dn',
+            'ldap_user_filter', 'ldap_tls_cacertfile', 'ldap_tls_verify'
+        ]:
+            if key in override and override[key] not in (None, ""):
+                # 类型处理
+                if key == 'ldap_port':
+                    try:
+                        cfg_dict[key] = int(override[key])
+                    except Exception:
+                        pass
+                elif key == 'ldap_tls_verify':
+                    val = override[key]
+                    if isinstance(val, str):
+                        cfg_dict[key] = val.lower() in ("true", "1", "yes", "on")
+                    else:
+                        cfg_dict[key] = bool(val)
+                else:
+                    cfg_dict[key] = override[key]
+
+        # 构造临时配置
+        temp_config = AuthConfig(**cfg_dict)
+
+        client = LDAPClient(temp_config)
+        client.authenticate(username, password)
+        return JSONResponse(content={"ok": True, "message": "connection ok"})
+    except InvalidCredentials:
+        return JSONResponse(status_code=401, content={"ok": False, "message": "invalid credentials"})
+    except Exception as e:
+        return JSONResponse(status_code=502, content={"ok": False, "message": f"{str(e)}"})
+
+
 @auth_router.get("/user/permissions")
 async def get_user_permissions(
     user: User = Depends(get_current_user)
@@ -322,8 +383,12 @@ async def get_app_config_api(
     global_config = get_global_config()
     global_config_dict = global_config.get_config_dict()
     
-    # 合并配置：用户配置 + 全局配置
-    config_dict = {**global_config_dict, **user_config}
+    # 获取LDAP配置（使用本模块中的全局配置访问器）
+    auth_config = get_auth_config()
+    auth_config_dict = auth_config.__dict__
+    
+    # 合并配置：用户配置 + 全局配置 + LDAP配置
+    config_dict = {**global_config_dict, **user_config, **auth_config_dict}
     
     # 根据用户权限过滤敏感配置
     if not user.is_admin():
@@ -352,7 +417,9 @@ async def get_app_config_api(
             'translator_formula_ocr', 'translator_code_ocr', 'translator_skip_translate',
             'platform_urls', 'platform_models',
             # 用户维度模型覆盖
-            'translator_platform_models', 'glossary_agent_platform_models'
+            'translator_platform_models', 'glossary_agent_platform_models',
+            # LDAP配置（非敏感部分）
+            'ldap_enabled', 'ldap_protocol', 'ldap_host', 'ldap_port'
         ]
         for key in allowed_keys:
             if key in config_dict:
@@ -443,7 +510,10 @@ async def update_single_setting(
         global_config_keys = [
             'translator_convert_engin', 'translator_mineru_token', 'translator_mineru_model_version',
             'translator_formula_ocr', 'translator_code_ocr', 'translator_skip_translate',
-            'platform_urls', 'platform_api_keys', 'platform_models', 'active_task_ids'
+            'platform_urls', 'platform_api_keys', 'platform_models', 'active_task_ids',
+            # LDAP配置键
+            'ldap_enabled', 'ldap_protocol', 'ldap_host', 'ldap_port', 'ldap_bind_dn_template',
+            'ldap_base_dn', 'ldap_user_filter', 'ldap_tls_cacertfile', 'ldap_tls_verify'
         ]
 
         # 定义用户配置键（所有用户都可以修改）
@@ -501,6 +571,19 @@ async def update_single_setting(
                 # 处理术语表平台模型
                 platform = key.replace('glossary_agent_platform_', '').replace('_model_id', '')
                 global_config.update_glossary_platform_model(platform, value)
+            elif key.startswith('ldap_'):
+                # 处理LDAP配置
+                from .config import get_auth_config, save_auth_config
+                auth_config = get_auth_config()
+                if hasattr(auth_config, key):
+                    setattr(auth_config, key, value)
+                    if save_auth_config():
+                        logger.info(f"LDAP设置项 {key} 已由用户 {_mask_username(user.username)} 更新")
+                        return {"success": True, "message": f"LDAP setting {key} updated successfully"}
+                    else:
+                        raise HTTPException(status_code=500, detail="Failed to save LDAP configuration")
+                else:
+                    raise HTTPException(status_code=400, detail=f"Unknown LDAP setting key: {key}")
             else:
                 # 处理普通全局配置项
                 if hasattr(global_config, key):

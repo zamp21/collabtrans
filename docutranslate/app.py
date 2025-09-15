@@ -16,9 +16,9 @@ from typing import List, Dict, Any, Optional, Literal, Union, Annotated, TYPE_CH
 
 import httpx
 import uvicorn
-from fastapi import FastAPI, HTTPException, APIRouter, Body, Path as FastApiPath
+from fastapi import FastAPI, HTTPException, APIRouter, Body, Path as FastApiPath, Request
 from fastapi.openapi.docs import get_swagger_ui_html, get_swagger_ui_oauth2_redirect_html, get_redoc_html
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator, model_validator, AliasChoices
 
@@ -1497,7 +1497,17 @@ async def service_get_app_version(): return JSONResponse(content={"version": __v
 
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
-async def main_page():
+async def main_page(request: Request):
+    # 未认证则跳转到登录页
+    try:
+        from docutranslate.auth import get_session_manager
+        session_manager = get_session_manager()
+        if not await session_manager.is_authenticated(request):
+            return RedirectResponse(url="/login?next=/", status_code=302)
+    except Exception:
+        # 认证模块不可用时，直接继续
+        pass
+
     index_path = Path(STATIC_DIR) / "index.html"
     if not index_path.exists(): raise HTTPException(status_code=404, detail="index.html not found")
     no_cache_headers = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache",
@@ -1506,7 +1516,16 @@ async def main_page():
 
 
 @app.get("/admin", response_class=HTMLResponse, include_in_schema=False)
-async def main_page_admin():
+async def main_page_admin(request: Request):
+    # 未认证则跳转到登录页
+    try:
+        from docutranslate.auth import get_session_manager
+        session_manager = get_session_manager()
+        if not await session_manager.is_authenticated(request):
+            return RedirectResponse(url="/login?next=/admin", status_code=302)
+    except Exception:
+        pass
+
     index_path = Path(STATIC_DIR) / "index.html"
     if not index_path.exists(): raise HTTPException(status_code=404, detail="index.html not found")
     no_cache_headers = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache",

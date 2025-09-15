@@ -1056,48 +1056,115 @@ $.*"></textarea>
                                     </div>
 
                                     <div id="ldapConfigGroup" style="display: none;">
-                                        <div class="mb-3">
-                                            <label for="ldapUriInput" class="form-label" data-i18n="ldapUriLabel">LDAP 服务器地址</label>
-                                            <input type="text" class="form-control" id="ldapUriInput" 
-                                                   placeholder="ldap://dc.example.com:389">
-                                            <div class="form-text" data-i18n="ldapUriHelp">
-                                                LDAP 服务器的完整地址，包括协议和端口。
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="ldapProtocol" class="form-label" data-i18n="ldapProtocolLabel">协议类型</label>
+                                                    <select class="form-select" id="ldapProtocol" name="ldap_protocol">
+                                                        <option value="ldap">LDAP (389端口)</option>
+                                                        <option value="ldaps">LDAPS (636端口)</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="ldapHost" class="form-label" data-i18n="ldapHostLabel">LDAP服务器（与证书CN/SAN匹配）</label>
+                                                    <input type="text" class="form-control" id="ldapHost" name="ldap_host"
+                                                           placeholder="adtest2.testldaps.io 或 192.168.x.x">
+                                                    <div class="form-text" data-i18n="ldapHostHelp">建议使用与证书匹配的主机名，否则可能导致验证失败</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="ldapPort" class="form-label" data-i18n="ldapPortLabel">端口</label>
+                                                    <input type="number" class="form-control" id="ldapPort" name="ldap_port"
+                                                           placeholder="389">
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label for="ldapBaseDn" class="form-label" data-i18n="ldapBaseDnLabel">Base DN</label>
+                                                    <input type="text" class="form-control" id="ldapBaseDn" name="ldap_base_dn"
+                                                           placeholder="OU=Users,DC=example,DC=com">
+                                                </div>
                                             </div>
                                         </div>
 
                                         <div class="mb-3">
-                                            <label for="ldapBindDnTemplateInput" class="form-label" data-i18n="ldapBindDnTemplateLabel">绑定 DN 模板</label>
-                                            <input type="text" class="form-control" id="ldapBindDnTemplateInput" 
-                                                   placeholder="EXAMPLE\\{username}">
+                                            <label for="ldapBindDnTemplate" class="form-label" data-i18n="ldapBindDnTemplateLabel">绑定 DN 模板</label>
+                                            <input type="text" class="form-control" id="ldapBindDnTemplate" name="ldap_bind_dn_template"
+                                                   placeholder="EXAMPLE\\{username} 或 {username}@example.com">
                                             <div class="form-text" data-i18n="ldapBindDnTemplateHelp">
-                                                用于绑定用户的 DN 模板，{username} 会被实际用户名替换。
+                                                使用{username}作为用户名占位符
                                             </div>
                                         </div>
 
                                         <div class="mb-3">
-                                            <label for="ldapBaseDnInput" class="form-label" data-i18n="ldapBaseDnLabel">基础 DN</label>
-                                            <input type="text" class="form-control" id="ldapBaseDnInput" 
-                                                   placeholder="OU=Users,DC=example,DC=com">
-                                            <div class="form-text" data-i18n="ldapBaseDnHelp">
-                                                LDAP 搜索的基础 DN。
-                                            </div>
-                                        </div>
-
-                                        <div class="mb-3">
-                                            <label for="ldapUserFilterInput" class="form-label" data-i18n="ldapUserFilterLabel">用户过滤器</label>
-                                            <input type="text" class="form-control" id="ldapUserFilterInput" 
+                                            <label for="ldapUserFilter" class="form-label" data-i18n="ldapUserFilterLabel">用户过滤器</label>
+                                            <input type="text" class="form-control" id="ldapUserFilter" name="ldap_user_filter"
                                                    placeholder="(sAMAccountName={username})">
-                                            <div class="form-text" data-i18n="ldapUserFilterHelp">
-                                                用于搜索用户的 LDAP 过滤器，{username} 会被实际用户名替换。
+                                        </div>
+                                        
+                                        <div id="ldapsConfigContainer" style="display: none;">
+                                            <div class="mb-3">
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" id="ldapTlsVerify"
+                                                           name="ldap_tls_verify">
+                                                    <label class="form-check-label" for="ldapTlsVerify"
+                                                           data-i18n="ldapTlsVerifyLabel">验证TLS证书</label>
+                                                </div>
+                                                <div class="form-text" id="ldapTlsVerifyHelpOn" style="display:none;" data-i18n="ldapTlsVerifyHelpOn">已安装根CA时建议保持开启</div>
+                                                <div class="form-text" id="ldapTlsVerifyHelpOff" style="display:none;" data-i18n="ldapTlsVerifyHelpOff">不安全，仅用于临时排障</div>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <label for="ldapTlsCacertfile" class="form-label" data-i18n="ldapTlsCacertfileLabel">TLS证书文件路径</label>
+                                                <input type="text" class="form-control" id="ldapTlsCacertfile" name="ldap_tls_cacertfile"
+                                                       placeholder="/path/to/ca.crt">
+                                                <div class="form-text" data-i18n="ldapTlsCacertfileHelp">可选，用于验证LDAPS服务器证书</div>
                                             </div>
                                         </div>
+                                        
+                                        <div class="mb-3 d-flex gap-2">
+                                            <button type="button" class="btn btn-outline-secondary" id="genLdapTestCmdBtn">
+                                                <i class="bi bi-terminal me-2"></i><span data-i18n="genLdapTestCmdLabel">生成测试命令</span>
+                                            </button>
+                                            <button type="button" class="btn btn-outline-info" id="runLdapConnectivityBtn">
+                                                <i class="bi bi-wifi me-2"></i><span data-i18n="runLdapConnectivityLabel">测试连接</span>
+                                            </button>
+                                        </div>
 
-                                        <div class="mb-3">
-                                            <label for="ldapTlsCacertfileInput" class="form-label" data-i18n="ldapTlsCacertfileLabel">TLS 证书文件路径</label>
-                                            <input type="text" class="form-control" id="ldapTlsCacertfileInput" 
-                                                   placeholder="/path/to/ca.crt">
-                                            <div class="form-text" data-i18n="ldapTlsCacertfileHelp">
-                                                TLS 证书文件路径（可选），留空则忽略证书验证。
+                                        <!-- LDAP 测试连接弹窗 -->
+                                        <div class="modal fade" id="ldapTestModal" tabindex="-1" aria-hidden="true">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title" data-i18n="ldapTestModalTitle">测试 LDAP 连接</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <div class="mb-3">
+                                                            <label for="ldapTestUsernameInput" class="form-label" data-i18n="ldapTestUsernameLabel">用户名（不含域）</label>
+                                                            <input type="text" class="form-control" id="ldapTestUsernameInput" placeholder="testuser">
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label for="ldapTestPasswordInput" class="form-label" data-i18n="ldapTestPasswordLabel">密码</label>
+                                                            <div class="input-group">
+                                                                <input type="password" class="form-control" id="ldapTestPasswordInput" placeholder="********">
+                                                                <button class="btn btn-outline-secondary toggle-password" type="button" data-target="ldapTestPasswordInput">
+                                                                    <i class="bi bi-eye"></i>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="cancelBtn">取消</button>
+                                                        <button type="button" class="btn btn-primary" id="ldapTestConfirmBtn" data-i18n="confirmTestBtn">开始测试</button>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -2391,11 +2458,11 @@ $.*"></textarea>
                         if (purl === selectedPlatformValue) return ptype;
                     }
                 }
-                return getFromConfig(`${storagePrefix}_type`) || selectedPlatformValue || 'openai';
+                return getFromConfig(`${storagePrefix}_type`) || selectedPlatformValue || 'deepseek';
             })();
             const userModelsDictKey = storagePrefix === 'translator_platform' ? 'translator_platform_models' : 'glossary_agent_platform_models';
             const userModels = (appConfig && appConfig[userModelsDictKey]) || {};
-            // 直接依据“用户覆盖→全局默认”覆盖模型输入框
+            // 直接依据"用户覆盖→全局默认"覆盖模型输入框
             const userModel = userModels[platformTypeForModel];
             const globalDefaultModel = (appConfig.platform_models && appConfig.platform_models[platformTypeForModel]) || '';
             const nextModel = userModel || globalDefaultModel || '';
@@ -2804,7 +2871,7 @@ $.*"></textarea>
                             if (purl === selectedPlatformValue) { platformType = ptype; break; }
                         }
                     }
-                    platformType = platformType || selectedPlatformValue || 'openai';
+                    platformType = platformType || selectedPlatformValue || 'deepseek';
                     const defModel = (appConfig[userModelsDictKey] && appConfig[userModelsDictKey][platformType]) || appConfig.platform_models[platformType];
                     if (defModel) {
                         modelInput.value = defModel;
@@ -3535,6 +3602,35 @@ $.*"></textarea>
             defaultUserConfigGroup.style.display = 'block';
         }
     }
+    
+    /**
+     * Update LDAPS configuration UI based on protocol selection
+     */
+    function updateLdapsConfigUI() {
+        const protocol = document.getElementById('ldapProtocol').value;
+        const ldapsConfigContainer = document.getElementById('ldapsConfigContainer');
+        const portInput = document.getElementById('ldapPort');
+        const tlsVerify = document.getElementById('ldapTlsVerify');
+        const helpOn = document.getElementById('ldapTlsVerifyHelpOn');
+        const helpOff = document.getElementById('ldapTlsVerifyHelpOff');
+        
+        if (protocol === 'ldaps') {
+            ldapsConfigContainer.style.display = 'block';
+            portInput.value = '636';
+            if (tlsVerify) {
+                tlsVerify.checked = true;
+                if (helpOn) helpOn.style.display = 'block';
+                if (helpOff) helpOff.style.display = 'none';
+            }
+        } else {
+            ldapsConfigContainer.style.display = 'none';
+            portInput.value = '389';
+            if (tlsVerify) {
+                if (helpOn) helpOn.style.display = 'none';
+                if (helpOff) helpOff.style.display = 'none';
+            }
+        }
+    }
 
     /**
      * Reset AUTH configuration to defaults
@@ -3574,11 +3670,14 @@ $.*"></textarea>
         try {
             const config = {
                 ldap_enabled: document.getElementById('ldapEnabledSwitch').checked,
-                ldap_uri: document.getElementById('ldapUriInput').value,
-                ldap_bind_dn_template: document.getElementById('ldapBindDnTemplateInput').value,
-                ldap_base_dn: document.getElementById('ldapBaseDnInput').value,
-                ldap_user_filter: document.getElementById('ldapUserFilterInput').value,
-                ldap_tls_cacertfile: document.getElementById('ldapTlsCacertfileInput').value,
+                ldap_protocol: document.getElementById('ldapProtocol').value,
+                ldap_host: document.getElementById('ldapHost').value,
+                ldap_port: parseInt(document.getElementById('ldapPort').value),
+                ldap_bind_dn_template: document.getElementById('ldapBindDnTemplate').value,
+                ldap_base_dn: document.getElementById('ldapBaseDn').value,
+                ldap_user_filter: document.getElementById('ldapUserFilter').value,
+                ldap_tls_verify: document.getElementById('ldapTlsVerify').checked,
+                ldap_tls_cacertfile: document.getElementById('ldapTlsCacertfile').value,
                 default_username: document.getElementById('defaultUsernameInput').value,
                 default_password: document.getElementById('defaultPasswordInput').value,
                 session_max_age: parseInt(document.getElementById('sessionMaxAgeInput').value),
@@ -3622,11 +3721,14 @@ $.*"></textarea>
                 
                 // Load LDAP settings
                 document.getElementById('ldapEnabledSwitch').checked = config.ldap_enabled || false;
-                document.getElementById('ldapUriInput').value = config.ldap_uri || 'ldap://dc.example.com:389';
-                document.getElementById('ldapBindDnTemplateInput').value = config.ldap_bind_dn_template || 'EXAMPLE\\{username}';
-                document.getElementById('ldapBaseDnInput').value = config.ldap_base_dn || 'OU=Users,DC=example,DC=com';
-                document.getElementById('ldapUserFilterInput').value = config.ldap_user_filter || '(sAMAccountName={username})';
-                document.getElementById('ldapTlsCacertfileInput').value = config.ldap_tls_cacertfile || '';
+                document.getElementById('ldapProtocol').value = config.ldap_protocol || 'ldap';
+                document.getElementById('ldapHost').value = config.ldap_host || 'dc.example.com';
+                document.getElementById('ldapPort').value = config.ldap_port || '389';
+                document.getElementById('ldapBindDnTemplate').value = config.ldap_bind_dn_template || 'EXAMPLE\\{username}';
+                document.getElementById('ldapBaseDn').value = config.ldap_base_dn || 'OU=Users,DC=example,DC=com';
+                document.getElementById('ldapUserFilter').value = config.ldap_user_filter || '(sAMAccountName={username})';
+                document.getElementById('ldapTlsVerify').checked = config.ldap_tls_verify !== false;
+                document.getElementById('ldapTlsCacertfile').value = config.ldap_tls_cacertfile || '';
                 
                 // Load default user settings
                 document.getElementById('defaultUsernameInput').value = config.default_username || 'admin';
@@ -3888,7 +3990,7 @@ $.*"></textarea>
                                 if (purl === val) return ptype;
                             }
                         }
-                        return getFromConfig('translator_platform_type') || val || 'openai';
+                        return getFromConfig('translator_platform_type') || val || 'deepseek';
                     })();
                     const dictKey = 'translator_platform_models';
                     const dict = getFromConfig(dictKey) || {};
@@ -3946,7 +4048,7 @@ $.*"></textarea>
                                 if (purl === val) return ptype;
                             }
                         }
-                        return getFromConfig('glossary_agent_platform_type') || val || 'openai';
+                        return getFromConfig('glossary_agent_platform_type') || val || 'deepseek';
                     })();
                     const dictKey = 'glossary_agent_platform_models';
                     const dict = getFromConfig(dictKey) || {};
@@ -3976,8 +4078,108 @@ $.*"></textarea>
             {element: document.getElementById('logoutBtn'), event: 'click', handler: handleLogout},
             // AUTH 配置相关事件监听器
             {element: document.getElementById('ldapEnabledSwitch'), event: 'change', handler: updateLdapConfigUI},
+            {element: document.getElementById('ldapProtocol'), event: 'change', handler: updateLdapsConfigUI},
             {element: document.getElementById('resetAuthConfigBtn'), event: 'click', handler: resetAuthConfig},
             {element: document.getElementById('saveAuthConfigBtn'), event: 'click', handler: saveAuthConfig},
+            {element: document.getElementById('ldapTlsVerify'), event: 'change', handler: (e) => {
+                const helpOn = document.getElementById('ldapTlsVerifyHelpOn');
+                const helpOff = document.getElementById('ldapTlsVerifyHelpOff');
+                if (e.target.checked) {
+                    if (helpOn) helpOn.style.display = 'block';
+                    if (helpOff) helpOff.style.display = 'none';
+                } else {
+                    if (helpOn) helpOn.style.display = 'none';
+                    if (helpOff) helpOff.style.display = 'block';
+                }
+            }},
+            {element: document.getElementById('genLdapTestCmdBtn'), event: 'click', handler: async () => {
+                // 仅前端生成命令并复制，不调用后端
+                const protocol = document.getElementById('ldapProtocol').value || 'ldap';
+                const host = document.getElementById('ldapHost').value || 'dc.example.com';
+                const port = document.getElementById('ldapPort').value || (protocol === 'ldaps' ? '636' : '389');
+                const baseDn = document.getElementById('ldapBaseDn').value || 'OU=Users,DC=example,DC=com';
+                const tlsVerify = document.getElementById('ldapTlsVerify').checked;
+                const cacert = document.getElementById('ldapTlsCacertfile').value;
+
+                // 交互提示用户输入一个测试用户名
+                const username = prompt(getText('ldapTestUserPrompt', '输入用于测试的用户名（不含域）：'), 'testuser');
+                if (username === null) return;
+
+                // 生成 Bind DN（仅展示模板思路，实际绑定在命令中仍需 -D 提供完整标识）
+                let bindDnExample = `${username}@example.com`;
+                const template = document.getElementById('ldapBindDnTemplate').value || '{username}@example.com';
+                bindDnExample = template.replaceAll('{username}', username);
+
+                // 构造命令
+                const baseCmd = `ldapsearch -H ${protocol}://${host}:${port} -D "${bindDnExample}" -W -b "${baseDn}" -x -LLL`;
+                const filter = '"(objectClass=*)"';
+                const tlsPart = protocol === 'ldaps' ? (tlsVerify ? '' : ' -o tls_reqcert=never') : '';
+                const cacertPart = (protocol === 'ldaps' && tlsVerify && cacert) ? ` LDAPTLS_CACERT=${cacert}` : '';
+                const finalCmd = `${cacertPart ? cacertPart + ' ' : ''}${baseCmd}${tlsPart} ${filter}`;
+
+                try {
+                    await navigator.clipboard.writeText(finalCmd);
+                    alert(getText('ldapTestCmdCopied', '测试命令已复制到剪贴板，请在终端中粘贴执行。'));
+                } catch (err) {
+                    console.warn('Clipboard copy failed:', err);
+                    alert(getText('ldapTestCmdShown', '无法复制到剪贴板，已在控制台输出命令。'));
+                    console.log(finalCmd);
+                }
+            }},
+            {element: document.getElementById('runLdapConnectivityBtn'), event: 'click', handler: async () => {
+                // 打开弹窗，默认密码隐藏，可点击眼睛按钮切换
+                const modalEl = document.getElementById('ldapTestModal');
+                const modal = new bootstrap.Modal(modalEl);
+                // 清空输入
+                document.getElementById('ldapTestUsernameInput').value = '';
+                document.getElementById('ldapTestPasswordInput').value = '';
+                modal.show();
+
+                const confirmBtn = document.getElementById('ldapTestConfirmBtn');
+                const onConfirm = async () => {
+                    confirmBtn.disabled = true;
+                    try {
+                        const username = document.getElementById('ldapTestUsernameInput').value.trim();
+                        const password = document.getElementById('ldapTestPasswordInput').value;
+                        if (!username || !password) {
+                            alert(getText('ldapTestNeedBoth', '请输入用户名与密码')); 
+                            return;
+                        }
+                        const payload = {
+                            username,
+                            password,
+                            ldap_protocol: document.getElementById('ldapProtocol').value,
+                            ldap_host: document.getElementById('ldapHost').value,
+                            ldap_port: document.getElementById('ldapPort').value,
+                            ldap_bind_dn_template: document.getElementById('ldapBindDnTemplate').value,
+                            ldap_base_dn: document.getElementById('ldapBaseDn').value,
+                            ldap_user_filter: document.getElementById('ldapUserFilter').value,
+                            ldap_tls_verify: document.getElementById('ldapTlsVerify').checked,
+                            ldap_tls_cacertfile: document.getElementById('ldapTlsCacertfile').value
+                        };
+                        const resp = await fetch('/auth/test-ldap', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify(payload)
+                        });
+                        const data = await resp.json().catch(() => ({}));
+                        if (resp.ok && data && data.ok) {
+                            modal.hide();
+                            alert(getText('ldapConnectivityOk', '连接测试通过（LDAPS 简单绑定）。'));
+                        } else {
+                            const msg = (data && data.message) ? data.message : `${resp.status}`;
+                            alert(getText('ldapConnectivityFail', '连接测试失败：') + msg);
+                        }
+                    } catch (e) {
+                        alert(getText('ldapConnectivityFail', '连接测试失败：') + (e?.message || 'unknown'));
+                    } finally {
+                        confirmBtn.disabled = false;
+                        confirmBtn.removeEventListener('click', onConfirm);
+                    }
+                };
+                confirmBtn.addEventListener('click', onConfirm);
+            }},
         ];
         setupEventListeners(eventListenersConfig);
 
