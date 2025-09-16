@@ -278,6 +278,7 @@ class GlossaryAgentConfigPayload(BaseModel):
     concurrent: int = Field(default=30, description="Agent的最大并发请求数。")
     timeout: int = Field(default=default_params["timeout"], description="等待API回复的时间（秒）。")
     thinking: ThinkingMode = Field(default="default", description="Agent的思考模式。")
+    retry: int = Field(default=default_params["retry"], description="分块失败后的最大重试次数。")
 
 
 # 1. 定义所有工作流共享的基础参数
@@ -299,6 +300,7 @@ class BaseWorkflowParams(BaseModel):
     timeout: int = Field(default=default_params["timeout"], description="等待API回复的时间（秒）。")
     thinking: ThinkingMode = Field(default=default_params["thinking"], description="Agent的思考模式。",
                                    examples=["default", "enable", "disable"])
+    retry: int = Field(default=default_params["retry"], description="某个分块翻译失败后的最大重试次数。")
     custom_prompt: Optional[str] = Field(None, description="用户自定义的翻译Prompt。", alias="custom_prompt")
     glossary_dict: Optional[Dict[str, str]] = Field(None, description="术语表字典，key为原文，value为译文。")
     glossary_generate_enable: bool = Field(default=False, description="是否开启术语表自动生成。")
@@ -463,6 +465,7 @@ class TranslateServiceRequest(BaseModel):
                         "temperature": default_params["temperature"],
                         "timeout": default_params["timeout"],
                         "thinking": "default",
+                        "retry": default_params["retry"],
                         "glossary_generate_enable": False,
                         "convert_engine": "mineru",
                         "mineru_token": "your-mineru-token-if-any",
@@ -485,6 +488,7 @@ class TranslateServiceRequest(BaseModel):
                         "temperature": default_params["temperature"],
                         "timeout": default_params["timeout"],
                         "thinking": "default",
+                        "retry": default_params["retry"],
                         "glossary_generate_enable": False,
                         "json_paths": ["$.product.name", "$.product.description", "$.features[*]"],
                     }
@@ -504,6 +508,7 @@ class TranslateServiceRequest(BaseModel):
                         "temperature": default_params["temperature"],
                         "timeout": default_params["timeout"],
                         "thinking": "default",
+                        "retry": default_params["retry"],
                         "glossary_generate_enable": False,
                         "insert_mode": "replace",
                         "separator": "\n",
@@ -523,6 +528,7 @@ class TranslateServiceRequest(BaseModel):
                         "api_key": "sk-your-main-translator-key",
                         "model_id": "gpt-4o",
                         "to_lang": "中文",
+                        "retry": default_params["retry"],
                         "glossary_generate_enable": True,
                         "glossary_agent_config": {
                             "base_url": "https://api.openai.com/v1",
@@ -532,7 +538,8 @@ class TranslateServiceRequest(BaseModel):
                             "temperature": 0.7,
                             "concurrent": 30,
                             "timeout": default_params["timeout"],
-                            "thinking": "default"
+                            "thinking": "default",
+                            "retry": default_params["retry"]
                         }
                     }
                 },
@@ -553,6 +560,7 @@ class TranslateServiceRequest(BaseModel):
                         "temperature": default_params["temperature"],
                         "timeout": default_params["timeout"],
                         "thinking": "default",
+                        "retry": default_params["retry"],
                     }
                 },
                 {
@@ -572,6 +580,7 @@ class TranslateServiceRequest(BaseModel):
                         "temperature": default_params["temperature"],
                         "timeout": default_params["timeout"],
                         "thinking": "default",
+                        "retry": default_params["retry"],
                     }
                 },
                 {
@@ -591,6 +600,7 @@ class TranslateServiceRequest(BaseModel):
                         "temperature": default_params["temperature"],
                         "timeout": default_params["timeout"],
                         "thinking": "default",
+                        "retry": default_params["retry"],
                     }
                 },
                 {
@@ -610,6 +620,7 @@ class TranslateServiceRequest(BaseModel):
                         "temperature": default_params["temperature"],
                         "timeout": default_params["timeout"],
                         "thinking": "default",
+                        "retry": default_params["retry"],
                     }
                 }
             ]
@@ -663,7 +674,7 @@ async def _perform_translation(
             task_logger.info("构建 MarkdownBasedWorkflow 配置。")
             translator_args = payload.model_dump(include={
                 'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
-                'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict', 'timeout'
+                'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict', 'timeout', 'retry'
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
@@ -690,7 +701,7 @@ async def _perform_translation(
             translator_args = payload.model_dump(include={
                 'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict',
-                'insert_mode', 'separator', 'timeout'
+                'insert_mode', 'separator', 'timeout', 'retry'
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
@@ -708,7 +719,7 @@ async def _perform_translation(
             translator_args = payload.model_dump(include={
                 'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict',
-                'json_paths', 'timeout'
+                'json_paths', 'timeout', 'retry'
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
@@ -726,7 +737,7 @@ async def _perform_translation(
             translator_args = payload.model_dump(include={
                 'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent',
-                'insert_mode', 'separator', 'translate_regions', 'glossary_dict', 'timeout'
+                'insert_mode', 'separator', 'translate_regions', 'glossary_dict', 'timeout', 'retry'
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
@@ -745,7 +756,7 @@ async def _perform_translation(
             translator_args = payload.model_dump(include={
                 'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent',
-                'insert_mode', 'separator', 'glossary_dict', 'timeout'
+                'insert_mode', 'separator', 'glossary_dict', 'timeout', 'retry'
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
@@ -764,7 +775,7 @@ async def _perform_translation(
             translator_args = payload.model_dump(include={
                 'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent',
-                'insert_mode', 'separator', 'glossary_dict', 'timeout'
+                'insert_mode', 'separator', 'glossary_dict', 'timeout', 'retry'
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
@@ -783,7 +794,7 @@ async def _perform_translation(
             translator_args = payload.model_dump(include={
                 'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent',
-                'insert_mode', 'separator', 'glossary_dict', 'timeout'
+                'insert_mode', 'separator', 'glossary_dict', 'timeout', 'retry'
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
@@ -803,7 +814,7 @@ async def _perform_translation(
             translator_args = payload.model_dump(include={
                 'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent',
-                'insert_mode', 'separator', 'glossary_dict', 'timeout'
+                'insert_mode', 'separator', 'glossary_dict', 'timeout', 'retry'
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
