@@ -10,6 +10,7 @@ from enum import Enum
 class UserRole(str, Enum):
     """用户角色枚举"""
     ADMIN = "admin"
+    LDAP_ADMIN = "ldap_admin"
     LDAP_USER = "ldap_user"
 
 
@@ -24,7 +25,7 @@ class User:
     
     def is_admin(self) -> bool:
         """判断是否为管理员"""
-        return self.role == UserRole.ADMIN
+        return self.role in [UserRole.ADMIN, UserRole.LDAP_ADMIN]
     
     def can_access_admin_settings(self) -> bool:
         """判断是否可以访问管理员设置"""

@@ -28,6 +28,13 @@ class AuthConfig:
     ldap_tls_cacertfile: Optional[str] = None
     ldap_tls_verify: bool = True  # 是否验证TLS证书
     
+    # LDAP 组配置
+    ldap_admin_group_enabled: bool = False  # 是否启用管理员组查询
+    ldap_user_group_enabled: bool = False   # 是否启用用户组查询
+    ldap_admin_group: str = "DocuTranslate-Admins"  # 管理员组名
+    ldap_user_group: str = "DocuTranslate-Users"    # 普通用户组名
+    ldap_group_base_dn: str = "OU=Groups,DC=example,DC=com"  # 组搜索基础DN
+    
     # 默认用户配置（LDAP 关闭时使用）
     default_username: str = "admin"
     default_password: str = "admin123"
@@ -61,6 +68,11 @@ class AuthConfig:
             ldap_user_filter=os.getenv("LDAP_USER_FILTER", "(sAMAccountName={username})"),
             ldap_tls_cacertfile=os.getenv("LDAP_TLS_CACERTFILE"),
             ldap_tls_verify=os.getenv("LDAP_TLS_VERIFY", "true").lower() == "true",
+            ldap_admin_group_enabled=os.getenv("LDAP_ADMIN_GROUP_ENABLED", "false").lower() == "true",
+            ldap_user_group_enabled=os.getenv("LDAP_USER_GROUP_ENABLED", "false").lower() == "true",
+            ldap_admin_group=os.getenv("LDAP_ADMIN_GROUP", "DocuTranslate-Admins"),
+            ldap_user_group=os.getenv("LDAP_USER_GROUP", "DocuTranslate-Users"),
+            ldap_group_base_dn=os.getenv("LDAP_GROUP_BASE_DN", "OU=Groups,DC=example,DC=com"),
             default_username=os.getenv("DEFAULT_USERNAME", "admin"),
             default_password=os.getenv("DEFAULT_PASSWORD", "admin123"),
             session_secret_key=os.getenv("SESSION_SECRET_KEY", "your-secret-key-change-in-production"),

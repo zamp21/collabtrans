@@ -1107,6 +1107,55 @@ $.*"></textarea>
                                             <input type="text" class="form-control" id="ldapUserFilter" name="ldap_user_filter"
                                                    placeholder="(sAMAccountName={username})">
                                         </div>
+
+                                        <!-- LDAP 组配置 -->
+                                        <div class="mb-3">
+                                            <h6 class="text-muted mb-3" data-i18n="ldapGroupConfigTitle">组权限配置</h6>
+                                            
+                                            <!-- 组查询开关 -->
+                                            <div class="row mb-3">
+                                                <div class="col-md-6">
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input" type="checkbox" id="ldapAdminGroupEnabled"
+                                                               name="ldap_admin_group_enabled">
+                                                        <label class="form-check-label" for="ldapAdminGroupEnabled"
+                                                               data-i18n="ldapAdminGroupEnabledLabel">启用管理员组查询</label>
+                                                    </div>
+                                                    <div class="form-text" data-i18n="ldapAdminGroupEnabledHelp">启用后，只有管理员组成员才能获得管理员权限</div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input" type="checkbox" id="ldapUserGroupEnabled"
+                                                               name="ldap_user_group_enabled">
+                                                        <label class="form-check-label" for="ldapUserGroupEnabled"
+                                                               data-i18n="ldapUserGroupEnabledLabel">启用用户组查询</label>
+                                                    </div>
+                                                    <div class="form-text" data-i18n="ldapUserGroupEnabledHelp">启用后，只有用户组成员才能登录</div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <label for="ldapAdminGroup" class="form-label" data-i18n="ldapAdminGroupLabel">管理员组名</label>
+                                                    <input type="text" class="form-control" id="ldapAdminGroup" name="ldap_admin_group"
+                                                           placeholder="DocuTranslate-Admins">
+                                                    <div class="form-text" data-i18n="ldapAdminGroupHelp">LDAP中的管理员组名称</div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label for="ldapUserGroup" class="form-label" data-i18n="ldapUserGroupLabel">普通用户组名</label>
+                                                    <input type="text" class="form-control" id="ldapUserGroup" name="ldap_user_group"
+                                                           placeholder="DocuTranslate-Users">
+                                                    <div class="form-text" data-i18n="ldapUserGroupHelp">LDAP中的普通用户组名称</div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="mt-3">
+                                                <label for="ldapGroupBaseDn" class="form-label" data-i18n="ldapGroupBaseDnLabel">组搜索 Base DN</label>
+                                                <input type="text" class="form-control" id="ldapGroupBaseDn" name="ldap_group_base_dn"
+                                                       placeholder="OU=Groups,DC=example,DC=com">
+                                                <div class="form-text" data-i18n="ldapGroupBaseDnHelp">用于搜索LDAP组的基础DN</div>
+                                            </div>
+                                        </div>
                                         
                                         <div id="ldapsConfigContainer" style="display: none;">
                                             <div class="mb-3">
@@ -3676,6 +3725,11 @@ $.*"></textarea>
                 ldap_bind_dn_template: document.getElementById('ldapBindDnTemplate').value,
                 ldap_base_dn: document.getElementById('ldapBaseDn').value,
                 ldap_user_filter: document.getElementById('ldapUserFilter').value,
+                ldap_admin_group_enabled: document.getElementById('ldapAdminGroupEnabled').checked,
+                ldap_user_group_enabled: document.getElementById('ldapUserGroupEnabled').checked,
+                ldap_admin_group: document.getElementById('ldapAdminGroup').value,
+                ldap_user_group: document.getElementById('ldapUserGroup').value,
+                ldap_group_base_dn: document.getElementById('ldapGroupBaseDn').value,
                 ldap_tls_verify: document.getElementById('ldapTlsVerify').checked,
                 ldap_tls_cacertfile: document.getElementById('ldapTlsCacertfile').value,
                 default_username: document.getElementById('defaultUsernameInput').value,
@@ -3727,6 +3781,11 @@ $.*"></textarea>
                 document.getElementById('ldapBindDnTemplate').value = config.ldap_bind_dn_template || 'EXAMPLE\\{username}';
                 document.getElementById('ldapBaseDn').value = config.ldap_base_dn || 'OU=Users,DC=example,DC=com';
                 document.getElementById('ldapUserFilter').value = config.ldap_user_filter || '(sAMAccountName={username})';
+                document.getElementById('ldapAdminGroupEnabled').checked = config.ldap_admin_group_enabled || false;
+                document.getElementById('ldapUserGroupEnabled').checked = config.ldap_user_group_enabled || false;
+                document.getElementById('ldapAdminGroup').value = config.ldap_admin_group || 'DocuTranslate-Admins';
+                document.getElementById('ldapUserGroup').value = config.ldap_user_group || 'DocuTranslate-Users';
+                document.getElementById('ldapGroupBaseDn').value = config.ldap_group_base_dn || 'OU=Groups,DC=example,DC=com';
                 document.getElementById('ldapTlsVerify').checked = config.ldap_tls_verify !== false;
                 document.getElementById('ldapTlsCacertfile').value = config.ldap_tls_cacertfile || '';
                 
@@ -4154,6 +4213,11 @@ $.*"></textarea>
                             ldap_bind_dn_template: document.getElementById('ldapBindDnTemplate').value,
                             ldap_base_dn: document.getElementById('ldapBaseDn').value,
                             ldap_user_filter: document.getElementById('ldapUserFilter').value,
+                            ldap_admin_group_enabled: document.getElementById('ldapAdminGroupEnabled').checked,
+                            ldap_user_group_enabled: document.getElementById('ldapUserGroupEnabled').checked,
+                            ldap_admin_group: document.getElementById('ldapAdminGroup').value,
+                            ldap_user_group: document.getElementById('ldapUserGroup').value,
+                            ldap_group_base_dn: document.getElementById('ldapGroupBaseDn').value,
                             ldap_tls_verify: document.getElementById('ldapTlsVerify').checked,
                             ldap_tls_cacertfile: document.getElementById('ldapTlsCacertfile').value
                         };
@@ -4166,7 +4230,18 @@ $.*"></textarea>
                         const data = await resp.json().catch(() => ({}));
                         if (resp.ok && data && data.ok) {
                             modal.hide();
-                            alert(getText('ldapConnectivityOk', '连接测试通过（LDAPS 简单绑定）。'));
+                            // 构建详细的消息
+                            let message = getText('ldapConnectivityOk', '连接测试通过');
+                            if (data.message) {
+                                message += '\n\n详细信息：\n' + data.message;
+                            }
+                            if (data.user_role) {
+                                message += '\n用户角色：' + data.user_role;
+                            }
+                            if (data.is_admin !== undefined) {
+                                message += '\n管理员权限：' + (data.is_admin ? '是' : '否');
+                            }
+                            alert(message);
                         } else {
                             const msg = (data && data.message) ? data.message : `${resp.status}`;
                             alert(getText('ldapConnectivityFail', '连接测试失败：') + msg);

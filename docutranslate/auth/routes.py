@@ -323,7 +323,9 @@ async def test_ldap_connection(request: Request, payload: dict):
         cfg_dict = asdict(base_config)
         for key in [
             'ldap_protocol', 'ldap_host', 'ldap_port', 'ldap_bind_dn_template', 'ldap_base_dn',
-            'ldap_user_filter', 'ldap_tls_cacertfile', 'ldap_tls_verify'
+            'ldap_user_filter', 'ldap_admin_group_enabled', 'ldap_user_group_enabled',
+            'ldap_admin_group', 'ldap_user_group', 'ldap_group_base_dn',
+            'ldap_tls_cacertfile', 'ldap_tls_verify'
         ]:
             if key in override and override[key] not in (None, ""):
                 # 类型处理
@@ -332,7 +334,7 @@ async def test_ldap_connection(request: Request, payload: dict):
                         cfg_dict[key] = int(override[key])
                     except Exception:
                         pass
-                elif key == 'ldap_tls_verify':
+                elif key in ['ldap_tls_verify', 'ldap_admin_group_enabled', 'ldap_user_group_enabled']:
                     val = override[key]
                     if isinstance(val, str):
                         cfg_dict[key] = val.lower() in ("true", "1", "yes", "on")
@@ -345,8 +347,60 @@ async def test_ldap_connection(request: Request, payload: dict):
         temp_config = AuthConfig(**cfg_dict)
 
         client = LDAPClient(temp_config)
-        client.authenticate(username, password)
-        return JSONResponse(content={"ok": True, "message": "connection ok"})
+        user = client.authenticate(username, password)
+        
+        # 构建详细的响应消息
+        message_parts = ["连接成功"]
+        
+        # 检查组查询状态
+        if temp_config.ldap_admin_group_enabled or temp_config.ldap_user_group_enabled:
+            message_parts.append("组查询已启用")
+            
+            # 获取用户的组成员信息
+            try:
+                import ldap
+                conn = client._get_connection()
+                user_filter = temp_config.ldap_user_filter.format(username=username)
+                result = conn.search_s(
+                    temp_config.ldap_base_dn,
+                    ldap.SCOPE_SUBTREE,
+                    user_filter,
+                    ['sAMAccountName', 'displayName', 'mail', 'cn', 'memberOf']
+                )
+                
+                if result:
+                    dn, attrs = result[0]
+                    groups_info = []
+                    
+                    # 检查管理员组
+                    if temp_config.ldap_admin_group_enabled:
+                        is_admin_member = client._check_admin_group_membership(conn, dn, attrs)
+                        if is_admin_member:
+                            groups_info.append(f"管理员组({temp_config.ldap_admin_group})")
+                    
+                    # 检查用户组
+                    if temp_config.ldap_user_group_enabled:
+                        is_user_member = client._check_user_group_membership(conn, dn, attrs)
+                        if is_user_member:
+                            groups_info.append(f"用户组({temp_config.ldap_user_group})")
+                    
+                    if groups_info:
+                        message_parts.append(f"用户属于: {', '.join(groups_info)}")
+                    else:
+                        message_parts.append("用户不属于任何配置的组")
+                        
+            except Exception as e:
+                logger.warning(f"获取组成员信息时发生错误: {e}")
+                message_parts.append("无法获取组成员信息")
+        else:
+            message_parts.append("组查询未启用，用户将作为普通用户登录")
+        
+        return JSONResponse(content={
+            "ok": True, 
+            "message": " | ".join(message_parts),
+            "user_role": user.role.value,
+            "is_admin": user.is_admin()
+        })
     except InvalidCredentials:
         return JSONResponse(status_code=401, content={"ok": False, "message": "invalid credentials"})
     except Exception as e:

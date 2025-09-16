@@ -121,7 +121,7 @@ class LDAPClient:
                 self.config.ldap_base_dn,
                 ldap.SCOPE_SUBTREE,
                 user_filter,
-                ['sAMAccountName', 'displayName', 'mail', 'cn']
+                ['sAMAccountName', 'displayName', 'mail', 'cn', 'memberOf']
             )
             
             logger.info(f"搜索返回结果数量: {len(result)}")
@@ -149,12 +149,16 @@ class LDAPClient:
                 email = attrs['mail'][0].decode('utf-8')
                 logger.info(f"用户邮箱: {email}")
             
+            # 确定用户角色
+            user_role = self._determine_user_role(conn, dn, attrs)
+            logger.info(f"用户角色: {user_role}")
+            
             user = User(
                 username=username,
                 display_name=display_name,
                 email=email,
                 is_authenticated=True,
-                role=UserRole.LDAP_USER  # LDAP用户设置为普通用户角色
+                role=user_role
             )
             
             logger.info(f"LDAP认证成功，用户: {_mask_username(username)}")
@@ -175,6 +179,164 @@ class LDAPClient:
             logger.error(f"认证过程中发生异常: {e}")
             logger.error(f"异常类型: {type(e)}")
             raise Exception(f"Authentication error: {e}")
+    
+    def _determine_user_role(self, conn: ldap.ldapobject.LDAPObject, user_dn: str, user_attrs: Dict[str, Any]) -> UserRole:
+        """根据LDAP组确定用户角色"""
+        logger.info("开始确定用户角色...")
+        logger.info(f"管理员组查询启用: {self.config.ldap_admin_group_enabled}")
+        logger.info(f"用户组查询启用: {self.config.ldap_user_group_enabled}")
+        logger.info(f"管理员组: {self.config.ldap_admin_group}")
+        logger.info(f"用户组: {self.config.ldap_user_group}")
+        logger.info(f"组搜索基础DN: {self.config.ldap_group_base_dn}")
+        
+        # 如果两个组查询都未启用，直接返回普通用户
+        if not self.config.ldap_admin_group_enabled and not self.config.ldap_user_group_enabled:
+            logger.info("组查询均未启用，用户默认为普通用户")
+            return UserRole.LDAP_USER
+        
+        # 如果启用了用户组查询，需要验证用户是否在用户组中
+        if self.config.ldap_user_group_enabled:
+            logger.info("用户组查询已启用，需要验证用户组成员身份")
+            is_user_group_member = self._check_user_group_membership(conn, user_dn, user_attrs)
+            if not is_user_group_member:
+                logger.warning("用户不在用户组中，拒绝登录")
+                raise InvalidCredentials("User is not a member of the required user group")
+        
+        # 如果启用了管理员组查询，检查用户是否是管理员组成员
+        if self.config.ldap_admin_group_enabled:
+            logger.info("管理员组查询已启用，检查管理员组成员身份")
+            is_admin_group_member = self._check_admin_group_membership(conn, user_dn, user_attrs)
+            if is_admin_group_member:
+                logger.info("用户是管理员组成员，分配管理员角色")
+                return UserRole.LDAP_ADMIN
+        
+        # 如果启用了用户组查询且用户是用户组成员，或者只启用了管理员组查询但用户不是管理员组成员
+        logger.info("用户分配为普通用户角色")
+        return UserRole.LDAP_USER
+    
+    def _check_admin_group_membership(self, conn: ldap.ldapobject.LDAPObject, user_dn: str, user_attrs: Dict[str, Any]) -> bool:
+        """检查用户是否是管理员组成员"""
+        try:
+            # 首先检查用户的memberOf属性
+            if 'memberOf' in user_attrs:
+                member_of_groups = [group.decode('utf-8') for group in user_attrs['memberOf']]
+                logger.info(f"用户直接成员组: {member_of_groups}")
+                
+                # 检查是否在管理员组中
+                for group_dn in member_of_groups:
+                    if self.config.ldap_admin_group.lower() in group_dn.lower():
+                        logger.info(f"用户是管理员组成员: {group_dn}")
+                        return True
+            
+            # 如果memberOf属性不存在或没有找到相关组，则通过组搜索来确定
+            admin_group_filter = f"(&(objectClass=group)(cn={self.config.ldap_admin_group}))"
+            logger.info(f"搜索管理员组过滤器: {admin_group_filter}")
+            logger.info(f"搜索基础DN: {self.config.ldap_group_base_dn}")
+            
+            try:
+                admin_group_result = conn.search_s(
+                    self.config.ldap_group_base_dn,
+                    ldap.SCOPE_SUBTREE,
+                    admin_group_filter,
+                    ['member']
+                )
+            except ldap.REFERRAL as e:
+                logger.warning(f"LDAP Referral错误，尝试使用基础DN: {e}")
+                # 如果遇到Referral错误，尝试使用基础DN
+                try:
+                    admin_group_result = conn.search_s(
+                        self.config.ldap_base_dn,
+                        ldap.SCOPE_SUBTREE,
+                        admin_group_filter,
+                        ['member']
+                    )
+                    logger.info("使用基础DN搜索成功")
+                except Exception as e2:
+                    logger.error(f"使用基础DN搜索也失败: {e2}")
+                    raise e
+            
+            if admin_group_result:
+                admin_group_dn, admin_group_attrs = admin_group_result[0]
+                logger.info(f"找到管理员组: {admin_group_dn}")
+                
+                if 'member' in admin_group_attrs:
+                    admin_members = [member.decode('utf-8') for member in admin_group_attrs['member']]
+                    logger.info(f"管理员组成员数量: {len(admin_members)}")
+                    
+                    # 检查用户是否在管理员组中
+                    if user_dn in admin_members:
+                        logger.info("用户是管理员组成员")
+                        return True
+            
+            logger.info("用户不是管理员组成员")
+            return False
+            
+        except Exception as e:
+            logger.error(f"管理员组查询过程中发生错误: {e}")
+            logger.warning("管理员组查询失败，假设用户不是管理员组成员")
+            return False
+    
+    def _check_user_group_membership(self, conn: ldap.ldapobject.LDAPObject, user_dn: str, user_attrs: Dict[str, Any]) -> bool:
+        """检查用户是否是用户组成员"""
+        try:
+            # 首先检查用户的memberOf属性
+            if 'memberOf' in user_attrs:
+                member_of_groups = [group.decode('utf-8') for group in user_attrs['memberOf']]
+                logger.info(f"用户直接成员组: {member_of_groups}")
+                
+                # 检查是否在用户组中
+                for group_dn in member_of_groups:
+                    if self.config.ldap_user_group.lower() in group_dn.lower():
+                        logger.info(f"用户是普通用户组成员: {group_dn}")
+                        return True
+            
+            # 如果memberOf属性不存在或没有找到相关组，则通过组搜索来确定
+            user_group_filter = f"(&(objectClass=group)(cn={self.config.ldap_user_group}))"
+            logger.info(f"搜索普通用户组过滤器: {user_group_filter}")
+            logger.info(f"搜索基础DN: {self.config.ldap_group_base_dn}")
+            
+            try:
+                user_group_result = conn.search_s(
+                    self.config.ldap_group_base_dn,
+                    ldap.SCOPE_SUBTREE,
+                    user_group_filter,
+                    ['member']
+                )
+            except ldap.REFERRAL as e:
+                logger.warning(f"LDAP Referral错误，尝试使用基础DN: {e}")
+                # 如果遇到Referral错误，尝试使用基础DN
+                try:
+                    user_group_result = conn.search_s(
+                        self.config.ldap_base_dn,
+                        ldap.SCOPE_SUBTREE,
+                        user_group_filter,
+                        ['member']
+                    )
+                    logger.info("使用基础DN搜索成功")
+                except Exception as e2:
+                    logger.error(f"使用基础DN搜索也失败: {e2}")
+                    raise e
+            
+            if user_group_result:
+                user_group_dn, user_group_attrs = user_group_result[0]
+                logger.info(f"找到普通用户组: {user_group_dn}")
+                
+                if 'member' in user_group_attrs:
+                    user_members = [member.decode('utf-8') for member in user_group_attrs['member']]
+                    logger.info(f"普通用户组成员数量: {len(user_members)}")
+                    
+                    # 检查用户是否在普通用户组中
+                    if user_dn in user_members:
+                        logger.info("用户是普通用户组成员")
+                        return True
+            
+            logger.info("用户不是普通用户组成员")
+            return False
+            
+        except Exception as e:
+            logger.error(f"用户组查询过程中发生错误: {e}")
+            logger.warning("用户组查询失败，假设用户不是用户组成员")
+            return False
     
     def close(self):
         """关闭LDAP连接"""
