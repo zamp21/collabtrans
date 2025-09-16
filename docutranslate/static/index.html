@@ -222,6 +222,13 @@
                                 <i class="bi bi-people-fill me-1"></i><span
                                     data-i18n="projectContributeBtn">项目协作</span>
                             </button>
+                            <!-- Global action buttons moved here -->
+                            <button type="button" class="btn btn-sm btn-outline-secondary ms-2" id="resetAuthConfigBtn">
+                                <i class="bi bi-arrow-clockwise me-1"></i><span data-i18n="resetConfigBtn">重置配置</span>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-primary" id="saveAuthConfigBtn">
+                                <i class="bi bi-check-circle me-1"></i><span data-i18n="saveConfigBtn">保存配置</span>
+                            </button>
                             <div class="btn-group" role="group">
                                 <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" 
                                         data-bs-toggle="dropdown" aria-expanded="false" id="topLanguageDropdownBtn"
@@ -1283,15 +1290,7 @@ $.*"></textarea>
                                         </div>
                                     </div>
 
-                                    <!-- 操作按钮 -->
-                                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
-                                        <button type="button" class="btn btn-outline-secondary" id="resetAuthConfigBtn">
-                                            <i class="bi bi-arrow-clockwise me-1"></i><span data-i18n="resetConfigBtn">重置配置</span>
-                                        </button>
-                                        <button type="button" class="btn btn-primary" id="saveAuthConfigBtn">
-                                            <i class="bi bi-check-circle me-1"></i><span data-i18n="saveConfigBtn">保存配置</span>
-                                        </button>
-                                    </div>
+                                    <!-- 操作按钮已上移到页面顶部按钮组 -->
                                 </div>
                             </div>
                         </div>
@@ -3785,7 +3784,51 @@ $.*"></textarea>
             });
 
             if (response.ok) {
-                alert(getText('configSaveSuccess', '配置保存成功！重启应用后生效。'));
+                // 如果是管理员，同时尝试保存当前平台的全局 API Key 与 MinerU Token（写入服务器端敏感配置）
+                let extraMsg = '';
+                try {
+                    if (window.userPermissions && userPermissions.is_admin) {
+                        // 保存平台 API Key
+                        const apiKeyEl = document.getElementById('api_key');
+                        const apiKeyVal = (apiKeyEl?.value || '').trim();
+                        // 平台类型：优先从配置读取，兜底 deepseek
+                        const platformType = (typeof getFromConfig === 'function' && getFromConfig('translator_platform_type')) || 'deepseek';
+                        if (apiKeyVal) {
+                            const r1 = await fetch('/auth/app-config/setting', {
+                                method: 'POST',
+                                credentials: 'include',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ key: 'platform_api_keys', value: { [platformType]: apiKeyVal } })
+                            });
+                            const d1 = await r1.json().catch(() => ({}));
+                            if (r1.ok && d1 && d1.success) {
+                                extraMsg += '\n' + getText('adminSavedGlobalKey', '已保存全局API Key');
+                            }
+                        }
+
+                        // 保存 MinerU Token（当解析器为 MinerU 且填写了 token 时）
+                        const mineruTokenEl = document.getElementById('mineru_token');
+                        const mineruTokenVal = (mineruTokenEl?.value || '').trim();
+                        const convertEnginSel = document.getElementById('convertEnginSelect');
+                        const convertEnginVal = (convertEnginSel?.value || (typeof getFromConfig === 'function' && getFromConfig('translator_convert_engin'))) || '';
+                        if (mineruTokenVal && String(convertEnginVal).toLowerCase() === 'mineru') {
+                            const r2 = await fetch('/auth/app-config/setting', {
+                                method: 'POST',
+                                credentials: 'include',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ key: 'translator_mineru_token', value: mineruTokenVal })
+                            });
+                            const d2 = await r2.json().catch(() => ({}));
+                            if (r2.ok && d2 && d2.success) {
+                                extraMsg += '\n' + getText('adminSavedMineruToken', '已保存全局MinerU令牌');
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Save global secrets failed:', e);
+                }
+
+                alert(getText('configSaveSuccess', '配置保存成功！重启应用后生效。') + (extraMsg ? ('\n' + extraMsg) : ''));
             } else {
                 const error = await response.text();
                 alert(getText('configSaveFailed', '配置保存失败：') + error);
@@ -3885,6 +3928,19 @@ $.*"></textarea>
         if (!permissionsLoaded || !configLoaded) {
             console.warn("Failed to load user permissions or app config, some features may not work properly");
         }
+
+        // 根据权限更新“保存配置”按钮文案（管理员：含全局Key）
+        (function updateSaveBtnLabel(){
+            const span = document.querySelector('#saveAuthConfigBtn span');
+            if (!span) return;
+            if (window.userPermissions && userPermissions.is_admin) {
+                span.setAttribute('data-i18n','saveConfigBtnAdmin');
+                span.innerHTML = getText('saveConfigBtnAdmin', '保存配置（含全局Key）');
+            } else {
+                span.setAttribute('data-i18n','saveConfigBtn');
+                span.innerHTML = getText('saveConfigBtn', '保存配置');
+            }
+        })();
 
         // Step 3: Fetch other backend data
         isAdminMode = window.location.pathname.includes('/admin');
