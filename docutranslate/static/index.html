@@ -275,7 +275,7 @@
                                         data-bs-target="#collapseTxt" aria-expanded="false"
                                         aria-controls="collapseTxt">
                                     <strong id="txtSettingsTitle"><i
-                                            class="bi bi-filetype-txt me-2"></i>TXT翻译选项</strong>
+                                            class="bi bi-filetype-txt me-2"></i><span data-i18n="txtSettingsTitleText">TXT翻译选项</span></strong>
                                 </button>
                             </h2>
                             <div id="collapseTxt" class="accordion-collapse collapse" aria-labelledby="headingTxt">
@@ -316,7 +316,7 @@
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                                         data-bs-target="#collapseDocx" aria-expanded="false"
                                         aria-controls="collapseDocx">
-                                    <strong id="docxSettingsTitle"><i class="bi bi-file-earmark-word me-2"></i>DOCX翻译选项</strong>
+                                    <strong id="docxSettingsTitle"><i class="bi bi-file-earmark-word me-2"></i><span data-i18n="docxSettingsTitleText">DOCX翻译选项</span></strong>
                                 </button>
                             </h2>
                             <div id="collapseDocx" class="accordion-collapse collapse" aria-labelledby="headingDocx">
@@ -340,7 +340,7 @@
                                         <label for="docx_separator" class="form-label"
                                                data-i18n="separatorLabel">分隔符</label>
                                         <input type="text" class="form-control" id="docx_separator" name="separator"
-                                               data-i18n-placeholder="separatorPlaceholder"
+                                               data-i18n-placeholder="separatorPlaceholderWithTranslation"
                                                placeholder="例如: \n---翻译---\n">
                                         <div class="form-text" data-i18n="separatorHelp">
                                             当插入模式为附加或前置时，用于分隔原文和译文的字符。<code>\n</code> 代表换行。
@@ -357,7 +357,7 @@
                                         data-bs-target="#collapseXlsx" aria-expanded="false"
                                         aria-controls="collapseXlsx">
                                     <strong id="xlsxSettingsTitle"><i
-                                            class="bi bi-file-earmark-spreadsheet me-2"></i>XLSX翻译选项</strong>
+                                            class="bi bi-file-earmark-spreadsheet me-2"></i><span data-i18n="xlsxSettingsTitleText">XLSX翻译选项</span></strong>
                                 </button>
                             </h2>
                             <div id="collapseXlsx" class="accordion-collapse collapse" aria-labelledby="headingXlsx">
@@ -406,7 +406,7 @@
                                         data-bs-target="#collapseSrt" aria-expanded="false"
                                         aria-controls="collapseSrt">
                                     <strong id="srtSettingsTitle"><i
-                                            class="bi bi-file-text me-2"></i>SRT翻译选项</strong>
+                                            class="bi bi-file-text me-2"></i><span data-i18n="srtSettingsTitleText">SRT翻译选项</span></strong>
                                 </button>
                             </h2>
                             <div id="collapseSrt" class="accordion-collapse collapse" aria-labelledby="headingSrt">
@@ -447,7 +447,7 @@
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                                         data-bs-target="#collapseEpub" aria-expanded="false"
                                         aria-controls="collapseEpub">
-                                    <strong id="epubSettingsTitle"><i class="bi bi-book me-2"></i>EPUB翻译选项</strong>
+                                    <strong id="epubSettingsTitle"><i class="bi bi-book me-2"></i><span data-i18n="epubSettingsTitleText">EPUB翻译选项</span></strong>
                                 </button>
                             </h2>
                             <div id="collapseEpub" class="accordion-collapse collapse" aria-labelledby="headingEpub">
@@ -487,7 +487,7 @@
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                                         data-bs-target="#collapseHtml" aria-expanded="false"
                                         aria-controls="collapseHtml">
-                                    <strong id="htmlSettingsTitle"><i class="bi bi-filetype-html me-2"></i>HTML翻译选项</strong>
+                                    <strong id="htmlSettingsTitle"><i class="bi bi-filetype-html me-2"></i><span data-i18n="htmlSettingsTitleText">HTML翻译选项</span></strong>
                                 </button>
                             </h2>
                             <div id="collapseHtml" class="accordion-collapse collapse" aria-labelledby="headingHtml">
@@ -511,7 +511,7 @@
                                         <label for="html_separator" class="form-label"
                                                data-i18n="separatorLabel">分隔符</label>
                                         <input type="text" class="form-control" id="html_separator" name="separator"
-                                               data-i18n-placeholder="separatorPlaceholderSimple"
+                                               data-i18n-placeholder="htmlSeparatorPlaceholder"
                                                placeholder="例如: <!-- translated -->">
                                         <div class="form-text" data-i18n="separatorHelp">
                                             当插入模式为附加或前置时，用于分隔原文和译文的字符。<code>\n</code> 代表换行。
@@ -528,7 +528,7 @@
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                                         data-bs-target="#collapseJson" aria-expanded="false"
                                         aria-controls="collapseJson">
-                                    <strong id="jsonSettingsTitle"><i class="bi bi-signpost-split me-2"></i>JSON路径配置</strong>
+                                    <strong id="jsonSettingsTitle"><i class="bi bi-signpost-split me-2"></i><span data-i18n="jsonSettingsTitleText">JSON路径配置</span></strong>
                                 </button>
                             </h2>
                             <div id="collapseJson" class="accordion-collapse collapse" aria-labelledby="headingJson">
@@ -554,7 +554,7 @@ $.*"></textarea>
                             <h2 class="accordion-header" id="headingOne">
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                                         data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
-                                    <strong id="parsingSettingsTitle"><i class="bi bi-file-earmark-binary me-2"></i>解析配置</strong>
+                                    <strong id="parsingSettingsTitle"><i class="bi bi-file-earmark-binary me-2"></i><span data-i18n="parsingSettingsTitleText">解析配置</span></strong>
                                 </button>
                             </h2>
                             <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne">
@@ -618,7 +618,7 @@ $.*"></textarea>
                             <h2 class="accordion-header" id="headingTwo">
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                                         data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
-                                    <strong id="aiSettingsTitle"><i class="bi bi-robot me-2"></i>翻译模型</strong>
+                                    <strong id="aiSettingsTitle"><i class="bi bi-robot me-2"></i><span data-i18n="aiSettingsTitleText">翻译模型</span></strong>
                                 </button>
                             </h2>
                             <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo">
@@ -711,7 +711,7 @@ $.*"></textarea>
                                         data-bs-target="#collapseThree" aria-expanded="false"
                                         aria-controls="collapseThree">
                                     <strong id="translationSettingsTitle"><i
-                                            class="bi bi-translate me-2"></i>翻译配置</strong>
+                                            class="bi bi-translate me-2"></i><span data-i18n="translationSettingsTitleText">翻译配置</span></strong>
                                 </button>
                             </h2>
                             <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree">
@@ -720,17 +720,17 @@ $.*"></textarea>
                                         <label for="to_lang" class="form-label"
                                                data-i18n="targetLanguageLabel">目标语言</label>
                                         <select class="form-select" id="to_lang" name="to_lang">
-                                            <option value="中文">中文(简体中文)</option>
-                                            <option value="英文">英文(English)</option>
-                                            <option value="西班牙文">西班牙文(Español)</option>
-                                            <option value="法文">法文(Français)</option>
-                                            <option value="德文">德文(Deutsch)</option>
-                                            <option value="日文">日文(日本語)</option>
-                                            <option value="韩文">韩文(한국어)</option>
-                                            <option value="俄文">俄文(Русский)</option>
-                                            <option value="葡萄牙文">葡萄牙文(Português)</option>
-                                            <option value="阿拉伯文">阿拉伯文(العَرَبِيَّة)</option>
-                                            <option value="越南文">越南文(tiếng Việt)</option>
+                                            <option value="中文" data-i18n="languageChinese">中文(简体中文)</option>
+                                            <option value="英文" data-i18n="languageEnglish">英文(English)</option>
+                                            <option value="西班牙文" data-i18n="languageSpanish">西班牙文(Español)</option>
+                                            <option value="法文" data-i18n="languageFrench">法文(Français)</option>
+                                            <option value="德文" data-i18n="languageGerman">德文(Deutsch)</option>
+                                            <option value="日文" data-i18n="languageJapanese">日文(日本語)</option>
+                                            <option value="韩文" data-i18n="languageKorean">韩文(한국어)</option>
+                                            <option value="俄文" data-i18n="languageRussian">俄文(Русский)</option>
+                                            <option value="葡萄牙文" data-i18n="languagePortuguese">葡萄牙文(Português)</option>
+                                            <option value="阿拉伯文" data-i18n="languageArabic">阿拉伯文(العَرَبِيَّة)</option>
+                                            <option value="越南文" data-i18n="languageVietnamese">越南文(tiếng Việt)</option>
                                             <option value="custom" data-i18n="targetLanguageCustom">其它 (自定义)
                                             </option>
                                         </select>
@@ -931,17 +931,17 @@ $.*"></textarea>
                                                        data-i18n="targetLanguageLabel">目标语言</label>
                                                 <select class="form-select" id="glossary_agent_to_lang"
                                                         name="glossary_agent_to_lang">
-                                                    <option value="中文">中文(简体中文)</option>
-                                                    <option value="英文">英文(English)</option>
-                                                    <option value="西班牙文">西班牙文(Español)</option>
-                                                    <option value="法文">法文(Français)</option>
-                                                    <option value="德文">德文(Deutsch)</option>
-                                                    <option value="日文">日文(日本語)</option>
-                                                    <option value="韩文">韩文(한국어)</option>
-                                                    <option value="俄文">俄文(Русский)</option>
-                                                    <option value="葡萄牙文">葡萄牙文(Português)</option>
-                                                    <option value="阿拉伯文">阿拉伯文(العَرَبِيَّة)</option>
-                                                    <option value="越南文">越南文(tiếng Việt)</option>
+                                                    <option value="中文" data-i18n="languageChinese">中文(简体中文)</option>
+                                                    <option value="英文" data-i18n="languageEnglish">英文(English)</option>
+                                                    <option value="西班牙文" data-i18n="languageSpanish">西班牙文(Español)</option>
+                                                    <option value="法文" data-i18n="languageFrench">法文(Français)</option>
+                                                    <option value="德文" data-i18n="languageGerman">德文(Deutsch)</option>
+                                                    <option value="日文" data-i18n="languageJapanese">日文(日本語)</option>
+                                                    <option value="韩文" data-i18n="languageKorean">韩文(한국어)</option>
+                                                    <option value="俄文" data-i18n="languageRussian">俄文(Русский)</option>
+                                                    <option value="葡萄牙文" data-i18n="languagePortuguese">葡萄牙文(Português)</option>
+                                                    <option value="阿拉伯文" data-i18n="languageArabic">阿拉伯文(العَرَبِيَّة)</option>
+                                                    <option value="越南文" data-i18n="languageVietnamese">越南文(tiếng Việt)</option>
                                                     <option value="custom" data-i18n="targetLanguageCustom">其它
                                                         (自定义)
                                                     </option>
@@ -1061,8 +1061,8 @@ $.*"></textarea>
                                                 <div class="mb-3">
                                                     <label for="ldapProtocol" class="form-label" data-i18n="ldapProtocolLabel">协议类型</label>
                                                     <select class="form-select" id="ldapProtocol" name="ldap_protocol">
-                                                        <option value="ldap">LDAP (389端口)</option>
-                                                        <option value="ldaps">LDAPS (636端口)</option>
+                                                        <option value="ldap" data-i18n="ldapProtocol389">LDAP (389端口)</option>
+                                                        <option value="ldaps" data-i18n="ldapProtocol636">LDAPS (636端口)</option>
                                                     </select>
                                                 </div>
                                             </div>
@@ -1070,6 +1070,7 @@ $.*"></textarea>
                                                 <div class="mb-3">
                                                     <label for="ldapHost" class="form-label" data-i18n="ldapHostLabel">LDAP服务器（与证书CN/SAN匹配）</label>
                                                     <input type="text" class="form-control" id="ldapHost" name="ldap_host"
+                                                           data-i18n-placeholder="ldapHostPlaceholder"
                                                            placeholder="adtest2.testldaps.io 或 192.168.x.x">
                                                     <div class="form-text" data-i18n="ldapHostHelp">建议使用与证书匹配的主机名，否则可能导致验证失败</div>
                                                 </div>
@@ -1096,6 +1097,7 @@ $.*"></textarea>
                                         <div class="mb-3">
                                             <label for="ldapBindDnTemplate" class="form-label" data-i18n="ldapBindDnTemplateLabel">绑定 DN 模板</label>
                                             <input type="text" class="form-control" id="ldapBindDnTemplate" name="ldap_bind_dn_template"
+                                                   data-i18n-placeholder="ldapBindDnPlaceholder"
                                                    placeholder="EXAMPLE\\{username} 或 {username}@example.com">
                                             <div class="form-text" data-i18n="ldapBindDnTemplateHelp">
                                                 使用{username}作为用户名占位符
@@ -2422,7 +2424,7 @@ $.*"></textarea>
                 if (!convertEnginSelect.value || convertEnginSelect.value === 'identity') {
                     convertEnginSelect.value = 'mineru';
                     updateConvertEnginUI();
-                    console.log('PDF工作流：默认选择MinerU解析器');
+                    console.log(getText('pdfWorkflowDefaultMineru', 'PDF工作流：默认选择MinerU解析器'));
                 }
             }
         }
@@ -2838,7 +2840,7 @@ $.*"></textarea>
                             if (!convertEnginSelect.value || convertEnginSelect.value === 'identity') {
                                 convertEnginSelect.value = 'mineru';
                                 updateConvertEnginUI();
-                                console.log('PDF文件上传：默认选择MinerU解析器');
+                                console.log(getText('pdfUploadDefaultMineru', 'PDF文件上传：默认选择MinerU解析器'));
                             }
                         }
                     }, 100);
@@ -3644,11 +3646,11 @@ $.*"></textarea>
         const defaultUserConfigGroup = document.getElementById('defaultUserConfigGroup');
         
         if (ldapEnabled) {
-            ldapConfigGroup.style.display = 'block';
-            defaultUserConfigGroup.style.display = 'none';
+            if (ldapConfigGroup) ldapConfigGroup.style.display = 'block';
+            if (defaultUserConfigGroup) defaultUserConfigGroup.style.display = 'none';
         } else {
-            ldapConfigGroup.style.display = 'none';
-            defaultUserConfigGroup.style.display = 'block';
+            if (ldapConfigGroup) ldapConfigGroup.style.display = 'none';
+            if (defaultUserConfigGroup) defaultUserConfigGroup.style.display = 'block';
         }
     }
     
@@ -4302,6 +4304,11 @@ $.*"></textarea>
 
         // Load AUTH configuration
         loadAuthConfig();
+        
+        // Ensure LDAP UI is updated after a short delay to handle async loading
+        setTimeout(() => {
+            updateLdapConfigUI();
+        }, 100);
     }
 
     // --- Theme switcher logic ---

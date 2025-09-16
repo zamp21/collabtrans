@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LDAP UI Debug</title>
+</head>
+<body>
+    <h1>LDAP UI Debug</h1>
+    <div id="debug-info"></div>
+    
+    <script>
+        async function debugLdapConfig() {
+            const debugDiv = document.getElementById('debug-info');
+            
+            try {
+                // Test auth config endpoint
+                const response = await fetch('/auth/config', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const config = await response.json();
+                    debugDiv.innerHTML = `
+                        <h2>LDAP Config Response:</h2>
+                        <pre>${JSON.stringify(config, null, 2)}</pre>
+                        
+                        <h2>LDAP Enabled:</h2>
+                        <p>${config.ldap_enabled}</p>
+                        
+                        <h2>LDAP Admin Group Enabled:</h2>
+                        <p>${config.ldap_admin_group_enabled}</p>
+                        
+                        <h2>LDAP User Group Enabled:</h2>
+                        <p>${config.ldap_user_group_enabled}</p>
+                        
+                        <h2>LDAP Admin Group:</h2>
+                        <p>${config.ldap_admin_group}</p>
+                        
+                        <h2>LDAP User Group:</h2>
+                        <p>${config.ldap_user_group}</p>
+                        
+                        <h2>LDAP Group Base DN:</h2>
+                        <p>${config.ldap_group_base_dn}</p>
+                    `;
+                } else {
+                    debugDiv.innerHTML = `<p>Error: ${response.status} ${response.statusText}</p>`;
+                }
+            } catch (error) {
+                debugDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+            }
+        }
+        
+        // Run debug when page loads
+        window.onload = debugLdapConfig;
+    </script>
+</body>
+</html>
