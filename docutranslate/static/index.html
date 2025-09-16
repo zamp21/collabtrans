@@ -2587,7 +2587,7 @@ $.*"></textarea>
 
     function setupGlossaryAgentPlatformUI() {
         glossaryAgentPlatformSelect.innerHTML = platformSelect.innerHTML;
-        glossaryAgentPlatformSelect.value = getFromConfig('glossary_agent_last_platform', 'https://api.openai.com/v1');
+        glossaryAgentPlatformSelect.value = getFromConfig('glossary_agent_last_platform', 'https://api.deepseek.com/v1');
         glossaryAgentPlatformUpdater();
     }
 
@@ -3847,7 +3847,7 @@ $.*"></textarea>
             {element: htmlSeparatorInput, key: 'translator_html_separator', defaultValue: ' '},
             {element: jsonPathsTextarea, key: 'translator_json_paths', defaultValue: ''},
             {element: skipTranslationSwitch, key: 'translator_skip_translate', defaultValue: 'false', type: 'boolean'},
-            {element: platformSelect, key: 'translator_last_platform', defaultValue: 'https://api.openai.com/v1'},
+            {element: platformSelect, key: 'translator_last_platform', defaultValue: 'https://api.deepseek.com/v1'},
             {element: convertEnginSelect, key: 'translator_convert_engin', defaultValue: 'mineru'},
             {element: modelVersionSelect, key: 'translator_model_version', defaultValue: 'vlm'},
             {element: toLangSelect, key: 'translator_target_language', defaultValue: '英文'},

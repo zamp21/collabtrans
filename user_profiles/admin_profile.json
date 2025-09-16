@@ -20,7 +20,7 @@
   "translator_target_language": "英文",
   "translator_custom_language": "",
   "translator_custom_prompt": "",
-  "translator_platform_type": "dashscope",
+  "translator_platform_type": "deepseek",
   "translator_temperature": "0.3",
   "translator_max_tokens": 4000,
   "translator_top_p": 1.0,
@@ -30,7 +30,7 @@
   "concurrent": "3",
   "glossary_generate_enable": false,
   "glossary_agent_config_choice": "same",
-  "glossary_agent_platform_type": "openai",
+  "glossary_agent_platform_type": "deepseek",
   "glossary_agent_thinking_mode": "disable",
   "glossary_agent_temperature": "0.3",
   "glossary_agent_max_tokens": 4000,
@@ -47,9 +47,10 @@
     "dashscope": "qwen2.5-7b-instruct"
   },
   "glossary_agent_platform_models": {
-    "openai": "gpt-4o-mini"
+    "openai": "gpt-4o-mini",
+    "deepseek": "deepseek-v3"
   },
   "theme": "auto",
   "created_at": "2025-09-09T12:09:38.381776",
-  "updated_at": "2025-09-16T09:03:29.537310"
+  "updated_at": "2025-09-16T09:15:32.099924"
 }
