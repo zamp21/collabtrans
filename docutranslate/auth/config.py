@@ -7,6 +7,7 @@ import logging
 from dataclasses import dataclass, asdict
 from typing import Optional
 from pathlib import Path
+from ..config.secrets_manager import get_secrets_manager
 
 # 创建日志记录器
 logger = logging.getLogger(__name__)
@@ -80,37 +81,71 @@ class AuthConfig:
     
     @classmethod
     def load_from_file(cls, config_file: str = "auth_config.json") -> "AuthConfig":
-        """从配置文件加载配置"""
+        """从配置文件加载配置，并从敏感配置文件加载敏感信息"""
         config_path = Path(config_file)
         
         if not config_path.exists():
             logger.info(f"配置文件 {config_file} 不存在，使用默认配置")
-            return cls.from_env()
+            config = cls.from_env()
+        else:
+            try:
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config_data = json.load(f)
+                
+                logger.info(f"从配置文件 {config_file} 加载配置")
+                config = cls(**config_data)
+            except Exception as e:
+                logger.error(f"加载配置文件失败: {e}，使用默认配置")
+                config = cls.from_env()
         
+        # 从敏感配置文件加载敏感信息
+        config._load_auth_secrets()
+        
+        return config
+    
+    def _load_auth_secrets(self) -> None:
+        """从敏感配置文件加载认证相关敏感信息"""
         try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config_data = json.load(f)
+            secrets_manager = get_secrets_manager()
+            auth_secrets = secrets_manager.get_auth_secrets()
             
-            logger.info(f"从配置文件 {config_file} 加载配置")
-            return cls(**config_data)
+            if auth_secrets:
+                # 更新敏感信息
+                if "default_password" in auth_secrets and auth_secrets["default_password"]:
+                    self.default_password = auth_secrets["default_password"]
+                    logger.info("从敏感配置加载了默认密码")
+                
+                if "session_secret_key" in auth_secrets and auth_secrets["session_secret_key"]:
+                    self.session_secret_key = auth_secrets["session_secret_key"]
+                    logger.info("从敏感配置加载了会话密钥")
+                
+                if "redis_password" in auth_secrets and auth_secrets["redis_password"]:
+                    self.redis_password = auth_secrets["redis_password"]
+                    logger.info("从敏感配置加载了Redis密码")
+                    
         except Exception as e:
-            logger.error(f"加载配置文件失败: {e}，使用默认配置")
-            return cls.from_env()
+            logger.warning(f"加载认证敏感配置失败: {e}")
     
     def save_to_file(self, config_file: str = "auth_config.json") -> bool:
-        """保存配置到文件"""
+        """保存配置到文件（不包含敏感信息）"""
         config_path = Path(config_file)
         
         try:
             # 确保目录存在
             config_path.parent.mkdir(parents=True, exist_ok=True)
             
-            # 转换为字典并保存
+            # 创建不包含敏感信息的配置副本
             config_dict = asdict(self)
+            
+            # 移除敏感信息，这些信息保存在local_secrets.json中
+            config_dict.pop("default_password", None)
+            config_dict.pop("session_secret_key", None)
+            config_dict.pop("redis_password", None)
+            
             with open(config_path, 'w', encoding='utf-8') as f:
                 json.dump(config_dict, f, indent=2, ensure_ascii=False)
             
-            logger.info(f"配置已保存到 {config_file}")
+            logger.info(f"配置已保存到 {config_file}（不包含敏感信息）")
             return True
         except Exception as e:
             logger.error(f"保存配置文件失败: {e}")

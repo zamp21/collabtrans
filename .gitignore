@@ -11,5 +11,20 @@ docutranslate/output/
 # Virtual environments
 .venv
 #idea
-.idea/# Temporary files
+.idea/
+# Temporary files
 cookies*.txt
+
+# 敏感配置文件 - 包含API密钥等敏感信息
+local_secrets.json
+secrets.json
+.env
+.env.local
+
+# 用户配置文件
+user_profiles/
+auth_config.json
+
+# 备份文件
+*_backup_*.json
+*_old_*.json

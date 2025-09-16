@@ -438,9 +438,14 @@ async def get_app_config_api(
             config_dict['platform_api_keys'] = masked_keys
         
         
-        # 脱敏Mineru Token
-        if config_dict.get('translator_mineru_token'):
-            config_dict['translator_mineru_token'] = config_dict['translator_mineru_token'][:8] + "***" if len(config_dict['translator_mineru_token']) > 8 else "***"
+        # 脱敏Mineru Token（从敏感配置加载）
+        from ..config.secrets_manager import get_secrets_manager
+        secrets_manager = get_secrets_manager()
+        mineru_token = secrets_manager.get_mineru_token()
+        if mineru_token:
+            config_dict['translator_mineru_token'] = mineru_token[:8] + "***" if len(mineru_token) > 8 else "***"
+        else:
+            config_dict['translator_mineru_token'] = ""
         
         return config_dict
 
@@ -466,10 +471,13 @@ async def update_app_config_api(
             del config_data['platform_api_keys']
         
         
-        # 防止覆盖脱敏的Mineru Token
+        # 处理Mineru Token（保存到敏感配置）
         if 'translator_mineru_token' in config_data:
-            if config_data['translator_mineru_token'] and not config_data['translator_mineru_token'].endswith('***'):
-                app_config.translator_mineru_token = config_data['translator_mineru_token']
+            token = config_data['translator_mineru_token']
+            if token and not token.endswith('***'):
+                from ..config.secrets_manager import get_secrets_manager
+                secrets_manager = get_secrets_manager()
+                secrets_manager.update_mineru_token(token)
             del config_data['translator_mineru_token']
         
         # 更新其他配置
@@ -502,15 +510,25 @@ async def update_single_setting(
         
         from .user_profile import get_user_profile_manager
         from ..config.global_config import get_global_config, save_global_config
+        from ..config.secrets_manager import get_secrets_manager
         
         profile_manager = get_user_profile_manager()
         global_config = get_global_config()
 
+        # 定义敏感配置键（只有管理员可以修改，保存到local_secrets.json）
+        sensitive_config_keys = [
+            'translator_mineru_token',
+            'platform_api_keys',
+            'default_password',
+            'session_secret_key',
+            'redis_password'
+        ]
+        
         # 定义全局配置键（只有管理员可以修改）
         global_config_keys = [
-            'translator_convert_engin', 'translator_mineru_token', 'translator_mineru_model_version',
+            'translator_convert_engin', 'translator_mineru_model_version',
             'translator_formula_ocr', 'translator_code_ocr', 'translator_skip_translate',
-            'platform_urls', 'platform_api_keys', 'platform_models', 'active_task_ids',
+            'platform_urls', 'platform_models', 'active_task_ids',
             # LDAP配置键
             'ldap_enabled', 'ldap_protocol', 'ldap_host', 'ldap_port', 'ldap_bind_dn_template',
             'ldap_base_dn', 'ldap_user_filter', 'ldap_tls_cacertfile', 'ldap_tls_verify'
@@ -539,7 +557,12 @@ async def update_single_setting(
         ]
         
         # 权限检查
-        if key in global_config_keys:
+        if key in sensitive_config_keys:
+            # 敏感配置，只有管理员可以修改
+            if not user.is_admin():
+                logger.warning(f"LDAP用户 {_mask_username(user.username)} 尝试修改敏感配置: {key}")
+                raise HTTPException(status_code=403, detail="Access denied: Only admin can modify sensitive settings")
+        elif key in global_config_keys:
             # 全局配置，只有管理员可以修改
             if not user.is_admin():
                 logger.warning(f"LDAP用户 {_mask_username(user.username)} 尝试修改全局配置: {key}")
@@ -553,20 +576,44 @@ async def update_single_setting(
             raise HTTPException(status_code=400, detail=f"Unknown setting key: {key}")
         
         # 根据配置类型进行更新
-        if key in global_config_keys:
+        if key in sensitive_config_keys:
+            # 更新敏感配置（保存到local_secrets.json）
+            secrets_manager = get_secrets_manager()
+            
+            if key == 'translator_mineru_token':
+                if secrets_manager.update_mineru_token(value):
+                    logger.info(f"MinerU令牌已由用户 {_mask_username(user.username)} 更新")
+                    return {"success": True, "message": "MinerU token updated successfully"}
+                else:
+                    raise HTTPException(status_code=500, detail="Failed to save MinerU token")
+            
+            elif key == 'platform_api_keys':
+                # 处理平台API密钥字典
+                if isinstance(value, dict):
+                    for platform, api_key in value.items():
+                        if api_key and api_key.strip():  # 只保存非空密钥
+                            secrets_manager.update_api_key(platform, api_key)
+                    logger.info(f"平台API密钥已由用户 {_mask_username(user.username)} 更新")
+                    return {"success": True, "message": "Platform API keys updated successfully"}
+                else:
+                    raise HTTPException(status_code=400, detail="Platform API keys must be a dictionary")
+            
+            elif key in ['default_password', 'session_secret_key', 'redis_password']:
+                if secrets_manager.update_auth_secret(key, value):
+                    logger.info(f"认证敏感配置 {key} 已由用户 {_mask_username(user.username)} 更新")
+                    return {"success": True, "message": f"Auth secret {key} updated successfully"}
+                else:
+                    raise HTTPException(status_code=500, detail=f"Failed to save auth secret {key}")
+            
+            else:
+                raise HTTPException(status_code=400, detail=f"Unknown sensitive setting key: {key}")
+        
+        elif key in global_config_keys:
             # 更新全局配置
-            if key.startswith('platform_') and key.endswith('_apikey'):
-                # 处理平台API密钥
-                platform = key.replace('translator_platform_', '').replace('_apikey', '')
-                global_config.update_platform_api_key(platform, value)
-            elif key.startswith('platform_') and key.endswith('_model_id'):
+            if key.startswith('platform_') and key.endswith('_model_id'):
                 # 处理平台模型
                 platform = key.replace('translator_platform_', '').replace('_model_id', '')
                 global_config.update_platform_model(platform, value)
-            elif key.startswith('glossary_agent_platform_') and key.endswith('_apikey'):
-                # 处理术语表平台API密钥
-                platform = key.replace('glossary_agent_platform_', '').replace('_apikey', '')
-                global_config.update_glossary_platform_api_key(platform, value)
             elif key.startswith('glossary_agent_platform_') and key.endswith('_model_id'):
                 # 处理术语表平台模型
                 platform = key.replace('glossary_agent_platform_', '').replace('_model_id', '')

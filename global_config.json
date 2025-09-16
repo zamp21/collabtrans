@@ -1,6 +1,5 @@
 {
   "translator_convert_engin": "mineru",
-  "translator_mineru_token": "test_token",
   "translator_mineru_model_version": "vlm",
   "translator_formula_ocr": false,
   "translator_code_ocr": false,
@@ -23,7 +22,6 @@
     "dmxapi": "https://www.dmxapi.cn/v1",
     "custom": ""
   },
-  "platform_api_keys": {},
   "platform_models": {
     "openai": "gpt-4o-mini",
     "azure": "gpt-4o-mini",

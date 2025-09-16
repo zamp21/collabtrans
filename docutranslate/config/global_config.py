@@ -7,6 +7,7 @@ import logging
 from dataclasses import dataclass, asdict, field
 from typing import Optional, Dict, Any
 from pathlib import Path
+from .secrets_manager import get_secrets_manager
 
 # 创建日志记录器
 logger = logging.getLogger(__name__)
@@ -82,7 +83,7 @@ class GlobalConfig:
     
     @classmethod
     def load_from_file(cls, config_file: str = "global_config.json") -> "GlobalConfig":
-        """从文件加载全局配置"""
+        """从文件加载全局配置，并从敏感配置文件加载API密钥"""
         try:
             if os.path.exists(config_file):
                 logger.info(f"正在从文件加载全局配置: {config_file}")
@@ -92,20 +93,56 @@ class GlobalConfig:
                     config = cls()
                     config.update_from_dict(data)
                     logger.info("全局配置加载成功")
-                    return config
             else:
                 logger.info(f"全局配置文件 {config_file} 不存在，使用默认配置")
-                return cls()
+                config = cls()
+            
+            # 从敏感配置文件加载API密钥等敏感信息
+            config._load_secrets()
+            
+            return config
         except Exception as e:
             logger.error(f"加载全局配置失败: {e}")
-            return cls()
+            config = cls()
+            config._load_secrets()
+            return config
+    
+    def _load_secrets(self) -> None:
+        """从敏感配置文件加载敏感信息"""
+        try:
+            secrets_manager = get_secrets_manager()
+            
+            # 加载API密钥
+            api_keys = secrets_manager.get_api_keys()
+            if api_keys:
+                # 合并API密钥，敏感配置优先
+                for platform, key in api_keys.items():
+                    if key and key.strip():  # 只更新非空的密钥
+                        self.platform_api_keys[platform] = key
+                logger.info(f"从敏感配置加载了 {len(api_keys)} 个API密钥")
+            
+            # 加载MinerU令牌
+            mineru_token = secrets_manager.get_mineru_token()
+            if mineru_token and mineru_token.strip():
+                self.translator_mineru_token = mineru_token
+                logger.info("从敏感配置加载了MinerU令牌")
+                
+        except Exception as e:
+            logger.warning(f"加载敏感配置失败: {e}")
     
     def save_to_file(self, config_file: str = "global_config.json") -> bool:
-        """保存全局配置到文件"""
+        """保存全局配置到文件（不包含敏感信息）"""
         try:
+            # 创建不包含敏感信息的配置副本
+            config_dict = asdict(self)
+            
+            # 移除敏感信息，这些信息保存在local_secrets.json中
+            config_dict.pop("platform_api_keys", None)
+            config_dict.pop("translator_mineru_token", None)
+            
             with open(config_file, 'w', encoding='utf-8') as f:
-                json.dump(asdict(self), f, ensure_ascii=False, indent=2)
-            logger.info(f"全局配置已保存到: {config_file}")
+                json.dump(config_dict, f, ensure_ascii=False, indent=2)
+            logger.info(f"全局配置已保存到: {config_file}（不包含敏感信息）")
             return True
         except Exception as e:
             logger.error(f"保存全局配置失败: {e}")
