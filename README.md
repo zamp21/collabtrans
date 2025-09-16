@@ -1,3 +1,6 @@
+This project is forked from docutranslate. It's to used for a team to translate docs and support LDAP/LDAPS. 
+
+
 <p align="center">
   <img src="./DocuTranslate.png" alt="Project Logo" style="width: 150px">
 </p>
