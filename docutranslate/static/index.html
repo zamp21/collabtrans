@@ -222,6 +222,17 @@
                                 <i class="bi bi-people-fill me-1"></i><span
                                     data-i18n="projectContributeBtn">项目协作</span>
                             </button>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                        data-bs-toggle="dropdown" aria-expanded="false" id="topLanguageDropdownBtn"
+                                        data-i18n-title="languageSwitcherTitle" title="切换语言 / Switch Language">
+                                    <i class="bi bi-translate me-1"></i><span data-i18n="languageBtn">语言</span>
+                                </button>
+                                <ul class="dropdown-menu" id="topLanguageMenu">
+                                    <li><a class="dropdown-item" href="#" data-lang="zh" data-i18n="languageChinese">中文</a></li>
+                                    <li><a class="dropdown-item" href="#" data-lang="en" data-i18n="languageEnglish">English</a></li>
+                                </ul>
+                            </div>
                             <button type="button" class="btn btn-sm btn-outline-danger" id="logoutBtn">
                                 <i class="bi bi-box-arrow-right me-1"></i><span data-i18n="logoutBtn">退出登录</span>
                             </button>
@@ -1475,12 +1486,12 @@ $.*"></textarea>
     <!-- Language Switcher -->
     <div class="dropdown">
         <button class="btn btn-secondary dropdown-toggle" type="button" id="language-switcher" data-bs-toggle="dropdown"
-                aria-expanded="false" title="切换语言 / Switch Language">
+                aria-expanded="false" data-i18n-title="languageSwitcherTitle" title="切换语言 / Switch Language">
             <i class="bi bi-translate"></i>
         </button>
         <ul class="dropdown-menu" aria-labelledby="language-switcher" id="languageMenu">
-            <li><a class="dropdown-item" href="#" data-lang="zh">中文</a></li>
-            <li><a class="dropdown-item" href="#" data-lang="en">English</a></li>
+            <li><a class="dropdown-item" href="#" data-lang="zh" data-i18n="languageChinese">中文</a></li>
+            <li><a class="dropdown-item" href="#" data-lang="en" data-i18n="languageEnglish">English</a></li>
         </ul>
     </div>
 
@@ -1788,11 +1799,21 @@ $.*"></textarea>
         updateWorkflowUI();
         updateConvertEnginUI(true);
 
-        // Update language switcher active state
+        // Update language switcher active state (bottom)
         const langMenu = document.getElementById('languageMenu');
-        langMenu.querySelectorAll('a.active').forEach(a => a.classList.remove('active'));
-        const activeLink = langMenu.querySelector(`a[data-lang="${lang}"]`);
-        if (activeLink) activeLink.classList.add('active');
+        if (langMenu) {
+            langMenu.querySelectorAll('a.active').forEach(a => a.classList.remove('active'));
+            const activeLink = langMenu.querySelector(`a[data-lang="${lang}"]`);
+            if (activeLink) activeLink.classList.add('active');
+        }
+
+        // Update language switcher active state (top)
+        const topLangMenu = document.getElementById('topLanguageMenu');
+        if (topLangMenu) {
+            topLangMenu.querySelectorAll('a.active').forEach(a => a.classList.remove('active'));
+            const activeLink = topLangMenu.querySelector(`a[data-lang="${lang}"]`);
+            if (activeLink) activeLink.classList.add('active');
+        }
 
         // Save preference
         saveToConfig('ui_language', lang);
@@ -1800,14 +1821,27 @@ $.*"></textarea>
 
 
     function initI18n() {
-        // Initialize language menu
+        // Initialize language menu (bottom)
         const langMenu = document.getElementById('languageMenu');
-        langMenu.querySelectorAll('a[data-lang]').forEach(a => {
-            a.addEventListener('click', (e) => {
-                e.preventDefault();
-                setLanguage(a.dataset.lang);
+        if (langMenu) {
+            langMenu.querySelectorAll('a[data-lang]').forEach(a => {
+                a.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    setLanguage(a.dataset.lang);
+                });
             });
-        });
+        }
+
+        // Initialize language menu (top)
+        const topLangMenu = document.getElementById('topLanguageMenu');
+        if (topLangMenu) {
+            topLangMenu.querySelectorAll('a[data-lang]').forEach(a => {
+                a.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    setLanguage(a.dataset.lang);
+                });
+            });
+        }
 
         // Set initial language
         const savedLang = getFromStorage('ui_language') || (navigator.language.toLowerCase().startsWith('en') ? 'en' : 'zh');
