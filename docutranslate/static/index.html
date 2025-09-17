@@ -93,6 +93,25 @@
             font-weight: bold;
         }
 
+        /* Emphasize outline buttons with sky-blue borders */
+        .btn.btn-outline-secondary {
+            border-color: #1da1f2 !important;
+            color: #1da1f2 !important;
+        }
+        .btn.btn-outline-secondary:hover,
+        .btn.btn-outline-secondary:focus,
+        .btn.btn-outline-secondary:active,
+        .btn.btn-outline-secondary.active {
+            border-color: #1da1f2 !important;
+            color: #1da1f2 !important;
+            background-color: rgba(29, 161, 242, 0.08) !important;
+        }
+        .btn.btn-outline-secondary:disabled,
+        .btn.btn-outline-secondary.disabled {
+            border-color: rgba(29, 161, 242, 0.5) !important;
+            color: rgba(29, 161, 242, 0.5) !important;
+        }
+
         #printFrame, #translatedPreviewFrame {
             border: none;
             width: 100%;
@@ -872,9 +891,7 @@ $.*"></textarea>
                                             <button type="button" class="btn btn-sm btn-outline-secondary" id="glossaryManagementBtn">
                                                 <i class="bi bi-gear me-1"></i><span data-i18n="glossaryManagementBtn">术语表管理</span>
                                             </button>
-                                            <button type="button" class="btn btn-sm btn-outline-danger" id="clearGlossaryBtn">
-                                                <i class="bi bi-trash me-1"></i><span data-i18n="clearGlossaryBtn">清空</span>
-                                            </button>
+                                            
                                             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="previewMergedGlossary()" data-i18n="previewGlossaryBtn">
                                                 <i class="bi bi-eye me-1"></i><span data-i18n="previewGlossaryBtn">预览术语表</span>
                                             </button>
@@ -2087,7 +2104,6 @@ $.*"></textarea>
     const customPromptTranslateArea = document.getElementById("custom_prompt");
     // [NEW] Glossary elements
     const glossaryFilesInput = document.getElementById('glossary_files');
-    const clearGlossaryBtn = document.getElementById('clearGlossaryBtn');
     const glossaryModalEl = document.getElementById('glossaryModal');
     const glossaryModal = new bootstrap.Modal(glossaryModalEl);
     const glossaryTableBody = document.getElementById('glossaryTableBody');
@@ -2463,12 +2479,7 @@ $.*"></textarea>
             console.log('Hidden: Glossary Management button');
         }
         
-        // 10. 隐藏术语表清空按钮（只有admin、管理组用户和术语表组用户才能使用）
-        const clearGlossaryBtn = document.getElementById('clearGlossaryBtn');
-        if (clearGlossaryBtn && (!userPermissions || (!userPermissions.is_admin && !userPermissions.can_access_admin_settings && !userPermissions.can_access_glossary_management))) {
-            clearGlossaryBtn.style.display = 'none';
-            console.log('Hidden: Clear Glossary button');
-        }
+        // 10. 清空按钮已移除
     };
     
     // admin group：开放所有设置，但禁用默认密码输入
@@ -4904,7 +4915,6 @@ $.*"></textarea>
             {element: glossaryAgentCustomLangInput, event: 'input', saveKey: 'glossary_agent_custom_to_lang'},
             // Others
             {element: glossaryFilesInput, event: 'change', handler: handleGlossaryFiles},
-            {element: clearGlossaryBtn, event: 'click', handler: clearGlossary},
             {element: addNewTaskBtn, event: 'click', handler: () => createTaskCard()},
             {element: setBilingualViewBtn, event: 'click', handler: () => setPreviewDisplayMode('bilingual')},
             {element: setTranslatedOnlyViewBtn, event: 'click', handler: () => setPreviewDisplayMode('translatedOnly')},
