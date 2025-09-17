@@ -73,6 +73,32 @@ def get_ldap_client() -> Optional[LDAPClient]:
     return _ldap_client
 
 
+def _refresh_ldap_client_if_endpoint_changed(old_cfg: "AuthConfig", new_cfg: "AuthConfig") -> None:
+    """当LDAP端点相关配置发生变化时，安全地重建LDAP客户端。"""
+    try:
+        endpoint_fields = [
+            'ldap_enabled', 'ldap_protocol', 'ldap_host', 'ldap_port',
+            'ldap_tls_cacertfile', 'ldap_tls_verify'
+        ]
+        changed = any(getattr(old_cfg, f, None) != getattr(new_cfg, f, None) for f in endpoint_fields)
+        if changed:
+            global _ldap_client
+            if _ldap_client is not None:
+                try:
+                    _ldap_client.close()
+                except Exception:
+                    pass
+            # 仅当启用了LDAP时才重建
+            if new_cfg.ldap_enabled:
+                _ldap_client = LDAPClient(new_cfg)
+                logger.info("[LDAP] 端点配置变化，LDAP客户端已重建")
+            else:
+                _ldap_client = None
+                logger.info("[LDAP] 已禁用LDAP，客户端已释放")
+    except Exception as e:
+        logger.warning(f"[LDAP] 检查/重建客户端时发生异常: {e}")
+
+
 async def get_current_user(request: Request) -> Optional[User]:
     """获取当前用户"""
     session_manager = get_session_manager()
@@ -862,6 +888,9 @@ async def update_app_config_api(
                     ldap_updates['ldap_glossary_group'] = ldap_updates.pop('ldap_user_group')
                 from .config import get_auth_config as _get_auth_cfg, save_auth_config as _save_auth_cfg
                 auth_cfg = _get_auth_cfg()
+                # 保存前备份端点相关旧值
+                import copy
+                old_for_endpoint = copy.deepcopy(auth_cfg)
                 auth_cfg.update_from_dict(ldap_updates)
                 if _save_auth_cfg():
                     logger.info(f"[APP-CONFIG] 同步保存LDAP配置成功: {list(ldap_updates.keys())}")
@@ -871,6 +900,8 @@ async def update_app_config_api(
                         if _auth_config is not None:
                             _auth_config.update_from_dict(ldap_updates)
                             logger.info("[APP-CONFIG] 已同步更新模块内_auth_config")
+                        # 热重载LDAP客户端（若端点变化）
+                        _refresh_ldap_client_if_endpoint_changed(old_for_endpoint, auth_cfg)
                     except Exception as _e:
                         logger.warning(f"[APP-CONFIG] 同步模块内内存失败: {_e}")
                 else:

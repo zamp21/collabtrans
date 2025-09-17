@@ -242,15 +242,46 @@ class AuthConfig:
         # 如果文件中的配置是默认值，则检查环境变量是否有覆盖
         env_config = cls.from_env()
         
-        # 合并配置：文件配置优先，环境变量作为覆盖
-        for field_name in config.__dataclass_fields__:
-            env_value = getattr(env_config, field_name)
-            file_value = getattr(config, field_name)
-            
-            # 如果环境变量不是默认值，则使用环境变量
-            if env_value != getattr(cls(), field_name):
-                setattr(config, field_name, env_value)
-                logger.info(f"使用环境变量覆盖 {field_name} = {env_value}")
+        # 合并策略：仅当对应环境变量显式设置时才覆盖文件值
+        # 建立字段到环境变量名的映射（含兼容旧名）
+        field_env_map = {
+            'ldap_enabled': ['LDAP_ENABLED'],
+            'ldap_protocol': ['LDAP_PROTOCOL'],
+            'ldap_host': ['LDAP_HOST'],
+            'ldap_port': ['LDAP_PORT'],
+            'ldap_bind_dn_template': ['LDAP_BIND_DN_TEMPLATE'],
+            'ldap_base_dn': ['LDAP_BASE_DN'],
+            'ldap_user_filter': ['LDAP_USER_FILTER'],
+            'ldap_tls_cacertfile': ['LDAP_TLS_CACERTFILE'],
+            'ldap_tls_verify': ['LDAP_TLS_VERIFY'],
+            'ldap_admin_group_enabled': ['LDAP_ADMIN_GROUP_ENABLED'],
+            'ldap_admin_group': ['LDAP_ADMIN_GROUP'],
+            # 新旧键名都检测：若设置任一则覆盖
+            'ldap_glossary_group_enabled': ['LDAP_GLOSSARY_GROUP_ENABLED', 'LDAP_USER_GROUP_ENABLED'],
+            'ldap_glossary_group': ['LDAP_GLOSSARY_GROUP', 'LDAP_USER_GROUP'],
+            'ldap_group_base_dn': ['LDAP_GROUP_BASE_DN'],
+            'default_username': ['DEFAULT_USERNAME'],
+            'default_password': ['DEFAULT_PASSWORD'],
+            'session_secret_key': ['SESSION_SECRET_KEY'],
+            'session_cookie_name': ['SESSION_COOKIE_NAME'],
+            'session_max_age': ['SESSION_MAX_AGE'],
+            'redis_host': ['REDIS_HOST'],
+            'redis_port': ['REDIS_PORT'],
+            'redis_db': ['REDIS_DB'],
+            'redis_password': ['REDIS_PASSWORD'],
+            'max_login_attempts': ['MAX_LOGIN_ATTEMPTS'],
+            'login_attempt_window': ['LOGIN_ATTEMPT_WINDOW'],
+            'rate_limit_window': ['RATE_LIMIT_WINDOW']
+        }
+        
+        for field_name, env_vars in field_env_map.items():
+            try:
+                if any(os.getenv(var) is not None for var in env_vars):
+                    env_value = getattr(env_config, field_name)
+                    setattr(config, field_name, env_value)
+                    logger.info(f"使用环境变量覆盖 {field_name} = {env_value}")
+            except Exception:
+                continue
         
         return config
 
