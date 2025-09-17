@@ -4936,7 +4936,7 @@ $.*"></textarea>
                 const cacert = document.getElementById('ldapTlsCacertfile').value;
 
                 // 交互提示用户输入一个测试用户名
-                const username = prompt(getText('ldapTestUserPrompt', '输入用于测试的用户名（不含域）：'), 'testuser');
+                const username = prompt(getText('ldapTestUserPrompt', ''), 'testuser');
                 if (username === null) return;
 
                 // 生成 Bind DN（仅展示模板思路，实际绑定在命令中仍需 -D 提供完整标识）
@@ -4953,10 +4953,10 @@ $.*"></textarea>
 
                 try {
                     await navigator.clipboard.writeText(finalCmd);
-                    alert(getText('ldapTestCmdCopied', '测试命令已复制到剪贴板，请在终端中粘贴执行。'));
+                    alert(getText('ldapTestCmdCopied', ''));
                 } catch (err) {
                     console.warn('Clipboard copy failed:', err);
-                    alert(getText('ldapTestCmdShown', '无法复制到剪贴板，已在控制台输出命令。'));
+                    alert(getText('ldapTestCmdShown', ''));
                     console.log(finalCmd);
                 }
             }},
@@ -4976,7 +4976,7 @@ $.*"></textarea>
                         const username = document.getElementById('ldapTestUsernameInput').value.trim();
                         const password = document.getElementById('ldapTestPasswordInput').value;
                         if (!username || !password) {
-                            alert(getText('ldapTestNeedBoth', '请输入用户名与密码')); 
+                            alert(getText('ldapTestNeedBoth', '')); 
                             return;
                         }
                         const payload = {
@@ -5005,24 +5005,35 @@ $.*"></textarea>
                         const data = await resp.json().catch(() => ({}));
                         if (resp.ok && data && data.ok) {
                             modal.hide();
-                            // 构建详细的消息
-                            let message = getText('ldapConnectivityOk', '连接测试通过');
-                            if (data.message) {
-                                message += '\n\n详细信息：\n' + data.message;
+                            // i18n 渲染
+                            let lines = [];
+                            lines.push(getText('ldapConnectivityOk', ''));
+                            if (data.groups_enabled) {
+                                lines.push(getText('ldapTest_groupsEnabled', ''));
+                                if (Array.isArray(data.groups) && data.groups.length > 0) {
+                                    const groupNames = data.groups.map(code => {
+                                        if (code === 'admin') return getText('ldapTest_group_admin', '');
+                                        if (code === 'glossary') return getText('ldapTest_group_glossary', '');
+                                        return code;
+                                    }).join(', ');
+                                    lines.push(getText('ldapTest_belongsPrefix', '') + groupNames);
+                                } else {
+                                    lines.push(getText('ldapTest_noGroups', ''));
+                                }
                             }
                             if (data.user_role) {
-                                message += '\n用户角色：' + data.user_role;
+                                lines.push(getText('ldapTest_rolePrefix', '') + data.user_role);
                             }
                             if (data.is_admin !== undefined) {
-                                message += '\n管理员权限：' + (data.is_admin ? '是' : '否');
+                                lines.push(getText('ldapTest_isAdminPrefix', '') + (data.is_admin ? getText('yes','') : getText('no','')));
                             }
-                            alert(message);
+                            alert(lines.join('\n'));
                         } else {
                             const msg = (data && data.message) ? data.message : `${resp.status}`;
-                            alert(getText('ldapConnectivityFail', '连接测试失败：') + msg);
+                            alert(getText('ldapConnectivityFail', '') + msg);
                         }
                     } catch (e) {
-                        alert(getText('ldapConnectivityFail', '连接测试失败：') + (e?.message || 'unknown'));
+                        alert(getText('ldapConnectivityFail', '') + (e?.message || 'unknown'));
                     } finally {
                         confirmBtn.disabled = false;
                         confirmBtn.removeEventListener('click', onConfirm);

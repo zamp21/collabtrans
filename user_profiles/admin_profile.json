@@ -1,5 +1,5 @@
 {
-  "ui_language": "en",
+  "ui_language": "zh",
   "translator_last_workflow": "docx",
   "translator_auto_workflow_enabled": true,
   "translator_txt_insert_mode": "replace",
@@ -52,5 +52,5 @@
   },
   "theme": "auto",
   "created_at": "2025-09-09T12:09:38.381776",
-  "updated_at": "2025-09-17T18:10:49.226062"
+  "updated_at": "2025-09-17T18:58:09.998730"
 }

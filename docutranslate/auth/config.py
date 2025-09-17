@@ -95,18 +95,10 @@ class AuthConfig:
             ldap_tls_cacertfile=os.getenv("LDAP_TLS_CACERTFILE"),
             ldap_tls_verify=os.getenv("LDAP_TLS_VERIFY", "true").lower() == "true",
             ldap_admin_group_enabled=os.getenv("LDAP_ADMIN_GROUP_ENABLED", "false").lower() == "true",
-            # 新环境变量优先，旧变量兼容
-            ldap_glossary_group_enabled=(
-                os.getenv("LDAP_GLOSSARY_GROUP_ENABLED")
-                if os.getenv("LDAP_GLOSSARY_GROUP_ENABLED") is not None
-                else os.getenv("LDAP_USER_GROUP_ENABLED", "false")
-            ).lower() == "true",
+            # 仅支持新环境变量名
+            ldap_glossary_group_enabled=os.getenv("LDAP_GLOSSARY_GROUP_ENABLED", "false").lower() == "true",
             ldap_admin_group=os.getenv("LDAP_ADMIN_GROUP", "DocuTranslate-Admins"),
-            ldap_glossary_group=(
-                os.getenv("LDAP_GLOSSARY_GROUP")
-                if os.getenv("LDAP_GLOSSARY_GROUP") is not None
-                else os.getenv("LDAP_USER_GROUP", "DocuTranslate-Users")
-            ),
+            ldap_glossary_group=os.getenv("LDAP_GLOSSARY_GROUP", "DocuTranslate-Users"),
             ldap_group_base_dn=os.getenv("LDAP_GROUP_BASE_DN", "OU=Groups,DC=example,DC=com"),
             default_username=os.getenv("DEFAULT_USERNAME", "admin"),
             default_password=os.getenv("DEFAULT_PASSWORD", "admin123"),
@@ -140,16 +132,9 @@ class AuthConfig:
                 with open(config_path, 'r', encoding='utf-8') as f:
                     config_data = json.load(f)
                 
-                # 兼容旧键名：将 user_group* 映射到 glossary_group*
-                try:
-                    if 'ldap_user_group_enabled' in config_data and 'ldap_glossary_group_enabled' not in config_data:
-                        logger.info("[AuthConfig] 将旧键 ldap_user_group_enabled 映射为 ldap_glossary_group_enabled")
-                        config_data['ldap_glossary_group_enabled'] = config_data.pop('ldap_user_group_enabled')
-                    if 'ldap_user_group' in config_data and 'ldap_glossary_group' not in config_data:
-                        logger.info("[AuthConfig] 将旧键 ldap_user_group 映射为 ldap_glossary_group")
-                        config_data['ldap_glossary_group'] = config_data.pop('ldap_user_group')
-                except Exception:
-                    pass
+                # 移除对旧键名的兼容映射，统一仅支持 glossary_group*
+                if 'ldap_user_group_enabled' in config_data or 'ldap_user_group' in config_data:
+                    logger.warning("[AuthConfig] 检测到已废弃的 ldap_user_group* 键，已忽略。请使用 ldap_glossary_group*")
 
                 logger.info(f"[AuthConfig] 从配置文件 {config_path} 加载配置")
                 config = cls(**config_data)
@@ -256,9 +241,9 @@ class AuthConfig:
             'ldap_tls_verify': ['LDAP_TLS_VERIFY'],
             'ldap_admin_group_enabled': ['LDAP_ADMIN_GROUP_ENABLED'],
             'ldap_admin_group': ['LDAP_ADMIN_GROUP'],
-            # 新旧键名都检测：若设置任一则覆盖
-            'ldap_glossary_group_enabled': ['LDAP_GLOSSARY_GROUP_ENABLED', 'LDAP_USER_GROUP_ENABLED'],
-            'ldap_glossary_group': ['LDAP_GLOSSARY_GROUP', 'LDAP_USER_GROUP'],
+            # 仅支持新环境变量名
+            'ldap_glossary_group_enabled': ['LDAP_GLOSSARY_GROUP_ENABLED'],
+            'ldap_glossary_group': ['LDAP_GLOSSARY_GROUP'],
             'ldap_group_base_dn': ['LDAP_GROUP_BASE_DN'],
             'default_username': ['DEFAULT_USERNAME'],
             'default_password': ['DEFAULT_PASSWORD'],

@@ -186,7 +186,7 @@ class LDAPClient:
         logger.info(f"管理员组查询启用: {self.config.ldap_admin_group_enabled}")
         logger.info(f"术语表组查询启用: {self.config.ldap_glossary_group_enabled}")
         logger.info(f"管理员组: {self.config.ldap_admin_group}")
-        logger.info(f"术语表组: {self.config.ldap_user_group}")
+        logger.info(f"术语表组: {self.config.ldap_glossary_group}")
         logger.info(f"组搜索基础DN: {self.config.ldap_group_base_dn}")
         
         # 如果两个组查询都未启用，直接返回普通用户

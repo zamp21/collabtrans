@@ -24,9 +24,9 @@ def test_ldap_groups():
     print(f"  基础DN: {config.ldap_base_dn}")
     print(f"  组搜索基础DN: {config.ldap_group_base_dn}")
     print(f"  管理员组查询启用: {config.ldap_admin_group_enabled}")
-    print(f"  用户组查询启用: {config.ldap_user_group_enabled}")
+    print(f"  术语组查询启用: {config.ldap_glossary_group_enabled}")
     print(f"  管理员组名: {config.ldap_admin_group}")
-    print(f"  用户组名: {config.ldap_user_group}")
+    print(f"  术语组名: {config.ldap_glossary_group}")
     print()
     
     # 创建LDAP客户端
@@ -75,7 +75,7 @@ def test_ldap_groups():
                 for group_dn in member_of_groups:
                     if config.ldap_admin_group.lower() in group_dn.lower():
                         print(f"✓ 用户是管理员组成员: {group_dn}")
-                    elif config.ldap_user_group.lower() in group_dn.lower():
+                    elif config.ldap_glossary_group.lower() in group_dn.lower():
                         print(f"✓ 用户是普通用户组成员: {group_dn}")
             else:
                 print("用户没有memberOf属性")
@@ -86,7 +86,7 @@ def test_ldap_groups():
                 is_admin_member = client._check_admin_group_membership(conn, dn, attrs)
                 print(f"管理员组成员检查结果: {is_admin_member}")
             
-            if config.ldap_user_group_enabled:
+            if config.ldap_glossary_group_enabled:
                 is_user_member = client._check_user_group_membership(conn, dn, attrs)
                 print(f"用户组成员检查结果: {is_user_member}")
         

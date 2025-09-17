@@ -370,24 +370,19 @@ async def test_ldap_connection(request: Request, payload: dict):
                 else:
                     cfg_dict[key] = override[key]
 
-        # 兼容旧键名：user->glossary（仅输入侧）
-        if 'ldap_user_group_enabled' in cfg_dict and 'ldap_glossary_group_enabled' not in cfg_dict:
-            cfg_dict['ldap_glossary_group_enabled'] = cfg_dict['ldap_user_group_enabled']
-        if 'ldap_user_group' in cfg_dict and 'ldap_glossary_group' not in cfg_dict:
-            cfg_dict['ldap_glossary_group'] = cfg_dict['ldap_user_group']
-
+        
         # 构造临时配置
         temp_config = AuthConfig(**cfg_dict)
 
         client = LDAPClient(temp_config)
         user = client.authenticate(username, password)
         
-        # 构建详细的响应消息
-        message_parts = ["连接成功"]
+        # 构建结构化调试信息（前端用i18n渲染）
+        groups_enabled = bool(temp_config.ldap_admin_group_enabled or temp_config.ldap_glossary_group_enabled)
+        groups_codes = []  # ['admin', 'glossary']
         
         # 检查组查询状态
-        if temp_config.ldap_admin_group_enabled or temp_config.ldap_glossary_group_enabled:
-            message_parts.append("组查询已启用")
+        if groups_enabled:
             
             # 获取用户的组成员信息
             try:
@@ -403,34 +398,29 @@ async def test_ldap_connection(request: Request, payload: dict):
                 
                 if result:
                     dn, attrs = result[0]
-                    groups_info = []
+                    is_admin_member = False
+                    is_glossary_member = False
                     
                     # 检查管理员组
                     if temp_config.ldap_admin_group_enabled:
                         is_admin_member = client._check_admin_group_membership(conn, dn, attrs)
-                        if is_admin_member:
-                            groups_info.append(f"管理员组({temp_config.ldap_admin_group})")
                     
                     # 检查术语表组
                     if temp_config.ldap_glossary_group_enabled:
-                        is_user_member = client._check_user_group_membership(conn, dn, attrs)
-                        if is_user_member:
-                            groups_info.append(f"术语表组({temp_config.ldap_glossary_group})")
+                        is_glossary_member = client._check_user_group_membership(conn, dn, attrs)
                     
-                    if groups_info:
-                        message_parts.append(f"用户属于: {', '.join(groups_info)}")
-                    else:
-                        message_parts.append("用户不属于任何配置的组")
+                    if is_admin_member:
+                        groups_codes.append('admin')
+                    if is_glossary_member:
+                        groups_codes.append('glossary')
                         
             except Exception as e:
                 logger.warning(f"获取组成员信息时发生错误: {e}")
-                message_parts.append("无法获取组成员信息")
-        else:
-            message_parts.append("组查询未启用，用户将作为普通用户登录")
         
         return JSONResponse(content={
-            "ok": True, 
-            "message": " | ".join(message_parts),
+            "ok": True,
+            "groups_enabled": groups_enabled,
+            "groups": groups_codes,
             "user_role": user.role.value,
             "is_admin": user.is_admin()
         })
@@ -479,14 +469,7 @@ async def get_app_config_api(
     # 合并配置：用户配置 + 全局配置 + LDAP配置
     config_dict = {**global_config_dict, **user_config, **auth_config_dict}
     
-    # 输出时加入新键名（保持向后兼容）。若内部仍有旧键，转换为新键
-    try:
-        if 'ldap_glossary_group_enabled' not in config_dict and 'ldap_user_group_enabled' in config_dict:
-            config_dict['ldap_glossary_group_enabled'] = config_dict['ldap_user_group_enabled']
-        if 'ldap_glossary_group' not in config_dict and 'ldap_user_group' in config_dict:
-            config_dict['ldap_glossary_group'] = config_dict['ldap_user_group']
-    except Exception:
-        pass
+    # 输出时仅保留新键名（不处理已废弃旧键）
     
     # 根据用户权限过滤敏感配置
     if not user.is_admin():
@@ -874,7 +857,7 @@ async def update_app_config_api(
         ldap_keys = {
             'ldap_enabled','ldap_protocol','ldap_host','ldap_port','ldap_bind_dn_template','ldap_base_dn',
             'ldap_user_filter','ldap_tls_cacertfile','ldap_tls_verify','ldap_admin_group_enabled','ldap_admin_group',
-            'ldap_user_group_enabled','ldap_user_group','ldap_glossary_group_enabled','ldap_glossary_group','ldap_group_base_dn'
+            'ldap_glossary_group_enabled','ldap_glossary_group','ldap_group_base_dn'
         }
         ldap_updates = {k: v for k, v in config_data.items() if k in ldap_keys}
         config_data = {k: v for k, v in config_data.items() if k not in ldap_keys}
@@ -882,10 +865,6 @@ async def update_app_config_api(
         # 先处理LDAP更新（统一到新键），并写入auth_config
         if ldap_updates:
             try:
-                if 'ldap_user_group_enabled' in ldap_updates and 'ldap_glossary_group_enabled' not in ldap_updates:
-                    ldap_updates['ldap_glossary_group_enabled'] = ldap_updates.pop('ldap_user_group_enabled')
-                if 'ldap_user_group' in ldap_updates and 'ldap_glossary_group' not in ldap_updates:
-                    ldap_updates['ldap_glossary_group'] = ldap_updates.pop('ldap_user_group')
                 from .config import get_auth_config as _get_auth_cfg, save_auth_config as _save_auth_cfg
                 auth_cfg = _get_auth_cfg()
                 # 保存前备份端点相关旧值
@@ -1157,11 +1136,7 @@ async def update_ldap_config_api(request: Request, user: User = Depends(get_curr
     try:
         data = await request.json()
 
-        # 接受新旧键并统一为新键
-        if 'ldap_user_group_enabled' in data and 'ldap_glossary_group_enabled' not in data:
-            data['ldap_glossary_group_enabled'] = data.pop('ldap_user_group_enabled')
-        if 'ldap_user_group' in data and 'ldap_glossary_group' not in data:
-            data['ldap_glossary_group'] = data.pop('ldap_user_group')
+        # 仅处理新键名
 
         # 仅提取LDAP相关字段
         allowed = {

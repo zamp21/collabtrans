@@ -5,7 +5,7 @@
 DocuTranslate现在支持两个LDAP组查询开关，提供灵活的认证策略：
 
 1. **启用管理员组查询** (`ldap_admin_group_enabled`)
-2. **启用用户组查询** (`ldap_user_group_enabled`)
+2. **启用术语组查询** (`ldap_glossary_group_enabled`)
 
 ## 开关组合行为
 
@@ -57,9 +57,9 @@ DocuTranslate现在支持两个LDAP组查询开关，提供灵活的认证策略
 ### 通过环境变量配置
 ```bash
 export LDAP_ADMIN_GROUP_ENABLED=true
-export LDAP_USER_GROUP_ENABLED=true
+export LDAP_GLOSSARY_GROUP_ENABLED=true
 export LDAP_ADMIN_GROUP="DocuTranslate-Admins"
-export LDAP_USER_GROUP="DocuTranslate-Users"
+export LDAP_GLOSSARY_GROUP="DocuTranslate-Glossary"
 export LDAP_GROUP_BASE_DN="OU=Groups,DC=example,DC=com"
 ```
 
