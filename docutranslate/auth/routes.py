@@ -504,6 +504,27 @@ async def get_app_config_api(
         return config_dict
 
 
+@auth_router.get("/app-config/raw-secrets")
+async def get_raw_secrets_api(
+    user: User = Depends(get_current_user)
+):
+    """获取完整的敏感配置（仅管理员可用）"""
+    if not user.is_admin():
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    from ..config.secrets_manager import get_secrets_manager
+    secrets_manager = get_secrets_manager()
+    
+    # 获取完整的API密钥（不脱敏）
+    api_keys = secrets_manager.get_api_keys()
+    mineru_token = secrets_manager.get_mineru_token()
+    
+    return {
+        "platform_api_keys": api_keys,
+        "translator_mineru_token": mineru_token or ""
+    }
+
+
 @auth_router.post("/app-config")
 async def update_app_config_api(
     request: Request,
@@ -517,11 +538,8 @@ async def update_app_config_api(
         config_data = await request.json()
         app_config = get_app_config()
         
-        # 防止覆盖脱敏的API密钥
+        # 移除任何来自前端的 platform_api_keys（敏感信息不保存在应用配置）
         if 'platform_api_keys' in config_data:
-            for platform, key in config_data['platform_api_keys'].items():
-                if key and not key.endswith('***'):
-                    app_config.update_platform_api_key(platform, key)
             del config_data['platform_api_keys']
         
         
@@ -644,9 +662,21 @@ async def update_single_setting(
             elif key == 'platform_api_keys':
                 # 处理平台API密钥字典
                 if isinstance(value, dict):
+                    updated_any = False
                     for platform, api_key in value.items():
                         if api_key and api_key.strip():  # 只保存非空密钥
-                            secrets_manager.update_api_key(platform, api_key)
+                            if secrets_manager.update_api_key(platform, api_key):
+                                updated_any = True
+                    # 同步刷新内存中的全局配置，确保刷新页面即可看到最新脱敏密钥
+                    if updated_any:
+                        try:
+                            from ..config.global_config import get_global_config
+                            global_config = get_global_config()
+                            for platform, api_key in value.items():
+                                if api_key and api_key.strip():
+                                    global_config.update_platform_api_key(platform, api_key)
+                        except Exception as _e:
+                            logger.warning(f"刷新内存全局API密钥失败: {_e}")
                     logger.info(f"平台API密钥已由用户 {_mask_username(user.username)} 更新")
                     return {"success": True, "message": "Platform API keys updated successfully"}
                 else:

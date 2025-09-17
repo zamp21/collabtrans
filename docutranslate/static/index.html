@@ -655,12 +655,12 @@ $.*"></textarea>
                                             <label for="platform_select" class="form-label"
                                                    data-i18n="platformLabel">选择平台</label>
                                             <select class="form-select" id="platform_select">
+                                                <option value="https://api.deepseek.com/v1">DeepSeek</option>
                                                 <option value="custom" data-i18n="platformCustom">自定义接口</option>
                                                 <option value="https://api.openai.com/v1">OpenAI</option>
                                                 <option value="https://generativelanguage.googleapis.com/v1beta/openai/">
                                                     Gemini
                                                 </option>
-                                                <option value="https://api.deepseek.com/v1">DeepSeek</option>
                                                 <option value="https://dashscope.aliyuncs.com/compatible-mode/v1">
                                                     阿里云百炼(DashScope)
                                                 </option>
@@ -2534,7 +2534,10 @@ $.*"></textarea>
         } = elements;
         return () => {
             const selectedPlatformValue = platformSelect.value;
-            apikeyInput.value = getFromConfig(`${storagePrefix}_${selectedPlatformValue}_apikey`);
+            // 不要覆盖已经设置的API key值（特别是管理员脱敏后的值）
+            if (!apikeyInput.value || !apikeyInput.value.endsWith('***')) {
+                apikeyInput.value = getFromConfig(`${storagePrefix}_${selectedPlatformValue}_apikey`);
+            }
             // 解析平台类型
             const platformTypeForModel = (() => {
                 if (appConfig.platform_urls && selectedPlatformValue && selectedPlatformValue.startsWith('http')) {
@@ -3557,15 +3560,89 @@ $.*"></textarea>
         const passwordInput = document.getElementById(targetId);
         const icon = button.querySelector('i');
 
-        button.addEventListener('click', () => {
+        button.addEventListener('click', async () => {
             if (passwordInput.type === 'password') {
+                // 显示密码/API key
                 passwordInput.type = 'text';
                 icon.classList.remove('bi-eye-slash');
                 icon.classList.add('bi-eye');
+                
+                // 如果是API key输入框且当前显示的是脱敏值，则获取完整值
+                if (targetId === 'api_key' && passwordInput.value && passwordInput.value.endsWith('***')) {
+                    try {
+                        // 检查用户权限
+                        if (window.userPermissions && window.userPermissions.is_admin) {
+                            const response = await fetch('/auth/app-config/raw-secrets', {
+                                method: 'GET',
+                                credentials: 'include'
+                            });
+                            
+                            if (response.ok) {
+                                const rawSecrets = await response.json();
+                                const platformSelect = document.getElementById('platform_select');
+                                if (platformSelect && rawSecrets.platform_api_keys) {
+                                    // 解析当前选择的平台类型
+                                    const selectedValue = platformSelect.value;
+                                    let platformType = 'deepseek'; // 默认值
+                                    
+                                    // 将平台URL映射到平台类型
+                                    if (window.appAuthConfig && window.appAuthConfig.platform_urls && selectedValue.startsWith('http')) {
+                                        for (const [ptype, purl] of Object.entries(window.appAuthConfig.platform_urls)) {
+                                            if (purl === selectedValue) {
+                                                platformType = ptype;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    
+                                    // 获取完整的API key
+                                    const fullApiKey = rawSecrets.platform_api_keys[platformType];
+                                    if (fullApiKey) {
+                                        passwordInput.value = fullApiKey;
+                                        console.log(`[DEBUG] 显示完整API key for platform: ${platformType}`);
+                                    }
+                                }
+                            } else {
+                                console.warn('Failed to fetch raw secrets');
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error fetching raw API key:', error);
+                    }
+                }
             } else {
+                // 隐藏密码/API key，恢复脱敏显示
                 passwordInput.type = 'password';
                 icon.classList.remove('bi-eye');
                 icon.classList.add('bi-eye-slash');
+                
+                // 如果是API key输入框，恢复脱敏显示
+                if (targetId === 'api_key' && passwordInput.value && !passwordInput.value.endsWith('***')) {
+                    // 重新显示脱敏的API key
+                    if (window.appAuthConfig && window.appAuthConfig.platform_api_keys) {
+                        const platformSelect = document.getElementById('platform_select');
+                        if (platformSelect) {
+                            const selectedValue = platformSelect.value;
+                            let platformType = 'deepseek'; // 默认值
+                            
+                            // 将平台URL映射到平台类型
+                            if (window.appAuthConfig.platform_urls && selectedValue.startsWith('http')) {
+                                for (const [ptype, purl] of Object.entries(window.appAuthConfig.platform_urls)) {
+                                    if (purl === selectedValue) {
+                                        platformType = ptype;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            const maskedKey = window.appAuthConfig.platform_api_keys[platformType];
+                            if (maskedKey) {
+                                passwordInput.value = maskedKey;
+                                console.log(`[DEBUG] 恢复脱敏API key for platform: ${platformType}`);
+                            }
+                        }
+                    }
+                }
             }
         });
     }
@@ -3585,6 +3662,8 @@ $.*"></textarea>
             
             if (response.ok) {
                 userPermissions = await response.json();
+                // 同步到全局，避免 window.userPermissions 未定义导致管理员分支判断失败
+                window.userPermissions = userPermissions;
                 console.log('User permissions loaded:', userPermissions);
                 return true;
             } else {
@@ -3791,9 +3870,14 @@ $.*"></textarea>
                         // 保存平台 API Key
                         const apiKeyEl = document.getElementById('api_key');
                         const apiKeyVal = (apiKeyEl?.value || '').trim();
-                        // 平台类型：优先从配置读取，兜底 deepseek
-                        const platformType = (typeof getFromConfig === 'function' && getFromConfig('translator_platform_type')) || 'deepseek';
-                        if (apiKeyVal) {
+                        // 若是脱敏占位，则不保存，避免把 *** 写入文件
+                        if (apiKeyVal && apiKeyVal.endsWith('***')) {
+                            console.warn('Skip saving masked API key placeholder');
+                        }
+                        // 平台类型严格使用平台下拉框，不再用Base URL反推
+                        const platformSelect = document.getElementById('platform');
+                        const platformType = (platformSelect && platformSelect.value) || (typeof getFromConfig === 'function' && getFromConfig('translator_platform_type')) || 'deepseek';
+                        if (apiKeyVal && !apiKeyVal.endsWith('***')) {
                             const r1 = await fetch('/auth/app-config/setting', {
                                 method: 'POST',
                                 credentials: 'include',
@@ -3840,6 +3924,34 @@ $.*"></textarea>
     }
 
     /**
+     * Load secrets configuration (API keys, tokens, etc.) from server
+     */
+    async function loadSecretsConfig() {
+        try {
+            const response = await fetch('/auth/app-config', {
+                method: 'GET',
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                const config = await response.json();
+                // 暴露给全局，便于其他初始化逻辑读取（包含管理员脱敏后的platform_api_keys）
+                window.appAuthConfig = config;
+                console.log('[DEBUG] loadSecretsConfig - loaded config:', config);
+                console.log('[DEBUG] loadSecretsConfig - platform_api_keys:', config.platform_api_keys);
+                console.log('[DEBUG] loadSecretsConfig - deepseek key:', config.platform_api_keys ? config.platform_api_keys.deepseek : 'undefined');
+                return true;
+            } else {
+                console.error('Failed to load secrets config');
+                return false;
+            }
+        } catch (error) {
+            console.error('Load secrets config error:', error);
+            return false;
+        }
+    }
+
+    /**
      * Load AUTH configuration from server
      */
     async function loadAuthConfig() {
@@ -3851,6 +3963,7 @@ $.*"></textarea>
 
             if (response.ok) {
                 const config = await response.json();
+                console.log('[DEBUG] loadAuthConfig - loaded auth config:', config);
                 
                 // Load LDAP settings
                 document.getElementById('ldapEnabledSwitch').checked = config.ldap_enabled || false;
@@ -3881,12 +3994,33 @@ $.*"></textarea>
                 
                 // Update UI
                 updateLdapConfigUI();
+                return true;
+            } else {
+                console.error('Failed to load auth config');
+                return false;
             }
         } catch (error) {
-            console.error('Load config error:', error);
+            console.error('Load auth config error:', error);
             // Use default values if loading fails
             updateLdapConfigUI();
         }
+    }
+
+    /**
+     * Load all configurations (secrets + auth)
+     */
+    async function loadConfig() {
+        console.log('[DEBUG] loadConfig - starting to load all configurations');
+        
+        // Load secrets configuration first (needed for API key display)
+        const secretsLoaded = await loadSecretsConfig();
+        
+        // Load auth configuration
+        const authLoaded = await loadAuthConfig();
+        
+        console.log('[DEBUG] loadConfig - secrets loaded:', secretsLoaded, 'auth loaded:', authLoaded);
+        
+        return secretsLoaded && authLoaded;
     }
 
     /**
@@ -3923,26 +4057,150 @@ $.*"></textarea>
         // Step 2: Load user permissions and app config
         console.log("Loading user permissions and app config...");
         const permissionsLoaded = await loadUserPermissions();
-        const configLoaded = await loadAppConfig();
+        const appConfigLoaded = await loadAppConfig();
         
-        if (!permissionsLoaded || !configLoaded) {
+        if (!permissionsLoaded || !appConfigLoaded) {
             console.warn("Failed to load user permissions or app config, some features may not work properly");
         }
 
-        // 根据权限更新“保存配置”按钮文案（管理员：含全局Key）
+        // 根据权限更新"保存配置"按钮文案（管理员：含全局Key）
         (function updateSaveBtnLabel(){
             const span = document.querySelector('#saveAuthConfigBtn span');
+            const btn = document.getElementById('saveAuthConfigBtn');
             if (!span) return;
-            if (window.userPermissions && userPermissions.is_admin) {
+            if (userPermissions && userPermissions.is_admin) {
                 span.setAttribute('data-i18n','saveConfigBtnAdmin');
                 span.innerHTML = getText('saveConfigBtnAdmin', '保存配置（含全局Key）');
+                if (btn) {
+                    btn.dataset.role = 'admin';
+                    btn.title = 'role: admin (will save global keys if provided)';
+                }
             } else {
                 span.setAttribute('data-i18n','saveConfigBtn');
                 span.innerHTML = getText('saveConfigBtn', '保存配置');
+                if (btn) {
+                    btn.dataset.role = 'user';
+                    btn.title = 'role: user (no global key saving)';
+                }
             }
+
+            // 显示一个轻量调试徽标，标识当前权限
+            try {
+                let dbg = document.getElementById('permDebug');
+                if (!dbg) {
+                    dbg = document.createElement('div');
+                    dbg.id = 'permDebug';
+                    dbg.style.position = 'fixed';
+                    dbg.style.right = '8px';
+                    dbg.style.bottom = '8px';
+                    dbg.style.zIndex = '9999';
+                    dbg.style.padding = '2px 6px';
+                    dbg.style.fontSize = '12px';
+                    dbg.style.borderRadius = '4px';
+                    dbg.style.opacity = '0.7';
+                    document.body.appendChild(dbg);
+                }
+                const isAdmin = !!(userPermissions && userPermissions.is_admin);
+                dbg.textContent = isAdmin ? 'perm: admin' : 'perm: user';
+                dbg.style.background = isAdmin ? '#198754' : '#6c757d';
+                dbg.style.color = '#fff';
+                console.log('[DEBUG] permission badge:', dbg.textContent);
+            } catch (e) { /* noop */ }
         })();
 
-        // Step 3: Fetch other backend data
+        // 管理员显示平台API Key的"已保存（脱敏）"占位 - 将在配置加载后执行
+        function showMaskedApiKeyForAdmin(){
+            try {
+                console.log('[DEBUG] showMaskedApiKeyForAdmin - userPermissions:', window.userPermissions);
+                console.log('[DEBUG] showMaskedApiKeyForAdmin - window.appAuthConfig:', window.appAuthConfig);
+                console.log('[DEBUG] showMaskedApiKeyForAdmin - platform_select element:', document.getElementById('platform_select'));
+                console.log('[DEBUG] showMaskedApiKeyForAdmin - platform_select value:', document.getElementById('platform_select')?.value);
+                if (!(window.userPermissions && userPermissions.is_admin)) {
+                    console.log('[DEBUG] showMaskedApiKeyForAdmin - not admin, skipping');
+                    return;
+                }
+                const apikeyInput = document.getElementById('api_key');
+
+                if (!apikeyInput) {
+                    console.log('[DEBUG] showMaskedApiKeyForAdmin - api_key input not found');
+                    return;
+                }
+                console.log('[DEBUG] renderMaskedByPlatform - apikeyInput:', apikeyInput);
+
+                const platformSelect = document.getElementById('platform_select');
+                console.log('[DEBUG] showMaskedApiKeyForAdmin - platformSelect:', platformSelect);
+
+                function resolvePlatformType() {
+                    // 优先使用平台下拉框当前值；若不存在则退回配置值
+                    const sel = platformSelect && platformSelect.value;
+                    if (!sel) {
+                        return (typeof getFromConfig === 'function' && getFromConfig('translator_platform_type')) || 'deepseek';
+                    }
+                    
+                    // 将平台URL映射到平台类型
+                    if (window.appAuthConfig && window.appAuthConfig.platform_urls && sel.startsWith('http')) {
+                        for (const [ptype, purl] of Object.entries(window.appAuthConfig.platform_urls)) {
+                            if (purl === sel) return ptype;
+                        }
+                    }
+                    
+                    // 如果无法映射，返回原始值或默认值
+                    return sel || 'deepseek';
+                }
+
+                function renderMaskedByPlatform() {
+                    const platformType = resolvePlatformType();
+                    const maskedDict = (window.appAuthConfig && window.appAuthConfig.platform_api_keys) || {};
+                    const masked = maskedDict ? maskedDict[platformType] : '';
+                    console.log('[DEBUG] renderMaskedByPlatform - platformType:', platformType, 'maskedDict:', maskedDict, 'masked:', masked);
+                    console.log('[DEBUG] renderMaskedByPlatform - window.appAuthConfig:', window.appAuthConfig);
+                    console.log('[DEBUG] renderMaskedByPlatform - platformSelect.value:', platformSelect ? platformSelect.value : 'null');
+                    if (masked) {
+                        apikeyInput.value = masked;
+                        apikeyInput.dataset.masked = '1';
+                        console.log('[DEBUG] renderMaskedByPlatform - set apikeyInput.value to:', masked);
+                    } else {
+                        // 无对应平台的key时，不展示任何值
+                        if (apikeyInput.dataset.masked) delete apikeyInput.dataset.masked;
+                        if (apikeyInput.value.endsWith('***')) apikeyInput.value = '';
+                        console.log('[DEBUG] renderMaskedByPlatform - no masked key found, cleared input');
+                    }
+                }
+
+                renderMaskedByPlatform();
+                if (platformSelect) {
+                    platformSelect.addEventListener('change', async () => {
+                        try {
+                            // 平台切换时，实时从后端拉取最新配置（含管理员态的脱敏platform_api_keys）
+                            const resp = await fetch('/auth/app-config', { method: 'GET', credentials: 'include' });
+                            if (resp.ok) {
+                                window.appAuthConfig = await resp.json();
+                            }
+                        } catch (e) {
+                            console.warn('refresh appAuthConfig on platform change failed:', e);
+                        }
+                        renderMaskedByPlatform();
+                    });
+                }
+            } catch (e) {
+                console.warn('showMaskedApiKeyForAdmin failed:', e);
+            }
+        }
+
+        // Step 3: Load all configurations (secrets + auth)
+        const configLoaded = await loadConfig();
+        
+        if (!configLoaded) {
+            console.warn("Failed to load configurations, some features may not work properly");
+        }
+
+        // Step 3.5: Show masked API keys for admin after config is loaded
+        console.log('[DEBUG] About to call showMaskedApiKeyForAdmin');
+        console.log('[DEBUG] window.appAuthConfig at init time:', window.appAuthConfig);
+        console.log('[DEBUG] platform_select value at init time:', document.getElementById('platform_select')?.value);
+        showMaskedApiKeyForAdmin();
+
+        // Step 4: Fetch other backend data
         isAdminMode = window.location.pathname.includes('/admin');
         try {
             const [metaRes, enginRes, paramsRes] = await Promise.all([
@@ -3968,13 +4226,13 @@ $.*"></textarea>
             return;
         }
 
-        // Step 4: Initialize i18n system
+        // Step 5: Initialize i18n system
         initI18n();
 
-        // Step 5: Apply permission controls
+        // Step 6: Apply permission controls
         applyPermissionControls();
 
-        // Step 6: [REFACTORED] Restore user settings and setup event listeners using config
+        // Step 7: [REFACTORED] Restore user settings and setup event listeners using config
         const settingsToRestore = [
             {element: workflowTypeSelect, key: 'translator_last_workflow', defaultValue: 'markdown_based'},
             {
@@ -4125,11 +4383,8 @@ $.*"></textarea>
             {element: epubSeparatorInput, event: 'input', saveKey: 'translator_epub_separator'},
             {element: htmlSeparatorInput, event: 'input', saveKey: 'translator_html_separator'},
             {element: jsonPathsTextarea, event: 'input', saveKey: 'translator_json_paths'},
-            {
-                element: apikeyInput,
-                event: 'input',
-                handler: e => saveToConfig(`translator_platform_${platformSelect.value}_apikey`, e.target.value)
-            },
+            // 移除对 API Key 的即时保存（避免产生无效的配置键）。
+            // API Key 仅在管理员点击顶部"保存配置（含全局Key）"时统一保存至服务器敏感配置。
             {
                 element: modelInput,
                 event: 'input',
@@ -4392,9 +4647,6 @@ $.*"></textarea>
             }
         });
 
-        // Load AUTH configuration
-        loadAuthConfig();
-        
         // Ensure LDAP UI is updated after a short delay to handle async loading
         setTimeout(() => {
             updateLdapConfigUI();

@@ -23,6 +23,11 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator, model_validator, AliasChoices
 
 from docutranslate import __version__
+# 初始化项目日志（落盘到 logs/app.log 并输出控制台）
+import docutranslate.logger.logger  # noqa: F401
+
+# 模块日志器
+logger = logging.getLogger(__name__)
 from docutranslate.agents.agent import ThinkingMode
 from docutranslate.agents.glossary_agent import GlossaryAgentConfig
 from docutranslate.exporter.md.types import ConvertEngineType
@@ -659,6 +664,46 @@ async def _perform_translation(
 
         workflow: Workflow
 
+        # 注入全局API Key的辅助函数：当未提供api_key时，从全局敏感配置回退
+        def inject_global_api_key(args: dict) -> dict:
+            try:
+                if args.get('skip_translate'):
+                    return args
+                if args.get('api_key'):
+                    return args
+
+                from .config.secrets_manager import get_secrets_manager
+                from .config.global_config import get_global_config
+                secrets = get_secrets_manager()
+                global_conf = get_global_config()
+
+                base_url = (args.get('base_url') or '').lower()
+                platform_key = None
+                # 基于base_url的粗略平台识别
+                if 'deepseek' in base_url:
+                    platform_key = 'deepseek'
+                elif 'openai' in base_url:
+                    platform_key = 'openai'
+                elif 'bigmodel' in base_url or 'zhipu' in base_url:
+                    platform_key = 'zhipu'
+                elif 'dashscope' in base_url or 'aliyun' in base_url:
+                    platform_key = 'dashscope'
+                elif 'siliconflow' in base_url:
+                    platform_key = 'siliconflow'
+                elif 'ark.' in base_url or 'volcengine' in base_url:
+                    platform_key = 'volcengine_ark'
+
+                # 仅从敏感配置读取 API Key
+                api_keys = secrets.get_api_keys() or {}
+                key = api_keys.get(platform_key) if platform_key else None
+                if key:
+                    args['api_key'] = key
+                else:
+                    logger.warning(f"未找到平台 {platform_key or 'unknown'} 的API Key，请在管理员界面保存对应平台的Key")
+            except Exception:
+                pass
+            return args
+
         # 辅助函数：构建术语表生成配置
         def build_glossary_agent_config():
             if payload.glossary_generate_enable and payload.glossary_agent_config:
@@ -678,6 +723,7 @@ async def _perform_translation(
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            translator_args = inject_global_api_key(translator_args)
             translator_config = MDTranslatorConfig(**translator_args)
 
             converter_config = None
@@ -705,6 +751,7 @@ async def _perform_translation(
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            translator_args = inject_global_api_key(translator_args)
             translator_config = TXTTranslatorConfig(**translator_args)
 
             html_exporter_config = TXT2HTMLExporterConfig(cdn=True)
@@ -723,6 +770,7 @@ async def _perform_translation(
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            translator_args = inject_global_api_key(translator_args)
             translator_config = JsonTranslatorConfig(**translator_args)
 
             html_exporter_config = Json2HTMLExporterConfig(cdn=True)
@@ -741,6 +789,7 @@ async def _perform_translation(
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            translator_args = inject_global_api_key(translator_args)
             translator_config = XlsxTranslatorConfig(**translator_args)
 
             html_exporter_config = Xlsx2HTMLExporterConfig(cdn=True)
@@ -760,6 +809,7 @@ async def _perform_translation(
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            translator_args = inject_global_api_key(translator_args)
             translator_config = DocxTranslatorConfig(**translator_args)
 
             html_exporter_config = Docx2HTMLExporterConfig(cdn=True)
@@ -779,6 +829,7 @@ async def _perform_translation(
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            translator_args = inject_global_api_key(translator_args)
             translator_config = SrtTranslatorConfig(**translator_args)
 
             html_exporter_config = Srt2HTMLExporterConfig(cdn=True)
@@ -798,6 +849,7 @@ async def _perform_translation(
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            translator_args = inject_global_api_key(translator_args)
             translator_config = EpubTranslatorConfig(**translator_args)
 
             html_exporter_config = Epub2HTMLExporterConfig(cdn=True)
@@ -818,6 +870,7 @@ async def _perform_translation(
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            translator_args = inject_global_api_key(translator_args)
             translator_config = HtmlTranslatorConfig(**translator_args)
 
             workflow_config = HtmlWorkflowConfig(

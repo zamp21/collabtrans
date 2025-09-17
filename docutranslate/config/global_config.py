@@ -66,7 +66,7 @@ class GlobalConfig:
         "together": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
 
         # 国内与兼容（名称因平台更新可能变化）
-        "deepseek": "deepseek-v3",
+        "deepseek": "deepseek-chart",
         "dashscope": "qwen2.5-7b-instruct",
         "volcengine_ark": "doubao-pro-32k",
         "siliconflow": "Qwen2.5-7B-Instruct",

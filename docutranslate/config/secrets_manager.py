@@ -20,7 +20,12 @@ class SecretsManager:
         Args:
             secrets_file: 敏感配置文件路径
         """
-        self.secrets_file = Path(secrets_file)
+        # 将相对路径固定到仓库根目录，避免工作目录变化导致写入到错误位置
+        # 目录层级：.../docutranslate/docutranslate/config/secrets_manager.py
+        # parents[0]=config, [1]=docutranslate(包), [2]=docutranslate(仓库根)
+        proj_root = Path(__file__).resolve().parents[2]
+        sf = Path(secrets_file)
+        self.secrets_file = sf if sf.is_absolute() else (proj_root / sf)
         self._secrets_cache: Optional[Dict[str, Any]] = None
         
     def load_secrets(self) -> Dict[str, Any]:

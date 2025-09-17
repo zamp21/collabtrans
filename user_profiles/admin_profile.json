@@ -1,6 +1,6 @@
 {
   "ui_language": "en",
-  "translator_last_workflow": "markdown_based",
+  "translator_last_workflow": "docx",
   "translator_auto_workflow_enabled": true,
   "translator_txt_insert_mode": "replace",
   "translator_txt_separator": "\\n",
@@ -43,7 +43,7 @@
   "translator_platform_models": {
     "volcengine_ark": "doubao-pro-32k",
     "openai": "gpt-4o-mini",
-    "deepseek": "deepseek-v3",
+    "deepseek": "deepseek-chat",
     "dashscope": "qwen2.5-7b-instruct"
   },
   "glossary_agent_platform_models": {
@@ -52,5 +52,5 @@
   },
   "theme": "auto",
   "created_at": "2025-09-09T12:09:38.381776",
-  "updated_at": "2025-09-16T15:19:25.514856"
+  "updated_at": "2025-09-17T09:46:36.559670"
 }

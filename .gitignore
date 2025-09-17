@@ -28,3 +28,6 @@ auth_config.json
 # 备份文件
 *_backup_*.json
 *_old_*.json
+
+# 日志文件
+logs/
