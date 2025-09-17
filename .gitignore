@@ -31,3 +31,6 @@ auth_config.json
 
 # 日志文件
 logs/
+
+# CSV files (uploaded glossaries, etc.)
+*.csv

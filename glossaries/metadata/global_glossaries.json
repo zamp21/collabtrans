@@ -1,0 +1,18 @@
+{
+  "global_1758078263": {
+    "name": "中->英-QFR",
+    "file_path": "中-英-QFR.csv",
+    "owner": "admin",
+    "created_at": "2025-09-17T11:04:23.733791",
+    "updated_at": "2025-09-17T11:04:23.733791",
+    "description": "QFR中文翻译英文"
+  },
+  "global_1758078426": {
+    "name": "中->英-DEV",
+    "file_path": "中-英-DEV.csv",
+    "owner": "admin",
+    "created_at": "2025-09-17T11:07:06.140539",
+    "updated_at": "2025-09-17T11:07:06.140539",
+    "description": "开发翻译"
+  }
+}

@@ -11,6 +11,7 @@ class UserRole(str, Enum):
     """用户角色枚举"""
     ADMIN = "admin"
     LDAP_ADMIN = "ldap_admin"
+    LDAP_GLOSSARY = "ldap_glossary"
     LDAP_USER = "ldap_user"
 
 
@@ -27,9 +28,17 @@ class User:
         """判断是否为管理员"""
         return self.role in [UserRole.ADMIN, UserRole.LDAP_ADMIN]
     
+    def is_super_admin(self) -> bool:
+        """判断是否为超级管理员"""
+        return self.role == UserRole.ADMIN
+    
     def can_access_admin_settings(self) -> bool:
         """判断是否可以访问管理员设置"""
         return self.is_admin()
+    
+    def can_access_glossary_management(self) -> bool:
+        """判断是否可以访问术语表管理"""
+        return self.role in [UserRole.ADMIN, UserRole.LDAP_ADMIN, UserRole.LDAP_GLOSSARY]
     
     def get_allowed_settings(self) -> List[str]:
         """获取允许访问的设置项"""
@@ -40,10 +49,18 @@ class User:
                 "ai_settings",
                 "translation_settings",
                 "auth_settings",
-                "system_settings"
+                "system_settings",
+                "glossary_settings"
+            ]
+        elif self.role == UserRole.LDAP_GLOSSARY:
+            # Glossary Group用户可以访问术语表管理
+            return [
+                "workflow_settings",
+                "translation_settings",
+                "glossary_settings"
             ]
         else:
-            # LDAP用户只能访问基础设置
+            # 普通LDAP用户只能访问基础设置
             return [
                 "workflow_settings",
                 "translation_settings"

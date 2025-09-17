@@ -184,23 +184,22 @@ class LDAPClient:
         """根据LDAP组确定用户角色"""
         logger.info("开始确定用户角色...")
         logger.info(f"管理员组查询启用: {self.config.ldap_admin_group_enabled}")
-        logger.info(f"用户组查询启用: {self.config.ldap_user_group_enabled}")
+        logger.info(f"术语表组查询启用: {self.config.ldap_glossary_group_enabled}")
         logger.info(f"管理员组: {self.config.ldap_admin_group}")
-        logger.info(f"用户组: {self.config.ldap_user_group}")
+        logger.info(f"术语表组: {self.config.ldap_user_group}")
         logger.info(f"组搜索基础DN: {self.config.ldap_group_base_dn}")
         
         # 如果两个组查询都未启用，直接返回普通用户
-        if not self.config.ldap_admin_group_enabled and not self.config.ldap_user_group_enabled:
+        if not self.config.ldap_admin_group_enabled and not self.config.ldap_glossary_group_enabled:
             logger.info("组查询均未启用，用户默认为普通用户")
             return UserRole.LDAP_USER
         
-        # 如果启用了用户组查询，需要验证用户是否在用户组中
-        if self.config.ldap_user_group_enabled:
-            logger.info("用户组查询已启用，需要验证用户组成员身份")
+        # 如果启用了用户组（现改为术语表组）查询，仅用于赋予额外权限，不再作为登录前置条件
+        if self.config.ldap_glossary_group_enabled:
+            logger.info("用户组查询已启用，用于判定术语相关权限，不再阻断登录")
             is_user_group_member = self._check_user_group_membership(conn, user_dn, user_attrs)
             if not is_user_group_member:
-                logger.warning("用户不在用户组中，拒绝登录")
-                raise InvalidCredentials("User is not a member of the required user group")
+                logger.info("用户不在用户组：继续作为普通用户登录")
         
         # 如果启用了管理员组查询，检查用户是否是管理员组成员
         if self.config.ldap_admin_group_enabled:
@@ -210,7 +209,14 @@ class LDAPClient:
                 logger.info("用户是管理员组成员，分配管理员角色")
                 return UserRole.LDAP_ADMIN
         
-        # 如果启用了用户组查询且用户是用户组成员，或者只启用了管理员组查询但用户不是管理员组成员
+        # 如果启用了用户组（术语组）且用户是成员，则授予术语表管理权限角色
+        if self.config.ldap_glossary_group_enabled:
+            is_user_group_member = self._check_user_group_membership(conn, user_dn, user_attrs)
+            if is_user_group_member:
+                logger.info("用户属于术语表组，分配ldap_glossary角色")
+                return UserRole.LDAP_GLOSSARY
+
+        # 默认普通用户
         logger.info("用户分配为普通用户角色")
         return UserRole.LDAP_USER
     
@@ -277,22 +283,22 @@ class LDAPClient:
             return False
     
     def _check_user_group_membership(self, conn: ldap.ldapobject.LDAPObject, user_dn: str, user_attrs: Dict[str, Any]) -> bool:
-        """检查用户是否是用户组成员"""
+        """检查用户是否是术语表组成员（兼容旧字段）"""
         try:
             # 首先检查用户的memberOf属性
             if 'memberOf' in user_attrs:
                 member_of_groups = [group.decode('utf-8') for group in user_attrs['memberOf']]
                 logger.info(f"用户直接成员组: {member_of_groups}")
                 
-                # 检查是否在用户组中
+                # 检查是否在术语表组中
                 for group_dn in member_of_groups:
-                    if self.config.ldap_user_group.lower() in group_dn.lower():
-                        logger.info(f"用户是普通用户组成员: {group_dn}")
+                    if self.config.ldap_glossary_group.lower() in group_dn.lower():
+                        logger.info(f"用户是术语表组成员: {group_dn}")
                         return True
             
             # 如果memberOf属性不存在或没有找到相关组，则通过组搜索来确定
-            user_group_filter = f"(&(objectClass=group)(cn={self.config.ldap_user_group}))"
-            logger.info(f"搜索普通用户组过滤器: {user_group_filter}")
+            user_group_filter = f"(&(objectClass=group)(cn={self.config.ldap_glossary_group}))"
+            logger.info(f"搜索术语表组过滤器: {user_group_filter}")
             logger.info(f"搜索基础DN: {self.config.ldap_group_base_dn}")
             
             try:

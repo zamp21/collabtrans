@@ -8,6 +8,7 @@ from typing import Optional
 import time
 import logging
 import os
+import json
 
 from .config import AuthConfig
 from .ldap_client import LDAPClient, InvalidCredentials
@@ -323,8 +324,8 @@ async def test_ldap_connection(request: Request, payload: dict):
         cfg_dict = asdict(base_config)
         for key in [
             'ldap_protocol', 'ldap_host', 'ldap_port', 'ldap_bind_dn_template', 'ldap_base_dn',
-            'ldap_user_filter', 'ldap_admin_group_enabled', 'ldap_user_group_enabled',
-            'ldap_admin_group', 'ldap_user_group', 'ldap_group_base_dn',
+            'ldap_user_filter', 'ldap_admin_group_enabled', 'ldap_glossary_group_enabled',
+            'ldap_admin_group', 'ldap_glossary_group', 'ldap_group_base_dn',
             'ldap_tls_cacertfile', 'ldap_tls_verify'
         ]:
             if key in override and override[key] not in (None, ""):
@@ -334,7 +335,7 @@ async def test_ldap_connection(request: Request, payload: dict):
                         cfg_dict[key] = int(override[key])
                     except Exception:
                         pass
-                elif key in ['ldap_tls_verify', 'ldap_admin_group_enabled', 'ldap_user_group_enabled']:
+                elif key in ['ldap_tls_verify', 'ldap_admin_group_enabled', 'ldap_glossary_group_enabled']:
                     val = override[key]
                     if isinstance(val, str):
                         cfg_dict[key] = val.lower() in ("true", "1", "yes", "on")
@@ -342,6 +343,12 @@ async def test_ldap_connection(request: Request, payload: dict):
                         cfg_dict[key] = bool(val)
                 else:
                     cfg_dict[key] = override[key]
+
+        # 兼容旧键名：user->glossary（仅输入侧）
+        if 'ldap_user_group_enabled' in cfg_dict and 'ldap_glossary_group_enabled' not in cfg_dict:
+            cfg_dict['ldap_glossary_group_enabled'] = cfg_dict['ldap_user_group_enabled']
+        if 'ldap_user_group' in cfg_dict and 'ldap_glossary_group' not in cfg_dict:
+            cfg_dict['ldap_glossary_group'] = cfg_dict['ldap_user_group']
 
         # 构造临时配置
         temp_config = AuthConfig(**cfg_dict)
@@ -353,7 +360,7 @@ async def test_ldap_connection(request: Request, payload: dict):
         message_parts = ["连接成功"]
         
         # 检查组查询状态
-        if temp_config.ldap_admin_group_enabled or temp_config.ldap_user_group_enabled:
+        if temp_config.ldap_admin_group_enabled or temp_config.ldap_glossary_group_enabled:
             message_parts.append("组查询已启用")
             
             # 获取用户的组成员信息
@@ -378,11 +385,11 @@ async def test_ldap_connection(request: Request, payload: dict):
                         if is_admin_member:
                             groups_info.append(f"管理员组({temp_config.ldap_admin_group})")
                     
-                    # 检查用户组
-                    if temp_config.ldap_user_group_enabled:
+                    # 检查术语表组
+                    if temp_config.ldap_glossary_group_enabled:
                         is_user_member = client._check_user_group_membership(conn, dn, attrs)
                         if is_user_member:
-                            groups_info.append(f"用户组({temp_config.ldap_user_group})")
+                            groups_info.append(f"术语表组({temp_config.ldap_glossary_group})")
                     
                     if groups_info:
                         message_parts.append(f"用户属于: {', '.join(groups_info)}")
@@ -414,7 +421,9 @@ async def get_user_permissions(
     """获取用户权限信息"""
     return {
         "is_admin": user.is_admin(),
+        "is_super_admin": user.is_super_admin(),
         "can_access_admin_settings": user.can_access_admin_settings(),
+        "can_access_glossary_management": user.can_access_glossary_management(),
         "allowed_settings": user.get_allowed_settings(),
         "role": user.role.value
     }
@@ -443,6 +452,15 @@ async def get_app_config_api(
     
     # 合并配置：用户配置 + 全局配置 + LDAP配置
     config_dict = {**global_config_dict, **user_config, **auth_config_dict}
+    
+    # 输出时加入新键名（保持向后兼容）。若内部仍有旧键，转换为新键
+    try:
+        if 'ldap_glossary_group_enabled' not in config_dict and 'ldap_user_group_enabled' in config_dict:
+            config_dict['ldap_glossary_group_enabled'] = config_dict['ldap_user_group_enabled']
+        if 'ldap_glossary_group' not in config_dict and 'ldap_user_group' in config_dict:
+            config_dict['ldap_glossary_group'] = config_dict['ldap_user_group']
+    except Exception:
+        pass
     
     # 根据用户权限过滤敏感配置
     if not user.is_admin():
@@ -525,17 +543,341 @@ async def get_raw_secrets_api(
     }
 
 
+# === 术语表管理API ===
+
+@auth_router.get("/glossaries")
+async def get_glossaries_list(
+    user: User = Depends(get_current_user)
+):
+    """获取术语表列表"""
+    from ..glossary.manager import get_glossary_manager
+    
+    manager = get_glossary_manager()
+    
+    # 获取全局术语表
+    global_glossaries = manager.get_global_glossaries()
+    
+    # 获取用户个人术语表
+    personal_glossary = manager.get_user_personal_glossary(user.username)
+    
+    # 获取用户选择
+    user_selection = manager.get_user_selection(user.username)
+    
+    # 获取版本信息
+    versions = manager.get_all_versions()
+    
+    return {
+        "global_glossaries": [
+            {
+                "id": g.id,
+                "name": g.name,
+                "owner": g.owner,
+                "is_global": g.is_global,
+                "created_at": g.created_at.isoformat(),
+                "updated_at": g.updated_at.isoformat(),
+                "item_count": g.item_count,
+                "description": g.description
+            }
+            for g in global_glossaries
+        ],
+        "personal_glossary": {
+            "id": personal_glossary.id,
+            "name": personal_glossary.name,
+            "owner": personal_glossary.owner,
+            "is_global": personal_glossary.is_global,
+            "created_at": personal_glossary.created_at.isoformat(),
+            "updated_at": personal_glossary.updated_at.isoformat(),
+            "item_count": personal_glossary.item_count,
+            "description": personal_glossary.description
+        } if personal_glossary else None,
+        "user_selection": {
+            "username": user_selection.username,
+            "selected_global_glossaries": user_selection.selected_global_glossaries,
+            "personal_glossary": user_selection.personal_glossary
+        },
+        "versions": versions
+    }
+
+
+@auth_router.get("/glossaries/check-updates")
+async def check_glossaries_updates(
+    request: Request,
+    user: User = Depends(get_current_user)
+):
+    """检查术语表更新"""
+    from ..glossary.manager import get_glossary_manager
+    
+    manager = get_glossary_manager()
+    current_versions = manager.get_all_versions()
+    
+    # 获取用户上次检查的版本
+    last_check = request.cookies.get('glossaries_last_check', '{}')
+    try:
+        last_versions = json.loads(last_check)
+    except:
+        last_versions = {}
+    
+    # 检查是否有更新
+    has_updates = False
+    for glossary_id, current_version in current_versions.items():
+        last_version = last_versions.get(glossary_id, 0)
+        if current_version > last_version:
+            has_updates = True
+            break
+    
+    return {
+        "has_updates": has_updates,
+        "current_versions": current_versions
+    }
+
+
+@auth_router.post("/glossaries/upload")
+async def upload_glossary(
+    request: Request,
+    user: User = Depends(get_current_user)
+):
+    """上传术语表"""
+    from ..glossary.manager import get_glossary_manager
+    
+    manager = get_glossary_manager()
+    
+    try:
+        form = await request.form()
+        file = form.get("file")
+        name = form.get("name", "").strip()
+        description = form.get("description", "").strip()
+        is_global = form.get("is_global", "false").lower() == "true"
+        
+        if not file or not name:
+            raise HTTPException(status_code=400, detail="文件名和术语表名称不能为空")
+        
+        # 检查权限
+        if is_global and not user.is_admin():
+            raise HTTPException(status_code=403, detail="只有管理员可以上传全局术语表")
+        
+        # 读取文件内容
+        content = await file.read()
+        content_str = content.decode('utf-8-sig')
+        
+        # 解析CSV
+        import csv
+        from io import StringIO
+        
+        glossary_dict = {}
+        reader = csv.DictReader(StringIO(content_str))
+        for row in reader:
+            src = row.get('src', '').strip()
+            dst = row.get('dst', '').strip()
+            if src and dst:
+                glossary_dict[src] = dst
+        
+        if not glossary_dict:
+            raise HTTPException(status_code=400, detail="术语表不能为空")
+        
+        # 验证术语表
+        is_valid, message = manager.validate_glossary_dict(glossary_dict)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=message)
+        
+        # 保存术语表
+        if is_global:
+            glossary = manager.create_global_glossary(name, glossary_dict, user.username, description)
+            logger.info(f"管理员 {user.username} 创建了全局术语表: {name}")
+        else:
+            # 个人术语表
+            success = manager.save_user_personal_glossary(user.username, glossary_dict)
+            if not success:
+                raise HTTPException(status_code=500, detail="保存个人术语表失败")
+            logger.info(f"用户 {user.username} 更新了个人术语表")
+        
+        return {
+            "success": True,
+            "message": "术语表上传成功",
+            "item_count": len(glossary_dict)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"上传术语表失败: {e}")
+        raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}")
+
+
+@auth_router.get("/glossaries/{glossary_id}/download")
+async def download_glossary(
+    glossary_id: str,
+    user: User = Depends(get_current_user)
+):
+    """下载术语表"""
+    from ..glossary.manager import get_glossary_manager
+    from fastapi.responses import FileResponse
+    
+    manager = get_glossary_manager()
+    
+    # 获取术语表内容
+    glossary_dict = manager.get_glossary_content(glossary_id)
+    if not glossary_dict:
+        raise HTTPException(status_code=404, detail="术语表不存在")
+    
+    # 生成临时CSV文件
+    import tempfile
+    import csv
+    
+    temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8-sig')
+    writer = csv.writer(temp_file)
+    writer.writerow(['src', 'dst'])
+    for src, dst in glossary_dict.items():
+        writer.writerow([src, dst])
+    temp_file.close()
+    
+    # 确定文件名
+    if glossary_id.startswith('global_'):
+        global_glossaries = manager.get_global_glossaries()
+        for g in global_glossaries:
+            if g.id == glossary_id:
+                filename = f"{g.name}.csv"
+                break
+        else:
+            filename = "glossary.csv"
+    else:
+        filename = "personal_glossary.csv"
+    
+    return FileResponse(
+        path=temp_file.name,
+        filename=filename,
+        media_type='text/csv'
+    )
+
+
+@auth_router.put("/glossaries/selection")
+async def update_glossary_selection(
+    request: Request,
+    user: User = Depends(get_current_user)
+):
+    """更新用户术语表选择"""
+    from ..glossary.manager import get_glossary_manager
+    from ..glossary.models import UserGlossarySelection
+    
+    manager = get_glossary_manager()
+    
+    try:
+        data = await request.json()
+        logger.info(f"[LDAP-API] 收到更新请求: {data}")
+        selected_global_glossaries = data.get("selected_global_glossaries", [])
+        personal_glossary = data.get("personal_glossary")
+        
+        # 验证选择的全局术语表是否存在
+        global_glossaries = manager.get_global_glossaries()
+        valid_global_ids = [g.id for g in global_glossaries]
+        
+        for glossary_id in selected_global_glossaries:
+            if glossary_id not in valid_global_ids:
+                raise HTTPException(status_code=400, detail=f"术语表 {glossary_id} 不存在")
+        
+        # 验证个人术语表
+        if personal_glossary and personal_glossary != f"personal_{user.username}":
+            raise HTTPException(status_code=400, detail="无效的个人术语表ID")
+        
+        # 保存选择
+        selection = UserGlossarySelection(
+            username=user.username,
+            selected_global_glossaries=selected_global_glossaries,
+            personal_glossary=personal_glossary
+        )
+        manager.save_user_selection(selection)
+        
+        logger.info(f"用户 {user.username} 更新了术语表选择")
+        
+        return {"success": True, "message": "术语表选择已更新"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"更新术语表选择失败: {e}")
+        raise HTTPException(status_code=500, detail=f"更新失败: {str(e)}")
+
+
+@auth_router.delete("/glossaries/{glossary_id}")
+async def delete_glossary(
+    glossary_id: str,
+    user: User = Depends(get_current_user)
+):
+    """删除术语表"""
+    from ..glossary.manager import get_glossary_manager
+    
+    manager = get_glossary_manager()
+    
+    # 检查权限
+    if glossary_id.startswith('global_'):
+        if not user.is_admin():
+            raise HTTPException(status_code=403, detail="只有管理员可以删除全局术语表")
+        
+        success = manager.delete_global_glossary(glossary_id)
+        if success:
+            logger.info(f"管理员 {user.username} 删除了全局术语表: {glossary_id}")
+        else:
+            raise HTTPException(status_code=404, detail="术语表不存在")
+    else:
+        # 个人术语表 - 用户只能删除自己的
+        if not glossary_id.startswith(f"personal_{user.username}"):
+            raise HTTPException(status_code=403, detail="只能删除自己的个人术语表")
+        
+        # 清空个人术语表
+        success = manager.save_user_personal_glossary(user.username, {})
+        if success:
+            logger.info(f"用户 {user.username} 清空了个人术语表")
+        else:
+            raise HTTPException(status_code=500, detail="删除个人术语表失败")
+    
+    return {"success": True, "message": "术语表已删除"}
+
+
 @auth_router.post("/app-config")
 async def update_app_config_api(
     request: Request,
     user: User = Depends(get_current_user)
 ):
-    """更新应用配置（需要管理员权限）"""
+    """更新应用配置（需要管理员或管理组权限；仅超级管理员可改默认密码）"""
     if not user.is_admin():
         raise HTTPException(status_code=403, detail="Access denied: Admin privileges required")
     
     try:
         config_data = await request.json()
+        
+        # 将LDAP相关键与App配置键分离处理，避免LDAP键误入app_config
+        ldap_keys = {
+            'ldap_enabled','ldap_protocol','ldap_host','ldap_port','ldap_bind_dn_template','ldap_base_dn',
+            'ldap_user_filter','ldap_tls_cacertfile','ldap_tls_verify','ldap_admin_group_enabled','ldap_admin_group',
+            'ldap_user_group_enabled','ldap_user_group','ldap_glossary_group_enabled','ldap_glossary_group','ldap_group_base_dn'
+        }
+        ldap_updates = {k: v for k, v in config_data.items() if k in ldap_keys}
+        config_data = {k: v for k, v in config_data.items() if k not in ldap_keys}
+        
+        # 先处理LDAP更新（统一到新键），并写入auth_config
+        if ldap_updates:
+            try:
+                if 'ldap_user_group_enabled' in ldap_updates and 'ldap_glossary_group_enabled' not in ldap_updates:
+                    ldap_updates['ldap_glossary_group_enabled'] = ldap_updates.pop('ldap_user_group_enabled')
+                if 'ldap_user_group' in ldap_updates and 'ldap_glossary_group' not in ldap_updates:
+                    ldap_updates['ldap_glossary_group'] = ldap_updates.pop('ldap_user_group')
+                from .config import get_auth_config as _get_auth_cfg, save_auth_config as _save_auth_cfg
+                auth_cfg = _get_auth_cfg()
+                auth_cfg.update_from_dict(ldap_updates)
+                if _save_auth_cfg():
+                    logger.info(f"[APP-CONFIG] 同步保存LDAP配置成功: {list(ldap_updates.keys())}")
+                    # 同步刷新本模块内的内存实例，确保后续GET读取最新值
+                    try:
+                        global _auth_config
+                        if _auth_config is not None:
+                            _auth_config.update_from_dict(ldap_updates)
+                            logger.info("[APP-CONFIG] 已同步更新模块内_auth_config")
+                    except Exception as _e:
+                        logger.warning(f"[APP-CONFIG] 同步模块内内存失败: {_e}")
+                else:
+                    logger.warning("[APP-CONFIG] 同步保存LDAP配置失败")
+            except Exception as _e:
+                logger.error(f"[APP-CONFIG] 处理LDAP配置时异常: {_e}")
+
         app_config = get_app_config()
         
         # 移除任何来自前端的 platform_api_keys（敏感信息不保存在应用配置）
@@ -551,6 +893,10 @@ async def update_app_config_api(
                 secrets_manager = get_secrets_manager()
                 secrets_manager.update_mineru_token(token)
             del config_data['translator_mineru_token']
+        
+        # 禁止非超级管理员修改默认密码
+        if not user.is_super_admin() and 'default_password' in config_data:
+            del config_data['default_password']
         
         # 更新其他配置
         app_config.update_from_dict(config_data)
@@ -634,6 +980,10 @@ async def update_single_setting(
             if not user.is_admin():
                 logger.warning(f"LDAP用户 {_mask_username(user.username)} 尝试修改敏感配置: {key}")
                 raise HTTPException(status_code=403, detail="Access denied: Only admin can modify sensitive settings")
+            # 默认密码仅超级管理员可改
+            if key == 'default_password' and not user.is_super_admin():
+                logger.warning(f"非超级管理员 {_mask_username(user.username)} 试图修改默认密码")
+                raise HTTPException(status_code=403, detail="Only super admin can change default password")
         elif key in global_config_keys:
             # 全局配置，只有管理员可以修改
             if not user.is_admin():
@@ -743,6 +1093,94 @@ async def update_single_setting(
         logger.error(f"更新设置项失败: {e}")
         raise HTTPException(status_code=400, detail=f"Failed to update setting: {str(e)}")
 
+
+# === LDAP 配置专用读写接口（统一入口）===
+@auth_router.get("/ldap-config")
+async def get_ldap_config_api(user: User = Depends(get_current_user)):
+    """读取LDAP相关配置（登录即可读取；敏感信息不返回）"""
+    config = get_auth_config()
+    return {
+        "ldap_enabled": config.ldap_enabled,
+        "ldap_protocol": config.ldap_protocol,
+        "ldap_host": config.ldap_host,
+        "ldap_port": config.ldap_port,
+        "ldap_bind_dn_template": config.ldap_bind_dn_template,
+        "ldap_base_dn": config.ldap_base_dn,
+        "ldap_user_filter": config.ldap_user_filter,
+        "ldap_tls_cacertfile": config.ldap_tls_cacertfile,
+        "ldap_tls_verify": config.ldap_tls_verify,
+        "ldap_admin_group_enabled": config.ldap_admin_group_enabled,
+        "ldap_admin_group": config.ldap_admin_group,
+        "ldap_glossary_group_enabled": getattr(config, 'ldap_glossary_group_enabled', False),
+        "ldap_glossary_group": getattr(config, 'ldap_glossary_group', ''),
+        "ldap_group_base_dn": config.ldap_group_base_dn,
+    }
+
+
+@auth_router.post("/ldap-config")
+async def update_ldap_config_api(request: Request, user: User = Depends(get_current_user)):
+    """统一更新LDAP相关配置（需要管理员或管理组权限）。"""
+    if not user.is_admin():
+        raise HTTPException(status_code=403, detail="Access denied: Admin privileges required")
+
+    try:
+        data = await request.json()
+
+        # 接受新旧键并统一为新键
+        if 'ldap_user_group_enabled' in data and 'ldap_glossary_group_enabled' not in data:
+            data['ldap_glossary_group_enabled'] = data.pop('ldap_user_group_enabled')
+        if 'ldap_user_group' in data and 'ldap_glossary_group' not in data:
+            data['ldap_glossary_group'] = data.pop('ldap_user_group')
+
+        # 仅提取LDAP相关字段
+        allowed = {
+            'ldap_enabled', 'ldap_protocol', 'ldap_host', 'ldap_port', 'ldap_bind_dn_template', 'ldap_base_dn',
+            'ldap_user_filter', 'ldap_tls_cacertfile', 'ldap_tls_verify', 'ldap_admin_group_enabled', 'ldap_admin_group',
+            'ldap_glossary_group_enabled', 'ldap_glossary_group', 'ldap_group_base_dn'
+        }
+        update_payload = {k: v for k, v in data.items() if k in allowed}
+
+        # 类型处理
+        if 'ldap_port' in update_payload:
+            try:
+                update_payload['ldap_port'] = int(update_payload['ldap_port'])
+            except Exception:
+                pass
+        for b in ['ldap_enabled', 'ldap_tls_verify', 'ldap_admin_group_enabled', 'ldap_glossary_group_enabled']:
+            if b in update_payload and isinstance(update_payload[b], str):
+                update_payload[b] = update_payload[b].lower() in ("true", "1", "yes", "on")
+
+        # 更新并保存
+        from .config import get_auth_config as _get_auth_cfg, save_auth_config as _save_auth_cfg
+        auth_cfg = _get_auth_cfg()
+        logger.info(f"[LDAP-API] 规范化后的更新字段: {update_payload}")
+        auth_cfg.update_from_dict(update_payload)
+        saved = _save_auth_cfg()
+        # 同步更新本模块内存中的全局配置，避免重启才生效
+        try:
+            local_cfg = get_auth_config()
+            local_cfg.update_from_dict(update_payload)
+            logger.info("[LDAP-API] 已同步更新内存配置")
+        except Exception:
+            pass
+        if saved:
+            logger.info(f"LDAP配置已由用户 {_mask_username(user.username)} 更新")
+            # 同步刷新本模块内的内存实例，避免刷新页仍读旧值
+            try:
+                global _auth_config
+                if _auth_config is not None:
+                    _auth_config.update_from_dict(update_payload)
+                    logger.info("[LDAP-API] 已同步更新模块内_auth_config")
+            except Exception as _e:
+                logger.warning(f"[LDAP-API] 同步内存配置失败: {_e}")
+            return {"success": True, "message": "LDAP configuration updated"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to save LDAP configuration")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"更新LDAP配置失败: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to update LDAP configuration: {str(e)}")
 
 # 兼容性路由（不使用/auth前缀）
 @auth_compat_router.get("/login")

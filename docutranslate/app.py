@@ -713,6 +713,17 @@ async def _perform_translation(
                     **agent_payload.model_dump()
                 )
             return None
+        
+        # 辅助函数：获取用户选择的术语表
+        def get_user_glossary():
+            """获取用户选择的术语表"""
+            try:
+                from .glossary.manager import get_glossary_manager
+                manager = get_glossary_manager()
+                return manager.merge_user_glossaries(payload.username)
+            except Exception as e:
+                logger.warning(f"获取用户术语表失败: {e}")
+                return {}
 
         # 2. 根据 payload 的具体类型构建配置并实例化 workflow
         if isinstance(payload, MarkdownWorkflowParams):
@@ -723,6 +734,17 @@ async def _perform_translation(
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            
+            # 合并用户选择的术语表
+            user_glossary = get_user_glossary()
+            if user_glossary:
+                if 'glossary_dict' in translator_args and translator_args['glossary_dict']:
+                    # 合并术语表，用户选择的术语表优先级更高
+                    translator_args['glossary_dict'] = {**translator_args['glossary_dict'], **user_glossary}
+                else:
+                    translator_args['glossary_dict'] = user_glossary
+                task_logger.info(f"已加载用户术语表，包含 {len(user_glossary)} 条术语")
+            
             translator_args = inject_global_api_key(translator_args)
             translator_config = MDTranslatorConfig(**translator_args)
 
@@ -751,6 +773,16 @@ async def _perform_translation(
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            
+            # 合并用户选择的术语表
+            user_glossary = get_user_glossary()
+            if user_glossary:
+                if 'glossary_dict' in translator_args and translator_args['glossary_dict']:
+                    translator_args['glossary_dict'] = {**translator_args['glossary_dict'], **user_glossary}
+                else:
+                    translator_args['glossary_dict'] = user_glossary
+                task_logger.info(f"已加载用户术语表，包含 {len(user_glossary)} 条术语")
+            
             translator_args = inject_global_api_key(translator_args)
             translator_config = TXTTranslatorConfig(**translator_args)
 
@@ -770,6 +802,16 @@ async def _perform_translation(
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            
+            # 合并用户选择的术语表
+            user_glossary = get_user_glossary()
+            if user_glossary:
+                if 'glossary_dict' in translator_args and translator_args['glossary_dict']:
+                    translator_args['glossary_dict'] = {**translator_args['glossary_dict'], **user_glossary}
+                else:
+                    translator_args['glossary_dict'] = user_glossary
+                task_logger.info(f"已加载用户术语表，包含 {len(user_glossary)} 条术语")
+            
             translator_args = inject_global_api_key(translator_args)
             translator_config = JsonTranslatorConfig(**translator_args)
 
@@ -789,6 +831,16 @@ async def _perform_translation(
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            
+            # 合并用户选择的术语表
+            user_glossary = get_user_glossary()
+            if user_glossary:
+                if 'glossary_dict' in translator_args and translator_args['glossary_dict']:
+                    translator_args['glossary_dict'] = {**translator_args['glossary_dict'], **user_glossary}
+                else:
+                    translator_args['glossary_dict'] = user_glossary
+                task_logger.info(f"已加载用户术语表，包含 {len(user_glossary)} 条术语")
+            
             translator_args = inject_global_api_key(translator_args)
             translator_config = XlsxTranslatorConfig(**translator_args)
 
@@ -809,6 +861,16 @@ async def _perform_translation(
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            
+            # 合并用户选择的术语表
+            user_glossary = get_user_glossary()
+            if user_glossary:
+                if 'glossary_dict' in translator_args and translator_args['glossary_dict']:
+                    translator_args['glossary_dict'] = {**translator_args['glossary_dict'], **user_glossary}
+                else:
+                    translator_args['glossary_dict'] = user_glossary
+                task_logger.info(f"已加载用户术语表，包含 {len(user_glossary)} 条术语")
+            
             translator_args = inject_global_api_key(translator_args)
             translator_config = DocxTranslatorConfig(**translator_args)
 
@@ -829,6 +891,16 @@ async def _perform_translation(
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            
+            # 合并用户选择的术语表
+            user_glossary = get_user_glossary()
+            if user_glossary:
+                if 'glossary_dict' in translator_args and translator_args['glossary_dict']:
+                    translator_args['glossary_dict'] = {**translator_args['glossary_dict'], **user_glossary}
+                else:
+                    translator_args['glossary_dict'] = user_glossary
+                task_logger.info(f"已加载用户术语表，包含 {len(user_glossary)} 条术语")
+            
             translator_args = inject_global_api_key(translator_args)
             translator_config = SrtTranslatorConfig(**translator_args)
 
@@ -849,6 +921,16 @@ async def _perform_translation(
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            
+            # 合并用户选择的术语表
+            user_glossary = get_user_glossary()
+            if user_glossary:
+                if 'glossary_dict' in translator_args and translator_args['glossary_dict']:
+                    translator_args['glossary_dict'] = {**translator_args['glossary_dict'], **user_glossary}
+                else:
+                    translator_args['glossary_dict'] = user_glossary
+                task_logger.info(f"已加载用户术语表，包含 {len(user_glossary)} 条术语")
+            
             translator_args = inject_global_api_key(translator_args)
             translator_config = EpubTranslatorConfig(**translator_args)
 
@@ -870,6 +952,16 @@ async def _perform_translation(
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
+            
+            # 合并用户选择的术语表
+            user_glossary = get_user_glossary()
+            if user_glossary:
+                if 'glossary_dict' in translator_args and translator_args['glossary_dict']:
+                    translator_args['glossary_dict'] = {**translator_args['glossary_dict'], **user_glossary}
+                else:
+                    translator_args['glossary_dict'] = user_glossary
+                task_logger.info(f"已加载用户术语表，包含 {len(user_glossary)} 条术语")
+            
             translator_args = inject_global_api_key(translator_args)
             translator_config = HtmlTranslatorConfig(**translator_args)
 

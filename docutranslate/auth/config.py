@@ -12,6 +12,32 @@ from ..config.secrets_manager import get_secrets_manager
 # 创建日志记录器
 logger = logging.getLogger(__name__)
 
+_AUTH_CONFIG_SINGLETON: Optional["AuthConfig"] = None
+
+
+def _resolve_auth_config_path(config_file: str = "auth_config.json") -> Path:
+    """解析并返回统一的 auth_config.json 绝对路径。
+    优先项目根目录（包目录上两级），确保读写同一文件。
+    """
+    # 传入绝对路径则直接使用
+    p = Path(config_file)
+    if p.is_absolute():
+        logger.info(f"[AuthConfig] 使用绝对路径: {p}")
+        return p
+
+    # 候选1：当前工作目录下
+    cwd_candidate = Path.cwd() / config_file
+    # 候选2：项目根目录（当前文件上两级：.../docutranslate/ -> 项目根）
+    project_root = Path(__file__).resolve().parents[2]
+    root_candidate = project_root / config_file
+
+    # 读取时：优先已存在的文件路径；保存时：优先项目根
+    if cwd_candidate.exists() and not root_candidate.exists():
+        logger.info(f"[AuthConfig] 解析到工作目录配置: {cwd_candidate}")
+        return cwd_candidate
+    logger.info(f"[AuthConfig] 解析到项目根配置: {root_candidate}")
+    return root_candidate
+
 
 @dataclass
 class AuthConfig:
@@ -30,9 +56,9 @@ class AuthConfig:
     
     # LDAP 组配置
     ldap_admin_group_enabled: bool = False  # 是否启用管理员组查询
-    ldap_user_group_enabled: bool = False   # 是否启用用户组查询
+    ldap_glossary_group_enabled: bool = False   # 是否启用术语表组查询（新名）
     ldap_admin_group: str = "DocuTranslate-Admins"  # 管理员组名
-    ldap_user_group: str = "DocuTranslate-Users"    # 普通用户组名
+    ldap_glossary_group: str = "DocuTranslate-Glossary"    # 术语表组名（新名）
     ldap_group_base_dn: str = "OU=Groups,DC=example,DC=com"  # 组搜索基础DN
     
     # 默认用户配置（LDAP 关闭时使用）
@@ -69,9 +95,18 @@ class AuthConfig:
             ldap_tls_cacertfile=os.getenv("LDAP_TLS_CACERTFILE"),
             ldap_tls_verify=os.getenv("LDAP_TLS_VERIFY", "true").lower() == "true",
             ldap_admin_group_enabled=os.getenv("LDAP_ADMIN_GROUP_ENABLED", "false").lower() == "true",
-            ldap_user_group_enabled=os.getenv("LDAP_USER_GROUP_ENABLED", "false").lower() == "true",
+            # 新环境变量优先，旧变量兼容
+            ldap_glossary_group_enabled=(
+                os.getenv("LDAP_GLOSSARY_GROUP_ENABLED")
+                if os.getenv("LDAP_GLOSSARY_GROUP_ENABLED") is not None
+                else os.getenv("LDAP_USER_GROUP_ENABLED", "false")
+            ).lower() == "true",
             ldap_admin_group=os.getenv("LDAP_ADMIN_GROUP", "DocuTranslate-Admins"),
-            ldap_user_group=os.getenv("LDAP_USER_GROUP", "DocuTranslate-Users"),
+            ldap_glossary_group=(
+                os.getenv("LDAP_GLOSSARY_GROUP")
+                if os.getenv("LDAP_GLOSSARY_GROUP") is not None
+                else os.getenv("LDAP_USER_GROUP", "DocuTranslate-Users")
+            ),
             ldap_group_base_dn=os.getenv("LDAP_GROUP_BASE_DN", "OU=Groups,DC=example,DC=com"),
             default_username=os.getenv("DEFAULT_USERNAME", "admin"),
             default_password=os.getenv("DEFAULT_PASSWORD", "admin123"),
@@ -94,20 +129,32 @@ class AuthConfig:
     @classmethod
     def load_from_file(cls, config_file: str = "auth_config.json") -> "AuthConfig":
         """从配置文件加载配置，并从敏感配置文件加载敏感信息"""
-        config_path = Path(config_file)
+        config_path = _resolve_auth_config_path(config_file)
         
+        logger.info(f"[AuthConfig] 尝试从: {config_path} 读取配置")
         if not config_path.exists():
-            logger.info(f"配置文件 {config_file} 不存在，使用默认配置")
+            logger.info(f"[AuthConfig] 配置文件 {config_path} 不存在，使用默认配置")
             config = cls.from_env()
         else:
             try:
                 with open(config_path, 'r', encoding='utf-8') as f:
                     config_data = json.load(f)
                 
-                logger.info(f"从配置文件 {config_file} 加载配置")
+                # 兼容旧键名：将 user_group* 映射到 glossary_group*
+                try:
+                    if 'ldap_user_group_enabled' in config_data and 'ldap_glossary_group_enabled' not in config_data:
+                        logger.info("[AuthConfig] 将旧键 ldap_user_group_enabled 映射为 ldap_glossary_group_enabled")
+                        config_data['ldap_glossary_group_enabled'] = config_data.pop('ldap_user_group_enabled')
+                    if 'ldap_user_group' in config_data and 'ldap_glossary_group' not in config_data:
+                        logger.info("[AuthConfig] 将旧键 ldap_user_group 映射为 ldap_glossary_group")
+                        config_data['ldap_glossary_group'] = config_data.pop('ldap_user_group')
+                except Exception:
+                    pass
+
+                logger.info(f"[AuthConfig] 从配置文件 {config_path} 加载配置")
                 config = cls(**config_data)
             except Exception as e:
-                logger.error(f"加载配置文件失败: {e}，使用默认配置")
+                logger.error(f"[AuthConfig] 加载配置文件失败: {e}，使用默认配置")
                 config = cls.from_env()
         
         # 从敏感配置文件加载敏感信息
@@ -140,13 +187,14 @@ class AuthConfig:
     
     def save_to_file(self, config_file: str = "auth_config.json") -> bool:
         """保存配置到文件（不包含敏感信息）"""
-        config_path = Path(config_file)
+        config_path = _resolve_auth_config_path(config_file)
+        logger.info(f"[AuthConfig] 准备写入配置到: {config_path}")
         
         try:
             # 确保目录存在
             config_path.parent.mkdir(parents=True, exist_ok=True)
             
-            # 创建不包含敏感信息的配置副本
+            # 创建不包含敏感信息的配置副本（只写入新键名）
             config_dict = asdict(self)
             
             # 移除敏感信息，这些信息保存在local_secrets.json中
@@ -157,10 +205,10 @@ class AuthConfig:
             with open(config_path, 'w', encoding='utf-8') as f:
                 json.dump(config_dict, f, indent=2, ensure_ascii=False)
             
-            logger.info(f"配置已保存到 {config_file}（不包含敏感信息）")
+            logger.info(f"[AuthConfig] 配置已保存到 {config_path}（不包含敏感信息）")
             return True
         except Exception as e:
-            logger.error(f"保存配置文件失败: {e}")
+            logger.error(f"[AuthConfig] 保存配置文件失败: {e}")
             return False
     
     def update_from_dict(self, config_data: dict) -> None:
@@ -205,3 +253,37 @@ class AuthConfig:
                 logger.info(f"使用环境变量覆盖 {field_name} = {env_value}")
         
         return config
+
+
+# 模块级单例访问器，供路由的单项保存调用
+def get_auth_config(config_file: str = "auth_config.json") -> "AuthConfig":
+    global _AUTH_CONFIG_SINGLETON
+    if _AUTH_CONFIG_SINGLETON is None:
+        try:
+            _AUTH_CONFIG_SINGLETON = AuthConfig.load_from_file(config_file)
+        except Exception as e:
+            logger.warning(f"[AuthConfig] 初始化认证配置单例失败，使用默认值: {e}")
+            _AUTH_CONFIG_SINGLETON = AuthConfig.from_env()
+    return _AUTH_CONFIG_SINGLETON
+
+
+def save_auth_config(config_file: str = "auth_config.json") -> bool:
+    try:
+        cfg = get_auth_config(config_file)
+        result = cfg.save_to_file(config_file)
+        logger.info(f"[AuthConfig] save_auth_config 写盘结果: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"[AuthConfig] 保存认证配置失败: {e}")
+        return False
+
+
+def reload_auth_config(config_file: str = "auth_config.json") -> "AuthConfig":
+    """强制从磁盘重新加载认证配置，并刷新单例。"""
+    global _AUTH_CONFIG_SINGLETON
+    try:
+        _AUTH_CONFIG_SINGLETON = AuthConfig.load_from_file(config_file)
+        logger.info("[AuthConfig] 已从磁盘重新加载认证配置")
+    except Exception as e:
+        logger.error(f"[AuthConfig] 重新加载认证配置失败: {e}")
+    return _AUTH_CONFIG_SINGLETON
