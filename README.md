@@ -1,18 +1,17 @@
-This project is forked from docutranslate. It's to used for a team to translate docs and support LDAP/LDAPS. 
+# CollabTrans
 
+> **Project Description**: This project is a fork of [DocuTranslate](https://github.com/opendatalab/DocuTranslate), enhanced with collaborative translation features including multi-user support, enterprise authentication, and terminology management.
 
 <p align="center">
   <img src="./DocuTranslate.png" alt="Project Logo" style="width: 150px">
 </p>
 
-<h1 align="center">DocuTranslate</h1>
+<h1 align="center">CollabTrans</h1>
 
 <p align="center">
-  <a href="https://github.com/xunbu/docutranslate/stargazers"><img src="https://img.shields.io/github/stars/xunbu/docutranslate?style=flat-square&logo=github&color=blue" alt="GitHub stars"></a>
-  <a href="https://github.com/xunbu/docutranslate/releases"><img src="https://img.shields.io/github/downloads/xunbu/docutranslate/total?logo=github&style=flat-square" alt="GitHub Downloads"></a>
-  <a href="https://pypi.org/project/docutranslate/"><img src="https://img.shields.io/pypi/v/docutranslate?style=flat-square" alt="PyPI version"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white&style=flat-square" alt="Python Version"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/xunbu/docutranslate?style=flat-square" alt="License"></a>
+  <a href="https://github.com/opendatalab/DocuTranslate"><img src="https://img.shields.io/badge/Forked%20from-DocuTranslate-blue?style=flat-square" alt="Forked from DocuTranslate"></a>
 </p>
 
 <p align="center">
@@ -20,7 +19,7 @@ This project is forked from docutranslate. It's to used for a team to translate 
 </p>
 
 <p align="center">
-  A lightweight local file translation tool based on a large language model.
+  A collaborative translation platform with multi-user support, enterprise authentication, and terminology management.
 </p>
 
 - ✅ **Supports Multiple Formats**: Can translate various files such as `pdf`, `docx`, `xlsx`, `md`, `txt`, `json`,

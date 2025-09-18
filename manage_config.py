@@ -19,7 +19,7 @@ def get_project_root():
 
 def get_template_path():
     """获取模板文件路径"""
-    return get_project_root() / "docutranslate" / "config" / "templates" / "default_profile.json"
+    return get_project_root() / "collabtrans" / "config" / "templates" / "default_profile.json"
 
 def get_profiles_dir():
     """获取用户配置目录"""

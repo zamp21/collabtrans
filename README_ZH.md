@@ -1,15 +1,17 @@
+# CollabTrans
+
+> **项目说明**: 本项目基于 [DocuTranslate](https://github.com/opendatalab/DocuTranslate) 进行 fork 开发，在原有功能基础上增加了多用户支持、企业级认证、术语表管理等协作翻译功能。
+
 <p align="center">
   <img src="./DocuTranslate.png" alt="项目Logo" style="width: 150px">
 </p>
 
-<h1 align="center">DocuTranslate</h1>
+<h1 align="center">CollabTrans</h1>
 
 <p align="center">
-  <a href="https://github.com/xunbu/docutranslate/stargazers"><img src="https://img.shields.io/github/stars/xunbu/docutranslate?style=flat-square&logo=github&color=blue" alt="GitHub stars"></a>
-  <a href="https://github.com/xunbu/docutranslate/releases"><img src="https://img.shields.io/github/downloads/xunbu/docutranslate/total?logo=github&style=flat-square" alt="GitHub Downloads"></a>
-  <a href="https://pypi.org/project/docutranslate/"><img src="https://img.shields.io/pypi/v/docutranslate?style=flat-square" alt="PyPI version"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white&style=flat-square" alt="Python Version"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/xunbu/docutranslate?style=flat-square" alt="License"></a>
+  <a href="https://github.com/opendatalab/DocuTranslate"><img src="https://img.shields.io/badge/Forked%20from-DocuTranslate-blue?style=flat-square" alt="Forked from DocuTranslate"></a>
 </p>
 
 <p align="center">
@@ -17,7 +19,7 @@
 </p>
 
 <p align="center">
-  一个基于大语言模型的轻量级本地文件翻译工具
+  一个支持多用户协作、企业级认证和术语表管理的翻译平台
 </p>
 
 - ✅ **支持多种格式**：能翻译 `pdf`、`docx`、`xlsx`、`md`、`txt`、`json`、`epub`、`srt` 等多种文件。
