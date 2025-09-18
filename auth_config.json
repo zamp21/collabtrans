@@ -6,7 +6,7 @@
   "ldap_bind_dn_template": "{username}@testldaps.io",
   "ldap_base_dn": "OU=test,DC=testldaps,DC=io",
   "ldap_user_filter": "(sAMAccountName={username})",
-  "ldap_tls_cacertfile": "111",
+  "ldap_tls_cacertfile": null,
   "ldap_tls_verify": true,
   "ldap_admin_group_enabled": true,
   "ldap_glossary_group_enabled": true,

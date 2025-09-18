@@ -1228,14 +1228,7 @@ $.*"></textarea>
                                             </div>
                                         </div>
                                         
-                                        <div class="mb-3 d-flex gap-2">
-                                            <button type="button" class="btn btn-outline-secondary" id="genLdapTestCmdBtn">
-                                                <i class="bi bi-terminal me-2"></i><span data-i18n="genLdapTestCmdLabel">生成测试命令</span>
-                                            </button>
-                                            <button type="button" class="btn btn-outline-secondary" id="runLdapConnectivityBtn">
-                                                <i class="bi bi-wifi me-2"></i><span data-i18n="runLdapConnectivityLabel">测试连接</span>
-                                            </button>
-                                        </div>
+                                        <!-- 已迁移到 /settings：LDAP 测试按钮 -->
                                         
                                         <!-- Admin Group用户的LDAP配置保存按钮 -->
                                         <div class="mb-3" id="ldapConfigSaveSection" style="display: none;">
@@ -1244,36 +1237,7 @@ $.*"></textarea>
                                             </button>
                                         </div>
 
-                                        <!-- LDAP 测试连接弹窗 -->
-                                        <div class="modal fade" id="ldapTestModal" tabindex="-1" aria-hidden="true">
-                                            <div class="modal-dialog">
-                                                <div class="modal-content">
-                                                    <div class="modal-header">
-                                                        <h5 class="modal-title" data-i18n="ldapTestModalTitle">测试 LDAP 连接</h5>
-                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                    </div>
-                                                    <div class="modal-body">
-                                                        <div class="mb-3">
-                                                            <label for="ldapTestUsernameInput" class="form-label" data-i18n="ldapTestUsernameLabel">用户名（不含域）</label>
-                                                            <input type="text" class="form-control" id="ldapTestUsernameInput" placeholder="testuser">
-                                                        </div>
-                                                        <div class="mb-3">
-                                                            <label for="ldapTestPasswordInput" class="form-label" data-i18n="ldapTestPasswordLabel">密码</label>
-                                                            <div class="input-group">
-                                                                <input type="password" class="form-control" id="ldapTestPasswordInput" placeholder="********">
-                                                                <button class="btn btn-outline-secondary toggle-password" type="button" data-target="ldapTestPasswordInput">
-                                                                    <i class="bi bi-eye"></i>
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="modal-footer">
-                                                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-i18n="cancelBtn">取消</button>
-                                                        <button type="button" class="btn btn-outline-secondary" id="ldapTestConfirmBtn" data-i18n="confirmTestBtn">开始测试</button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
+                                        <!-- 已迁移到 /settings：LDAP 测试弹窗 -->
                                     </div>
 
                                     <!-- 默认用户配置 -->
