@@ -8,7 +8,7 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from docutranslate.auth.config import AuthConfig
+from collabtrans.auth.config import AuthConfig
 import ldap
 
 def test_group_query():

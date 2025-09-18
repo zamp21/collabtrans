@@ -8,9 +8,9 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from docutranslate.auth.config import AuthConfig
-from docutranslate.auth.ldap_client import LDAPClient
-from docutranslate.auth.models import UserRole
+from collabtrans.auth.config import AuthConfig
+from collabtrans.auth.ldap_client import LDAPClient
+from collabtrans.auth.models import UserRole
 
 def test_ldap_groups():
     """测试LDAP组查询功能"""

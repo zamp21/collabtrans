@@ -175,6 +175,73 @@ wheels = [
 ]
 
 [[package]]
+name = "collabtrans"
+source = { editable = "." }
+dependencies = [
+    { name = "beautifulsoup4" },
+    { name = "chardet" },
+    { name = "fastapi", extra = ["standard"] },
+    { name = "httpx" },
+    { name = "jinja2" },
+    { name = "json-repair" },
+    { name = "jsonpath-ng" },
+    { name = "lxml" },
+    { name = "mammoth" },
+    { name = "markdown" },
+    { name = "openpyxl" },
+    { name = "pymdown-extensions" },
+    { name = "python-docx" },
+    { name = "python-ldap" },
+    { name = "python-multipart" },
+    { name = "redis" },
+    { name = "srt" },
+    { name = "xlsx2html" },
+]
+
+[package.optional-dependencies]
+docling = [
+    { name = "docling" },
+    { name = "opencv-python" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "docling" },
+    { name = "opencv-python" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "beautifulsoup4", specifier = ">=4.13.4" },
+    { name = "chardet", specifier = ">=5.2.0" },
+    { name = "docling", marker = "extra == 'docling'", specifier = ">=2.40.0" },
+    { name = "fastapi", extras = ["standard"], specifier = ">=0.115.12" },
+    { name = "httpx", specifier = "==0.27.2" },
+    { name = "jinja2", specifier = ">=3.1.6" },
+    { name = "json-repair", specifier = ">=0.48.0" },
+    { name = "jsonpath-ng", specifier = ">=1.7.0" },
+    { name = "lxml", specifier = ">=5.4.0" },
+    { name = "mammoth", specifier = ">=1.10.0" },
+    { name = "markdown", specifier = ">=3.8.2" },
+    { name = "opencv-python", marker = "extra == 'docling'", specifier = ">=4.11.0.86" },
+    { name = "openpyxl", specifier = ">=3.1.5" },
+    { name = "pymdown-extensions", specifier = ">=10.16.1" },
+    { name = "python-docx", specifier = ">=1.2.0" },
+    { name = "python-ldap", specifier = ">=3.4.4" },
+    { name = "python-multipart", specifier = ">=0.0.20" },
+    { name = "redis", specifier = ">=6.4.0" },
+    { name = "srt", specifier = ">=3.5.3" },
+    { name = "xlsx2html", specifier = ">=0.6.2" },
+]
+provides-extras = ["docling"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "docling", specifier = ">=2.40.0" },
+    { name = "opencv-python", specifier = ">=4.11.0.86" },
+]
+
+[[package]]
 name = "colorama"
 version = "0.4.6"
 source = { registry = "https://pypi.org/simple" }
@@ -318,73 +385,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/4f/f5/14d5a939b815011c4b2d58e9afa3c80faf58ee70cafc03e10ec4d7de3e5a/docling_parse-4.1.0-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:008d4ee03a076102be80292008e791b994905780a68ae41d805cf9ff2d610b80", size = 15026519, upload-time = "2025-06-24T11:21:25.383Z" },
     { url = "https://files.pythonhosted.org/packages/2c/ea/153dd31b4e46d818b5917f0daac883ae467e32ddab5ca97c67f8e2971b85/docling_parse-4.1.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:371067eb2d04c3793ab57f254c32db354edbbd85f14e54cd5c67fccd2705acff", size = 15106663, upload-time = "2025-06-24T11:21:27.885Z" },
     { url = "https://files.pythonhosted.org/packages/29/df/39a85b8342401b1ac066e97f3c698e62f34505d3c219a4ffebbbd7c82eca/docling_parse-4.1.0-cp313-cp313-win_amd64.whl", hash = "sha256:adf42e7d1dbcfd67cf466f3e2b2569ddd79af3666c582ef6eac26263584471c5", size = 15895783, upload-time = "2025-06-24T11:21:29.923Z" },
-]
-
-[[package]]
-name = "docutranslate"
-source = { editable = "." }
-dependencies = [
-    { name = "beautifulsoup4" },
-    { name = "chardet" },
-    { name = "fastapi", extra = ["standard"] },
-    { name = "httpx" },
-    { name = "jinja2" },
-    { name = "json-repair" },
-    { name = "jsonpath-ng" },
-    { name = "lxml" },
-    { name = "mammoth" },
-    { name = "markdown" },
-    { name = "openpyxl" },
-    { name = "pymdown-extensions" },
-    { name = "python-docx" },
-    { name = "python-ldap" },
-    { name = "python-multipart" },
-    { name = "redis" },
-    { name = "srt" },
-    { name = "xlsx2html" },
-]
-
-[package.optional-dependencies]
-docling = [
-    { name = "docling" },
-    { name = "opencv-python" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "docling" },
-    { name = "opencv-python" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "beautifulsoup4", specifier = ">=4.13.4" },
-    { name = "chardet", specifier = ">=5.2.0" },
-    { name = "docling", marker = "extra == 'docling'", specifier = ">=2.40.0" },
-    { name = "fastapi", extras = ["standard"], specifier = ">=0.115.12" },
-    { name = "httpx", specifier = "==0.27.2" },
-    { name = "jinja2", specifier = ">=3.1.6" },
-    { name = "json-repair", specifier = ">=0.48.0" },
-    { name = "jsonpath-ng", specifier = ">=1.7.0" },
-    { name = "lxml", specifier = ">=5.4.0" },
-    { name = "mammoth", specifier = ">=1.10.0" },
-    { name = "markdown", specifier = ">=3.8.2" },
-    { name = "opencv-python", marker = "extra == 'docling'", specifier = ">=4.11.0.86" },
-    { name = "openpyxl", specifier = ">=3.1.5" },
-    { name = "pymdown-extensions", specifier = ">=10.16.1" },
-    { name = "python-docx", specifier = ">=1.2.0" },
-    { name = "python-ldap", specifier = ">=3.4.4" },
-    { name = "python-multipart", specifier = ">=0.0.20" },
-    { name = "redis", specifier = ">=6.4.0" },
-    { name = "srt", specifier = ">=3.5.3" },
-    { name = "xlsx2html", specifier = ">=0.6.2" },
-]
-provides-extras = ["docling"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "docling", specifier = ">=2.40.0" },
-    { name = "opencv-python", specifier = ">=4.11.0.86" },
 ]
 
 [[package]]
