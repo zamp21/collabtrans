@@ -1,0 +1,70 @@
+# DocuTranslate Release Notes
+
+> **Project Description**: This project is a fork of [DocuTranslate](https://github.com/opendatalab/DocuTranslate), enhanced with collaborative translation features including multi-user support, enterprise authentication, and terminology management.
+
+## Version 1.0.0 - Development Release
+*Latest updates from development cycle*
+
+### 🆕 New Features
+- **Multi-user Environment**: Complete multi-user support for collaborative translation workflows
+- **Enterprise Authentication**: 
+  - LDAP/LDAPS integration with SSL support
+  - Role-based access control with admin and user groups
+  - Dedicated login page with user-friendly design
+- **Multi-language UI Support**: 
+  - Language switching button for real-time interface language changes
+  - Comprehensive internationalization (i18n) support
+- **Multi-user Glossary Management**: Enhanced terminology management for collaborative environments
+- **API Key Management**: Centralized API key configuration and management system
+- **Authentication System**: Complete user authentication and configuration management
+
+### 🔧 Improvements
+- **UI/UX Enhancements**: 
+  - Moved save and reset buttons to menu for better organization
+  - Updated button colors and removed unnecessary glossary clear button
+  - Improved interface layout and user experience
+  - Clean, organized UI with improved navigation
+- **Configuration Management**: 
+  - Added retry mechanism for better system stability
+  - Set DeepSeek as default AI service provider
+  - Advanced configuration management capabilities
+- **Internationalization**: 
+  - Updated i18n support and cleaned up unused code
+  - Enhanced multi-language interface capabilities
+- **System Reliability**: 
+  - Improved error handling and system resilience
+  - Enhanced state management and data persistence
+
+### 📚 Documentation
+- **README Updates**: Comprehensive documentation improvements
+
+---
+
+## Feature Overview
+
+### Core Capabilities
+- ✅ **Multi-user Environment**: Full support for collaborative translation workflows
+- ✅ **Enterprise Authentication**: LDAP/LDAPS integration with role-based access
+- ✅ **Terminology Management**: Multi-user glossary and terminology management
+- ✅ **API Management**: Centralized API key and service configuration
+- ✅ **Internationalization**: Multi-language interface support
+
+### User Experience
+- ✅ **Intuitive Interface**: Clean, organized UI with improved navigation
+- ✅ **Language Switching**: Real-time language switching capabilities
+- ✅ **Responsive Design**: Optimized layout and button placement
+- ✅ **Error Handling**: Enhanced error recovery and user feedback
+
+### System Reliability
+- ✅ **Retry Mechanisms**: Automatic retry for failed operations
+- ✅ **State Management**: Persistent user sessions and configurations
+- ✅ **Security**: SSL-enabled connections and secure authentication
+- ✅ **Stability**: Improved error handling and system resilience
+
+---
+
+## Technical Notes
+- **Authentication**: Supports both local and LDAP/LDAPS authentication
+- **Multi-tenancy**: Full multi-user support with role-based permissions
+- **API Integration**: Configurable AI service providers with centralized management
+- **Internationalization**: Comprehensive i18n support for global users
