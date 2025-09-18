@@ -34,3 +34,7 @@ logs/
 
 # CSV files (uploaded glossaries, etc.)
 *.csv
+
+# HTTPS dev certificates (auto-generated, do not commit)
+certs/*.key
+certs/*.crt

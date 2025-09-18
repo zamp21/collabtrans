@@ -157,6 +157,28 @@ docutranslate -i
   in your browser.
 - **API Documentation**: The complete API documentation (Swagger UI) is available at `http://127.0.0.1:8010/docs`.
 
+### HTTPS Setup
+
+CollabTrans supports HTTPS in two ways. By default HTTPS is disabled for safety. Use the Settings page `/settings` to configure and test.
+
+1) Reverse proxy terminates TLS (recommended)
+- Put Nginx/Caddy/Traefik in front of CollabTrans, listen on 443 with your certificate and key, and proxy to `http://127.0.0.1:8010` (or your port).
+- Forward `X-Forwarded-Proto: https` from the proxy.
+- In Settings, you can keep HTTPS disabled in the app, or enable redirect if you still want in-app HTTPS enforcement.
+
+2) Built‑in TLS (simple, for dev/test)
+- Open `/settings` as admin.
+- In Web (HTTPS) section:
+  - Upload certificate (`.crt/.pem`) and private key (`.key/.pem`).
+  - Optionally fill the private key password (stored only in `local_secrets.json`).
+  - Click “Test Certificate/HTTPS”. If the test passes, the “Enable HTTPS” switch becomes available.
+  - Toggle “Enable HTTPS” and then click “Save Settings”. The app will start serving HTTPS on the same port at next restart.
+
+Notes
+- Auto dev cert: If HTTPS is enabled but no cert/key are found, the app will attempt to auto‑generate a self‑signed dev cert under `certs/` at startup. These files are ignored by git.
+- Security: The private key password is stored only in `local_secrets.json` (git‑ignored). Do not commit real certificates/keys.
+- OpenSSL: For auto generation and local troubleshooting, ensure `openssl` is installed. The HTTPS tester returns an `openssl_available` flag to help diagnose.
+
 ## Usage
 
 ### Example 1: Translating a PDF File (using `MarkdownBasedWorkflow`)

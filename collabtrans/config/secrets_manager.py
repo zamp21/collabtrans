@@ -197,6 +197,22 @@ class SecretsManager:
         secrets["auth_secrets"][key] = value
         
         return self.save_secrets(secrets)
+
+    # ==== Web/HTTPS TLS 私钥密码 ====
+    def get_web_tls_password(self) -> Optional[str]:
+        secrets = self.load_secrets()
+        return secrets.get("web_tls", {}).get("key_password")
+
+    def update_web_tls_password(self, password: Optional[str]) -> bool:
+        secrets = self.load_secrets()
+        if "web_tls" not in secrets:
+            secrets["web_tls"] = {}
+        if password:
+            secrets["web_tls"]["key_password"] = password
+        else:
+            # 清空时移除键以避免残留
+            secrets["web_tls"].pop("key_password", None)
+        return self.save_secrets(secrets)
     
     def has_secrets_file(self) -> bool:
         """

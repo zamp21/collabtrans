@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title data-i18n-title="pageTitle">DocuTranslate - 交互式文档翻译</title>
+    <title data-i18n-title="pageTitle">CollabTrans - 脱敏化翻译平台</title>
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
     <!-- Bootstrap CSS -->
     <link href="/static/bootstrap.css" rel="stylesheet" crossorigin="anonymous">
@@ -230,7 +230,7 @@
             <div class="settings-panel">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <div class="d-flex align-items-center">
-                        <h4 class="mb-0 me-3 fw-bold">DocuTranslate</h4>
+                        <h4 class="mb-0 me-3 fw-bold">CollabTrans</h4>
                         <div class="w-100">
                             <!-- 上排：超链接/文本类入口 -->
                             <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
@@ -5871,5 +5871,32 @@ $.*"></textarea>
     // --- Start the application ---
     document.addEventListener('DOMContentLoaded', init);
 </script>
+  <!-- 设置页快速入口（浮动按钮） -->
+  <a href="/settings" id="settingsFab" class="btn btn-sm btn-secondary" title="设置"
+     style="position:fixed; right:16px; bottom:16px; z-index:1040; opacity:0.9;">
+    <i class="bi bi-gear"></i> 设置
+  </a>
+
 </body>
+<script>
+  // 隐藏首页中的“登录设置”相关UI（已迁移到 /settings）
+  (function(){
+    try {
+      const probe = document.getElementById('ldapHost');
+      if (!probe) return;
+      let block = probe;
+      // 向上查找包含该区域的最外层卡片/面板
+      for (let i = 0; i < 8 && block; i++) {
+        if (block.classList && (
+          block.classList.contains('card') ||
+          block.classList.contains('accordion-item') ||
+          block.classList.contains('tab-pane') ||
+          block.classList.contains('container')
+        )) break;
+        block = block.parentElement;
+      }
+      if (block) block.style.display = 'none';
+    } catch (_) {}
+  })();
+</script>
 </html>

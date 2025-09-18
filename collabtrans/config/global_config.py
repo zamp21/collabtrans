@@ -80,6 +80,13 @@ class GlobalConfig:
     
     # 系统设置
     active_task_ids: list = field(default_factory=list)
+
+    # Web/HTTPS 设置
+    https_enabled: bool = False
+    https_cert_file: Optional[str] = None
+    https_key_file: Optional[str] = None
+    # 当启用HTTPS时，是否强制HTTP重定向到HTTPS
+    https_force_redirect: bool = True
     
     @classmethod
     def load_from_file(cls, config_file: str = "global_config.json") -> "GlobalConfig":

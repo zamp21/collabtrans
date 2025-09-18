@@ -1671,6 +1671,24 @@ async def main_page(request: Request):
     return FileResponse(index_path, headers=no_cache_headers)
 
 
+@app.get("/settings", response_class=HTMLResponse, include_in_schema=False)
+async def settings_page(request: Request):
+    # 未认证则跳转到登录页
+    try:
+        from collabtrans.auth import get_session_manager
+        session_manager = get_session_manager()
+        if not await session_manager.is_authenticated(request):
+            return RedirectResponse(url="/login?next=/settings", status_code=302)
+    except Exception:
+        # 认证模块不可用时，直接继续
+        pass
+
+    index_path = Path(STATIC_DIR) / "settings.html"
+    if not index_path.exists(): raise HTTPException(status_code=404, detail="settings.html not found")
+    no_cache_headers = {"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", "Pragma": "no-cache",
+                        "Expires": "0"}
+    return FileResponse(index_path, headers=no_cache_headers)
+
 @app.get("/admin", response_class=HTMLResponse, include_in_schema=False)
 async def main_page_admin(request: Request):
     # 未认证则跳转到登录页
@@ -1704,6 +1722,21 @@ async def custom_swagger_ui_html():
 async def swagger_ui_redirect():
     return get_swagger_ui_oauth2_redirect_html()
 
+
+@app.middleware("http")
+async def https_redirect_middleware(request: Request, call_next):
+    try:
+        from collabtrans.config.global_config import get_global_config
+        cfg = get_global_config()
+        if getattr(cfg, 'https_enabled', False) and getattr(cfg, 'https_force_redirect', True):
+            proto = request.headers.get('x-forwarded-proto') or request.url.scheme
+            host = request.headers.get('host')
+            if proto == 'http' and host:
+                https_url = str(request.url).replace('http://', 'https://', 1)
+                return RedirectResponse(url=https_url, status_code=308)
+    except Exception:
+        pass
+    return await call_next(request)
 
 @app.get("/redoc", include_in_schema=False)
 async def redoc_html():
@@ -1767,7 +1800,65 @@ def run_app(port: int | None = None):
         if port_to_use != initial_port: print(f"端口 {initial_port} 被占用，将使用端口 {port_to_use} 代替")
         print(f"正在启动 DocuTranslate WebUI 版本号：{__version__}")
         app.state.port_to_use = port_to_use
-        uvicorn.run(app, host=None, port=port_to_use, workers=1)
+
+        # 读取全局与敏感配置，按需启用内置 TLS
+        ssl_kwargs = {}
+        try:
+            from collabtrans.config.global_config import get_global_config
+            from collabtrans.config.secrets_manager import get_secrets_manager
+            from collabtrans.config.global_config import save_global_config
+            global_config = get_global_config()
+            if getattr(global_config, "https_enabled", False):
+                cert_file = getattr(global_config, "https_cert_file", "") or ""
+                key_file = getattr(global_config, "https_key_file", "") or ""
+
+                # 若启用HTTPS但证书缺失，尝试自动生成自签名证书
+                if not (cert_file and key_file and os.path.exists(cert_file) and os.path.exists(key_file)):
+                    try:
+                        certs_dir = os.path.join(os.getcwd(), "certs")
+                        os.makedirs(certs_dir, exist_ok=True)
+                        default_key = os.path.join(certs_dir, "dev.local.key")
+                        default_crt = os.path.join(certs_dir, "dev.local.crt")
+
+                        if not (os.path.exists(default_key) and os.path.exists(default_crt)):
+                            import subprocess
+                            subprocess.run([
+                                "openssl", "req", "-x509", "-nodes", "-newkey", "rsa:2048",
+                                "-days", "365",
+                                "-keyout", default_key,
+                                "-out", default_crt,
+                                "-subj", "/CN=localhost"
+                            ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                            print("已自动生成自签名HTTPS证书(开发环境): certs/dev.local.crt, certs/dev.local.key")
+
+                        cert_file = default_crt
+                        key_file = default_key
+                        # 回写到全局配置，便于下次启动直接使用
+                        global_config.https_cert_file = cert_file
+                        global_config.https_key_file = key_file
+                        save_global_config()
+                    except Exception as gen_err:
+                        print(f"自动生成开发用自签名证书失败，将以HTTP方式启动: {gen_err}")
+
+                if cert_file and key_file and os.path.exists(cert_file) and os.path.exists(key_file):
+                    secrets_manager = get_secrets_manager()
+                    key_password = None
+                    try:
+                        key_password = secrets_manager.get_web_tls_password()
+                    except Exception:
+                        key_password = None
+                    ssl_kwargs.update({
+                        "ssl_certfile": cert_file,
+                        "ssl_keyfile": key_file,
+                    })
+                    if key_password:
+                        ssl_kwargs["ssl_keyfile_password"] = key_password
+                else:
+                    print("HTTPS已启用，但证书或私钥文件不存在，将以HTTP方式启动。")
+        except Exception as _e:
+            print(f"读取HTTPS配置失败，将以HTTP方式启动: {_e}")
+
+        uvicorn.run(app, host="0.0.0.0", port=port_to_use, workers=1, **ssl_kwargs)
     except Exception as e:
         print(f"启动失败: {e}")
 

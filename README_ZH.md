@@ -142,6 +142,28 @@ docutranslate -i
 - **交互式界面**: 启动服务后，请在浏览器中访问 `http://127.0.0.1:8010` (或您指定的端口)。
 - **API 文档**: 完整的 API 文档（Swagger UI）位于 `http://127.0.0.1:8010/docs`。
 
+### HTTPS 使用说明
+
+CollabTrans 支持两种 HTTPS 方式。默认为关闭状态。请在管理端 `/settings` 的“Web 设置（HTTPS）”中配置与测试。
+
+1) 反向代理终止 TLS（推荐）
+- 使用 Nginx/Caddy/Traefik 在 443 配置证书与私钥，反向代理到 `http://127.0.0.1:8010`（或你的端口）。
+- 代理需转发 `X-Forwarded-Proto: https` 头。
+- 应用内可保持 HTTPS 关闭；如需在应用内强制跳转，也可开启“强制重定向”。
+
+2) 应用内置 TLS（适合开发/测试）
+- 以管理员身份进入 `/settings`。
+- 在“Web(HTTPS)”区：
+  - 上传证书（`.crt/.pem`）和私钥（`.key/.pem`）。
+  - 如有私钥密码可填写（仅保存在 `local_secrets.json`，不会进入 git）。
+  - 点击“测试证书/HTTPS”。测试通过后，“启用 HTTPS”开关会解锁。
+  - 勾选“启用 HTTPS”，点击底部“保存设置”。下次启动时应用会在同一端口提供 HTTPS。
+
+注意
+- 开发证书自动生成：若启用 HTTPS 但未找到证书/私钥，应用启动时会尝试在 `certs/` 目录生成自签名证书（已在 `.gitignore` 忽略）。
+- 安全：真实证书/私钥请勿提交到仓库；私钥密码仅存放在 `local_secrets.json`。
+- OpenSSL：自动生成与本地排障依赖 `openssl`。测试接口会返回 `openssl_available` 以协助诊断。
+
 ## 使用方式
 
 ### 示例 1: 翻译一个 PDF 文件 (使用 `MarkdownBasedWorkflow`)

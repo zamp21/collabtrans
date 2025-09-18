@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-bs-theme="auto">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>设置 - CollabTrans</title>
+    <link rel="icon" href="/static/favicon.ico">
+    <link href="/static/bootstrap.css" rel="stylesheet">
+    <link href="/static/bootstrap-icons.css" rel="stylesheet">
+    <link href="/static/pico.css" rel="stylesheet">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="/">CollabTrans</a>
+    <div>
+      <a class="btn btn-sm btn-outline-light me-2" href="/">首页</a>
+      <a class="btn btn-sm btn-primary" href="/settings">设置</a>
+    </div>
+  </div>
+  </nav>
+
+<main class="container py-4">
+  <h1 class="h4 mb-3">设置</h1>
+
+  <div class="alert alert-info">此页面用于集中管理系统设置。</div>
+
+  <section class="mb-4">
+    <h2 class="h5">登录设置</h2>
+    <div class="border rounded p-3">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="ldapEnabled">
+            <label class="form-check-label" for="ldapEnabled">启用LDAP登录</label>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="ldapProtocol">协议</label>
+          <select id="ldapProtocol" class="form-select">
+            <option value="ldap">LDAP</option>
+            <option value="ldaps">LDAPS</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row g-3 mt-0">
+        <div class="col-md-6">
+          <label for="ldapHost" class="form-label">LDAP服务器（与证书CN/SAN匹配）</label>
+          <input type="text" class="form-control" id="ldapHost" placeholder="adtest2.testldaps.io">
+        </div>
+        <div class="col-md-3">
+          <label for="ldapPort" class="form-label">端口</label>
+          <input type="number" class="form-control" id="ldapPort" placeholder="389">
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <label for="ldapBindDnTemplate" class="form-label">绑定 DN 模板</label>
+        <input type="text" class="form-control" id="ldapBindDnTemplate" placeholder="EXAMPLE\\{username} 或 {username}@example.com">
+      </div>
+
+      <div class="mt-3">
+        <label for="ldapUserFilter" class="form-label">用户过滤器</label>
+        <input type="text" class="form-control" id="ldapUserFilter" placeholder="(sAMAccountName={username})">
+      </div>
+
+      <div class="mt-3">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="ldapAdminGroupEnabled">
+              <label class="form-check-label" for="ldapAdminGroupEnabled">启用管理员组查询</label>
+            </div>
+            <input type="text" class="form-control mt-2" id="ldapAdminGroup" placeholder="DocuTranslate-Admins">
+          </div>
+          <div class="col-md-6">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="ldapGlossaryGroupEnabled">
+              <label class="form-check-label" for="ldapGlossaryGroupEnabled">启用术语表组查询</label>
+            </div>
+            <input type="text" class="form-control mt-2" id="ldapGlossaryGroup" placeholder="DocuTranslate-Glossary">
+          </div>
+        </div>
+        <div class="mt-3">
+          <label for="ldapGroupBaseDn" class="form-label">组搜索 Base DN</label>
+          <input type="text" class="form-control" id="ldapGroupBaseDn" placeholder="OU=Groups,DC=example,DC=com">
+        </div>
+      </div>
+
+      <div id="ldapsConfigContainer" class="mt-3" style="display:none;">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="ldapTlsVerify">
+          <label class="form-check-label" for="ldapTlsVerify">验证TLS证书</label>
+        </div>
+        <div class="mt-2">
+          <label for="ldapTlsCacertfile" class="form-label">TLS证书文件路径</label>
+          <input type="text" class="form-control" id="ldapTlsCacertfile" placeholder="/path/to/ca.crt">
+        </div>
+      </div>
+
+      <div class="mt-3 d-flex gap-2">
+        <!-- 登录设置保存已合并到页面底部“保存设置”按钮，这里不再单独显示 -->
+        <button id="testLdapBtn" class="btn btn-outline-primary btn-sm">测试LDAP连接</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="mb-4">
+    <h2 class="h5">Web 设置（HTTPS）</h2>
+    <div class="border rounded p-3">
+      <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" id="httpsEnabled" disabled>
+        <label class="form-check-label" for="httpsEnabled">启用 HTTPS</label>
+        <div class="form-text">为安全起见，未通过测试前禁用该开关</div>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label" for="certFile">证书文件（.crt/.pem）</label>
+          <input class="form-control" type="file" id="certFile" accept=".crt,.pem">
+          <div class="form-text">当前证书：<span id="currentCertName">-</span></div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="keyFile">私钥文件（.key/.pem）</label>
+          <input class="form-control" type="file" id="keyFile" accept=".key,.pem">
+          <div class="form-text">当前私钥：<span id="currentKeyName">-</span></div>
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <label class="form-label" for="keyPassword">私钥密码（可选）</label>
+        <input class="form-control" type="password" id="keyPassword" placeholder="输入私钥密码">
+      </div>
+
+      <div class="mt-3 d-flex gap-2">
+        <button id="uploadCertBtn" class="btn btn-outline-secondary btn-sm">上传证书与私钥</button>
+        <button id="testHttpsBtn" class="btn btn-outline-success btn-sm">测试证书/HTTPS</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="mt-4">
+    <button id="saveAllBtn" class="btn btn-success">保存设置</button>
+  </div>
+</main>
+
+<script src="/static/bootstrap.bundle.min.js"></script>
+<script>
+  async function loadAppConfig() {
+    try {
+      const resp = await fetch('/auth/app-config');
+      if (!resp.ok) return null;
+      const cfg = await resp.json();
+      // 展示现有证书/私钥文件名
+      try {
+        const certPath = cfg.https_cert_file || '';
+        const keyPath = cfg.https_key_file || '';
+        document.getElementById('currentCertName').textContent = certPath ? (certPath.split('/').pop()) : '-';
+        document.getElementById('currentKeyName').textContent = keyPath ? (keyPath.split('/').pop()) : '-';
+      } catch(_) {}
+      return cfg;
+    } catch (_) { return null; }
+  }
+
+  async function saveAppConfig(patch) {
+    const resp = await fetch('/auth/app-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch)
+    });
+    return resp.ok;
+  }
+
+  async function uploadCertAndKey(certFile, keyFile) {
+    const fd = new FormData();
+    if (certFile) fd.append('cert', certFile);
+    if (keyFile) fd.append('key', keyFile);
+    const resp = await fetch('/auth/web/upload-cert', { method: 'POST', body: fd });
+    return resp.ok;
+  }
+
+  (async function init(){
+    // 设置默认HTTPS禁用，且在未测试前禁用修改
+    document.getElementById('httpsEnabled').checked = false;
+    document.getElementById('httpsEnabled').disabled = true;
+
+    const cfg = await loadAppConfig();
+    if (cfg && typeof cfg.https_enabled !== 'undefined') {
+      document.getElementById('httpsEnabled').checked = !!cfg.https_enabled;
+    }
+
+    document.getElementById('uploadCertBtn').addEventListener('click', async () => {
+      const cert = document.getElementById('certFile').files[0];
+      const key = document.getElementById('keyFile').files[0];
+      const ok = await uploadCertAndKey(cert, key);
+      if (ok) {
+        // 重新加载以更新当前文件名显示
+        const cfg2 = await loadAppConfig();
+        alert('上传成功');
+      } else {
+        alert('上传失败');
+      }
+    });
+
+    // 移除单独“保存Web设置”逻辑，合并到“保存设置”按钮
+
+    document.getElementById('testHttpsBtn').addEventListener('click', async () => {
+      try {
+        // 若输入了密码，先保存以便服务端读取
+        const pwd = document.getElementById('keyPassword').value;
+        if (pwd) {
+          await saveAppConfig({ https_key_password: pwd });
+        }
+        // 如果用户选择了新文件，先上传，以新证书进行测试
+        const certSel = document.getElementById('certFile').files[0];
+        const keySel = document.getElementById('keyFile').files[0];
+        if (certSel || keySel) {
+          const upOk = await uploadCertAndKey(certSel, keySel);
+          if (!upOk) {
+            alert('上传新证书失败，已取消测试');
+            return;
+          }
+          // 上传后刷新显示
+          await loadAppConfig();
+        }
+        const resp = await fetch('/auth/web/test-https', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        const data = await resp.json();
+        if (resp.ok && data.ok) {
+          alert('HTTPS测试完成\n' + JSON.stringify(data, null, 2));
+          // 通过测试后，允许切换启用HTTPS
+          document.getElementById('httpsEnabled').disabled = false;
+        } else {
+          alert('HTTPS测试失败\n' + JSON.stringify(data, null, 2));
+          // 测试失败仍保持禁用
+          document.getElementById('httpsEnabled').disabled = true;
+        }
+      } catch (e) {
+        alert('HTTPS测试异常: ' + e);
+        document.getElementById('httpsEnabled').disabled = true;
+      }
+    });
+
+    document.getElementById('saveAllBtn').addEventListener('click', async () => {
+      // 1) 先保存LDAP登录设置
+      const okLogin = await saveLoginSettings(true);
+      // 2) 再保存Web/HTTPS设置
+      const patch = {
+        https_enabled: document.getElementById('httpsEnabled').checked,
+        https_key_password: document.getElementById('keyPassword').value || null
+      };
+      const okWeb = await saveAppConfig(patch);
+      alert(okLogin && okWeb ? '设置已保存' : '部分设置保存失败');
+    });
+  })();
+
+  // 迁移登录设置：加载、联动、保存
+  async function loadLdapConfig() {
+    try {
+      const resp = await fetch('/auth/ldap-config');
+      if (!resp.ok) return false;
+      const cfg = await resp.json();
+      document.getElementById('ldapEnabled').checked = !!cfg.ldap_enabled;
+      document.getElementById('ldapProtocol').value = cfg.ldap_protocol || 'ldap';
+      document.getElementById('ldapHost').value = cfg.ldap_host || '';
+      document.getElementById('ldapPort').value = cfg.ldap_port || 389;
+      document.getElementById('ldapBindDnTemplate').value = cfg.ldap_bind_dn_template || '';
+      document.getElementById('ldapUserFilter').value = cfg.ldap_user_filter || '';
+      document.getElementById('ldapAdminGroupEnabled').checked = !!cfg.ldap_admin_group_enabled;
+      document.getElementById('ldapGlossaryGroupEnabled').checked = !!cfg.ldap_glossary_group_enabled;
+      document.getElementById('ldapAdminGroup').value = cfg.ldap_admin_group || '';
+      document.getElementById('ldapGlossaryGroup').value = cfg.ldap_glossary_group || '';
+      document.getElementById('ldapGroupBaseDn').value = cfg.ldap_group_base_dn || '';
+      document.getElementById('ldapTlsVerify').checked = cfg.ldap_tls_verify !== false;
+      document.getElementById('ldapTlsCacertfile').value = cfg.ldap_tls_cacertfile || '';
+
+      updateLdapsUi();
+      return true;
+    } catch (_) { return false; }
+  }
+
+  function updateLdapsUi() {
+    const isLdaps = document.getElementById('ldapProtocol').value === 'ldaps';
+    document.getElementById('ldapsConfigContainer').style.display = isLdaps ? '' : 'none';
+  }
+
+  document.getElementById('ldapProtocol').addEventListener('change', updateLdapsUi);
+
+  async function saveLoginSettings(silent=false) {
+    const payload = {
+      ldap_enabled: document.getElementById('ldapEnabled').checked,
+      ldap_protocol: document.getElementById('ldapProtocol').value,
+      ldap_host: document.getElementById('ldapHost').value,
+      ldap_port: parseInt(document.getElementById('ldapPort').value || '389'),
+      ldap_bind_dn_template: document.getElementById('ldapBindDnTemplate').value,
+      ldap_base_dn: document.getElementById('ldapGroupBaseDn').value, // 与原结构保持一致
+      ldap_user_filter: document.getElementById('ldapUserFilter').value,
+      ldap_admin_group_enabled: document.getElementById('ldapAdminGroupEnabled').checked,
+      ldap_glossary_group_enabled: document.getElementById('ldapGlossaryGroupEnabled').checked,
+      ldap_admin_group: document.getElementById('ldapAdminGroup').value,
+      ldap_glossary_group: document.getElementById('ldapGlossaryGroup').value,
+      ldap_group_base_dn: document.getElementById('ldapGroupBaseDn').value,
+      ldap_tls_verify: document.getElementById('ldapTlsVerify').checked,
+      ldap_tls_cacertfile: document.getElementById('ldapTlsCacertfile').value
+    };
+    const resp = await fetch('/auth/ldap-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!silent) alert(resp.ok ? '登录设置已保存' : '保存失败');
+    return resp.ok;
+  }
+
+
+  async function testLdap() {
+    const payload = {
+      ldap_enabled: document.getElementById('ldapEnabled').checked,
+      ldap_protocol: document.getElementById('ldapProtocol').value,
+      ldap_host: document.getElementById('ldapHost').value,
+      ldap_port: parseInt(document.getElementById('ldapPort').value || '389'),
+      ldap_bind_dn_template: document.getElementById('ldapBindDnTemplate').value,
+      ldap_base_dn: document.getElementById('ldapGroupBaseDn').value,
+      ldap_user_filter: document.getElementById('ldapUserFilter').value,
+      ldap_admin_group_enabled: document.getElementById('ldapAdminGroupEnabled').checked,
+      ldap_glossary_group_enabled: document.getElementById('ldapGlossaryGroupEnabled').checked,
+      ldap_admin_group: document.getElementById('ldapAdminGroup').value,
+      ldap_glossary_group: document.getElementById('ldapGlossaryGroup').value,
+      ldap_group_base_dn: document.getElementById('ldapGroupBaseDn').value,
+      ldap_tls_verify: document.getElementById('ldapTlsVerify').checked,
+      ldap_tls_cacertfile: document.getElementById('ldapTlsCacertfile').value
+    };
+    try {
+      const resp = await fetch('/auth/test-ldap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      });
+      const txt = await resp.text();
+      alert(resp.ok ? ('LDAP测试成功\n' + txt) : ('LDAP测试失败\n' + txt));
+    } catch (e) {
+      alert('LDAP测试异常: ' + e);
+    }
+  }
+  document.getElementById('testLdapBtn').addEventListener('click', testLdap);
+
+  // 页面初始化时加载登录设置
+  (async function initLogin(){
+    await loadLdapConfig();
+  })();
+</script>
+</body>
+</html>
+

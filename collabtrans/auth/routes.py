@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2025 QinHan
 # SPDX-License-Identifier: MPL-2.0
 
-from fastapi import APIRouter, Request, Response, HTTPException, Form, Depends
+from fastapi import APIRouter, Request, Response, HTTPException, Form, Depends, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from typing import Optional
@@ -9,6 +9,8 @@ import time
 import logging
 import os
 import json
+import ssl
+import httpx
 
 from .config import AuthConfig
 from .ldap_client import LDAPClient, InvalidCredentials
@@ -551,6 +553,130 @@ async def get_raw_secrets_api(
         "translator_mineru_token": mineru_token or ""
     }
 
+@auth_router.post("/web/upload-cert")
+async def upload_web_cert(
+    cert: UploadFile | None = File(None),
+    key: UploadFile | None = File(None),
+    user: User = Depends(get_current_user)
+):
+    if not user.is_admin():
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    try:
+        from pathlib import Path
+        from ..config.global_config import get_global_config, save_global_config
+        base_dir = Path(__file__).resolve().parents[2]
+        certs_dir = base_dir / "certs"
+        certs_dir.mkdir(parents=True, exist_ok=True)
+
+        saved_cert_path = None
+        saved_key_path = None
+
+        if cert is not None and cert.filename:
+            target = certs_dir / cert.filename
+            content = await cert.read()
+            target.write_bytes(content)
+            saved_cert_path = str(target)
+
+        if key is not None and key.filename:
+            target = certs_dir / key.filename
+            content = await key.read()
+            target.write_bytes(content)
+            saved_key_path = str(target)
+
+        if not saved_cert_path and not saved_key_path:
+            raise HTTPException(status_code=400, detail="No files uploaded")
+
+        gc = get_global_config()
+        if saved_cert_path:
+            gc.https_cert_file = saved_cert_path
+        if saved_key_path:
+            gc.https_key_file = saved_key_path
+        save_global_config()
+
+        return {"success": True, "cert": saved_cert_path, "key": saved_key_path}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"上传证书失败: {e}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
+@auth_router.post("/web/test-https")
+async def test_https_available(
+    request: Request,
+    payload: dict,
+    user: User = Depends(get_current_user)
+):
+    """测试当前证书与HTTPS可用性（仅管理员）
+    逻辑：
+    1) 读取传入的证书/私钥路径（若未传入则使用全局配置）
+    2) 校验证书/私钥文件存在与可读
+    3) 尝试加载到 SSLContext（等同于Uvicorn使用）
+    4) 对自身发起一次 HTTPS 请求（verify=False），返回状态码
+    """
+    if not user.is_admin():
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    try:
+        from ..config.global_config import get_global_config
+        from ..config.secrets_manager import get_secrets_manager
+
+        gc = get_global_config()
+        sm = get_secrets_manager()
+        cert_file = (payload or {}).get('https_cert_file') or gc.https_cert_file
+        key_file = (payload or {}).get('https_key_file') or gc.https_key_file
+        key_password = (payload or {}).get('https_key_password') or sm.get_web_tls_password()
+
+        details = {
+            "cert_exists": bool(cert_file and os.path.exists(cert_file)),
+            "key_exists": bool(key_file and os.path.exists(key_file)),
+        }
+
+        # 检查 openssl 是否可用（用于自动生成或用户排障）
+        try:
+            import shutil
+            details["openssl_available"] = bool(shutil.which("openssl"))
+        except Exception:
+            details["openssl_available"] = False
+
+        if not details["cert_exists"] or not details["key_exists"]:
+            return JSONResponse(status_code=400, content={
+                "ok": False,
+                "message": "Certificate or key file not found" + ("; please install openssl to auto-generate dev cert" if not details.get("openssl_available") else ""),
+                **details
+            })
+
+        # 3) 加载到 SSLContext
+        try:
+            ctx = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
+            # 允许无密码
+            ctx.load_cert_chain(certfile=cert_file, keyfile=key_file, password=key_password)
+            details["load_sslcontext_ok"] = True
+        except Exception as e:
+            details["load_sslcontext_ok"] = False
+            details["load_error"] = str(e)
+            return JSONResponse(status_code=400, content={
+                "ok": False,
+                "message": "Failed to load cert/key into SSL context",
+                **details
+            })
+
+        # 4) 自测：对自身发起一次HTTPS请求（关闭验证，以兼容自签名）
+        port = getattr(request.app.state, 'port_to_use', 8010)
+        try:
+            async with httpx.AsyncClient(verify=False, timeout=2.5) as client:
+                r = await client.get(f"https://127.0.0.1:{port}/login")
+                details["probe_status"] = r.status_code
+        except Exception as e:
+            details["probe_status"] = None
+            details["probe_error"] = str(e)
+
+        return {"ok": True, "message": "HTTPS test completed", **details}
+    except Exception as e:
+        logger.error(f"测试HTTPS失败: {e}")
+        return JSONResponse(status_code=500, content={"ok": False, "message": str(e)})
+
 
 # === 术语表管理API ===
 
@@ -908,11 +1034,54 @@ async def update_app_config_api(
         if not user.is_super_admin() and 'default_password' in config_data:
             del config_data['default_password']
         
-        # 更新其他配置
-        app_config.update_from_dict(config_data)
+        # 处理Web/HTTPS相关字段写入全局配置
+        from ..config.global_config import get_global_config, save_global_config
+        global_cfg = get_global_config()
+
+        https_keys = {
+            'https_enabled', 'https_force_redirect'
+        }
+
+        https_updates = {k: v for k, v in config_data.items() if k in https_keys}
+
+        # 证书路径与私钥路径放入全局配置（作为普通字段存储路径字符串）
+        if 'https_cert_file' in config_data:
+            global_cfg.https_cert_file = config_data['https_cert_file'] or None
+        if 'https_key_file' in config_data:
+            global_cfg.https_key_file = config_data['https_key_file'] or None
+        for k, v in https_updates.items():
+            setattr(global_cfg, k, v)
+
+        # 若请求启用HTTPS，则在保存前进行强校验（保证已通过测试）
+        try:
+            if bool(global_cfg.https_enabled):
+                cert_file = global_cfg.https_cert_file
+                key_file = global_cfg.https_key_file
+                if not (cert_file and key_file and os.path.exists(cert_file) and os.path.exists(key_file)):
+                    raise HTTPException(status_code=400, detail="Enable HTTPS failed: certificate or key not found")
+                import ssl as _ssl
+                from ..config.secrets_manager import get_secrets_manager as _get_sm
+                _pwd = _get_sm().get_web_tls_password()
+                ctx = _ssl.create_default_context(purpose=_ssl.Purpose.CLIENT_AUTH)
+                ctx.load_cert_chain(certfile=cert_file, keyfile=key_file, password=_pwd)
+        except HTTPException:
+            raise
+        except Exception as _e:
+            raise HTTPException(status_code=400, detail=f"Enable HTTPS failed: {str(_e)}")
+
+        # 更新其他配置（用户级App配置）
+        app_config.update_from_dict({k: v for k, v in config_data.items() if k not in https_keys and k not in ['https_cert_file','https_key_file']})
         
         # 保存配置
-        if save_app_config():
+        # 保存HTTPS私钥密码到敏感配置
+        from ..config.secrets_manager import get_secrets_manager
+        secrets_manager = get_secrets_manager()
+        if 'https_key_password' in config_data:
+            secrets_manager.update_web_tls_password(config_data.get('https_key_password') or None)
+
+        ok1 = save_app_config()
+        ok2 = save_global_config()
+        if ok1 and ok2:
             logger.info(f"应用配置已由用户 {_mask_username(user.username)} 更新")
             return {"success": True, "message": "Configuration updated successfully"}
         else:
@@ -957,6 +1126,8 @@ async def update_single_setting(
             'translator_convert_engin', 'translator_mineru_model_version',
             'translator_formula_ocr', 'translator_code_ocr', 'translator_skip_translate',
             'platform_urls', 'platform_models', 'active_task_ids',
+            # Web/HTTPS 设置
+            'https_enabled', 'https_force_redirect', 'https_cert_file', 'https_key_file',
             # LDAP配置键
             'ldap_enabled', 'ldap_protocol', 'ldap_host', 'ldap_port', 'ldap_bind_dn_template',
             'ldap_base_dn', 'ldap_user_filter', 'ldap_tls_cacertfile', 'ldap_tls_verify'
