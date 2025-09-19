@@ -40,7 +40,7 @@ class AppConfig:
     translator_json_paths: str = ""
     
     # 解析设置
-    translator_convert_engin: str = ""
+    translator_convert_engine: str = ""
     translator_mineru_token: str = ""
     translator_mineru_model_version: str = "vlm"
     translator_formula_ocr: bool = False

@@ -28,12 +28,71 @@
   <div class="row g-4">
     <aside class="col-md-3">
       <nav class="list-group sticky-top" style="top: 80px;">
+        <a class="list-group-item list-group-item-action" href="#ai-platforms">AI 平台设置</a>
         <a class="list-group-item list-group-item-action" href="#login-settings">登录设置</a>
         <a class="list-group-item list-group-item-action" href="#web-settings">Web 设置（HTTPS）</a>
       </nav>
     </aside>
 
     <div class="col-md-9">
+  <section class="mb-4" id="ai-platforms">
+    <h2 class="h5">AI 平台设置</h2>
+    <div class="border rounded p-3">
+      <div class="mb-3">
+        <label class="form-label" for="platformSelect">当前平台</label>
+              <select id="platformSelect" class="form-select">
+                <!-- 选项将从配置文件动态加载 -->
+              </select>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label" for="platformName">平台名称</label>
+          <input type="text" class="form-control" id="platformName" placeholder="DeepSeek">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="platformUrl">平台链接</label>
+          <input type="url" class="form-control" id="platformUrl" placeholder="https://api.deepseek.com">
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <label class="form-label" for="platformApiKey">API Key</label>
+        <div class="input-group">
+          <input type="password" class="form-control" id="platformApiKey" placeholder="sk-...">
+          <button class="btn btn-outline-secondary toggle-password" type="button" data-target="platformApiKey">
+            <i class="bi bi-eye"></i>
+          </button>
+        </div>
+        <div class="form-text">API Key 将安全保存，不会显示明文</div>
+      </div>
+
+      <div class="mt-3">
+        <label class="form-label" for="modelName">模型名称</label>
+        <input type="text" class="form-control" id="modelName" placeholder="deepseek-chat">
+        <div class="form-text">如：deepseek-chat, gpt-4, claude-3-sonnet 等</div>
+      </div>
+
+      <div class="mt-3">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label" for="maxTokens">最大 Token 数</label>
+            <input type="number" class="form-control" id="maxTokens" placeholder="4096" min="1" max="100000">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="temperature">温度参数</label>
+            <input type="number" class="form-control" id="temperature" placeholder="0.7" min="0" max="2" step="0.1">
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-3 d-flex gap-2">
+        <button id="saveAiPlatformBtn" class="btn btn-primary btn-sm">保存 AI 平台设置</button>
+        <button id="testAiPlatformBtn" class="btn btn-outline-secondary btn-sm">测试连接</button>
+      </div>
+    </div>
+  </section>
+
   <section class="mb-4" id="login-settings">
     <h2 class="h5">登录设置</h2>
     <div class="border rounded p-3">
@@ -214,6 +273,153 @@
     } catch (_) { return null; }
   }
 
+  // AI 平台设置相关 - 从配置文件动态加载
+  let platformConfigs = {};
+  let platformNames = {};
+  let platformUrls = {};
+  let platformModels = {};
+
+  // 从配置文件加载平台信息
+  async function loadPlatformConfigs() {
+    try {
+      const resp = await fetch('/auth/app-config');
+      if (!resp.ok) return;
+      const cfg = await resp.json();
+      
+      // 读取新的 ai_platforms 结构
+      const aiPlatforms = cfg.ai_platforms || {};
+      
+      // 构建平台配置对象
+      platformConfigs = {};
+      for (const [key, platform] of Object.entries(aiPlatforms)) {
+        platformConfigs[key] = {
+          name: platform.name || '',
+          url: platform.url || '',
+          model: platform.model || '',
+          maxTokens: platform.max_tokens || 4096,
+          temperature: platform.temperature || 0.7
+        };
+      }
+      
+      // 更新平台选择下拉框
+      updatePlatformSelect();
+    } catch (e) {
+      console.error('Load platform configs error:', e);
+    }
+  }
+
+  // 更新平台选择下拉框
+  function updatePlatformSelect() {
+    const select = document.getElementById('platformSelect');
+    if (!select) return;
+    
+    // 清空现有选项
+    select.innerHTML = '';
+    
+    // 添加选项
+    for (const [key, config] of Object.entries(platformConfigs)) {
+      const option = document.createElement('option');
+      option.value = key;
+      option.textContent = config.name;
+      select.appendChild(option);
+    }
+  }
+
+  // 加载AI平台配置
+  async function loadAiPlatformConfig() {
+    try {
+      const resp = await fetch('/auth/app-config');
+      if (!resp.ok) return;
+      const cfg = await resp.json();
+      
+      // 获取当前选中的平台
+      const currentPlatform = document.getElementById('platformSelect').value;
+      
+      // 从新的配置结构中加载数据
+      if (cfg.ai_platforms && cfg.ai_platforms[currentPlatform]) {
+        const platformConfig = cfg.ai_platforms[currentPlatform];
+        
+        // 填充表单字段
+        document.getElementById('platformName').value = platformConfig.name || '';
+        document.getElementById('platformUrl').value = platformConfig.url || '';
+        document.getElementById('modelName').value = platformConfig.model || '';
+        document.getElementById('maxTokens').value = platformConfig.max_tokens || 4096;
+        document.getElementById('temperature').value = platformConfig.temperature || 0.7;
+      } else {
+        // 如果没有找到配置，使用默认值
+        document.getElementById('platformName').value = '';
+        document.getElementById('platformUrl').value = '';
+        document.getElementById('modelName').value = '';
+        document.getElementById('maxTokens').value = 4096;
+        document.getElementById('temperature').value = 0.7;
+      }
+      
+      // 单独加载 API Key（从敏感配置）
+      await loadApiKey(currentPlatform);
+      
+    } catch (e) {
+      console.error('Load AI platform config error:', e);
+    }
+  }
+
+  // 加载 API Key
+  async function loadApiKey(platform) {
+    try {
+      const resp = await fetch('/auth/app-config/raw-secrets');
+      if (!resp.ok) return;
+      const secrets = await resp.json();
+      
+      const apiKeyInput = document.getElementById('platformApiKey');
+      const apiKey = secrets.platform_api_keys?.[platform];
+      
+      if (apiKey) {
+        // 如果 API Key 存在，显示脱敏版本
+        const maskedKey = apiKey.substring(0, 8) + '***';
+        apiKeyInput.value = maskedKey;
+        apiKeyInput.placeholder = '已保存的 API Key';
+        // 确保输入框类型为 password，这样脱敏显示才能正常工作
+        apiKeyInput.type = 'password';
+        
+        // 更新眼睛图标状态
+        const toggleButton = document.querySelector('[data-target="platformApiKey"]');
+        if (toggleButton) {
+          const icon = toggleButton.querySelector('i');
+          if (icon) {
+            icon.classList.remove('bi-eye');
+            icon.classList.add('bi-eye-slash');
+          }
+        }
+      } else {
+        // 如果没有 API Key，清空输入框
+        apiKeyInput.value = '';
+        apiKeyInput.placeholder = '请输入 API Key';
+        apiKeyInput.type = 'password';
+      }
+    } catch (e) {
+      console.error('Load API key error:', e);
+      const apiKeyInput = document.getElementById('platformApiKey');
+      apiKeyInput.value = '';
+      apiKeyInput.placeholder = '请输入 API Key';
+      apiKeyInput.type = 'password';
+    }
+  }
+
+  // 更新平台字段
+  function updatePlatformFields() {
+    const platform = document.getElementById('platformSelect').value;
+    const config = platformConfigs[platform];
+    if (!config) return;
+    
+    document.getElementById('platformName').value = config.name;
+    document.getElementById('platformUrl').value = config.url;
+    document.getElementById('modelName').value = config.model;
+    document.getElementById('maxTokens').value = config.maxTokens;
+    document.getElementById('temperature').value = config.temperature;
+    
+    // 重新加载当前平台的 API Key
+    loadApiKey(platform);
+  }
+
   async function saveAppConfig(patch) {
     const resp = await fetch('/auth/app-config', {
       method: 'POST',
@@ -296,6 +502,198 @@
       }
     });
 
+
+    document.getElementById('platformSelect').addEventListener('change', updatePlatformFields);
+
+    async function saveAiPlatformConfig() {
+      try {
+        const platformType = document.getElementById('platformSelect').value;
+        const platformName = document.getElementById('platformName').value;
+        const platformUrl = document.getElementById('platformUrl').value;
+        const apiKey = document.getElementById('platformApiKey').value;
+        const modelName = document.getElementById('modelName').value;
+        const maxTokens = parseInt(document.getElementById('maxTokens').value);
+        const temperature = parseFloat(document.getElementById('temperature').value);
+
+        // 构建配置结构（不包含 API Key）
+        const config = {
+          ai_platforms: {
+            [platformType]: {
+              name: platformName,
+              url: platformUrl,
+              model: modelName,
+              max_tokens: maxTokens,
+              temperature: temperature
+            }
+          }
+        };
+
+        // 保存基础配置
+        const resp1 = await fetch('/auth/app-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(config)
+        });
+
+        // 如果有 API Key，单独保存到敏感配置
+        if (apiKey && !apiKey.endsWith('***')) {
+          const resp2 = await fetch('/auth/app-config/setting', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              key: 'platform_api_keys', 
+              value: { [platformType]: apiKey } 
+            })
+          });
+          if (!resp2.ok) {
+            alert('API Key 保存失败');
+            return false;
+          }
+        }
+
+        if (resp1.ok) {
+          alert('AI 平台设置已保存并立即生效');
+          // 重新加载 API Key 显示（脱敏版本）
+          await loadApiKey(platformType);
+          return true;
+        } else {
+          const error = await resp1.text();
+          alert('保存失败: ' + error);
+          return false;
+        }
+      } catch (e) {
+        console.error('Save AI platform config error:', e);
+        alert('保存异常: ' + e.message);
+        return false;
+      }
+    }
+
+    async function testAiPlatform() {
+      // 立即显示测试进度对话框
+      showTestProgressModal();
+      
+      try {
+        const resp = await fetch('/auth/test-ai-platform', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            platform_type: document.getElementById('platformSelect').value,
+            base_url: document.getElementById('platformUrl').value,
+            model_name: document.getElementById('modelName').value
+          })
+        });
+        
+        // 检查响应状态
+        if (!resp.ok) {
+          const errorText = await resp.text();
+          updateTestProgress('error', '测试失败: HTTP ' + resp.status + ' - ' + errorText);
+          return;
+        }
+        
+        // 尝试解析JSON
+        let data;
+        try {
+          data = await resp.json();
+        } catch (jsonError) {
+          const responseText = await resp.text();
+          updateTestProgress('error', '服务器返回无效的JSON响应: ' + responseText);
+          return;
+        }
+        
+        if (data.success) {
+          updateTestProgress('success', 'AI 平台连接测试成功！');
+        } else {
+          updateTestProgress('error', 'AI 平台连接测试失败: ' + (data.error || '未知错误'));
+        }
+      } catch (e) {
+        updateTestProgress('error', '测试异常: ' + e.message);
+      }
+    }
+
+    function showTestProgressModal() {
+      // 创建或更新测试进度模态框
+      let modal = document.getElementById('testProgressModal');
+      if (!modal) {
+        modal = createTestProgressModal();
+      }
+      
+      // 重置状态
+      updateTestProgress('loading', '正在测试AI平台连接...');
+      
+      // 显示模态框
+      const bsModal = new bootstrap.Modal(modal);
+      bsModal.show();
+    }
+
+    function createTestProgressModal() {
+      const modalHtml = `
+        <div class="modal fade" id="testProgressModal" tabindex="-1" aria-labelledby="testProgressModalLabel" aria-hidden="true">
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="testProgressModalLabel">AI平台连接测试</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <div id="testProgressContent">
+                  <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm text-primary me-3" role="status" id="testSpinner">
+                      <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <span id="testProgressText">正在测试AI平台连接...</span>
+                  </div>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="testCloseBtn">关闭</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      // 将模态框添加到页面
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+      return document.getElementById('testProgressModal');
+    }
+
+    function updateTestProgress(status, message) {
+      const spinner = document.getElementById('testSpinner');
+      const text = document.getElementById('testProgressText');
+      const closeBtn = document.getElementById('testCloseBtn');
+      
+      if (!spinner || !text) return;
+      
+      // 更新文本
+      text.textContent = message;
+      
+      // 根据状态更新UI
+      if (status === 'loading') {
+        spinner.style.display = 'inline-block';
+        spinner.className = 'spinner-border spinner-border-sm text-primary me-3';
+        closeBtn.textContent = '关闭';
+        closeBtn.className = 'btn btn-secondary';
+      } else if (status === 'success') {
+        spinner.style.display = 'inline-block';
+        spinner.className = 'spinner-border spinner-border-sm text-success me-3';
+        // 1秒后隐藏spinner，显示成功图标
+        setTimeout(() => {
+          spinner.style.display = 'none';
+          text.innerHTML = '<i class="bi bi-check-circle-fill text-success me-2"></i>' + message;
+        }, 1000);
+        closeBtn.textContent = '确定';
+        closeBtn.className = 'btn btn-success';
+      } else if (status === 'error') {
+        spinner.style.display = 'none';
+        text.innerHTML = '<i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>' + message;
+        closeBtn.textContent = '确定';
+        closeBtn.className = 'btn btn-danger';
+      }
+    }
+
+    document.getElementById('saveAiPlatformBtn').addEventListener('click', saveAiPlatformConfig);
+    document.getElementById('testAiPlatformBtn').addEventListener('click', testAiPlatform);
+
     document.getElementById('saveAllBtn').addEventListener('click', async () => {
       // 1) 先保存LDAP登录设置
       const okLogin = await saveLoginSettings(true);
@@ -305,7 +703,9 @@
         https_key_password: document.getElementById('keyPassword').value || null
       };
       const okWeb = await saveAppConfig(patch);
-      alert(okLogin && okWeb ? '设置已保存' : '部分设置保存失败');
+      // 3) 保存 AI 平台设置
+      const okAi = await saveAiPlatformConfig();
+      alert(okLogin && okWeb && okAi ? '所有设置已保存' : '部分设置保存失败');
     });
   })();
 
@@ -450,10 +850,67 @@
     confirmBtn.addEventListener('click', onConfirm);
   });
 
-  // 页面初始化时加载登录设置
-  (async function initLogin(){
+  // 页面初始化时加载所有设置
+  async function initLogin(){
     await loadLdapConfig();
-  })();
+    await loadPlatformConfigs(); // 先加载平台配置
+    await loadAiPlatformConfig();
+  }
+  
+  // 初始化密码切换按钮
+  function initTogglePasswordButtons() {
+    const toggleButtons = document.querySelectorAll('.toggle-password');
+    toggleButtons.forEach(button => {
+      const targetId = button.getAttribute('data-target');
+      const passwordInput = document.getElementById(targetId);
+      const icon = button.querySelector('i');
+
+      if (!passwordInput || !icon) return;
+
+      button.addEventListener('click', async () => {
+        if (passwordInput.type === 'password') {
+          // 显示密码/API key
+          passwordInput.type = 'text';
+          icon.classList.remove('bi-eye-slash');
+          icon.classList.add('bi-eye');
+          
+          // 如果是API key输入框且当前显示的是脱敏值，则获取完整值
+          if (targetId === 'platformApiKey' && passwordInput.value && passwordInput.value.endsWith('***')) {
+            try {
+              const currentPlatform = document.getElementById('platformSelect').value;
+              const resp = await fetch('/auth/app-config/raw-secrets');
+              if (resp.ok) {
+                const secrets = await resp.json();
+                const apiKey = secrets.platform_api_keys?.[currentPlatform];
+                if (apiKey) {
+                  passwordInput.value = apiKey;
+                }
+              }
+            } catch (error) {
+              console.error('Error fetching raw API key:', error);
+            }
+          }
+        } else {
+          // 隐藏密码/API key
+          passwordInput.type = 'password';
+          icon.classList.remove('bi-eye');
+          icon.classList.add('bi-eye-slash');
+          
+          // 如果是API key输入框，恢复脱敏显示
+          if (targetId === 'platformApiKey' && passwordInput.value && !passwordInput.value.endsWith('***')) {
+            const maskedKey = passwordInput.value.substring(0, 8) + '***';
+            passwordInput.value = maskedKey;
+          }
+        }
+      });
+    });
+  }
+
+  // 页面加载完成后执行初始化
+  document.addEventListener('DOMContentLoaded', () => {
+    initTogglePasswordButtons();
+    initLogin();
+  });
 </script>
 </body>
 </html>

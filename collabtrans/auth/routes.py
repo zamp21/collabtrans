@@ -462,7 +462,7 @@ async def get_app_config_api(
     
     # 获取全局配置
     global_config = get_global_config()
-    global_config_dict = global_config.get_config_dict()
+    global_config_dict = global_config.get_config_dict(include_api_keys=False, flatten=True)
     
     # 获取LDAP配置（使用本模块中的全局配置访问器）
     auth_config = get_auth_config()
@@ -496,9 +496,7 @@ async def get_app_config_api(
             'glossary_agent_frequency_penalty', 'glossary_agent_presence_penalty', 'glossary_agent_to_lang',
             'glossary_agent_chunk_size', 'glossary_agent_concurrent',
             # 全局配置中的非敏感设置
-            'translator_convert_engin', 'translator_mineru_model_version', 
-            'translator_formula_ocr', 'translator_code_ocr', 'translator_skip_translate',
-            'platform_urls', 'platform_models',
+            'ai_platforms', 'translator_settings',
             # 用户维度模型覆盖
             'translator_platform_models', 'glossary_agent_platform_models',
             # LDAP配置（非敏感部分）
@@ -510,15 +508,15 @@ async def get_app_config_api(
         return filtered_config
     else:
         # 管理员用户，返回所有配置，但隐藏敏感信息
-        # 脱敏API密钥
-        if 'platform_api_keys' in config_dict:
-            masked_keys = {}
-            for platform, key in config_dict['platform_api_keys'].items():
-                if key:
-                    masked_keys[platform] = key[:8] + "***" if len(key) > 8 else "***"
-                else:
-                    masked_keys[platform] = ""
-            config_dict['platform_api_keys'] = masked_keys
+        # 脱敏API密钥（从ai_platforms中）
+        if 'ai_platforms' in config_dict:
+            for platform_key, platform_data in config_dict['ai_platforms'].items():
+                if isinstance(platform_data, dict) and 'api_key' in platform_data:
+                    api_key = platform_data['api_key']
+                    if api_key:
+                        platform_data['api_key'] = api_key[:8] + "***" if len(api_key) > 8 else "***"
+                    else:
+                        platform_data['api_key'] = ""
         
         
         # 脱敏Mineru Token（从敏感配置加载）
@@ -1069,6 +1067,30 @@ async def update_app_config_api(
         except Exception as _e:
             raise HTTPException(status_code=400, detail=f"Enable HTTPS failed: {str(_e)}")
 
+        # Handle AI platform configuration updates
+        ai_platform_updates = {}
+        translator_settings_updates = {}
+        
+        if 'ai_platforms' in config_data:
+            ai_platforms_data = config_data['ai_platforms']
+            # Remove API keys from platform data (they are stored separately)
+            for platform_key, platform_data in ai_platforms_data.items():
+                if isinstance(platform_data, dict):
+                    platform_data = platform_data.copy()
+                    platform_data.pop('api_key', None)
+                    ai_platforms_data[platform_key] = platform_data
+            
+            ai_platform_updates['ai_platforms'] = ai_platforms_data
+            del config_data['ai_platforms']
+        
+        if 'translator_settings' in config_data:
+            translator_settings_updates['translator_settings'] = config_data['translator_settings']
+            del config_data['translator_settings']
+        
+        # Update global configuration with new structured data
+        if ai_platform_updates or translator_settings_updates:
+            global_cfg.update_from_dict({**ai_platform_updates, **translator_settings_updates})
+        
         # 更新其他配置（用户级App配置）
         app_config.update_from_dict({k: v for k, v in config_data.items() if k not in https_keys and k not in ['https_cert_file','https_key_file']})
         
@@ -1123,7 +1145,7 @@ async def update_single_setting(
         
         # 定义全局配置键（只有管理员可以修改）
         global_config_keys = [
-            'translator_convert_engin', 'translator_mineru_model_version',
+            'translator_convert_engine', 'translator_mineru_model_version',
             'translator_formula_ocr', 'translator_code_ocr', 'translator_skip_translate',
             'platform_urls', 'platform_models', 'active_task_ids',
             # Web/HTTPS 设置
@@ -1250,6 +1272,18 @@ async def update_single_setting(
                 # 处理普通全局配置项
                 if hasattr(global_config, key):
                     setattr(global_config, key, value)
+                elif key in ['translator_convert_engine', 'translator_mineru_model_version', 'translator_formula_ocr', 'translator_code_ocr', 'translator_skip_translate']:
+                    # 处理 translator_settings 中的字段
+                    if key == 'translator_convert_engine':
+                        global_config.translator_settings.convert_engine = value
+                    elif key == 'translator_mineru_model_version':
+                        global_config.translator_settings.mineru_model_version = value
+                    elif key == 'translator_formula_ocr':
+                        global_config.translator_settings.formula_ocr = value
+                    elif key == 'translator_code_ocr':
+                        global_config.translator_settings.code_ocr = value
+                    elif key == 'translator_skip_translate':
+                        global_config.translator_settings.skip_translate = value
                 else:
                     raise HTTPException(status_code=400, detail=f"Unknown global setting key: {key}")
             
@@ -1382,3 +1416,92 @@ async def login_compat(
 async def logout_get_compat(request: Request, response: Response):
     """兼容性登出（不带/auth前缀）"""
     return await logout_get(request, response)
+
+
+@auth_router.post("/test-ai-platform")
+async def test_ai_platform(
+    request: Request,
+    user: User = Depends(get_current_user)
+):
+    """测试AI平台连接"""
+    try:
+        data = await request.json()
+        platform_type = data.get('platform_type')
+        base_url = data.get('base_url')
+        model_name = data.get('model_name')
+        
+        if not platform_type or not base_url or not model_name:
+            raise HTTPException(status_code=400, detail="Missing required parameters: platform_type, base_url, model_name")
+        
+        # 获取API key
+        from ..config.secrets_manager import get_secrets_manager
+        secrets_manager = get_secrets_manager()
+        api_keys = secrets_manager.get_api_keys()
+        api_key = api_keys.get(platform_type)
+        
+        if not api_key:
+            raise HTTPException(status_code=400, detail=f"No API key found for platform: {platform_type}")
+        
+        # 根据平台类型构建测试请求
+        test_payload = {
+            "model": model_name,
+            "messages": [
+                {"role": "user", "content": "Hello, this is a connection test."}
+            ],
+            "max_tokens": 10
+        }
+        
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"
+        }
+        
+        # 发送测试请求
+        import httpx
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            if platform_type == "anthropic":
+                # Anthropic 使用不同的API格式
+                test_payload = {
+                    "model": model_name,
+                    "max_tokens": 10,
+                    "messages": [
+                        {"role": "user", "content": "Hello, this is a connection test."}
+                    ]
+                }
+                headers = {
+                    "Content-Type": "application/json",
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01"
+                }
+                response = await client.post(f"{base_url}/messages", json=test_payload, headers=headers)
+            elif platform_type == "google":
+                # Google 使用不同的API格式
+                test_payload = {
+                    "contents": [
+                        {"parts": [{"text": "Hello, this is a connection test."}]}
+                    ],
+                    "generationConfig": {
+                        "maxOutputTokens": 10
+                    }
+                }
+                headers = {
+                    "Content-Type": "application/json"
+                }
+                response = await client.post(f"{base_url}/models/{model_name}:generateContent?key={api_key}", json=test_payload, headers=headers)
+            else:
+                # 标准OpenAI格式
+                response = await client.post(f"{base_url}/chat/completions", json=test_payload, headers=headers)
+            
+            if response.status_code == 200:
+                return {"success": True, "message": "AI platform connection test successful"}
+            else:
+                error_detail = response.text
+                return {"success": False, "error": f"API returned status {response.status_code}: {error_detail}"}
+                
+    except httpx.TimeoutException:
+        return {"success": False, "error": "Connection timeout - please check your network and API endpoint"}
+    except httpx.ConnectError:
+        return {"success": False, "error": "Connection failed - please check the API URL"}
+    except Exception as e:
+        logger.error(f"AI platform test failed: {e}")
+        return {"success": False, "error": f"Test failed: {str(e)}"}

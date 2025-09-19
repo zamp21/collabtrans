@@ -1,48 +1,201 @@
 {
-  "translator_convert_engin": "mineru",
-  "translator_mineru_model_version": "vlm",
-  "translator_formula_ocr": false,
-  "translator_code_ocr": false,
-  "translator_skip_translate": false,
-  "platform_urls": {
-    "openai": "https://api.openai.com/v1",
-    "azure": "https://your-resource.openai.azure.com/",
-    "groq": "https://api.groq.com/openai/v1",
-    "together": "https://api.together.xyz/v1",
-    "anthropic": "https://api.anthropic.com",
-    "google": "https://generativelanguage.googleapis.com/v1beta",
-    "mistral": "https://api.mistral.ai/v1",
-    "cohere": "https://api.cohere.com/v1",
-    "xai": "https://api.x.ai/v1",
-    "deepseek": "https://api.deepseek.com/v1",
-    "dashscope": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    "volcengine_ark": "https://ark.cn-beijing.volces.com/api/v3",
-    "siliconflow": "https://api.siliconflow.cn/v1",
-    "zhipu": "https://open.bigmodel.cn/api/paas/v4",
-    "dmxapi": "https://www.dmxapi.cn/v1",
-    "custom": ""
+  "translator_settings": {
+    "convert_engine": "mineru",
+    "mineru_model_version": "vlm",
+    "formula_ocr": false,
+    "code_ocr": false,
+    "skip_translate": false
   },
-  "platform_models": {
-    "openai": "gpt-4o-mini",
-    "azure": "gpt-4o-mini",
-    "anthropic": "claude-3-5-sonnet-latest",
-    "google": "gemini-1.5-pro",
-    "mistral": "mistral-large-latest",
-    "cohere": "command-r-plus",
-    "xai": "grok-2",
-    "groq": "llama3-70b-8192",
-    "together": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
-    "deepseek": "deepseek-v3",
-    "dashscope": "qwen2.5-7b-instruct",
-    "volcengine_ark": "doubao-pro-32k",
-    "siliconflow": "Qwen2.5-7B-Instruct",
-    "zhipu": "glm-4-plus",
-    "dmxapi": "gpt-4o-mini",
-    "custom": ""
+  "ai_platforms": {
+    "openai": {
+      "name": "OpenAI",
+      "url": "https://api.openai.com/v1/",
+      "model": "gpt-4o",
+      "max_tokens": 128000,
+      "temperature": 0.7,
+      "recommended_tokens": 32000,
+      "performance_note": "Strong long-text processing capability, but longer response time"
+    },
+    "azure": {
+      "name": "Azure OpenAI",
+      "url": "https://your-resource.openai.azure.com/",
+      "model": "gpt-4o-mini",
+      "max_tokens": 128000,
+      "temperature": 0.7,
+      "recommended_tokens": null,
+      "performance_note": null
+    },
+    "anthropic": {
+      "name": "Anthropic Claude",
+      "url": "https://api.anthropic.com",
+      "model": "claude-3-sonnet",
+      "max_tokens": 200000,
+      "temperature": 0.7,
+      "recommended_tokens": 50000,
+      "performance_note": "Excellent for complex reasoning and long documents"
+    },
+    "google": {
+      "name": "Google Gemini",
+      "url": "https://generativelanguage.googleapis.com/v1beta",
+      "model": "gemini-pro",
+      "max_tokens": 32000,
+      "temperature": 0.7,
+      "recommended_tokens": 16000,
+      "performance_note": "Good balance of speed and quality"
+    },
+    "deepseek": {
+      "name": "DeepSeek",
+      "url": "https://api.deepseek.com/v1",
+      "model": "deepseek-chat",
+      "max_tokens": 64000,
+      "temperature": 0.7,
+      "recommended_tokens": null,
+      "performance_note": null
+    },
+    "dashscope": {
+      "name": "Alibaba DashScope",
+      "url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "model": "qwen-turbo",
+      "max_tokens": 8000,
+      "temperature": 0.7,
+      "recommended_tokens": 4000,
+      "performance_note": "Fast response, good for Chinese text processing"
+    },
+    "volcengine_ark": {
+      "name": "VolcEngine ARK",
+      "url": "https://ark.cn-beijing.volces.com/api/v3",
+      "model": "doubao-seed-1-6-flash-250715",
+      "max_tokens": 128000,
+      "temperature": 0.7,
+      "recommended_tokens": null,
+      "performance_note": null
+    },
+    "zhipu": {
+      "name": "Zhipu AI",
+      "url": "https://open.bigmodel.cn/api/paas/v4",
+      "model": "glm-4-flash",
+      "max_tokens": 128000,
+      "temperature": 0.7,
+      "recommended_tokens": null,
+      "performance_note": null
+    },
+    "groq": {
+      "name": "Groq",
+      "url": "https://api.groq.com/openai/v1",
+      "model": "llama3-70b-8192",
+      "max_tokens": 8192,
+      "temperature": 0.7,
+      "recommended_tokens": null,
+      "performance_note": null
+    },
+    "together": {
+      "name": "Together AI",
+      "url": "https://api.together.xyz/v1",
+      "model": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+      "max_tokens": 32000,
+      "temperature": 0.7,
+      "recommended_tokens": null,
+      "performance_note": null
+    },
+    "mistral": {
+      "name": "Mistral AI",
+      "url": "https://api.mistral.ai/v1",
+      "model": "mistral-large-latest",
+      "max_tokens": 32000,
+      "temperature": 0.7,
+      "recommended_tokens": null,
+      "performance_note": null
+    },
+    "cohere": {
+      "name": "Cohere",
+      "url": "https://api.cohere.com/v1",
+      "model": "command-r-plus",
+      "max_tokens": 128000,
+      "temperature": 0.7,
+      "recommended_tokens": null,
+      "performance_note": null
+    },
+    "xai": {
+      "name": "xAI",
+      "url": "https://api.x.ai/v1",
+      "model": "grok-2",
+      "max_tokens": 128000,
+      "temperature": 0.7,
+      "recommended_tokens": null,
+      "performance_note": null
+    },
+    "siliconflow": {
+      "name": "SiliconFlow",
+      "url": "https://api.siliconflow.cn/v1",
+      "model": "Qwen2.5-7B-Instruct",
+      "max_tokens": 32000,
+      "temperature": 0.7,
+      "recommended_tokens": null,
+      "performance_note": null
+    },
+    "dmxapi": {
+      "name": "DMX API",
+      "url": "https://www.dmxapi.cn/v1",
+      "model": "gpt-4o",
+      "max_tokens": 128000,
+      "temperature": 0.7,
+      "recommended_tokens": null,
+      "performance_note": null
+    },
+    "openrouter": {
+      "name": "OpenRouter",
+      "url": "https://openrouter.ai/api/v1",
+      "model": "gpt-4o",
+      "max_tokens": 128000,
+      "temperature": 0.7,
+      "recommended_tokens": null,
+      "performance_note": null
+    },
+    "hunyuan": {
+      "name": "Hunyuan",
+      "url": "https://hunyuan.tencentcloudapi.com",
+      "model": "hunyuan-lite",
+      "max_tokens": 32000,
+      "temperature": 0.7,
+      "recommended_tokens": null,
+      "performance_note": null
+    },
+    "baidu": {
+      "name": "Baidu ERNIE",
+      "url": "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop",
+      "model": "ernie-bot",
+      "max_tokens": 32000,
+      "temperature": 0.7,
+      "recommended_tokens": null,
+      "performance_note": null
+    },
+    "moonshot": {
+      "name": "Moonshot AI",
+      "url": "https://api.moonshot.cn/v1",
+      "model": "moonshot-v1-8k",
+      "max_tokens": 8000,
+      "temperature": 0.7,
+      "recommended_tokens": null,
+      "performance_note": null
+    },
+    "custom": {
+      "name": "Custom Platform",
+      "url": "",
+      "model": "",
+      "max_tokens": 4096,
+      "temperature": 0.7,
+      "recommended_tokens": null,
+      "performance_note": null
+    }
   },
   "active_task_ids": [],
   "https_enabled": false,
   "https_cert_file": "/mnt/2TDisk/workplace/collabtrans/certs/dev.local.crt",
   "https_key_file": "/mnt/2TDisk/workplace/collabtrans/certs/dev.local.key",
-  "https_force_redirect": false
+  "https_force_redirect": false,
+  "translator_convert_engine": "mineru",
+  "translator_mineru_model_version": "vlm",
+  "translator_formula_ocr": false,
+  "translator_code_ocr": false,
+  "translator_skip_translate": false
 }

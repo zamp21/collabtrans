@@ -669,74 +669,52 @@ $.*"></textarea>
                                                data-i18n="skipTranslationLabel">跳过翻译</label>
                                     </div>
 
-                                    <!-- Wrapper for AI Model settings -->
+                                    <!-- AI Model settings (Platform selection + Display) -->
                                     <div id="aiModelSettingsContainer">
-                                        <div>
-                                            <label for="platform_select" class="form-label"
-                                                   data-i18n="platformLabel">选择平台</label>
+                                        <div class="mb-3">
+                                            <label for="platform_select" class="form-label" data-i18n="platformLabel">选择平台</label>
                                             <select class="form-select" id="platform_select">
-                                                <option value="https://api.deepseek.com/v1">DeepSeek</option>
-                                                <option value="custom" data-i18n="platformCustom">自定义接口</option>
-                                                <option value="https://api.openai.com/v1">OpenAI</option>
-                                                <option value="https://generativelanguage.googleapis.com/v1beta/openai/">
-                                                    Gemini
-                                                </option>
-                                                <option value="https://dashscope.aliyuncs.com/compatible-mode/v1">
-                                                    阿里云百炼(DashScope)
-                                                </option>
-                                                <option value="https://ark.cn-beijing.volces.com/api/v3">火山引擎(volces)
-                                                </option>
-                                                <option value="https://api.siliconflow.cn/v1">硅基流动(siliconflow CN)
-                                                </option>
-                                                <option value="https://open.bigmodel.cn/api/paas/v4">智谱AI(bigmodel
-                                                    CN)
-                                                </option>
-                                                <option value="https://www.dmxapi.cn/v1">DMXAPI(CN)</option>
-                                                <option value="https://www.dmxapi.com/v1">DMXAPI(Global)</option>
-                                                <option value="https://openrouter.ai/api/v1">OpenRouter</option>
-                                                <option value="http://127.0.0.1:1234/v1">LM Studio</option>
-                                                <option value="http://127.0.0.1:11434/v1">Ollama</option>
+                                                <!-- 选项将从配置文件动态加载 -->
                                             </select>
                                         </div>
-                                        <div class="form-text mb-3" id="main_base_url_display_container">
-                                            Base URL: <code id="main_base_url_display"></code>
+                                        
+                                        <div class="alert alert-info">
+                                            <i class="bi bi-info-circle me-2"></i>
+                                            详细配置请前往 <a href="/settings" class="alert-link">设置页面</a>
                                         </div>
-                                        <div class="mb-3" id="baseUrlGroup">
-                                            <label for="base_url" class="form-label" data-i18n="baseUrlLabel">API 地址
-                                                (Base
-                                                URL)</label>
-                                            <input type="url" class="form-control" id="base_url" name="base_url"
-                                                   required
-                                                   data-i18n-placeholder="baseUrlPlaceholder"
-                                                   placeholder="OpenAi兼容地址">
-                                        </div>
-                                        <div class="mb-3">
-                                            <label for="api_key" class="form-label">
-                                                API Key
-                                                <a href="#" target="_blank" class="ms-1" id="api_href"
-                                                   data-i18n-title="getApiKeyTitle" title="获取API Key"><i
-                                                        class="bi bi-box-arrow-up-right"></i></a>
-                                            </label>
-                                            <div class="input-group">
-                                                <input type="password" class="form-control" id="api_key" name="api_key"
-                                                       required
-                                                       data-i18n-placeholder="apiKeyPlaceholder"
-                                                       placeholder="请输入您的API Key">
-                                                <button class="btn btn-outline-secondary toggle-password" type="button"
-                                                        data-target="api_key">
-                                                    <i class="bi bi-eye-slash"></i>
-                                                </button>
+                                        
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label">平台名称</label>
+                                                <div class="form-control-plaintext" id="current_platform_name">-</div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">模型名称</label>
+                                                <div class="form-control-plaintext" id="current_model_name">-</div>
                                             </div>
                                         </div>
-                                        <div class="mb-3">
-                                            <label for="model_id" class="form-label"
-                                                   data-i18n="modelIdLabel">选择模型</label>
-                                            <input type="text" class="form-control" id="model_id" name="model_id"
-                                                   required
-                                                   data-i18n-placeholder="modelIdPlaceholder"
-                                                   placeholder="例如: gpt-4o, glm-4">
+                                        
+                                        <div class="row g-3 mt-2">
+                                            <div class="col-md-6">
+                                                <label class="form-label">API 地址</label>
+                                                <div class="form-control-plaintext" id="current_base_url">-</div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">API Key 状态</label>
+                                                <div class="form-control-plaintext" id="current_api_key_status">-</div>
+                                            </div>
                                         </div>
-
+                                        
+                                        <div class="row g-3 mt-2">
+                                            <div class="col-md-6">
+                                                <label class="form-label">最大 Token 数</label>
+                                                <div class="form-control-plaintext" id="current_max_tokens">-</div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">温度参数</label>
+                                                <div class="form-control-plaintext" id="current_temperature">-</div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -2049,16 +2027,16 @@ $.*"></textarea>
     const codeOcrSwitch = document.getElementById('codeOcrSwitch');
     const formulaOcrSwitch = formulaCheckbox.parentElement;
 
-    // AI elements
+    // AI elements (platform selection + display)
     const skipTranslationSwitch = document.getElementById('skipTranslationSwitch');
     const aiModelSettingsContainer = document.getElementById('aiModelSettingsContainer');
     const platformSelect = document.getElementById('platform_select');
-    const apiHref = document.getElementById('api_href');
-    const baseUrlGroup = document.getElementById('baseUrlGroup');
-    const baseUrlInput = document.getElementById('base_url');
-    const apikeyInput = document.getElementById('api_key');
-    const modelInput = document.getElementById('model_id');
-    const mainBaseUrlDisplay = document.getElementById('main_base_url_display');
+    const currentPlatformName = document.getElementById('current_platform_name');
+    const currentModelName = document.getElementById('current_model_name');
+    const currentBaseUrl = document.getElementById('current_base_url');
+    const currentApiKeyStatus = document.getElementById('current_api_key_status');
+    const currentMaxTokens = document.getElementById('current_max_tokens');
+    const currentTemperature = document.getElementById('current_temperature');
 
     // Translation elements
     const translationSettingsAccordionItem = document.getElementById('translationSettingsAccordionItem');
@@ -2312,7 +2290,7 @@ $.*"></textarea>
         
         // 明确禁止LDAP用户访问的设置
         const ldapForbiddenSettings = [
-            'translator_mineru_token', 'translator_convert_engin',
+            'translator_mineru_token', 'translator_convert_engine',
             'translator_platform_custom_base_url', 'glossary_agent_platform_custom_baseurl',
             'translator_platform_last_platform', 'glossary_agent_last_platform'
         ];
@@ -2370,15 +2348,7 @@ $.*"></textarea>
             console.log('Hidden: Mineru Token group');
         }
         
-        // 3. 隐藏AI设置中的API Key相关
-        const apikeyInput = document.getElementById('api_key');
-        if (apikeyInput) {
-            const apiKeyGroup = apikeyInput.closest('.mb-3') || apikeyInput.parentElement;
-            if (apiKeyGroup) {
-                apiKeyGroup.style.display = 'none';
-                console.log('Hidden: API Key input');
-            }
-        }
+        // AI model settings moved to settings page - no hiding needed
         
         // 4. 隐藏术语表设置中的API Key
         const glossaryAgentKeyInput = document.getElementById('glossary_agent_key');
@@ -2403,15 +2373,7 @@ $.*"></textarea>
             console.log('Hidden: Mineru and Docling parsing options');
         }
         
-        // 6. 隐藏平台选择中的自定义选项（因为需要API Key）
-        const platformSelect = document.getElementById('platform_select');
-        if (platformSelect) {
-            const customOption = platformSelect.querySelector('option[value="custom"]');
-            if (customOption) {
-                customOption.style.display = 'none';
-                console.log('Hidden: Custom platform option');
-            }
-        }
+        // AI model settings moved to settings page - no hiding needed
         
         // 7. 隐藏术语表平台选择中的自定义选项
         const glossaryAgentPlatformSelect = document.getElementById('glossary_agent_platform_select');
@@ -2496,15 +2458,7 @@ $.*"></textarea>
             console.log('Hidden: Mineru Token group for glossary group user');
         }
         
-        // 4. 隐藏AI设置中的API Key相关
-        const apikeyInput = document.getElementById('api_key');
-        if (apikeyInput) {
-            const apiKeyGroup = apikeyInput.closest('.mb-3') || apikeyInput.parentElement;
-            if (apiKeyGroup) {
-                apiKeyGroup.style.display = 'none';
-                console.log('Hidden: API Key input for glossary group user');
-            }
-        }
+        // AI model settings moved to settings page - no hiding needed
         
         // 5. 隐藏术语表设置中的API Key
         const glossaryAgentKeyInput = document.getElementById('glossary_agent_key');
@@ -2528,38 +2482,7 @@ $.*"></textarea>
             console.log('Hidden: Mineru and Docling parsing options for glossary group user');
         }
         
-        // 7. 隐藏平台选择中的自定义选项（因为需要API Key）
-        const platformSelect = document.getElementById('platform_select');
-        if (platformSelect) {
-            const customOption = platformSelect.querySelector('option[value="custom"]');
-            if (customOption) {
-                customOption.style.display = 'none';
-                console.log('Hidden: Custom platform option for glossary group user');
-            }
-        }
-        
-        // 8. 隐藏术语表平台选择中的自定义选项
-        const glossaryAgentPlatformSelect = document.getElementById('glossary_agent_platform_select');
-        if (glossaryAgentPlatformSelect) {
-            const customOption = glossaryAgentPlatformSelect.querySelector('option[value="custom"]');
-            if (customOption) {
-                customOption.style.display = 'none';
-                console.log('Hidden: Custom glossary platform option for glossary group user');
-            }
-        }
-        
-        // 9. 隐藏Base URL输入框（自定义平台需要）
-        const baseUrlGroup = document.getElementById('baseUrlGroup');
-        if (baseUrlGroup) {
-            baseUrlGroup.style.display = 'none';
-            console.log('Hidden: Base URL group for glossary group user');
-        }
-        
-        const glossaryBaseUrlGroup = document.getElementById('glossaryBaseUrlGroup');
-        if (glossaryBaseUrlGroup) {
-            glossaryBaseUrlGroup.style.display = 'none';
-            console.log('Hidden: Glossary Base URL group for glossary group user');
-        }
+        // AI model settings moved to settings page - no hiding needed
         
         // 10. 术语表管理按钮保持显示（这是Glossary Group用户的主要功能）
         // 术语表清空按钮也保持显示
@@ -2821,94 +2744,166 @@ $.*"></textarea>
         aiModelSettingsContainer.style.display = skipTranslate ? 'none' : 'block';
         translationSettingsAccordionItem.style.display = skipTranslate ? 'none' : 'block';
 
-        // Make inputs not required when skipping translation
-        baseUrlInput.required = !skipTranslate && platformSelect.value === 'custom';
-        apikeyInput.required = !skipTranslate;
-        modelInput.required = !skipTranslate;
+        // AI model settings moved to settings page - no input validation needed
 
         if (!skipTranslate) {
-            mainPlatformUpdater();
+            displayCurrentAiConfig();
+        }
+        
+        // Add platform change event listener
+        if (platformSelect) {
+            platformSelect.addEventListener('change', handlePlatformChange);
         }
         updateWorkflowUI(); // Call to update numbering
     }
 
+    // 全局变量存储平台配置
+    let globalPlatformNames = {};
+    let globalPlatformUrls = {};
+    let globalPlatformModels = {};
+    let globalPlatformConfigs = {};
+
     /**
-     * [REFACTORED] Creates a reusable function to manage platform selection UI.
-     * @param {object} elements - An object containing the DOM elements for this UI section.
-     * @param {string} storagePrefix - The prefix for localStorage keys.
-     * @returns {function} An updater function to be called on change.
+     * 从配置文件加载平台信息
      */
-    function createPlatformUIUpdater(elements, storagePrefix) {
-        const {
-            platformSelect,
-            apikeyInput,
-            modelInput,
-            baseUrlGroup,
-            baseUrlInput,
-            apiHref: platformApiHref,
-            baseUrlDisplay
-        } = elements;
-        return () => {
-            const selectedPlatformValue = platformSelect.value;
-            // 不要覆盖已经设置的API key值（特别是管理员脱敏后的值）
-            if (!apikeyInput.value || !apikeyInput.value.endsWith('***')) {
-                apikeyInput.value = getFromConfig(`${storagePrefix}_${selectedPlatformValue}_apikey`);
+    async function loadGlobalPlatformConfigs() {
+        try {
+            const resp = await fetch('/auth/app-config');
+            if (!resp.ok) return;
+            const cfg = await resp.json();
+            
+            // 读取新的 ai_platforms 结构
+            const aiPlatforms = cfg.ai_platforms || {};
+            
+            // 构建平台配置对象
+            globalPlatformNames = {};
+            globalPlatformUrls = {};
+            globalPlatformModels = {};
+            globalPlatformConfigs = {};
+            
+            for (const [key, platform] of Object.entries(aiPlatforms)) {
+                globalPlatformNames[key] = platform.name || '';
+                globalPlatformUrls[key] = platform.url || '';
+                globalPlatformModels[key] = platform.model || '';
+                globalPlatformConfigs[key] = platform;
             }
-            // 解析平台类型
-            const platformTypeForModel = (() => {
-                if (appConfig.platform_urls && selectedPlatformValue && selectedPlatformValue.startsWith('http')) {
-                    for (const [ptype, purl] of Object.entries(appConfig.platform_urls)) {
-                        if (purl === selectedPlatformValue) return ptype;
-                    }
-                }
-                return getFromConfig(`${storagePrefix}_type`) || selectedPlatformValue || 'deepseek';
-            })();
-            const userModelsDictKey = storagePrefix === 'translator_platform' ? 'translator_platform_models' : 'glossary_agent_platform_models';
-            const userModels = (appConfig && appConfig[userModelsDictKey]) || {};
-            // 直接依据"用户覆盖→全局默认"覆盖模型输入框
-            const userModel = userModels[platformTypeForModel];
-            const globalDefaultModel = (appConfig.platform_models && appConfig.platform_models[platformTypeForModel]) || '';
-            const nextModel = userModel || globalDefaultModel || '';
-            modelInput.value = nextModel;
-            // 若没有用户覆盖而有全局默认，则把默认写入用户字典，形成用户持久化
-            if (!userModel && globalDefaultModel) {
-                try {
-                    saveToConfig(`${storagePrefix}_type`, platformTypeForModel);
-                    const existing = getFromConfig(userModelsDictKey) || {};
-                    existing[platformTypeForModel] = globalDefaultModel;
-                    saveToConfig(userModelsDictKey, existing);
-                } catch (e) {}
-            }
-
-            const isCustom = selectedPlatformValue === 'custom';
-            baseUrlGroup.style.display = isCustom ? 'block' : 'none';
-            baseUrlInput.required = isCustom && !skipTranslationSwitch.checked;
-            baseUrlInput.value = isCustom ? getFromConfig(`${storagePrefix}_custom_base_url`) : selectedPlatformValue;
-
-            if (baseUrlDisplay) {
-                baseUrlDisplay.textContent = baseUrlInput.value;
-            }
-
-            if (platformApiHref) {
-                if (!isCustom && apiHrefMap[baseUrlInput.value]) {
-                    platformApiHref.href = apiHrefMap[baseUrlInput.value];
-                    platformApiHref.style.display = 'inline-block';
-                } else {
-                    platformApiHref.style.display = 'none';
-                }
-            }
-            // 移除对旧键 last_platform 的写入，避免不必要的后端请求
-            // saveToConfig(`${storagePrefix}_last_platform`, selectedPlatformValue);
-        };
+            
+            // 更新平台选择下拉框
+            updateMainPlatformSelect();
+        } catch (e) {
+            console.error('Load global platform configs error:', e);
+        }
     }
 
-    const mainPlatformUpdater = createPlatformUIUpdater({
-        platformSelect, apikeyInput, modelInput, baseUrlGroup, baseUrlInput, apiHref,
-        baseUrlDisplay: mainBaseUrlDisplay
-    }, 'translator_platform');
-    if (platformSelect) {
-        platformSelect.addEventListener('change', () => mainPlatformUpdater());
-        try { mainPlatformUpdater(); } catch (e) {}
+    /**
+     * 更新主页平台选择下拉框
+     */
+    function updateMainPlatformSelect() {
+        if (!platformSelect) return;
+        
+        // 清空现有选项
+        platformSelect.innerHTML = '';
+        
+        // 添加选项
+        for (const [key, name] of Object.entries(globalPlatformNames)) {
+            const option = document.createElement('option');
+            option.value = key;
+            option.textContent = name;
+            platformSelect.appendChild(option);
+        }
+    }
+
+    /**
+     * Display current AI platform configuration (read-only)
+     */
+    async function displayCurrentAiConfig() {
+        try {
+            const resp = await fetch('/auth/app-config');
+            if (!resp.ok) return;
+            const cfg = await resp.json();
+            
+            // Set platform selection
+            const platformType = cfg.translator_platform_type || 'deepseek';
+            if (platformSelect) {
+                platformSelect.value = platformType;
+            }
+            
+            // Display platform name
+            currentPlatformName.textContent = globalPlatformNames[platformType] || platformType;
+            
+            // Display model name
+            currentModelName.textContent = cfg.translator_model_name || '-';
+            
+            // Display base URL
+            currentBaseUrl.textContent = cfg.translator_base_url || '-';
+            
+            // Display max tokens
+            currentMaxTokens.textContent = cfg.translator_max_tokens || '-';
+            
+            // Display temperature
+            currentTemperature.textContent = cfg.translator_temperature || '-';
+            
+            // Display API Key status
+            const hasApiKey = cfg.platform_api_keys && cfg.platform_api_keys[platformType];
+            currentApiKeyStatus.textContent = hasApiKey ? '已配置' : '未配置';
+            currentApiKeyStatus.className = hasApiKey ? 'form-control-plaintext text-success' : 'form-control-plaintext text-warning';
+        } catch (e) {
+            console.error('Load AI config error:', e);
+            currentPlatformName.textContent = '加载失败';
+            currentModelName.textContent = '加载失败';
+            currentBaseUrl.textContent = '加载失败';
+            currentMaxTokens.textContent = '加载失败';
+            currentTemperature.textContent = '加载失败';
+            currentApiKeyStatus.textContent = '加载失败';
+        }
+    }
+
+    /**
+     * Handle platform selection change on index page
+     */
+    async function handlePlatformChange() {
+        if (!platformSelect) return;
+        
+        const selectedPlatform = platformSelect.value;
+        
+        // Update platform name display
+        currentPlatformName.textContent = globalPlatformNames[selectedPlatform] || selectedPlatform;
+        
+        // Load configuration for selected platform
+        try {
+            const resp = await fetch('/auth/app-config');
+            if (!resp.ok) return;
+            const cfg = await resp.json();
+            
+            // If the selected platform is the current active platform, show current config
+            if (cfg.translator_platform_type === selectedPlatform) {
+                currentModelName.textContent = cfg.translator_model_name || '-';
+                currentBaseUrl.textContent = cfg.translator_base_url || '-';
+                currentMaxTokens.textContent = cfg.translator_max_tokens || '-';
+                currentTemperature.textContent = cfg.translator_temperature || '-';
+            } else {
+                // Show default values for other platforms from config
+                const platformConfig = globalPlatformConfigs[selectedPlatform];
+                currentModelName.textContent = platformConfig?.model || '-';
+                currentBaseUrl.textContent = platformConfig?.url || '-';
+                currentMaxTokens.textContent = platformConfig?.max_tokens || '4096';
+                currentTemperature.textContent = platformConfig?.temperature || '0.7';
+            }
+            
+            // Update API Key status
+            const hasApiKey = cfg.platform_api_keys && cfg.platform_api_keys[selectedPlatform];
+            currentApiKeyStatus.textContent = hasApiKey ? '已配置' : '未配置';
+            currentApiKeyStatus.className = hasApiKey ? 'form-control-plaintext text-success' : 'form-control-plaintext text-warning';
+        } catch (e) {
+            console.error('Load platform config error:', e);
+        }
+    }
+
+    /**
+     * [DISABLED] Platform UI updater - moved to settings page
+     */
+    function createPlatformUIUpdater(elements, storagePrefix) {
+        return function() { return; }; // Disabled on index page
     }
     /**
      * Updates the visibility of parsing options (formula/code OCR) based on the selected engine.
@@ -2943,7 +2938,7 @@ $.*"></textarea>
             if (isMineru) {
                 mineruTokenInput.value = getFromConfig('translator_mineru_token');
             }
-            saveToConfig('translator_convert_engin', selectedEngin);
+            saveToConfig('translator_convert_engine', selectedEngin);
         } else {
             // Repopulate options with translated text
             const savedValue = convertEnginSelect.value;
@@ -2972,24 +2967,16 @@ $.*"></textarea>
         glossaryAgentCustomConfigContainer.style.display = choice === 'custom' ? 'block' : 'none';
     }
 
-    const glossaryAgentPlatformUpdater = createPlatformUIUpdater({
-        platformSelect: glossaryAgentPlatformSelect,
-        apikeyInput: glossaryAgentKeyInput,
-        modelInput: glossaryAgentModelIdInput,
-        baseUrlGroup: glossaryAgentBaseUrlGroup,
-        baseUrlInput: glossaryAgentBaseUrlInput,
-        baseUrlDisplay: glossaryBaseUrlDisplay
-    }, 'glossary_agent_platform');
-    if (glossaryAgentPlatformSelect) {
-        glossaryAgentPlatformSelect.addEventListener('change', () => glossaryAgentPlatformUpdater());
-        try { glossaryAgentPlatformUpdater(); } catch (e) {}
-    }
+    // Glossary agent platform updater disabled - moved to settings page
+    // Glossary agent platform updater disabled - moved to settings page
 
 
     function setupGlossaryAgentPlatformUI() {
-        glossaryAgentPlatformSelect.innerHTML = platformSelect.innerHTML;
-        glossaryAgentPlatformSelect.value = getFromConfig('glossary_agent_last_platform', 'https://api.deepseek.com/v1');
-        glossaryAgentPlatformUpdater();
+        // Glossary agent platform setup disabled - moved to settings page
+    }
+
+    function glossaryAgentPlatformUpdater() {
+        // Glossary agent platform updater disabled - moved to settings page
     }
 
 
@@ -3261,40 +3248,7 @@ $.*"></textarea>
 
         // --- Common settings validation ---
         if (!skipTranslate) {
-            const requiredCommonInputs = [apikeyInput, modelInput];
-            // 若用户未填写模型，则按平台默认模型填充一次（与上方选择变更逻辑一致）
-            try {
-                if (!modelInput.value && window.appConfig && appConfig.platform_models) {
-                    let platformType = getFromConfig('translator_platform_type');
-                    const selectedPlatformValue = platformSelect.value;
-                    if (appConfig.platform_urls && selectedPlatformValue) {
-                        for (const [ptype, purl] of Object.entries(appConfig.platform_urls)) {
-                            if (purl === selectedPlatformValue) { platformType = ptype; break; }
-                        }
-                    }
-                    platformType = platformType || selectedPlatformValue || 'deepseek';
-                    const defModel = (appConfig[userModelsDictKey] && appConfig[userModelsDictKey][platformType]) || appConfig.platform_models[platformType];
-                    if (defModel) {
-                        modelInput.value = defModel;
-                        try {
-                            saveToConfig(`${storagePrefix}_type`, platformType);
-                            saveToConfig(userModelsDictKey, {
-                                ...(getFromConfig(userModelsDictKey) || {}),
-                                [platformType]: defModel
-                            });
-                        } catch (e) {}
-                    }
-                }
-            } catch (e) { /* noop */ }
-            if (platformSelect.value === 'custom') requiredCommonInputs.push(baseUrlInput);
-
-            requiredCommonInputs.forEach(input => {
-                input.classList.remove('is-invalid');
-                if (!input.value.trim()) {
-                    input.classList.add('is-invalid');
-                    isValid = false;
-                }
-            });
+            // AI model settings moved to settings page - no validation needed
 
             if (toLangSelect.value === 'custom') {
                 customLangInput.classList.remove('is-invalid');
@@ -3309,9 +3263,6 @@ $.*"></textarea>
         const targetLanguage = toLangSelect.value === 'custom' ? customLangInput.value.trim() : toLangSelect.value;
         const basePayload = {
             skip_translate: skipTranslate,
-            base_url: baseUrlInput.value,
-            api_key: apikeyInput.value,
-            model_id: modelInput.value,
             to_lang: targetLanguage,
             thinking: document.querySelector('input[name="thinking"]:checked')?.value || 'disable',
             chunk_size: parseInt(chunkSizeSlider.value, 10),
@@ -3892,29 +3843,7 @@ $.*"></textarea>
                             
                             if (response.ok) {
                                 const rawSecrets = await response.json();
-                                const platformSelect = document.getElementById('platform_select');
-                                if (platformSelect && rawSecrets.platform_api_keys) {
-                                    // 解析当前选择的平台类型
-                                    const selectedValue = platformSelect.value;
-                                    let platformType = 'deepseek'; // 默认值
-                                    
-                                    // 将平台URL映射到平台类型
-                                    if (window.appAuthConfig && window.appAuthConfig.platform_urls && selectedValue.startsWith('http')) {
-                                        for (const [ptype, purl] of Object.entries(window.appAuthConfig.platform_urls)) {
-                                            if (purl === selectedValue) {
-                                                platformType = ptype;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    
-                                    // 获取完整的API key
-                                    const fullApiKey = rawSecrets.platform_api_keys[platformType];
-                                    if (fullApiKey) {
-                                        passwordInput.value = fullApiKey;
-                                        console.log(`[DEBUG] 显示完整API key for platform: ${platformType}`);
-                                    }
-                                }
+                                // AI model settings moved to settings page - no platform selection needed
                             } else {
                                 console.warn('Failed to fetch raw secrets');
                             }
@@ -3931,30 +3860,7 @@ $.*"></textarea>
                 
                 // 如果是API key输入框，恢复脱敏显示
                 if (targetId === 'api_key' && passwordInput.value && !passwordInput.value.endsWith('***')) {
-                    // 重新显示脱敏的API key
-                    if (window.appAuthConfig && window.appAuthConfig.platform_api_keys) {
-                        const platformSelect = document.getElementById('platform_select');
-                        if (platformSelect) {
-                            const selectedValue = platformSelect.value;
-                            let platformType = 'deepseek'; // 默认值
-                            
-                            // 将平台URL映射到平台类型
-                            if (window.appAuthConfig.platform_urls && selectedValue.startsWith('http')) {
-                                for (const [ptype, purl] of Object.entries(window.appAuthConfig.platform_urls)) {
-                                    if (purl === selectedValue) {
-                                        platformType = ptype;
-                                        break;
-                                    }
-                                }
-                            }
-                            
-                            const maskedKey = window.appAuthConfig.platform_api_keys[platformType];
-                            if (maskedKey) {
-                                passwordInput.value = maskedKey;
-                                console.log(`[DEBUG] 恢复脱敏API key for platform: ${platformType}`);
-                            }
-                        }
-                    }
+                    // AI model settings moved to settings page - no platform selection needed
                 }
             }
         });
@@ -4021,6 +3927,10 @@ $.*"></textarea>
      */
     function restoreSettings(settingsConfig) {
         settingsConfig.forEach(setting => {
+            if (!setting.element) {
+                console.warn('Element not found for setting:', setting);
+                return;
+            }
             const savedValue = getFromConfig(setting.key, setting.defaultValue);
             if (setting.type === 'boolean') {
                 setting.element.checked = savedValue === true || savedValue === 'true';
@@ -4192,9 +4102,8 @@ $.*"></textarea>
                         if (apiKeyVal && apiKeyVal.endsWith('***')) {
                             console.warn('Skip saving masked API key placeholder');
                         }
-                        // 平台类型严格使用平台下拉框，不再用Base URL反推
-                        const platformSelect = document.getElementById('platform');
-                        const platformType = (platformSelect && platformSelect.value) || (typeof getFromConfig === 'function' && getFromConfig('translator_platform_type')) || 'deepseek';
+                        // AI model settings moved to settings page - no platform selection needed
+                        const platformType = (typeof getFromConfig === 'function' && getFromConfig('translator_platform_type')) || 'deepseek';
                         if (apiKeyVal && !apiKeyVal.endsWith('***')) {
                             const r1 = await fetch('/auth/app-config/setting', {
                                 method: 'POST',
@@ -4212,7 +4121,7 @@ $.*"></textarea>
                         const mineruTokenEl = document.getElementById('mineru_token');
                         const mineruTokenVal = (mineruTokenEl?.value || '').trim();
                         const convertEnginSel = document.getElementById('convertEnginSelect');
-                        const convertEnginVal = (convertEnginSel?.value || (typeof getFromConfig === 'function' && getFromConfig('translator_convert_engin'))) || '';
+                        const convertEnginVal = (convertEnginSel?.value || (typeof getFromConfig === 'function' && getFromConfig('translator_convert_engine'))) || '';
                         if (mineruTokenVal && String(convertEnginVal).toLowerCase() === 'mineru') {
                             const r2 = await fetch('/auth/app-config/setting', {
                                 method: 'POST',
@@ -4387,6 +4296,16 @@ $.*"></textarea>
         
         // Load auth configuration
         const authLoaded = await loadAuthConfig();
+        // Load platform configurations first
+        await loadGlobalPlatformConfigs();
+        
+        // Display current AI configuration
+        await displayCurrentAiConfig();
+        
+        // Add platform change event listener
+        if (platformSelect) {
+            platformSelect.addEventListener('change', handlePlatformChange);
+        }
         // Load LDAP config from unified endpoint to ensure latest keys
         try {
             const resp = await fetch('/auth/ldap-config', { method: 'GET', credentials: 'include' });
@@ -4419,6 +4338,10 @@ $.*"></textarea>
      */
     function setupEventListeners(listenersConfig) {
         listenersConfig.forEach(config => {
+            if (!config.element) {
+                console.warn('Element not found for event listener:', config);
+                return;
+            }
             const handler = config.handler || ((e) => {
                 const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
                 if (config.saveKey) {
@@ -4525,33 +4448,13 @@ $.*"></textarea>
                     console.log('[DEBUG] showMaskedApiKeyForAdmin - not admin, skipping');
                     return;
                 }
-                const apikeyInput = document.getElementById('api_key');
+                // AI model settings moved to settings page - no API key input needed
 
-                if (!apikeyInput) {
-                    console.log('[DEBUG] showMaskedApiKeyForAdmin - api_key input not found');
-                    return;
-                }
-                console.log('[DEBUG] renderMaskedByPlatform - apikeyInput:', apikeyInput);
-
-                const platformSelect = document.getElementById('platform_select');
-                console.log('[DEBUG] showMaskedApiKeyForAdmin - platformSelect:', platformSelect);
+                // AI model settings moved to settings page - no platform selection needed
 
                 function resolvePlatformType() {
-                    // 优先使用平台下拉框当前值；若不存在则退回配置值
-                    const sel = platformSelect && platformSelect.value;
-                    if (!sel) {
-                        return (typeof getFromConfig === 'function' && getFromConfig('translator_platform_type')) || 'deepseek';
-                    }
-                    
-                    // 将平台URL映射到平台类型
-                    if (window.appAuthConfig && window.appAuthConfig.platform_urls && sel.startsWith('http')) {
-                        for (const [ptype, purl] of Object.entries(window.appAuthConfig.platform_urls)) {
-                            if (purl === sel) return ptype;
-                        }
-                    }
-                    
-                    // 如果无法映射，返回原始值或默认值
-                    return sel || 'deepseek';
+                    // AI model settings moved to settings page - no platform selection needed
+                    return (typeof getFromConfig === 'function' && getFromConfig('translator_platform_type')) || 'deepseek';
                 }
 
                 function renderMaskedByPlatform() {
@@ -4559,35 +4462,10 @@ $.*"></textarea>
                     const maskedDict = (window.appAuthConfig && window.appAuthConfig.platform_api_keys) || {};
                     const masked = maskedDict ? maskedDict[platformType] : '';
                     console.log('[DEBUG] renderMaskedByPlatform - platformType:', platformType, 'maskedDict:', maskedDict, 'masked:', masked);
-                    console.log('[DEBUG] renderMaskedByPlatform - window.appAuthConfig:', window.appAuthConfig);
-                    console.log('[DEBUG] renderMaskedByPlatform - platformSelect.value:', platformSelect ? platformSelect.value : 'null');
-                    if (masked) {
-                        apikeyInput.value = masked;
-                        apikeyInput.dataset.masked = '1';
-                        console.log('[DEBUG] renderMaskedByPlatform - set apikeyInput.value to:', masked);
-                    } else {
-                        // 无对应平台的key时，不展示任何值
-                        if (apikeyInput.dataset.masked) delete apikeyInput.dataset.masked;
-                        if (apikeyInput.value.endsWith('***')) apikeyInput.value = '';
-                        console.log('[DEBUG] renderMaskedByPlatform - no masked key found, cleared input');
-                    }
+                    // AI model settings moved to settings page - no masking needed
                 }
 
-                renderMaskedByPlatform();
-                if (platformSelect) {
-                    platformSelect.addEventListener('change', async () => {
-                        try {
-                            // 平台切换时，实时从后端拉取最新配置（含管理员态的脱敏platform_api_keys）
-                            const resp = await fetch('/auth/app-config', { method: 'GET', credentials: 'include' });
-                            if (resp.ok) {
-                                window.appAuthConfig = await resp.json();
-                            }
-                        } catch (e) {
-                            console.warn('refresh appAuthConfig on platform change failed:', e);
-                        }
-                        renderMaskedByPlatform();
-                    });
-                }
+                // AI model settings moved to settings page - no event listeners needed
             } catch (e) {
                 console.warn('showMaskedApiKeyForAdmin failed:', e);
             }
@@ -4665,8 +4543,8 @@ $.*"></textarea>
             {element: htmlSeparatorInput, key: 'translator_html_separator', defaultValue: ' '},
             {element: jsonPathsTextarea, key: 'translator_json_paths', defaultValue: ''},
             {element: skipTranslationSwitch, key: 'translator_skip_translate', defaultValue: 'false', type: 'boolean'},
-            {element: platformSelect, key: 'translator_last_platform', defaultValue: 'https://api.deepseek.com/v1'},
-            {element: convertEnginSelect, key: 'translator_convert_engin', defaultValue: 'mineru'},
+            // AI model settings moved to settings page - no platform selection needed
+            {element: convertEnginSelect, key: 'translator_convert_engine', defaultValue: 'mineru'},
             {element: modelVersionSelect, key: 'translator_model_version', defaultValue: 'vlm'},
             {element: toLangSelect, key: 'translator_target_language', defaultValue: '英文'},
             {element: customLangInput, key: 'translator_custom_language', defaultValue: ''},
@@ -4706,7 +4584,7 @@ $.*"></textarea>
 
         // Initial UI updates
         updateWorkflowUI();
-        mainPlatformUpdater();
+        // mainPlatformUpdater(); // Disabled - platform selection moved to settings page
         updateConvertEnginUI();
         updateCustomLangUI(toLangSelect, customLangGroup, customLangInput);
         updateTranslationModeUI();
@@ -4774,7 +4652,7 @@ $.*"></textarea>
                 saveKey: 'translator_skip_translate',
                 postHook: updateTranslationModeUI
             },
-            {element: platformSelect, event: 'change', handler: mainPlatformUpdater},
+            // AI model settings moved to settings page - no platform selection needed
             {element: convertEnginSelect, event: 'change', handler: () => updateConvertEnginUI(false)},
             {
                 element: toLangSelect,
@@ -4793,35 +4671,9 @@ $.*"></textarea>
             {element: jsonPathsTextarea, event: 'input', saveKey: 'translator_json_paths'},
             // 移除对 API Key 的即时保存（避免产生无效的配置键）。
             // API Key 仅在管理员点击顶部"保存配置（含全局Key）"时统一保存至服务器敏感配置。
-            {
-                element: modelInput,
-                event: 'input',
-                handler: e => {
-                    const platformType = (function() {
-                        const val = platformSelect.value;
-                        if (appConfig && appConfig.platform_urls && val && val.startsWith('http')) {
-                            for (const [ptype, purl] of Object.entries(appConfig.platform_urls)) {
-                                if (purl === val) return ptype;
-                            }
-                        }
-                        return getFromConfig('translator_platform_type') || val || 'deepseek';
-                    })();
-                    const dictKey = 'translator_platform_models';
-                    const dict = getFromConfig(dictKey) || {};
-                    dict[platformType] = e.target.value;
-                    saveToConfig(dictKey, dict);
-                }
-            },
-            {
-                element: baseUrlInput, event: 'input', handler: e => {
-                    const newValue = e.target.value;
-                    // 新增下面这行来更新显示区域
-                    mainBaseUrlDisplay.textContent = newValue;
-                    if (platformSelect.value === 'custom') {
-                        saveToConfig('translator_platform_custom_base_url', newValue);
-                    }
-                }
-            },
+            // AI model settings moved to settings page - no model input needed
+            // AI model settings moved to settings page - no base URL input needed
+            // AI model settings moved to settings page - no base URL input needed
             {element: mineruTokenInput, event: 'input', saveKey: 'translator_mineru_token'},
             {element: modelVersionSelect, event: 'change', saveKey: 'translator_model_version'},
             {element: customLangInput, event: 'input', saveKey: 'translator_custom_language'},
