@@ -75,6 +75,14 @@ class SecretsManager:
         """
         secrets = self.load_secrets()
         return secrets.get("translator_mineru_token")
+
+    def get_docling_auth(self) -> Dict[str, Any]:
+        """
+        获取 Docling 远程鉴权配置
+        返回结构：{"auth_type": "none|bearer|header", "token": str, "header_name": str, "header_value": str}
+        """
+        secrets = self.load_secrets()
+        return secrets.get("docling_auth", {})
     
     def get_auth_secrets(self) -> Dict[str, Any]:
         """
@@ -270,10 +278,22 @@ class SecretsManager:
             
             logger.info(f"配置模板文件已创建: {template_file}")
             return True
-            
         except Exception as e:
             logger.error(f"创建配置模板文件失败: {e}")
             return False
+
+    def update_docling_auth(self, auth: Dict[str, Any]) -> bool:
+        """更新 Docling 远程鉴权配置"""
+        secrets = self.load_secrets()
+        secrets["docling_auth"] = {
+            "auth_type": auth.get("auth_type", "none"),
+            "token": auth.get("token", ""),
+            "header_name": auth.get("header_name", ""),
+            "header_value": auth.get("header_value", ""),
+        }
+        self.save_secrets(secrets)
+        logger.info("Docling auth secrets updated")
+        return True
 
 
 # 全局实例

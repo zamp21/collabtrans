@@ -21,6 +21,14 @@ class TranslatorSettings:
     formula_ocr: bool = False
     code_ocr: bool = False
     skip_translate: bool = False
+    # Detailed parsing engines configurations (non-sensitive)
+    # Example:
+    # {
+    #   "mineru": {"name": "MinerU", "type": "mineru", "model_version": "vlm"},
+    #   "docling": {"name": "Docling", "type": "docling"},
+    #   "identity": {"name": "Identity", "type": "identity"}
+    # }
+    engines: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class AIPlatformConfig:
@@ -36,6 +44,9 @@ class AIPlatformConfig:
 @dataclass
 class GlobalConfig:
     """Global configuration class for system-level settings and sensitive information"""
+    
+    # General settings
+    default_language: str = "en"
     
     # Translator settings (grouped configuration)
     translator_settings: TranslatorSettings = field(default_factory=TranslatorSettings)

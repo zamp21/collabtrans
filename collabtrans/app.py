@@ -342,8 +342,7 @@ class MarkdownWorkflowParams(BaseWorkflowParams):
 
     @field_validator('mineru_token')
     def check_mineru_token(cls, v, values):
-        if values.data.get('convert_engine') == 'mineru' and not v:
-            raise ValueError("当 `convert_engine` 为 'mineru' 时，`mineru_token` 字段是必须的。")
+        # 放宽校验：如果未提供，将在服务端从本地敏感配置中注入
         return v
 
 
@@ -750,12 +749,29 @@ async def _perform_translation(
 
             converter_config = None
             if payload.convert_engine == 'mineru':
-                converter_config = ConverterMineruConfig(logger=task_logger, mineru_token=payload.mineru_token,
-                                                         formula_ocr=payload.formula_ocr,
-                                                         model_version=payload.model_version)
+                # 若前端未传入 MinerU Token，则从本地敏感配置注入
+                mineru_token = payload.mineru_token
+                if not mineru_token:
+                    try:
+                        from .config.secrets_manager import get_secrets_manager
+                        sm = get_secrets_manager()
+                        mineru_token = sm.get_mineru_token() or ""
+                    except Exception:
+                        mineru_token = ""
+                converter_config = ConverterMineruConfig(
+                    logger=task_logger,
+                    mineru_token=mineru_token,
+                    formula_ocr=payload.formula_ocr,
+                    model_version=payload.model_version
+                )
             elif payload.convert_engine == 'docling' and DOCLING_EXIST:
-                converter_config = ConverterDoclingConfig(logger=task_logger, code_ocr=payload.code_ocr,
-                                                          formula_ocr=payload.formula_ocr)
+                # Docling 远程模式已移除，仅使用本地模式
+                converter_config = ConverterDoclingConfig(
+                    logger=task_logger,
+                    code_ocr=payload.code_ocr,
+                    formula_ocr=payload.formula_ocr,
+                    artifact=None
+                )
             html_exporter_config = MD2HTMLExporterConfig(cdn=True)
             workflow_config = MarkdownBasedWorkflowConfig(
                 convert_engine=payload.convert_engine, converter_config=converter_config,

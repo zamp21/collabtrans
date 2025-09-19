@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>设置 - CollabTrans</title>
+    <title data-i18n-title="settingsTitle">设置 - CollabTrans</title>
     <link rel="icon" href="/static/favicon.ico">
     <link href="/static/bootstrap.css" rel="stylesheet">
     <link href="/static/bootstrap-icons.css" rel="stylesheet">
@@ -14,97 +14,163 @@
   <div class="container-fluid">
     <a class="navbar-brand" href="/">CollabTrans</a>
     <div>
-      <a class="btn btn-sm btn-outline-light me-2" href="/">首页</a>
-      <a class="btn btn-sm btn-primary" href="/settings">设置</a>
+      <a class="btn btn-sm btn-outline-light me-2" href="/" data-i18n="homePageBtn">首页</a>
+      <a class="btn btn-sm btn-primary" href="/settings" data-i18n="settingsTitle">设置</a>
     </div>
   </div>
   </nav>
 
 <main class="container py-4">
-  <h1 class="h4 mb-3">设置</h1>
+  <h1 class="h4 mb-3" data-i18n="settingsTitle">设置</h1>
 
-  <div class="alert alert-info">此页面用于集中管理系统设置。</div>
+  <div class="alert alert-info" data-i18n="settingsPageDescription">此页面用于集中管理系统设置。</div>
 
   <div class="row g-4">
     <aside class="col-md-3">
       <nav class="list-group sticky-top" style="top: 80px;">
-        <a class="list-group-item list-group-item-action" href="#ai-platforms">AI 平台设置</a>
-        <a class="list-group-item list-group-item-action" href="#login-settings">登录设置</a>
-        <a class="list-group-item list-group-item-action" href="#web-settings">Web 设置（HTTPS）</a>
+        <a class="list-group-item list-group-item-action" href="#general-settings" data-i18n="generalSettingsTitle">General 设置</a>
+        <a class="list-group-item list-group-item-action" href="#ai-platforms" data-i18n="aiPlatformSettingsTitle">AI 平台设置</a>
+        <a class="list-group-item list-group-item-action" href="#parsing-engines" data-i18n="parsingEngineSettingsTitle">Parsing Engine 设置</a>
+        <a class="list-group-item list-group-item-action" href="#login-settings" data-i18n="loginSettingsTitle">登录设置</a>
+        <a class="list-group-item list-group-item-action" href="#web-settings" data-i18n="webSettingsTitle">Web 设置（HTTPS）</a>
       </nav>
     </aside>
 
     <div class="col-md-9">
+  <section class="mb-4" id="general-settings">
+    <h2 class="h5" data-i18n="generalSettingsTitle">General 设置</h2>
+    <div class="border rounded p-3">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label" for="defaultLanguage" data-i18n="defaultLanguageLabel">默认语言</label>
+          <select id="defaultLanguage" class="form-select">
+            <option value="en" data-i18n="languageEnglish">English</option>
+            <option value="zh" data-i18n="languageChinese">中文</option>
+          </select>
+          <div class="form-text" data-i18n="defaultLanguageHelp">设置用户的默认界面语言，用户可以在导航栏中切换语言。</div>
+        </div>
+      </div>
+      
+      <div class="mt-3 d-flex gap-2">
+        <button id="saveGeneralBtn" class="btn btn-primary btn-sm" data-i18n="saveGeneralSettingsBtn">保存 General 设置</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="mb-4" id="parsing-engines">
+    <h2 class="h5" data-i18n="parsingEngineSettingsTitle">Parsing Engine 设置</h2>
+    <div class="border rounded p-3">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-6">
+          <label class="form-label" for="engineSelect" data-i18n="currentEngineLabel">当前 Engine</label>
+          <select id="engineSelect" class="form-select"></select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="engineName" data-i18n="displayNameLabel">显示名称</label>
+          <input type="text" class="form-control" id="engineName" data-i18n-placeholder="mineruPlaceholder" placeholder="MinerU">
+        </div>
+      </div>
+
+      <div class="row g-3 mt-1">
+        <div class="col-md-6" id="engineApiUrlRow" style="display:none;">
+          <label class="form-label" for="engineApiUrl" data-i18n="apiUrlLabel">API URL</label>
+          <input type="url" class="form-control" id="engineApiUrl" data-i18n-placeholder="apiUrlPlaceholder" placeholder="https://...">
+          <div class="form-text" data-i18n="apiUrlHelp">远程/HTTP型引擎（如 MinerU）需要配置 API URL。</div>
+        </div>
+        <div class="col-md-6" id="mineruModelRow" style="display:none;">
+          <label class="form-label" for="mineruModelVersion" data-i18n="mineruModelVersionLabel">MinerU 模型版本</label>
+          <input type="text" class="form-control" id="mineruModelVersion" placeholder="vlm">
+        </div>
+      </div>
+
+      <div class="row g-3 mt-1" id="mineruApiKeyRow" style="display:none;">
+        <div class="col-md-6">
+          <label class="form-label" for="mineruApiKey" data-i18n="mineruApiKeyLabel">MinerU API Key</label>
+          <div class="input-group">
+            <input type="password" class="form-control" id="mineruApiKey" placeholder="sk-...">
+            <button class="btn btn-outline-secondary toggle-password" type="button" data-target="mineruApiKey">
+              <i class="bi bi-eye"></i>
+            </button>
+          </div>
+          <div class="form-text" data-i18n="mineruApiKeyHelp">仅用于 MinerU 解析引擎，安全保存于服务器。</div>
+        </div>
+      </div>
+
+      <div class="mt-3 d-flex gap-2">
+        <button id="saveEngineBtn" class="btn btn-primary btn-sm" data-i18n="saveEngineSettingsBtn">保存 Engine 设置</button>
+      </div>
+    </div>
+  </section>
   <section class="mb-4" id="ai-platforms">
-    <h2 class="h5">AI 平台设置</h2>
+    <h2 class="h5" data-i18n="aiPlatformSettingsTitle">AI 平台设置</h2>
     <div class="border rounded p-3">
       <div class="mb-3">
-        <label class="form-label" for="platformSelect">当前平台</label>
+        <label class="form-label" for="platformSelect" data-i18n="currentPlatformLabel">当前平台</label>
               <select id="platformSelect" class="form-select">
-                <!-- 选项将从配置文件动态加载 -->
+                <!-- Options will be dynamically loaded from configuration file -->
               </select>
       </div>
 
       <div class="row g-3">
         <div class="col-md-6">
-          <label class="form-label" for="platformName">平台名称</label>
-          <input type="text" class="form-control" id="platformName" placeholder="DeepSeek">
+          <label class="form-label" for="platformName" data-i18n="platformNameLabel">平台名称</label>
+          <input type="text" class="form-control" id="platformName" data-i18n-placeholder="deepseekPlaceholder" placeholder="DeepSeek">
         </div>
         <div class="col-md-6">
-          <label class="form-label" for="platformUrl">平台链接</label>
+          <label class="form-label" for="platformUrl" data-i18n="platformUrlLabel">平台链接</label>
           <input type="url" class="form-control" id="platformUrl" placeholder="https://api.deepseek.com">
         </div>
       </div>
 
       <div class="mt-3">
-        <label class="form-label" for="platformApiKey">API Key</label>
+        <label class="form-label" for="platformApiKey" data-i18n="apiKeyLabel">API Key</label>
         <div class="input-group">
           <input type="password" class="form-control" id="platformApiKey" placeholder="sk-...">
           <button class="btn btn-outline-secondary toggle-password" type="button" data-target="platformApiKey">
             <i class="bi bi-eye"></i>
           </button>
         </div>
-        <div class="form-text">API Key 将安全保存，不会显示明文</div>
+        <div class="form-text" data-i18n="apiKeyHelp">API Key 将安全保存，不会显示明文</div>
       </div>
 
       <div class="mt-3">
-        <label class="form-label" for="modelName">模型名称</label>
-        <input type="text" class="form-control" id="modelName" placeholder="deepseek-chat">
-        <div class="form-text">如：deepseek-chat, gpt-4, claude-3-sonnet 等</div>
+        <label class="form-label" for="modelName" data-i18n="modelNameLabel">模型名称</label>
+        <input type="text" class="form-control" id="modelName" data-i18n-placeholder="modelNamePlaceholder" placeholder="deepseek-chat">
+        <div class="form-text" data-i18n="modelNameHelp">如：deepseek-chat, gpt-4, claude-3-sonnet 等</div>
       </div>
 
       <div class="mt-3">
         <div class="row g-3">
           <div class="col-md-6">
-            <label class="form-label" for="maxTokens">最大 Token 数</label>
-            <input type="number" class="form-control" id="maxTokens" placeholder="4096" min="1" max="100000">
+            <label class="form-label" for="maxTokens" data-i18n="maxTokensLabel">最大 Token 数</label>
+            <input type="number" class="form-control" id="maxTokens" data-i18n-placeholder="maxTokensPlaceholder" placeholder="4096" min="1" max="100000">
           </div>
           <div class="col-md-6">
-            <label class="form-label" for="temperature">温度参数</label>
-            <input type="number" class="form-control" id="temperature" placeholder="0.7" min="0" max="2" step="0.1">
+            <label class="form-label" for="temperature" data-i18n="temperatureLabel">温度参数</label>
+            <input type="number" class="form-control" id="temperature" data-i18n-placeholder="temperaturePlaceholder" placeholder="0.7" min="0" max="2" step="0.1">
           </div>
         </div>
       </div>
 
       <div class="mt-3 d-flex gap-2">
-        <button id="saveAiPlatformBtn" class="btn btn-primary btn-sm">保存 AI 平台设置</button>
-        <button id="testAiPlatformBtn" class="btn btn-outline-secondary btn-sm">测试连接</button>
+        <button id="saveAiPlatformBtn" class="btn btn-primary btn-sm" data-i18n="saveAiPlatformSettingsBtn">保存 AI 平台设置</button>
+        <button id="testAiPlatformBtn" class="btn btn-outline-secondary btn-sm" data-i18n="testConnectionBtn">测试连接</button>
       </div>
     </div>
   </section>
 
   <section class="mb-4" id="login-settings">
-    <h2 class="h5">登录设置</h2>
+    <h2 class="h5" data-i18n="loginSettingsTitle">登录设置</h2>
     <div class="border rounded p-3">
       <div class="row g-3">
         <div class="col-md-6">
           <div class="form-check form-switch">
             <input class="form-check-input" type="checkbox" id="ldapEnabled">
-            <label class="form-check-label" for="ldapEnabled">启用LDAP登录</label>
+            <label class="form-check-label" for="ldapEnabled" data-i18n="ldapEnabledLabel">启用LDAP登录</label>
           </div>
         </div>
         <div class="col-md-6">
-          <label class="form-label" for="ldapProtocol">协议</label>
+          <label class="form-label" for="ldapProtocol" data-i18n="protocolLabel">协议</label>
           <select id="ldapProtocol" class="form-select">
             <option value="ldap">LDAP</option>
             <option value="ldaps">LDAPS</option>
@@ -114,26 +180,26 @@
 
       <div class="row g-3 mt-0">
         <div class="col-md-6">
-          <label for="ldapHost" class="form-label">LDAP服务器（与证书CN/SAN匹配）</label>
+          <label for="ldapHost" class="form-label" data-i18n="ldapHostLabel">LDAP服务器（与证书CN/SAN匹配）</label>
           <input type="text" class="form-control" id="ldapHost" placeholder="adtest2.testldaps.io">
         </div>
         <div class="col-md-3">
-          <label for="ldapPort" class="form-label">端口</label>
+          <label for="ldapPort" class="form-label" data-i18n="portLabel">端口</label>
           <input type="number" class="form-control" id="ldapPort" placeholder="389">
         </div>
         <div class="col-md-3">
-          <label for="ldapBaseDn" class="form-label">用户搜索 Base DN</label>
+          <label for="ldapBaseDn" class="form-label" data-i18n="userSearchBaseDnLabel">用户搜索 Base DN</label>
           <input type="text" class="form-control" id="ldapBaseDn" placeholder="OU=Users,DC=example,DC=com">
         </div>
       </div>
 
       <div class="mt-3">
-        <label for="ldapBindDnTemplate" class="form-label">绑定 DN 模板</label>
-        <input type="text" class="form-control" id="ldapBindDnTemplate" placeholder="EXAMPLE\\{username} 或 {username}@example.com">
+        <label for="ldapBindDnTemplate" class="form-label" data-i18n="bindDnTemplateLabel">绑定 DN 模板</label>
+        <input type="text" class="form-control" id="ldapBindDnTemplate" data-i18n-placeholder="bindDnTemplatePlaceholder" placeholder="EXAMPLE\\{username} 或 {username}@example.com">
       </div>
 
       <div class="mt-3">
-        <label for="ldapUserFilter" class="form-label">用户过滤器</label>
+        <label for="ldapUserFilter" class="form-label" data-i18n="userFilterLabel">用户过滤器</label>
         <input type="text" class="form-control" id="ldapUserFilter" placeholder="(sAMAccountName={username})">
       </div>
 
@@ -142,20 +208,20 @@
           <div class="col-md-6">
             <div class="form-check form-switch">
               <input class="form-check-input" type="checkbox" id="ldapAdminGroupEnabled">
-              <label class="form-check-label" for="ldapAdminGroupEnabled">启用管理员组查询</label>
+              <label class="form-check-label" for="ldapAdminGroupEnabled" data-i18n="enableAdminGroupQueryLabel">启用管理员组查询</label>
             </div>
             <input type="text" class="form-control mt-2" id="ldapAdminGroup" placeholder="DocuTranslate-Admins">
           </div>
           <div class="col-md-6">
             <div class="form-check form-switch">
               <input class="form-check-input" type="checkbox" id="ldapGlossaryGroupEnabled">
-              <label class="form-check-label" for="ldapGlossaryGroupEnabled">启用术语表组查询</label>
+              <label class="form-check-label" for="ldapGlossaryGroupEnabled" data-i18n="enableGlossaryGroupQueryLabel">启用术语表组查询</label>
             </div>
             <input type="text" class="form-control mt-2" id="ldapGlossaryGroup" placeholder="DocuTranslate-Glossary">
           </div>
         </div>
         <div class="mt-3">
-          <label for="ldapGroupBaseDn" class="form-label">组搜索 Base DN</label>
+          <label for="ldapGroupBaseDn" class="form-label" data-i18n="groupSearchBaseDnLabel">组搜索 Base DN</label>
           <input type="text" class="form-control" id="ldapGroupBaseDn" placeholder="OU=Groups,DC=example,DC=com">
         </div>
       </div>
@@ -163,39 +229,39 @@
       <div id="ldapsConfigContainer" class="mt-3" style="display:none;">
         <div class="form-check form-switch">
           <input class="form-check-input" type="checkbox" id="ldapTlsVerify">
-          <label class="form-check-label" for="ldapTlsVerify">验证TLS证书</label>
+          <label class="form-check-label" for="ldapTlsVerify" data-i18n="verifyTlsCertLabel">验证TLS证书</label>
         </div>
         <div class="mt-2">
-          <label for="ldapTlsCacertfile" class="form-label">TLS证书文件路径</label>
+          <label for="ldapTlsCacertfile" class="form-label" data-i18n="tlsCertFilePathLabel">TLS证书文件路径</label>
           <input type="text" class="form-control" id="ldapTlsCacertfile" placeholder="/path/to/ca.crt">
         </div>
       </div>
 
       <div class="mt-3 d-flex gap-2">
-        <!-- 登录设置保存已合并到页面底部“保存设置”按钮，这里不再单独显示 -->
+        <!-- Login settings save has been merged into the "Save Settings" button at the bottom of the page, no longer displayed separately here -->
         <button type="button" class="btn btn-outline-secondary btn-sm" id="genLdapTestCmdBtn">
-          生成测试命令
+          <span data-i18n="generateTestCmdLabel">生成测试命令</span>
         </button>
         <button type="button" class="btn btn-outline-primary btn-sm" id="runLdapConnectivityBtn">
-          测试LDAP连接
+          <span data-i18n="testLdapConnectionLabel">测试LDAP连接</span>
         </button>
       </div>
 
-      <!-- LDAP 测试连接弹窗（移植自首页） -->
+      <!-- LDAP test connection popup (migrated from homepage) -->
       <div class="modal fade" id="ldapTestModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
           <div class="modal-content">
             <div class="modal-header">
-              <h5 class="modal-title">测试 LDAP 连接</h5>
+              <h5 class="modal-title" data-i18n="testLdapConnectionTitle">测试 LDAP 连接</h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
               <div class="mb-3">
-                <label for="ldapTestUsernameInput" class="form-label">用户名（不含域）</label>
+                <label for="ldapTestUsernameInput" class="form-label" data-i18n="usernameWithoutDomainLabel">用户名（不含域）</label>
                 <input type="text" class="form-control" id="ldapTestUsernameInput" placeholder="testuser">
               </div>
               <div class="mb-3">
-                <label for="ldapTestPasswordInput" class="form-label">密码</label>
+                <label for="ldapTestPasswordInput" class="form-label" data-i18n="passwordLabel">密码</label>
                 <div class="input-group">
                   <input type="password" class="form-control" id="ldapTestPasswordInput" placeholder="********">
                   <button class="btn btn-outline-secondary toggle-password" type="button" data-target="ldapTestPasswordInput">
@@ -205,8 +271,8 @@
               </div>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-              <button type="button" class="btn btn-primary" id="ldapTestConfirmBtn">开始测试</button>
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="closeBtn">关闭</button>
+              <button type="button" class="btn btn-primary" id="ldapTestConfirmBtn" data-i18n="startTestBtn">开始测试</button>
             </div>
           </div>
         </div>
@@ -215,57 +281,160 @@
   </section>
 
   <section class="mb-4" id="web-settings">
-    <h2 class="h5">Web 设置（HTTPS）</h2>
+    <h2 class="h5" data-i18n="webSettingsTitle">Web 设置（HTTPS）</h2>
     <div class="border rounded p-3">
       <div class="form-check form-switch mb-3">
         <input class="form-check-input" type="checkbox" id="httpsEnabled" disabled>
-        <label class="form-check-label" for="httpsEnabled">启用 HTTPS</label>
-        <div class="form-text">为安全起见，未通过测试前禁用该开关</div>
+        <label class="form-check-label" for="httpsEnabled" data-i18n="enableHttpsLabel">启用 HTTPS</label>
+        <div class="form-text" data-i18n="httpsSecurityNote">为安全起见，未通过测试前禁用该开关</div>
       </div>
 
       <div class="row g-3">
         <div class="col-md-6">
-          <label class="form-label" for="certFile">证书文件（.crt/.pem）</label>
+          <label class="form-label" for="certFile" data-i18n="certFileLabel">证书文件（.crt/.pem）</label>
           <input class="form-control" type="file" id="certFile" accept=".crt,.pem">
-          <div class="form-text">当前证书：<span id="currentCertName">-</span></div>
+          <div class="form-text" data-i18n="currentCertLabel">当前证书：<span id="currentCertName">-</span></div>
         </div>
         <div class="col-md-6">
-          <label class="form-label" for="keyFile">私钥文件（.key/.pem）</label>
+          <label class="form-label" for="keyFile" data-i18n="keyFileLabel">私钥文件（.key/.pem）</label>
           <input class="form-control" type="file" id="keyFile" accept=".key,.pem">
-          <div class="form-text">当前私钥：<span id="currentKeyName">-</span></div>
+          <div class="form-text" data-i18n="currentKeyLabel">当前私钥：<span id="currentKeyName">-</span></div>
         </div>
       </div>
 
       <div class="mt-3">
-        <label class="form-label" for="keyPassword">私钥密码（可选）</label>
-        <input class="form-control" type="password" id="keyPassword" placeholder="输入私钥密码">
+        <label class="form-label" for="keyPassword" data-i18n="keyPasswordLabel">私钥密码（可选）</label>
+        <input class="form-control" type="password" id="keyPassword" data-i18n-placeholder="keyPasswordPlaceholder" placeholder="输入私钥密码">
       </div>
 
       <div class="mt-3 d-flex gap-2">
-        <button id="uploadCertBtn" class="btn btn-outline-secondary btn-sm">上传证书与私钥</button>
-        <button id="testHttpsBtn" class="btn btn-outline-success btn-sm">测试证书/HTTPS</button>
+        <button id="uploadCertBtn" class="btn btn-outline-secondary btn-sm" data-i18n="uploadCertKeyBtn">上传证书与私钥</button>
+        <button id="testHttpsBtn" class="btn btn-outline-success btn-sm" data-i18n="testCertHttpsBtn">测试证书/HTTPS</button>
       </div>
     </div>
   </section>
 
   <div class="mt-4">
-    <button id="saveAllBtn" class="btn btn-success">保存设置</button>
+    <button id="saveAllBtn" class="btn btn-success" data-i18n="saveSettingsBtn">保存设置</button>
   </div>
     </div>
   </div>
 </main>
 
-<script src="/static/bootstrap.bundle.min.js"></script>
-<script>
-  async function loadAppConfig() {
-    try {
-      const resp = await fetch('/auth/app-config');
-      if (!resp.ok) return null;
-      const cfg = await resp.json();
-      // 展示现有证书/私钥文件名
-      try {
-        const certPath = cfg.https_cert_file || '';
-        const keyPath = cfg.https_key_file || '';
+  <script src="/static/bootstrap.bundle.min.js"></script>
+  <script>
+    // Initialize with a minimal fallback for critical error messages.
+    // The full dataset will be loaded asynchronously in the init() function.
+    let i18nData = {
+        zh: {
+            init_i18n_failed_alert: '加载界面翻译资源失败，请检查网络连接或联系管理员。',
+            init_failed_alert: '初始化失败，无法连接到后端服务。请检查服务是否运行或刷新页面。'
+        },
+        en: {
+            init_i18n_failed_alert: 'Failed to load interface translations. Please check your network connection or contact an administrator.',
+            init_failed_alert: 'Initialization failed, could not connect to the backend service. Please ensure the service is running and refresh the page.'
+        }
+    };
+
+    let currentLang = 'zh'; // Global language state - will be inherited from homepage
+
+    // --- I18N Helper Functions ---
+    const getText = (key, fallback = '') => {
+        const translations = i18nData[currentLang] || i18nData.zh;
+        return translations[key] || fallback || key;
+    };
+
+    /**
+     * Updates the UI language based on the selected language.
+     * @param {string} lang - The language code (e.g., 'zh', 'en').
+     */
+    function setLanguage(lang) {
+        if (!i18nData[lang]) return;
+        currentLang = lang;
+        const translations = i18nData[lang];
+        document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+
+        // Define attributes and corresponding properties to update
+        const i18nTargets = {
+            'data-i18n': (el, text) => el.innerHTML = text,
+            'data-i18n-placeholder': (el, text) => el.placeholder = text,
+            'data-i18n-title': (el, text) => {
+                if (el.tagName === 'TITLE') {
+                    el.textContent = text;
+                } else {
+                    el.title = text;
+                    const tooltipInstance = bootstrap.Tooltip.getInstance(el);
+                    if (tooltipInstance) {
+                        tooltipInstance.setContent({'.tooltip-inner': text});
+                    }
+                }
+            }
+        };
+
+        // Update all elements with i18n attributes in a single pass
+        Object.entries(i18nTargets).forEach(([attribute, updater]) => {
+            document.querySelectorAll(`[${attribute}]`).forEach(el => {
+                const key = el.getAttribute(attribute);
+                if (translations[key] !== undefined) {
+                    updater(el, translations[key]);
+                }
+            });
+        });
+
+        // Update language switcher active state
+        document.querySelectorAll('.dropdown-menu a[data-lang]').forEach(a => {
+            a.classList.remove('active');
+            if (a.dataset.lang === lang) {
+                a.classList.add('active');
+            }
+        });
+
+        // Save preference (same key as homepage for consistency)
+        localStorage.setItem('ui_language', lang);
+    }
+
+    async function initI18n() {
+        // Inherit language setting from homepage via localStorage
+        // Use the same localStorage key and logic as homepage for consistency
+        let savedLang = localStorage.getItem('ui_language');
+        
+        // If no language in localStorage, try to get from backend config
+        if (!savedLang) {
+            try {
+                const resp = await fetch('/auth/app-config');
+                if (resp.ok) {
+                    const cfg = await resp.json();
+                    savedLang = cfg.default_language || 'en';
+                }
+            } catch (e) {
+                console.warn('Failed to load language from backend config:', e);
+            }
+        }
+        
+        // Fallback to browser language detection
+        if (!savedLang) {
+            savedLang = navigator.language.toLowerCase().startsWith('en') ? 'en' : 'zh';
+        }
+        
+        setLanguage(savedLang);
+    }
+
+    // Load i18n data
+    async function loadI18nData() {
+        try {
+            const response = await fetch("/static/i18nData.json");
+            if (!response.ok) throw new Error('Failed to load i18n data');
+            i18nData = await response.json();
+            await initI18n();
+        } catch (error) {
+            console.error('Failed to load i18n data:', error);
+            // Initialize with fallback data first, then show alert
+            await initI18n();
+            alert(getText('init_i18n_failed_alert'));
+        }
+    }
+  </script>
+  <script>，
         document.getElementById('currentCertName').textContent = certPath ? (certPath.split('/').pop()) : '-';
         document.getElementById('currentKeyName').textContent = keyPath ? (keyPath.split('/').pop()) : '-';
       } catch(_) {}
@@ -273,23 +442,254 @@
     } catch (_) { return null; }
   }
 
-  // AI 平台设置相关 - 从配置文件动态加载
+  // AI platform settings related - dynamically loaded from configuration file
   let platformConfigs = {};
+  // Parsing Engine settings related
+  let engineConfigs = {};
+
+  async function loadEngineConfigs() {
+    try {
+      const resp = await fetch('/auth/app-config');
+      if (!resp.ok) return;
+      const cfg = await resp.json();
+      const ts = (cfg.translator_settings || {});
+      engineConfigs = ts.engines || {};
+
+      // Update selection box: only show engines that need to be managed in settings (currently only mineru)
+      const select = document.getElementById('engineSelect');
+      if (select) {
+        select.innerHTML = '';
+        for (const [key, val] of Object.entries(engineConfigs)) {
+          if (key !== 'mineru') continue; // Temporarily only open MinerU settings
+          const opt = document.createElement('option');
+          opt.value = key;
+          opt.textContent = val.name || key;
+          select.appendChild(opt);
+        }
+        // Select current global engine
+        if (ts.convert_engine && select.querySelector(`option[value="${ts.convert_engine}"]`)) {
+          select.value = ts.convert_engine;
+        }
+        // If current global selection is not mineru, but settings only shows mineru, then default to mineru for editing its configuration
+        if (!select.value && select.querySelector('option[value="mineru"]')) {
+          select.value = 'mineru';
+        }
+      }
+
+      // Formula Recognition has been moved to user-side selection, not in global settings configuration
+      updateEngineFields();
+      // Load MinerU API Key (masked display from sensitive configuration)
+      await loadMineruApiKey();
+    } catch (e) { console.error('Load engine configs error:', e); }
+  }
+
+  function updateEngineFields() {
+    const key = document.getElementById('engineSelect').value || 'mineru';
+    const cfg = engineConfigs[key] || {};
+    document.getElementById('engineName').value = cfg.name || '';
+    document.getElementById('engineApiUrl').value = cfg.api_url || '';
+
+    // MinerU specific fields
+    const mineruVisible = key === 'mineru';
+    document.getElementById('mineruModelRow').style.display = mineruVisible ? 'block' : 'none';
+    document.getElementById('mineruApiKeyRow').style.display = mineruVisible ? 'block' : 'none';
+    if (mineruVisible) {
+      document.getElementById('mineruModelVersion').value = cfg.model_version || (window.appConfig?.translator_settings?.mineru_model_version) || '';
+    }
+
+    // Whether to show api_url row: MinerU or configuration already contains api_url
+    const showApi = mineruVisible || !!cfg.api_url;
+    document.getElementById('engineApiUrlRow').style.display = showApi ? 'block' : 'none';
+
+    // Docling remote switch: only show when docling is selected
+    // Docling remote configuration has been removed to avoid user confusion
+  }
+
+  async function loadMineruToken() {
+    try {
+      const resp = await fetch('/auth/app-config/raw-secrets');
+      if (!resp.ok) return;
+      const secrets = await resp.json();
+      const token = secrets.translator_mineru_token || '';
+      const el = document.getElementById('mineruToken');
+      if (!el) return;
+      if (token) {
+        el.value = token.substring(0, 8) + '***';
+        el.type = 'password';
+      } else {
+        el.value = '';
+        el.placeholder = getText('mineruTokenPlaceholder');
+        el.type = 'password';
+      }
+    } catch (e) { console.error('Load mineru token error:', e); }
+  }
+
+  async function saveParsingEngineConfig() {
+    try {
+      const key = document.getElementById('engineSelect').value || 'mineru';
+      const name = document.getElementById('engineName').value.trim();
+      const apiUrl = document.getElementById('engineApiUrl').value.trim();
+      // Docling remote configuration has been removed
+      // Formula Recognition has been moved to user-side selection, not in global settings configuration
+      const mineruModelVersion = document.getElementById('mineruModelVersion').value.trim();
+      const mineruApiKey = (document.getElementById('mineruApiKey').value || '').trim();
+
+      // Update local engine configuration object
+      engineConfigs[key] = engineConfigs[key] || {};
+      engineConfigs[key].name = name || key;
+      if (apiUrl) {
+        engineConfigs[key].api_url = apiUrl;
+      } else {
+        delete engineConfigs[key].api_url;
+      }
+      // Docling remote configuration has been removed
+      if (key === 'mineru') {
+        engineConfigs[key].model_version = mineruModelVersion || 'vlm';
+      } else {
+        delete engineConfigs[key].model_version;
+      }
+
+      // Combine translator_settings payload
+      const payload = {
+        translator_settings: {
+          convert_engine: key,
+          mineru_model_version: mineruModelVersion || 'vlm',
+          // formula_ocr: user-side selection
+          code_ocr: (window.appConfig?.translator_settings?.code_ocr) || false,
+          skip_translate: (window.appConfig?.translator_settings?.skip_translate) || false,
+          engines: engineConfigs
+        }
+      };
+
+      // Save non-sensitive configuration
+      const resp = await fetch('/auth/app-config', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify(payload)
+      });
+      if (!resp.ok) {
+        const t = await resp.text();
+        alert(getText('saveFailed') + ': ' + t);
+        return;
+      }
+
+      // If there's plain text token input (not *** masked), save sensitive configuration separately
+      // Save MinerU API Key (when not masked)
+      if (mineruApiKey && !mineruApiKey.endsWith('***') && key === 'mineru') {
+        const r2 = await fetch('/auth/app-config/setting', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ key: 'translator_mineru_token', value: mineruApiKey })
+        });
+        if (!r2.ok) {
+          const t2 = await r2.text();
+          alert(getText('saveFailed') + ' MinerU API Key: ' + t2);
+          return;
+        }
+      }
+
+      // Success notification and refresh token display
+      showNotification(getText('parsingEngineSettingsSaved'), 'success');
+      // Docling authentication save has been removed
+      await loadEngineConfigs();
+    } catch (e) {
+      console.error('Save parsing engine config error:', e);
+      alert(getText('saveFailed') + ': ' + e.message);
+    }
+  }
+
+  // Load MinerU API Key (masked display)
+  async function loadMineruApiKey() {
+    try {
+      const resp = await fetch('/auth/app-config/raw-secrets', { credentials: 'include' });
+      if (!resp.ok) return;
+      const secrets = await resp.json();
+      const key = secrets.translator_mineru_token || '';
+      const el = document.getElementById('mineruApiKey');
+      if (!el) return;
+      if (key) {
+        el.value = key.substring(0, 8) + '***';
+        el.type = 'password';
+      } else {
+        el.value = '';
+        el.placeholder = 'sk-...';
+        el.type = 'password';
+      }
+    } catch (e) {
+      console.warn('Load MinerU API Key failed', e);
+    }
+  }
+
+  // General settings functions
+  async function loadGeneralSettings() {
+    try {
+      const resp = await fetch('/auth/app-config');
+      if (!resp.ok) return;
+      const cfg = await resp.json();
+      
+      // Load default language setting
+      const defaultLang = cfg.default_language || 'en';
+      const defaultLangSelect = document.getElementById('defaultLanguage');
+      if (defaultLangSelect) {
+        defaultLangSelect.value = defaultLang;
+      }
+    } catch (e) {
+      console.error('Load general settings error:', e);
+    }
+  }
+
+  async function saveGeneralSettings() {
+    try {
+      const defaultLang = document.getElementById('defaultLanguage').value;
+      
+      const payload = {
+        default_language: defaultLang
+      };
+
+      const resp = await fetch('/auth/app-config/setting', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (resp.ok) {
+        alert(getText('generalSettingsSaved'));
+        // Update current language if it matches the new default
+        if (currentLang === defaultLang) {
+          setLanguage(defaultLang);
+        }
+      } else {
+        alert(getText('saveFailed') + ': ' + (await resp.text()));
+      }
+    } catch (e) {
+      alert(getText('saveFailed') + ': ' + e.message);
+    }
+  }
+
+  // Event binding
+  document.addEventListener('DOMContentLoaded', () => {
+    const sel = document.getElementById('engineSelect');
+    if (sel) sel.addEventListener('change', () => updateEngineFields());
+    const saveBtn = document.getElementById('saveEngineBtn');
+    if (saveBtn) saveBtn.addEventListener('click', saveParsingEngineConfig);
+    
+    // General settings event binding
+    const saveGeneralBtn = document.getElementById('saveGeneralBtn');
+    if (saveGeneralBtn) saveGeneralBtn.addEventListener('click', saveGeneralSettings);
+  });
   let platformNames = {};
   let platformUrls = {};
   let platformModels = {};
 
-  // 从配置文件加载平台信息
+  // Load platform information from configuration file
   async function loadPlatformConfigs() {
     try {
       const resp = await fetch('/auth/app-config');
       if (!resp.ok) return;
       const cfg = await resp.json();
       
-      // 读取新的 ai_platforms 结构
+      // Read new ai_platforms structure
       const aiPlatforms = cfg.ai_platforms || {};
       
-      // 构建平台配置对象
+      // Build platform configuration object
       platformConfigs = {};
       for (const [key, platform] of Object.entries(aiPlatforms)) {
         platformConfigs[key] = {
@@ -301,22 +701,22 @@
         };
       }
       
-      // 更新平台选择下拉框
+      // Update platform selection dropdown
       updatePlatformSelect();
     } catch (e) {
       console.error('Load platform configs error:', e);
     }
   }
 
-  // 更新平台选择下拉框
+  // Update platform selection dropdown
   function updatePlatformSelect() {
     const select = document.getElementById('platformSelect');
     if (!select) return;
     
-    // 清空现有选项
+    // Clear existing options
     select.innerHTML = '';
     
-    // 添加选项
+    // Add options
     for (const [key, config] of Object.entries(platformConfigs)) {
       const option = document.createElement('option');
       option.value = key;
@@ -325,28 +725,28 @@
     }
   }
 
-  // 加载AI平台配置
+  // Load AI platform configuration
   async function loadAiPlatformConfig() {
     try {
       const resp = await fetch('/auth/app-config');
       if (!resp.ok) return;
       const cfg = await resp.json();
       
-      // 获取当前选中的平台
+      // Get currently selected platform
       const currentPlatform = document.getElementById('platformSelect').value;
       
-      // 从新的配置结构中加载数据
+      // Load data from new configuration structure
       if (cfg.ai_platforms && cfg.ai_platforms[currentPlatform]) {
         const platformConfig = cfg.ai_platforms[currentPlatform];
         
-        // 填充表单字段
+        // Fill form fields
         document.getElementById('platformName').value = platformConfig.name || '';
         document.getElementById('platformUrl').value = platformConfig.url || '';
         document.getElementById('modelName').value = platformConfig.model || '';
         document.getElementById('maxTokens').value = platformConfig.max_tokens || 4096;
         document.getElementById('temperature').value = platformConfig.temperature || 0.7;
       } else {
-        // 如果没有找到配置，使用默认值
+        // If no configuration found, use default values
         document.getElementById('platformName').value = '';
         document.getElementById('platformUrl').value = '';
         document.getElementById('modelName').value = '';
@@ -354,7 +754,7 @@
         document.getElementById('temperature').value = 0.7;
       }
       
-      // 单独加载 API Key（从敏感配置）
+      // Load API Key separately (from sensitive configuration)
       await loadApiKey(currentPlatform);
       
     } catch (e) {
@@ -362,7 +762,7 @@
     }
   }
 
-  // 加载 API Key
+  // Load API Key
   async function loadApiKey(platform) {
     try {
       const resp = await fetch('/auth/app-config/raw-secrets');
@@ -373,14 +773,14 @@
       const apiKey = secrets.platform_api_keys?.[platform];
       
       if (apiKey) {
-        // 如果 API Key 存在，显示脱敏版本
+        // If API Key exists, display masked version
         const maskedKey = apiKey.substring(0, 8) + '***';
         apiKeyInput.value = maskedKey;
-        apiKeyInput.placeholder = '已保存的 API Key';
-        // 确保输入框类型为 password，这样脱敏显示才能正常工作
+        apiKeyInput.placeholder = getText('savedApiKeyPlaceholder');
+        // Ensure input type is password so masked display works properly
         apiKeyInput.type = 'password';
         
-        // 更新眼睛图标状态
+        // Update eye icon state
         const toggleButton = document.querySelector('[data-target="platformApiKey"]');
         if (toggleButton) {
           const icon = toggleButton.querySelector('i');
@@ -390,21 +790,21 @@
           }
         }
       } else {
-        // 如果没有 API Key，清空输入框
+        // If no API Key, clear input box
         apiKeyInput.value = '';
-        apiKeyInput.placeholder = '请输入 API Key';
+        apiKeyInput.placeholder = getText('apiKeyPlaceholder');
         apiKeyInput.type = 'password';
       }
     } catch (e) {
       console.error('Load API key error:', e);
       const apiKeyInput = document.getElementById('platformApiKey');
       apiKeyInput.value = '';
-      apiKeyInput.placeholder = '请输入 API Key';
+      apiKeyInput.placeholder = getText('apiKeyPlaceholder');
       apiKeyInput.type = 'password';
     }
   }
 
-  // 更新平台字段
+  // Update platform fields
   function updatePlatformFields() {
     const platform = document.getElementById('platformSelect').value;
     const config = platformConfigs[platform];
@@ -416,7 +816,7 @@
     document.getElementById('maxTokens').value = config.maxTokens;
     document.getElementById('temperature').value = config.temperature;
     
-    // 重新加载当前平台的 API Key
+    // Reload current platform API Key
     loadApiKey(platform);
   }
 
@@ -438,7 +838,7 @@
   }
 
   (async function init(){
-    // 设置默认HTTPS禁用，且在未测试前禁用修改
+    // Set default HTTPS disabled, and disable modification until tested
     document.getElementById('httpsEnabled').checked = false;
     document.getElementById('httpsEnabled').disabled = true;
 
@@ -452,33 +852,33 @@
       const key = document.getElementById('keyFile').files[0];
       const ok = await uploadCertAndKey(cert, key);
       if (ok) {
-        // 重新加载以更新当前文件名显示
+        // Reload to update current file name display
         const cfg2 = await loadAppConfig();
-        alert('上传成功');
+        alert(getText('uploadSuccess'));
       } else {
-        alert('上传失败');
+        alert(getText('uploadFailed'));
       }
     });
 
-    // 移除单独“保存Web设置”逻辑，合并到“保存设置”按钮
+    // Remove separate "Save Web Settings" logic, merge into "Save Settings" button
 
     document.getElementById('testHttpsBtn').addEventListener('click', async () => {
       try {
-        // 若输入了密码，先保存以便服务端读取
+        // If password is entered, save first for server to read
         const pwd = document.getElementById('keyPassword').value;
         if (pwd) {
           await saveAppConfig({ https_key_password: pwd });
         }
-        // 如果用户选择了新文件，先上传，以新证书进行测试
+        // If user selected new file, upload first, then test with new certificate
         const certSel = document.getElementById('certFile').files[0];
         const keySel = document.getElementById('keyFile').files[0];
         if (certSel || keySel) {
           const upOk = await uploadCertAndKey(certSel, keySel);
           if (!upOk) {
-            alert('上传新证书失败，已取消测试');
+            alert(getText('uploadFailed') + ', test cancelled');
             return;
           }
-          // 上传后刷新显示
+          // Refresh display after upload
           await loadAppConfig();
         }
         const resp = await fetch('/auth/web/test-https', {
@@ -488,16 +888,16 @@
         });
         const data = await resp.json();
         if (resp.ok && data.ok) {
-          alert('HTTPS测试完成\n' + JSON.stringify(data, null, 2));
-          // 通过测试后，允许切换启用HTTPS
+          alert(getText('testSuccess') + '\n' + JSON.stringify(data, null, 2));
+          // After passing test, allow switching to enable HTTPS
           document.getElementById('httpsEnabled').disabled = false;
         } else {
-          alert('HTTPS测试失败\n' + JSON.stringify(data, null, 2));
-          // 测试失败仍保持禁用
+          alert(getText('testFailed') + '\n' + JSON.stringify(data, null, 2));
+          // Test failed, still keep disabled
           document.getElementById('httpsEnabled').disabled = true;
         }
       } catch (e) {
-        alert('HTTPS测试异常: ' + e);
+        alert(getText('testException') + ': ' + e);
         document.getElementById('httpsEnabled').disabled = true;
       }
     });
@@ -515,7 +915,7 @@
         const maxTokens = parseInt(document.getElementById('maxTokens').value);
         const temperature = parseFloat(document.getElementById('temperature').value);
 
-        // 构建配置结构（不包含 API Key）
+        // Build configuration structure (excluding API Key)
         const config = {
           ai_platforms: {
             [platformType]: {
@@ -528,14 +928,14 @@
           }
         };
 
-        // 保存基础配置
+        // Save basic configuration
         const resp1 = await fetch('/auth/app-config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(config)
         });
 
-        // 如果有 API Key，单独保存到敏感配置
+        // If there is API Key, save separately to sensitive configuration
         if (apiKey && !apiKey.endsWith('***')) {
           const resp2 = await fetch('/auth/app-config/setting', {
             method: 'POST',
@@ -546,30 +946,30 @@
             })
           });
           if (!resp2.ok) {
-            alert('API Key 保存失败');
+            alert(getText('saveFailed') + ' API Key');
             return false;
           }
         }
 
         if (resp1.ok) {
-          alert('AI 平台设置已保存并立即生效');
-          // 重新加载 API Key 显示（脱敏版本）
+          alert(getText('aiPlatformSettingsSaved'));
+          // Reload API Key display (masked version)
           await loadApiKey(platformType);
           return true;
         } else {
           const error = await resp1.text();
-          alert('保存失败: ' + error);
+          alert(getText('saveFailed') + ': ' + error);
           return false;
         }
       } catch (e) {
         console.error('Save AI platform config error:', e);
-        alert('保存异常: ' + e.message);
+        alert(getText('saveFailed') + ': ' + e.message);
         return false;
       }
     }
 
     async function testAiPlatform() {
-      // 立即显示测试进度对话框
+      // Immediately show test progress dialog
       showTestProgressModal();
       
       try {
@@ -583,44 +983,44 @@
           })
         });
         
-        // 检查响应状态
+        // Check response status
         if (!resp.ok) {
           const errorText = await resp.text();
-          updateTestProgress('error', '测试失败: HTTP ' + resp.status + ' - ' + errorText);
+          updateTestProgress('error', getText('testFailed') + ': ' + getText('httpError') + ' ' + resp.status + ' - ' + errorText);
           return;
         }
         
-        // 尝试解析JSON
+        // Try to parse JSON
         let data;
         try {
           data = await resp.json();
         } catch (jsonError) {
           const responseText = await resp.text();
-          updateTestProgress('error', '服务器返回无效的JSON响应: ' + responseText);
+          updateTestProgress('error', getText('testFailed') + ': Invalid JSON response from server: ' + responseText);
           return;
         }
         
         if (data.success) {
-          updateTestProgress('success', 'AI 平台连接测试成功！');
+          updateTestProgress('success', getText('testSuccess'));
         } else {
-          updateTestProgress('error', 'AI 平台连接测试失败: ' + (data.error || '未知错误'));
+          updateTestProgress('error', getText('testFailed') + ': ' + (data.error || getText('unknownError')));
         }
       } catch (e) {
-        updateTestProgress('error', '测试异常: ' + e.message);
+        updateTestProgress('error', getText('testException') + ': ' + e.message);
       }
     }
 
     function showTestProgressModal() {
-      // 创建或更新测试进度模态框
+      // Create or update test progress modal
       let modal = document.getElementById('testProgressModal');
       if (!modal) {
         modal = createTestProgressModal();
       }
       
-      // 重置状态
-      updateTestProgress('loading', '正在测试AI平台连接...');
+      // Reset state
+      updateTestProgress('loading', getText('testingConnection'));
       
-      // 显示模态框
+      // Show modal
       const bsModal = new bootstrap.Modal(modal);
       bsModal.show();
     }
@@ -631,7 +1031,7 @@
           <div class="modal-dialog">
             <div class="modal-content">
               <div class="modal-header">
-                <h5 class="modal-title" id="testProgressModalLabel">AI平台连接测试</h5>
+                <h5 class="modal-title" id="testProgressModalLabel" data-i18n="testProgressTitle">AI平台连接测试</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
               </div>
               <div class="modal-body">
@@ -640,19 +1040,19 @@
                     <div class="spinner-border spinner-border-sm text-primary me-3" role="status" id="testSpinner">
                       <span class="visually-hidden">Loading...</span>
                     </div>
-                    <span id="testProgressText">正在测试AI平台连接...</span>
+                    <span id="testProgressText" data-i18n="testingConnection">正在测试AI平台连接...</span>
                   </div>
                 </div>
               </div>
               <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="testCloseBtn">关闭</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="testCloseBtn" data-i18n="closeBtn">关闭</button>
               </div>
             </div>
           </div>
         </div>
       `;
       
-      // 将模态框添加到页面
+      // Add modal to page
       document.body.insertAdjacentHTML('beforeend', modalHtml);
       return document.getElementById('testProgressModal');
     }
@@ -664,29 +1064,29 @@
       
       if (!spinner || !text) return;
       
-      // 更新文本
+      // Update text
       text.textContent = message;
       
-      // 根据状态更新UI
+      // Update UI based on state
       if (status === 'loading') {
         spinner.style.display = 'inline-block';
         spinner.className = 'spinner-border spinner-border-sm text-primary me-3';
-        closeBtn.textContent = '关闭';
+        closeBtn.textContent = getText('closeBtn');
         closeBtn.className = 'btn btn-secondary';
       } else if (status === 'success') {
         spinner.style.display = 'inline-block';
         spinner.className = 'spinner-border spinner-border-sm text-success me-3';
-        // 1秒后隐藏spinner，显示成功图标
+        // Hide spinner after 1 second, show success icon
         setTimeout(() => {
           spinner.style.display = 'none';
           text.innerHTML = '<i class="bi bi-check-circle-fill text-success me-2"></i>' + message;
         }, 1000);
-        closeBtn.textContent = '确定';
+        closeBtn.textContent = getText('confirmBtn');
         closeBtn.className = 'btn btn-success';
       } else if (status === 'error') {
         spinner.style.display = 'none';
         text.innerHTML = '<i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>' + message;
-        closeBtn.textContent = '确定';
+        closeBtn.textContent = getText('confirmBtn');
         closeBtn.className = 'btn btn-danger';
       }
     }
@@ -695,21 +1095,21 @@
     document.getElementById('testAiPlatformBtn').addEventListener('click', testAiPlatform);
 
     document.getElementById('saveAllBtn').addEventListener('click', async () => {
-      // 1) 先保存LDAP登录设置
+      // 1) First save LDAP login settings
       const okLogin = await saveLoginSettings(true);
-      // 2) 再保存Web/HTTPS设置
+      // 2) Then save Web/HTTPS settings
       const patch = {
         https_enabled: document.getElementById('httpsEnabled').checked,
         https_key_password: document.getElementById('keyPassword').value || null
       };
       const okWeb = await saveAppConfig(patch);
-      // 3) 保存 AI 平台设置
+      // 3) Save AI platform settings
       const okAi = await saveAiPlatformConfig();
-      alert(okLogin && okWeb && okAi ? '所有设置已保存' : '部分设置保存失败');
+      alert(okLogin && okWeb && okAi ? getText('allSettingsSaved') : getText('partialSettingsSaved'));
     });
   })();
 
-  // 迁移登录设置：加载、联动、保存
+  // Migrate login settings: load, linkage, save
   async function loadLdapConfig() {
     try {
       const resp = await fetch('/auth/ldap-config');
@@ -721,7 +1121,7 @@
       document.getElementById('ldapPort').value = cfg.ldap_port || 389;
       document.getElementById('ldapBindDnTemplate').value = cfg.ldap_bind_dn_template || '';
       document.getElementById('ldapUserFilter').value = cfg.ldap_user_filter || '';
-      // 与首页旧结构保持兼容：同时填充用户与组 Base DN
+      // Maintain compatibility with old homepage structure: fill both user and group Base DN
       document.getElementById('ldapBaseDn').value = cfg.ldap_base_dn || '';
       document.getElementById('ldapAdminGroupEnabled').checked = !!cfg.ldap_admin_group_enabled;
       document.getElementById('ldapGlossaryGroupEnabled').checked = !!cfg.ldap_glossary_group_enabled;
@@ -765,12 +1165,12 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    if (!silent) alert(resp.ok ? '登录设置已保存' : '保存失败');
+    if (!silent) alert(resp.ok ? getText('loginSettingsSaved') : getText('saveFailed'));
     return resp.ok;
   }
 
 
-  // 生成 LDAP 测试命令（移植自首页）
+  // Generate LDAP test command (migrated from homepage)
   document.getElementById('genLdapTestCmdBtn').addEventListener('click', async () => {
     const protocol = document.getElementById('ldapProtocol').value || 'ldap';
     const host = document.getElementById('ldapHost').value || 'dc.example.com';
@@ -778,7 +1178,7 @@
     const baseDn = document.getElementById('ldapBaseDn').value || 'OU=Users,DC=example,DC=com';
     const tlsVerify = document.getElementById('ldapTlsVerify').checked;
     const cacert = document.getElementById('ldapTlsCacertfile').value;
-    const username = prompt('请输入测试用户名（不含域）', 'testuser');
+    const username = prompt(getText('ldapTestUserPrompt'), 'testuser');
     if (username === null) return;
     const template = document.getElementById('ldapBindDnTemplate').value || '{username}@example.com';
     const bindDnExample = template.replaceAll('{username}', username);
@@ -789,14 +1189,14 @@
     const finalCmd = `${cacertPart ? cacertPart + ' ' : ''}${baseCmd}${tlsPart} ${filter}`;
     try {
       await navigator.clipboard.writeText(finalCmd);
-      alert('命令已复制到剪贴板');
+      alert(getText('ldapTestCmdCopied'));
     } catch (err) {
-      alert('复制失败，已在控制台输出');
+      alert(getText('copyFailed'));
       console.log(finalCmd);
     }
   });
 
-  // 打开弹窗并执行连接测试（移植自首页）
+  // Open popup and execute connection test (migrated from homepage)
   document.getElementById('runLdapConnectivityBtn').addEventListener('click', async () => {
     const modalEl = document.getElementById('ldapTestModal');
     const modal = new bootstrap.Modal(modalEl);
@@ -811,7 +1211,7 @@
         const username = document.getElementById('ldapTestUsernameInput').value.trim();
         const password = document.getElementById('ldapTestPasswordInput').value;
         if (!username || !password) {
-          alert('请填写用户名与密码');
+          alert(getText('ldapTestNeedBoth'));
           return;
         }
         const payload = {
@@ -839,9 +1239,9 @@
         });
         const text = await resp.text();
         modal.hide();
-        alert(resp.ok ? ('LDAP测试成功\n' + text) : ('LDAP测试失败\n' + text));
+        alert(resp.ok ? (getText('ldapConnectivityOk') + '\n' + text) : (getText('ldapConnectivityFail') + '\n' + text));
       } catch (e) {
-        alert('LDAP测试异常: ' + e);
+        alert(getText('ldapConnectivityFail') + ': ' + e);
       } finally {
         confirmBtn.disabled = false;
         confirmBtn.removeEventListener('click', onConfirm);
@@ -850,14 +1250,15 @@
     confirmBtn.addEventListener('click', onConfirm);
   });
 
-  // 页面初始化时加载所有设置
+  // Load all settings when page initializes
   async function initLogin(){
     await loadLdapConfig();
-    await loadPlatformConfigs(); // 先加载平台配置
+    await loadEngineConfigs(); // First load parsing engine configuration, fill "Current Engine" dropdown
+    await loadPlatformConfigs(); // Then load AI platform configuration
     await loadAiPlatformConfig();
   }
   
-  // 初始化密码切换按钮
+  // Initialize password toggle button
   function initTogglePasswordButtons() {
     const toggleButtons = document.querySelectorAll('.toggle-password');
     toggleButtons.forEach(button => {
@@ -869,12 +1270,12 @@
 
       button.addEventListener('click', async () => {
         if (passwordInput.type === 'password') {
-          // 显示密码/API key
+          // Show password/API key
           passwordInput.type = 'text';
           icon.classList.remove('bi-eye-slash');
           icon.classList.add('bi-eye');
           
-          // 如果是API key输入框且当前显示的是脱敏值，则获取完整值
+          // If it is API key input box and currently showing masked value, get complete value
           if (targetId === 'platformApiKey' && passwordInput.value && passwordInput.value.endsWith('***')) {
             try {
               const currentPlatform = document.getElementById('platformSelect').value;
@@ -891,12 +1292,12 @@
             }
           }
         } else {
-          // 隐藏密码/API key
+          // Hide password/API key
           passwordInput.type = 'password';
           icon.classList.remove('bi-eye');
           icon.classList.add('bi-eye-slash');
           
-          // 如果是API key输入框，恢复脱敏显示
+          // If it is API key input box, restore masked display
           if (targetId === 'platformApiKey' && passwordInput.value && !passwordInput.value.endsWith('***')) {
             const maskedKey = passwordInput.value.substring(0, 8) + '***';
             passwordInput.value = maskedKey;
@@ -906,10 +1307,12 @@
     });
   }
 
-  // 页面加载完成后执行初始化
+  // Execute initialization after page loads
   document.addEventListener('DOMContentLoaded', () => {
+    loadI18nData(); // First load internationalization data
     initTogglePasswordButtons();
     initLogin();
+    loadGeneralSettings(); // Load general settings
   });
 </script>
 </body>

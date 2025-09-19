@@ -1242,6 +1242,15 @@ async def update_single_setting(
                 else:
                     raise HTTPException(status_code=500, detail=f"Failed to save auth secret {key}")
             
+            elif key == 'docling_auth':
+                if isinstance(value, dict):
+                    if get_secrets_manager().update_docling_auth(value):
+                        logger.info(f"Docling鉴权已由用户 {_mask_username(user.username)} 更新")
+                        return {"success": True, "message": "Docling auth updated successfully"}
+                    else:
+                        raise HTTPException(status_code=500, detail="Failed to save Docling auth")
+                else:
+                    raise HTTPException(status_code=400, detail="Docling auth must be a dictionary")
             else:
                 raise HTTPException(status_code=400, detail=f"Unknown sensitive setting key: {key}")
         
