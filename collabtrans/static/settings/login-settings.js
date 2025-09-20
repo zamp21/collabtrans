@@ -80,7 +80,7 @@ async function generateLdapTestCmd() {
   const baseDn = document.getElementById('ldapBaseDn').value || '';
   const tlsVerify = document.getElementById('ldapTlsVerify').checked;
   const cacert = document.getElementById('ldapTlsCacertfile').value;
-  const username = prompt(window.SettingsCore ? window.SettingsCore.getText('enterTestUsernamePrompt') : '请输入测试用户名:', '');
+  const username = prompt(window.SettingsCore ? window.SettingsCore.getText('enterTestUsernamePrompt') : 'Enter test username:', '');
   if (username === null) return;
   const template = document.getElementById('ldapBindDnTemplate').value || '';
   const bindDnExample = template.replaceAll('{username}', username);

@@ -103,7 +103,7 @@ async function loadApiKey(platform) {
       // If API Key exists, display masked version
       const maskedKey = apiKey.substring(0, 8) + '***';
       apiKeyInput.value = maskedKey;
-      apiKeyInput.placeholder = window.SettingsCore ? window.SettingsCore.getText('savedApiKeyPlaceholder') : '已保存的API Key';
+      apiKeyInput.placeholder = window.SettingsCore ? window.SettingsCore.getText('savedApiKeyPlaceholder') : 'Saved API Key';
       // Ensure input type is password so masked display works properly
       apiKeyInput.type = 'password';
       

@@ -94,9 +94,11 @@ async function initI18n() {
   setLanguage(savedLang);
 }
 
+// Load i18n data from settings directory
 async function loadI18nData() {
   try {
-    const response = await fetch("/static/i18nData.json");
+    // Change to load from settings directory
+    const response = await fetch('/static/settings/i18nSettings.json');
     if (!response.ok) throw new Error('Failed to load i18n data');
     i18nData = await response.json();
     await initI18n();
