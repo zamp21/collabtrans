@@ -1218,27 +1218,6 @@ $.*"></textarea>
                                         <!-- 已迁移到 /settings：LDAP 测试弹窗 -->
                                     </div>
 
-                                    <!-- 默认用户配置 -->
-                                    <div id="defaultUserConfigGroup">
-                                        <h6 class="mb-3" data-i18n="defaultUserConfigTitle">默认用户配置</h6>
-                                        <div class="mb-3">
-                                            <label for="defaultUsernameInput" class="form-label" data-i18n="defaultUsernameLabel">默认用户名</label>
-                                            <input type="text" class="form-control" id="defaultUsernameInput" 
-                                                   placeholder="admin">
-                                        </div>
-                                        <div class="mb-3">
-                                            <label for="defaultPasswordInput" class="form-label" data-i18n="defaultPasswordLabel">默认密码</label>
-                                            <div class="input-group">
-                                                <input type="password" class="form-control" id="defaultPasswordInput" 
-                                                       placeholder="admin123">
-                                                <button class="btn btn-outline-secondary toggle-password" type="button" 
-                                                        data-target="defaultPasswordInput">
-                                                    <i class="bi bi-eye"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-
                                     <!-- 会话配置 -->
                                     <h6 class="mb-3 mt-4" data-i18n="sessionConfigTitle">会话配置</h6>
                                     <div class="mb-3">
@@ -1895,6 +1874,12 @@ $.*"></textarea>
 
         // Save preference
         saveToConfig('ui_language', lang);
+        
+        // Also update localStorage for cross-page synchronization (especially for settings page)
+        localStorage.setItem('ui_language', lang);
+        
+        // Dispatch custom event for cross-page language sync
+        window.dispatchEvent(new CustomEvent('languageChanged', { detail: { language: lang } }));
     }
 
     // 加载并渲染当前用户信息

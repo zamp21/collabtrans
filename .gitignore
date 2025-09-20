@@ -38,3 +38,7 @@ logs/
 # HTTPS dev certificates (auto-generated, do not commit)
 certs/*.key
 certs/*.crt
+
+# Redis database files
+dump.rdb
+*.rdb

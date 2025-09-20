@@ -1,0 +1,117 @@
+<div class="border rounded p-4">
+  <div class="row g-3">
+    <div class="col-md-6">
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="ldapEnabled">
+        <label class="form-check-label" for="ldapEnabled" data-i18n="ldapEnabledLabel">启用LDAP登录</label>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label" for="ldapProtocol" data-i18n="protocolLabel">协议</label>
+      <select id="ldapProtocol" class="form-select">
+        <option value="ldap">LDAP</option>
+        <option value="ldaps">LDAPS</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="row g-3 mt-0">
+    <div class="col-md-6">
+      <label for="ldapHost" class="form-label" data-i18n="ldapHostLabel">LDAP服务器（与证书CN/SAN匹配）</label>
+      <input type="text" class="form-control" id="ldapHost" data-i18n-placeholder="ldapHostPlaceholder" placeholder="adtest2.testldaps.io">
+    </div>
+    <div class="col-md-3">
+      <label for="ldapPort" class="form-label" data-i18n="portLabel">端口</label>
+      <input type="number" class="form-control" id="ldapPort" data-i18n-placeholder="ldapPortPlaceholder" placeholder="389">
+    </div>
+    <div class="col-md-3">
+      <label for="ldapBaseDn" class="form-label" data-i18n="userSearchBaseDnLabel">用户搜索 Base DN</label>
+      <input type="text" class="form-control" id="ldapBaseDn" data-i18n-placeholder="ldapBaseDnPlaceholder" placeholder="OU=Users,DC=example,DC=com">
+    </div>
+  </div>
+
+  <div class="mt-3">
+    <label for="ldapBindDnTemplate" class="form-label" data-i18n="bindDnTemplateLabel">绑定 DN 模板</label>
+    <input type="text" class="form-control" id="ldapBindDnTemplate" data-i18n-placeholder="bindDnTemplatePlaceholder" placeholder="EXAMPLE\\{username} 或 {username}@example.com">
+  </div>
+
+  <div class="mt-3">
+    <label for="ldapUserFilter" class="form-label" data-i18n="userFilterLabel">用户过滤器</label>
+    <input type="text" class="form-control" id="ldapUserFilter" data-i18n-placeholder="ldapUserFilterPlaceholder" placeholder="(sAMAccountName={username})">
+  </div>
+
+  <div class="mt-3">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="ldapAdminGroupEnabled">
+          <label class="form-check-label" for="ldapAdminGroupEnabled" data-i18n="enableAdminGroupQueryLabel">启用管理员组查询</label>
+        </div>
+        <input type="text" class="form-control mt-2" id="ldapAdminGroup" data-i18n-placeholder="ldapAdminGroupPlaceholder" placeholder="DocuTranslate-Admins">
+      </div>
+      <div class="col-md-6">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" id="ldapGlossaryGroupEnabled">
+          <label class="form-check-label" for="ldapGlossaryGroupEnabled" data-i18n="enableGlossaryGroupQueryLabel">启用术语表组查询</label>
+        </div>
+        <input type="text" class="form-control mt-2" id="ldapGlossaryGroup" data-i18n-placeholder="ldapGlossaryGroupPlaceholder" placeholder="DocuTranslate-Glossary">
+      </div>
+    </div>
+    <div class="mt-3">
+      <label for="ldapGroupBaseDn" class="form-label" data-i18n="groupSearchBaseDnLabel">组搜索 Base DN</label>
+      <input type="text" class="form-control" id="ldapGroupBaseDn" data-i18n-placeholder="ldapGroupBaseDnPlaceholder" placeholder="OU=Groups,DC=example,DC=com">
+    </div>
+  </div>
+
+  <div id="ldapsConfigContainer" class="mt-3" style="display:none;">
+    <div class="form-check form-switch">
+      <input class="form-check-input" type="checkbox" id="ldapTlsVerify">
+      <label class="form-check-label" for="ldapTlsVerify" data-i18n="verifyTlsCertLabel">验证TLS证书</label>
+    </div>
+    <div class="mt-2">
+      <label for="ldapTlsCacertfile" class="form-label" data-i18n="tlsCertFilePathLabel">TLS证书文件路径</label>
+      <input type="text" class="form-control" id="ldapTlsCacertfile" data-i18n-placeholder="ldapTlsCacertfilePlaceholder" placeholder="/path/to/ca.crt">
+    </div>
+  </div>
+
+  <div class="mt-4 d-flex gap-2">
+    <button id="saveLoginBtn" class="btn btn-primary" data-i18n="saveLoginSettingsBtn">保存登录设置</button>
+    <button type="button" class="btn btn-outline-secondary" id="genLdapTestCmdBtn">
+      <span data-i18n="generateTestCmdLabel">生成测试命令</span>
+    </button>
+    <button type="button" class="btn btn-outline-primary" id="runLdapConnectivityBtn">
+      <span data-i18n="testLdapConnectionLabel">测试LDAP连接</span>
+    </button>
+  </div>
+</div>
+
+<!-- LDAP test connection popup -->
+<div class="modal fade" id="ldapTestModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" data-i18n="testLdapConnectionTitle">测试 LDAP 连接</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label for="ldapTestUsernameInput" class="form-label" data-i18n="usernameWithoutDomainLabel">用户名（不含域）</label>
+          <input type="text" class="form-control" id="ldapTestUsernameInput" data-i18n-placeholder="ldapTestUsernamePlaceholder" placeholder="testuser">
+        </div>
+        <div class="mb-3">
+          <label for="ldapTestPasswordInput" class="form-label" data-i18n="passwordLabel">密码</label>
+          <div class="input-group">
+            <input type="password" class="form-control" id="ldapTestPasswordInput" data-i18n-placeholder="ldapTestPasswordPlaceholder" placeholder="********">
+            <button class="btn btn-outline-secondary toggle-password" type="button" data-target="ldapTestPasswordInput">
+              <i class="bi bi-eye"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="closeBtn">关闭</button>
+        <button type="button" class="btn btn-primary" id="ldapTestConfirmBtn" data-i18n="startTestBtn">开始测试</button>
+      </div>
+    </div>
+  </div>
+</div>

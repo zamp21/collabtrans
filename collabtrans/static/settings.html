@@ -8,1314 +8,195 @@
     <link href="/static/bootstrap.css" rel="stylesheet">
     <link href="/static/bootstrap-icons.css" rel="stylesheet">
     <link href="/static/pico.css" rel="stylesheet">
+    <style>
+        .settings-nav {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+        }
+        .settings-nav .nav-link {
+            color: #495057;
+            border-radius: 6px;
+            margin-bottom: 0.25rem;
+            transition: all 0.2s ease;
+        }
+        .settings-nav .nav-link:hover {
+            background-color: #e9ecef;
+            color: #212529;
+        }
+        .settings-nav .nav-link.active {
+            background-color: #0d6efd;
+            color: white;
+        }
+        .settings-content {
+            min-height: 500px;
+        }
+        .settings-section {
+            display: none;
+        }
+        .settings-section.active {
+            display: block;
+        }
+        .section-header {
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .section-header h2 {
+            color: #495057;
+            font-size: 1.5rem;
+            margin: 0;
+        }
+        .section-header p {
+            color: #6c757d;
+            margin: 0.5rem 0 0 0;
+        }
+        .loading-spinner {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+        }
+    </style>
 </head>
 <body>
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
   <div class="container-fluid">
     <a class="navbar-brand" href="/">CollabTrans</a>
     <div>
-      <a class="btn btn-sm btn-outline-light me-2" href="/" data-i18n="homePageBtn">首页</a>
-      <a class="btn btn-sm btn-primary" href="/settings" data-i18n="settingsTitle">设置</a>
+      <a class="btn btn-sm btn-outline-light" href="/" data-i18n="homePageBtn">首页</a>
     </div>
   </div>
-  </nav>
+</nav>
 
 <main class="container py-4">
-  <h1 class="h4 mb-3" data-i18n="settingsTitle">设置</h1>
-
-  <div class="alert alert-info" data-i18n="settingsPageDescription">此页面用于集中管理系统设置。</div>
+  <h1 class="h4 mb-4" data-i18n="settingsTitle">设置</h1>
 
   <div class="row g-4">
+    <!-- 左侧导航 -->
     <aside class="col-md-3">
-      <nav class="list-group sticky-top" style="top: 80px;">
-        <a class="list-group-item list-group-item-action" href="#general-settings" data-i18n="generalSettingsTitle">General 设置</a>
-        <a class="list-group-item list-group-item-action" href="#ai-platforms" data-i18n="aiPlatformSettingsTitle">AI 平台设置</a>
-        <a class="list-group-item list-group-item-action" href="#parsing-engines" data-i18n="parsingEngineSettingsTitle">Parsing Engine 设置</a>
-        <a class="list-group-item list-group-item-action" href="#login-settings" data-i18n="loginSettingsTitle">登录设置</a>
-        <a class="list-group-item list-group-item-action" href="#web-settings" data-i18n="webSettingsTitle">Web 设置（HTTPS）</a>
-      </nav>
+      <div class="settings-nav">
+        <nav class="nav flex-column">
+          <a class="nav-link active" href="#" data-section="general" data-i18n="generalTitle">
+            <i class="bi bi-gear me-2"></i>General
+          </a>
+          <a class="nav-link" href="#" data-section="ai-platforms" data-i18n="aiPlatformTitle">
+            <i class="bi bi-robot me-2"></i>AI 平台
+          </a>
+          <a class="nav-link" href="#" data-section="parsing-engines" data-i18n="parsingEngineTitle">
+            <i class="bi bi-cpu me-2"></i>Parsing Engine
+          </a>
+          <a class="nav-link" href="#" data-section="login-settings" data-i18n="loginTitle">
+            <i class="bi bi-shield-lock me-2"></i>登录
+          </a>
+          <a class="nav-link" href="#" data-section="web-settings" data-i18n="webTitle">
+            <i class="bi bi-globe me-2"></i>Web
+          </a>
+        </nav>
+      </div>
     </aside>
 
+    <!-- 右侧内容区域 -->
     <div class="col-md-9">
-  <section class="mb-4" id="general-settings">
-    <h2 class="h5" data-i18n="generalSettingsTitle">General 设置</h2>
-    <div class="border rounded p-3">
-      <div class="row g-3">
-        <div class="col-md-6">
-          <label class="form-label" for="defaultLanguage" data-i18n="defaultLanguageLabel">默认语言</label>
-          <select id="defaultLanguage" class="form-select">
-            <option value="en" data-i18n="languageEnglish">English</option>
-            <option value="zh" data-i18n="languageChinese">中文</option>
-          </select>
-          <div class="form-text" data-i18n="defaultLanguageHelp">设置用户的默认界面语言，用户可以在导航栏中切换语言。</div>
-        </div>
-      </div>
-      
-      <div class="mt-3 d-flex gap-2">
-        <button id="saveGeneralBtn" class="btn btn-primary btn-sm" data-i18n="saveGeneralSettingsBtn">保存 General 设置</button>
-      </div>
-    </div>
-  </section>
-
-  <section class="mb-4" id="parsing-engines">
-    <h2 class="h5" data-i18n="parsingEngineSettingsTitle">Parsing Engine 设置</h2>
-    <div class="border rounded p-3">
-      <div class="row g-3 align-items-end">
-        <div class="col-md-6">
-          <label class="form-label" for="engineSelect" data-i18n="currentEngineLabel">当前 Engine</label>
-          <select id="engineSelect" class="form-select"></select>
-        </div>
-        <div class="col-md-6">
-          <label class="form-label" for="engineName" data-i18n="displayNameLabel">显示名称</label>
-          <input type="text" class="form-control" id="engineName" data-i18n-placeholder="mineruPlaceholder" placeholder="MinerU">
-        </div>
-      </div>
-
-      <div class="row g-3 mt-1">
-        <div class="col-md-6" id="engineApiUrlRow" style="display:none;">
-          <label class="form-label" for="engineApiUrl" data-i18n="apiUrlLabel">API URL</label>
-          <input type="url" class="form-control" id="engineApiUrl" data-i18n-placeholder="apiUrlPlaceholder" placeholder="https://...">
-          <div class="form-text" data-i18n="apiUrlHelp">远程/HTTP型引擎（如 MinerU）需要配置 API URL。</div>
-        </div>
-        <div class="col-md-6" id="mineruModelRow" style="display:none;">
-          <label class="form-label" for="mineruModelVersion" data-i18n="mineruModelVersionLabel">MinerU 模型版本</label>
-          <input type="text" class="form-control" id="mineruModelVersion" placeholder="vlm">
-        </div>
-      </div>
-
-      <div class="row g-3 mt-1" id="mineruApiKeyRow" style="display:none;">
-        <div class="col-md-6">
-          <label class="form-label" for="mineruApiKey" data-i18n="mineruApiKeyLabel">MinerU API Key</label>
-          <div class="input-group">
-            <input type="password" class="form-control" id="mineruApiKey" placeholder="sk-...">
-            <button class="btn btn-outline-secondary toggle-password" type="button" data-target="mineruApiKey">
-              <i class="bi bi-eye"></i>
-            </button>
+      <div class="settings-content">
+        
+        <!-- General -->
+        <div class="settings-section active" id="general-section">
+          <div class="section-header">
+            <h2 data-i18n="generalTitle">General</h2>
+            <p data-i18n="generalDescription">配置系统的基本设置和默认选项</p>
           </div>
-          <div class="form-text" data-i18n="mineruApiKeyHelp">仅用于 MinerU 解析引擎，安全保存于服务器。</div>
-        </div>
-      </div>
-
-      <div class="mt-3 d-flex gap-2">
-        <button id="saveEngineBtn" class="btn btn-primary btn-sm" data-i18n="saveEngineSettingsBtn">保存 Engine 设置</button>
-      </div>
-    </div>
-  </section>
-  <section class="mb-4" id="ai-platforms">
-    <h2 class="h5" data-i18n="aiPlatformSettingsTitle">AI 平台设置</h2>
-    <div class="border rounded p-3">
-      <div class="mb-3">
-        <label class="form-label" for="platformSelect" data-i18n="currentPlatformLabel">当前平台</label>
-              <select id="platformSelect" class="form-select">
-                <!-- Options will be dynamically loaded from configuration file -->
-              </select>
-      </div>
-
-      <div class="row g-3">
-        <div class="col-md-6">
-          <label class="form-label" for="platformName" data-i18n="platformNameLabel">平台名称</label>
-          <input type="text" class="form-control" id="platformName" data-i18n-placeholder="deepseekPlaceholder" placeholder="DeepSeek">
-        </div>
-        <div class="col-md-6">
-          <label class="form-label" for="platformUrl" data-i18n="platformUrlLabel">平台链接</label>
-          <input type="url" class="form-control" id="platformUrl" placeholder="https://api.deepseek.com">
-        </div>
-      </div>
-
-      <div class="mt-3">
-        <label class="form-label" for="platformApiKey" data-i18n="apiKeyLabel">API Key</label>
-        <div class="input-group">
-          <input type="password" class="form-control" id="platformApiKey" placeholder="sk-...">
-          <button class="btn btn-outline-secondary toggle-password" type="button" data-target="platformApiKey">
-            <i class="bi bi-eye"></i>
-          </button>
-        </div>
-        <div class="form-text" data-i18n="apiKeyHelp">API Key 将安全保存，不会显示明文</div>
-      </div>
-
-      <div class="mt-3">
-        <label class="form-label" for="modelName" data-i18n="modelNameLabel">模型名称</label>
-        <input type="text" class="form-control" id="modelName" data-i18n-placeholder="modelNamePlaceholder" placeholder="deepseek-chat">
-        <div class="form-text" data-i18n="modelNameHelp">如：deepseek-chat, gpt-4, claude-3-sonnet 等</div>
-      </div>
-
-      <div class="mt-3">
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label class="form-label" for="maxTokens" data-i18n="maxTokensLabel">最大 Token 数</label>
-            <input type="number" class="form-control" id="maxTokens" data-i18n-placeholder="maxTokensPlaceholder" placeholder="4096" min="1" max="100000">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label" for="temperature" data-i18n="temperatureLabel">温度参数</label>
-            <input type="number" class="form-control" id="temperature" data-i18n-placeholder="temperaturePlaceholder" placeholder="0.7" min="0" max="2" step="0.1">
-          </div>
-        </div>
-      </div>
-
-      <div class="mt-3 d-flex gap-2">
-        <button id="saveAiPlatformBtn" class="btn btn-primary btn-sm" data-i18n="saveAiPlatformSettingsBtn">保存 AI 平台设置</button>
-        <button id="testAiPlatformBtn" class="btn btn-outline-secondary btn-sm" data-i18n="testConnectionBtn">测试连接</button>
-      </div>
-    </div>
-  </section>
-
-  <section class="mb-4" id="login-settings">
-    <h2 class="h5" data-i18n="loginSettingsTitle">登录设置</h2>
-    <div class="border rounded p-3">
-      <div class="row g-3">
-        <div class="col-md-6">
-          <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="ldapEnabled">
-            <label class="form-check-label" for="ldapEnabled" data-i18n="ldapEnabledLabel">启用LDAP登录</label>
-          </div>
-        </div>
-        <div class="col-md-6">
-          <label class="form-label" for="ldapProtocol" data-i18n="protocolLabel">协议</label>
-          <select id="ldapProtocol" class="form-select">
-            <option value="ldap">LDAP</option>
-            <option value="ldaps">LDAPS</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="row g-3 mt-0">
-        <div class="col-md-6">
-          <label for="ldapHost" class="form-label" data-i18n="ldapHostLabel">LDAP服务器（与证书CN/SAN匹配）</label>
-          <input type="text" class="form-control" id="ldapHost" placeholder="adtest2.testldaps.io">
-        </div>
-        <div class="col-md-3">
-          <label for="ldapPort" class="form-label" data-i18n="portLabel">端口</label>
-          <input type="number" class="form-control" id="ldapPort" placeholder="389">
-        </div>
-        <div class="col-md-3">
-          <label for="ldapBaseDn" class="form-label" data-i18n="userSearchBaseDnLabel">用户搜索 Base DN</label>
-          <input type="text" class="form-control" id="ldapBaseDn" placeholder="OU=Users,DC=example,DC=com">
-        </div>
-      </div>
-
-      <div class="mt-3">
-        <label for="ldapBindDnTemplate" class="form-label" data-i18n="bindDnTemplateLabel">绑定 DN 模板</label>
-        <input type="text" class="form-control" id="ldapBindDnTemplate" data-i18n-placeholder="bindDnTemplatePlaceholder" placeholder="EXAMPLE\\{username} 或 {username}@example.com">
-      </div>
-
-      <div class="mt-3">
-        <label for="ldapUserFilter" class="form-label" data-i18n="userFilterLabel">用户过滤器</label>
-        <input type="text" class="form-control" id="ldapUserFilter" placeholder="(sAMAccountName={username})">
-      </div>
-
-      <div class="mt-3">
-        <div class="row g-3">
-          <div class="col-md-6">
-            <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" id="ldapAdminGroupEnabled">
-              <label class="form-check-label" for="ldapAdminGroupEnabled" data-i18n="enableAdminGroupQueryLabel">启用管理员组查询</label>
-            </div>
-            <input type="text" class="form-control mt-2" id="ldapAdminGroup" placeholder="DocuTranslate-Admins">
-          </div>
-          <div class="col-md-6">
-            <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" id="ldapGlossaryGroupEnabled">
-              <label class="form-check-label" for="ldapGlossaryGroupEnabled" data-i18n="enableGlossaryGroupQueryLabel">启用术语表组查询</label>
-            </div>
-            <input type="text" class="form-control mt-2" id="ldapGlossaryGroup" placeholder="DocuTranslate-Glossary">
-          </div>
-        </div>
-        <div class="mt-3">
-          <label for="ldapGroupBaseDn" class="form-label" data-i18n="groupSearchBaseDnLabel">组搜索 Base DN</label>
-          <input type="text" class="form-control" id="ldapGroupBaseDn" placeholder="OU=Groups,DC=example,DC=com">
-        </div>
-      </div>
-
-      <div id="ldapsConfigContainer" class="mt-3" style="display:none;">
-        <div class="form-check form-switch">
-          <input class="form-check-input" type="checkbox" id="ldapTlsVerify">
-          <label class="form-check-label" for="ldapTlsVerify" data-i18n="verifyTlsCertLabel">验证TLS证书</label>
-        </div>
-        <div class="mt-2">
-          <label for="ldapTlsCacertfile" class="form-label" data-i18n="tlsCertFilePathLabel">TLS证书文件路径</label>
-          <input type="text" class="form-control" id="ldapTlsCacertfile" placeholder="/path/to/ca.crt">
-        </div>
-      </div>
-
-      <div class="mt-3 d-flex gap-2">
-        <!-- Login settings save has been merged into the "Save Settings" button at the bottom of the page, no longer displayed separately here -->
-        <button type="button" class="btn btn-outline-secondary btn-sm" id="genLdapTestCmdBtn">
-          <span data-i18n="generateTestCmdLabel">生成测试命令</span>
-        </button>
-        <button type="button" class="btn btn-outline-primary btn-sm" id="runLdapConnectivityBtn">
-          <span data-i18n="testLdapConnectionLabel">测试LDAP连接</span>
-        </button>
-      </div>
-
-      <!-- LDAP test connection popup (migrated from homepage) -->
-      <div class="modal fade" id="ldapTestModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-          <div class="modal-content">
-            <div class="modal-header">
-              <h5 class="modal-title" data-i18n="testLdapConnectionTitle">测试 LDAP 连接</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-              <div class="mb-3">
-                <label for="ldapTestUsernameInput" class="form-label" data-i18n="usernameWithoutDomainLabel">用户名（不含域）</label>
-                <input type="text" class="form-control" id="ldapTestUsernameInput" placeholder="testuser">
-              </div>
-              <div class="mb-3">
-                <label for="ldapTestPasswordInput" class="form-label" data-i18n="passwordLabel">密码</label>
-                <div class="input-group">
-                  <input type="password" class="form-control" id="ldapTestPasswordInput" placeholder="********">
-                  <button class="btn btn-outline-secondary toggle-password" type="button" data-target="ldapTestPasswordInput">
-                    <i class="bi bi-eye"></i>
-                  </button>
-                </div>
+          <div id="general-content">
+            <div class="loading-spinner">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">加载中...</span>
               </div>
             </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="closeBtn">关闭</button>
-              <button type="button" class="btn btn-primary" id="ldapTestConfirmBtn" data-i18n="startTestBtn">开始测试</button>
+          </div>
+        </div>
+
+        <!-- AI 平台 -->
+        <div class="settings-section" id="ai-platforms-section">
+          <div class="section-header">
+            <h2 data-i18n="aiPlatformTitle">AI 平台</h2>
+            <p data-i18n="aiPlatformDescription">配置AI翻译平台的API密钥和参数</p>
+          </div>
+          <div id="ai-platforms-content">
+            <div class="loading-spinner">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">加载中...</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  </section>
 
-  <section class="mb-4" id="web-settings">
-    <h2 class="h5" data-i18n="webSettingsTitle">Web 设置（HTTPS）</h2>
-    <div class="border rounded p-3">
-      <div class="form-check form-switch mb-3">
-        <input class="form-check-input" type="checkbox" id="httpsEnabled" disabled>
-        <label class="form-check-label" for="httpsEnabled" data-i18n="enableHttpsLabel">启用 HTTPS</label>
-        <div class="form-text" data-i18n="httpsSecurityNote">为安全起见，未通过测试前禁用该开关</div>
-      </div>
-
-      <div class="row g-3">
-        <div class="col-md-6">
-          <label class="form-label" for="certFile" data-i18n="certFileLabel">证书文件（.crt/.pem）</label>
-          <input class="form-control" type="file" id="certFile" accept=".crt,.pem">
-          <div class="form-text" data-i18n="currentCertLabel">当前证书：<span id="currentCertName">-</span></div>
+        <!-- Parsing Engine -->
+        <div class="settings-section" id="parsing-engines-section">
+          <div class="section-header">
+            <h2 data-i18n="parsingEngineTitle">Parsing Engine</h2>
+            <p data-i18n="parsingEngineDescription">配置文档解析引擎的参数和API设置</p>
+          </div>
+          <div id="parsing-engines-content">
+            <div class="loading-spinner">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">加载中...</span>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="col-md-6">
-          <label class="form-label" for="keyFile" data-i18n="keyFileLabel">私钥文件（.key/.pem）</label>
-          <input class="form-control" type="file" id="keyFile" accept=".key,.pem">
-          <div class="form-text" data-i18n="currentKeyLabel">当前私钥：<span id="currentKeyName">-</span></div>
+
+        <!-- 登录 -->
+        <div class="settings-section" id="login-settings-section">
+          <div class="section-header">
+            <h2 data-i18n="loginTitle">登录</h2>
+            <p data-i18n="loginDescription">配置LDAP认证和用户管理设置</p>
+          </div>
+          <div id="login-settings-content">
+            <div class="loading-spinner">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">加载中...</span>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div class="mt-3">
-        <label class="form-label" for="keyPassword" data-i18n="keyPasswordLabel">私钥密码（可选）</label>
-        <input class="form-control" type="password" id="keyPassword" data-i18n-placeholder="keyPasswordPlaceholder" placeholder="输入私钥密码">
-      </div>
+        <!-- Web -->
+        <div class="settings-section" id="web-settings-section">
+          <div class="section-header">
+            <h2 data-i18n="webTitle">Web</h2>
+            <p data-i18n="webDescription">配置HTTPS证书和安全设置</p>
+          </div>
+          <div id="web-settings-content">
+            <div class="loading-spinner">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">加载中...</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
-      <div class="mt-3 d-flex gap-2">
-        <button id="uploadCertBtn" class="btn btn-outline-secondary btn-sm" data-i18n="uploadCertKeyBtn">上传证书与私钥</button>
-        <button id="testHttpsBtn" class="btn btn-outline-success btn-sm" data-i18n="testCertHttpsBtn">测试证书/HTTPS</button>
       </div>
     </div>
-  </section>
+  </div>
 
-  <div class="mt-4">
-    <button id="saveAllBtn" class="btn btn-success" data-i18n="saveSettingsBtn">保存设置</button>
+  <!-- 底部保存按钮 - 已注释，因为每个子模块都有独立的保存按钮 -->
+  <!--
+  <div class="mt-4 text-center">
+    <button id="saveAllBtn" class="btn btn-success btn-lg" data-i18n="saveSettingsBtn">
+      <i class="bi bi-check-circle me-2"></i>保存所有设置
+    </button>
   </div>
-    </div>
-  </div>
+  -->
 </main>
 
-  <script src="/static/bootstrap.bundle.min.js"></script>
-  <script>
-    // Initialize with a minimal fallback for critical error messages.
-    // The full dataset will be loaded asynchronously in the init() function.
-    let i18nData = {
-        zh: {
-            init_i18n_failed_alert: '加载界面翻译资源失败，请检查网络连接或联系管理员。',
-            init_failed_alert: '初始化失败，无法连接到后端服务。请检查服务是否运行或刷新页面。'
-        },
-        en: {
-            init_i18n_failed_alert: 'Failed to load interface translations. Please check your network connection or contact an administrator.',
-            init_failed_alert: 'Initialization failed, could not connect to the backend service. Please ensure the service is running and refresh the page.'
-        }
-    };
-
-    let currentLang = 'zh'; // Global language state - will be inherited from homepage
-
-    // --- I18N Helper Functions ---
-    const getText = (key, fallback = '') => {
-        const translations = i18nData[currentLang] || i18nData.zh;
-        return translations[key] || fallback || key;
-    };
-
-    /**
-     * Updates the UI language based on the selected language.
-     * @param {string} lang - The language code (e.g., 'zh', 'en').
-     */
-    function setLanguage(lang) {
-        if (!i18nData[lang]) return;
-        currentLang = lang;
-        const translations = i18nData[lang];
-        document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
-
-        // Define attributes and corresponding properties to update
-        const i18nTargets = {
-            'data-i18n': (el, text) => el.innerHTML = text,
-            'data-i18n-placeholder': (el, text) => el.placeholder = text,
-            'data-i18n-title': (el, text) => {
-                if (el.tagName === 'TITLE') {
-                    el.textContent = text;
-                } else {
-                    el.title = text;
-                    const tooltipInstance = bootstrap.Tooltip.getInstance(el);
-                    if (tooltipInstance) {
-                        tooltipInstance.setContent({'.tooltip-inner': text});
-                    }
-                }
-            }
-        };
-
-        // Update all elements with i18n attributes in a single pass
-        Object.entries(i18nTargets).forEach(([attribute, updater]) => {
-            document.querySelectorAll(`[${attribute}]`).forEach(el => {
-                const key = el.getAttribute(attribute);
-                if (translations[key] !== undefined) {
-                    updater(el, translations[key]);
-                }
-            });
-        });
-
-        // Update language switcher active state
-        document.querySelectorAll('.dropdown-menu a[data-lang]').forEach(a => {
-            a.classList.remove('active');
-            if (a.dataset.lang === lang) {
-                a.classList.add('active');
-            }
-        });
-
-        // Save preference (same key as homepage for consistency)
-        localStorage.setItem('ui_language', lang);
-    }
-
-    async function initI18n() {
-        // Inherit language setting from homepage via localStorage
-        // Use the same localStorage key and logic as homepage for consistency
-        let savedLang = localStorage.getItem('ui_language');
-        
-        // If no language in localStorage, try to get from backend config
-        if (!savedLang) {
-            try {
-                const resp = await fetch('/auth/app-config');
-                if (resp.ok) {
-                    const cfg = await resp.json();
-                    savedLang = cfg.default_language || 'en';
-                }
-            } catch (e) {
-                console.warn('Failed to load language from backend config:', e);
-            }
-        }
-        
-        // Fallback to browser language detection
-        if (!savedLang) {
-            savedLang = navigator.language.toLowerCase().startsWith('en') ? 'en' : 'zh';
-        }
-        
-        setLanguage(savedLang);
-    }
-
-    // Load i18n data
-    async function loadI18nData() {
-        try {
-            const response = await fetch("/static/i18nData.json");
-            if (!response.ok) throw new Error('Failed to load i18n data');
-            i18nData = await response.json();
-            await initI18n();
-        } catch (error) {
-            console.error('Failed to load i18n data:', error);
-            // Initialize with fallback data first, then show alert
-            await initI18n();
-            alert(getText('init_i18n_failed_alert'));
-        }
-    }
-  </script>
-  <script>，
-        document.getElementById('currentCertName').textContent = certPath ? (certPath.split('/').pop()) : '-';
-        document.getElementById('currentKeyName').textContent = keyPath ? (keyPath.split('/').pop()) : '-';
-      } catch(_) {}
-      return cfg;
-    } catch (_) { return null; }
-  }
-
-  // AI platform settings related - dynamically loaded from configuration file
-  let platformConfigs = {};
-  // Parsing Engine settings related
-  let engineConfigs = {};
-
-  async function loadEngineConfigs() {
-    try {
-      const resp = await fetch('/auth/app-config');
-      if (!resp.ok) return;
-      const cfg = await resp.json();
-      const ts = (cfg.translator_settings || {});
-      engineConfigs = ts.engines || {};
-
-      // Update selection box: only show engines that need to be managed in settings (currently only mineru)
-      const select = document.getElementById('engineSelect');
-      if (select) {
-        select.innerHTML = '';
-        for (const [key, val] of Object.entries(engineConfigs)) {
-          if (key !== 'mineru') continue; // Temporarily only open MinerU settings
-          const opt = document.createElement('option');
-          opt.value = key;
-          opt.textContent = val.name || key;
-          select.appendChild(opt);
-        }
-        // Select current global engine
-        if (ts.convert_engine && select.querySelector(`option[value="${ts.convert_engine}"]`)) {
-          select.value = ts.convert_engine;
-        }
-        // If current global selection is not mineru, but settings only shows mineru, then default to mineru for editing its configuration
-        if (!select.value && select.querySelector('option[value="mineru"]')) {
-          select.value = 'mineru';
-        }
-      }
-
-      // Formula Recognition has been moved to user-side selection, not in global settings configuration
-      updateEngineFields();
-      // Load MinerU API Key (masked display from sensitive configuration)
-      await loadMineruApiKey();
-    } catch (e) { console.error('Load engine configs error:', e); }
-  }
-
-  function updateEngineFields() {
-    const key = document.getElementById('engineSelect').value || 'mineru';
-    const cfg = engineConfigs[key] || {};
-    document.getElementById('engineName').value = cfg.name || '';
-    document.getElementById('engineApiUrl').value = cfg.api_url || '';
-
-    // MinerU specific fields
-    const mineruVisible = key === 'mineru';
-    document.getElementById('mineruModelRow').style.display = mineruVisible ? 'block' : 'none';
-    document.getElementById('mineruApiKeyRow').style.display = mineruVisible ? 'block' : 'none';
-    if (mineruVisible) {
-      document.getElementById('mineruModelVersion').value = cfg.model_version || (window.appConfig?.translator_settings?.mineru_model_version) || '';
-    }
-
-    // Whether to show api_url row: MinerU or configuration already contains api_url
-    const showApi = mineruVisible || !!cfg.api_url;
-    document.getElementById('engineApiUrlRow').style.display = showApi ? 'block' : 'none';
-
-    // Docling remote switch: only show when docling is selected
-    // Docling remote configuration has been removed to avoid user confusion
-  }
-
-  async function loadMineruToken() {
-    try {
-      const resp = await fetch('/auth/app-config/raw-secrets');
-      if (!resp.ok) return;
-      const secrets = await resp.json();
-      const token = secrets.translator_mineru_token || '';
-      const el = document.getElementById('mineruToken');
-      if (!el) return;
-      if (token) {
-        el.value = token.substring(0, 8) + '***';
-        el.type = 'password';
-      } else {
-        el.value = '';
-        el.placeholder = getText('mineruTokenPlaceholder');
-        el.type = 'password';
-      }
-    } catch (e) { console.error('Load mineru token error:', e); }
-  }
-
-  async function saveParsingEngineConfig() {
-    try {
-      const key = document.getElementById('engineSelect').value || 'mineru';
-      const name = document.getElementById('engineName').value.trim();
-      const apiUrl = document.getElementById('engineApiUrl').value.trim();
-      // Docling remote configuration has been removed
-      // Formula Recognition has been moved to user-side selection, not in global settings configuration
-      const mineruModelVersion = document.getElementById('mineruModelVersion').value.trim();
-      const mineruApiKey = (document.getElementById('mineruApiKey').value || '').trim();
-
-      // Update local engine configuration object
-      engineConfigs[key] = engineConfigs[key] || {};
-      engineConfigs[key].name = name || key;
-      if (apiUrl) {
-        engineConfigs[key].api_url = apiUrl;
-      } else {
-        delete engineConfigs[key].api_url;
-      }
-      // Docling remote configuration has been removed
-      if (key === 'mineru') {
-        engineConfigs[key].model_version = mineruModelVersion || 'vlm';
-      } else {
-        delete engineConfigs[key].model_version;
-      }
-
-      // Combine translator_settings payload
-      const payload = {
-        translator_settings: {
-          convert_engine: key,
-          mineru_model_version: mineruModelVersion || 'vlm',
-          // formula_ocr: user-side selection
-          code_ocr: (window.appConfig?.translator_settings?.code_ocr) || false,
-          skip_translate: (window.appConfig?.translator_settings?.skip_translate) || false,
-          engines: engineConfigs
-        }
-      };
-
-      // Save non-sensitive configuration
-      const resp = await fetch('/auth/app-config', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-        body: JSON.stringify(payload)
-      });
-      if (!resp.ok) {
-        const t = await resp.text();
-        alert(getText('saveFailed') + ': ' + t);
-        return;
-      }
-
-      // If there's plain text token input (not *** masked), save sensitive configuration separately
-      // Save MinerU API Key (when not masked)
-      if (mineruApiKey && !mineruApiKey.endsWith('***') && key === 'mineru') {
-        const r2 = await fetch('/auth/app-config/setting', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-          body: JSON.stringify({ key: 'translator_mineru_token', value: mineruApiKey })
-        });
-        if (!r2.ok) {
-          const t2 = await r2.text();
-          alert(getText('saveFailed') + ' MinerU API Key: ' + t2);
-          return;
-        }
-      }
-
-      // Success notification and refresh token display
-      showNotification(getText('parsingEngineSettingsSaved'), 'success');
-      // Docling authentication save has been removed
-      await loadEngineConfigs();
-    } catch (e) {
-      console.error('Save parsing engine config error:', e);
-      alert(getText('saveFailed') + ': ' + e.message);
-    }
-  }
-
-  // Load MinerU API Key (masked display)
-  async function loadMineruApiKey() {
-    try {
-      const resp = await fetch('/auth/app-config/raw-secrets', { credentials: 'include' });
-      if (!resp.ok) return;
-      const secrets = await resp.json();
-      const key = secrets.translator_mineru_token || '';
-      const el = document.getElementById('mineruApiKey');
-      if (!el) return;
-      if (key) {
-        el.value = key.substring(0, 8) + '***';
-        el.type = 'password';
-      } else {
-        el.value = '';
-        el.placeholder = 'sk-...';
-        el.type = 'password';
-      }
-    } catch (e) {
-      console.warn('Load MinerU API Key failed', e);
-    }
-  }
-
-  // General settings functions
-  async function loadGeneralSettings() {
-    try {
-      const resp = await fetch('/auth/app-config');
-      if (!resp.ok) return;
-      const cfg = await resp.json();
-      
-      // Load default language setting
-      const defaultLang = cfg.default_language || 'en';
-      const defaultLangSelect = document.getElementById('defaultLanguage');
-      if (defaultLangSelect) {
-        defaultLangSelect.value = defaultLang;
-      }
-    } catch (e) {
-      console.error('Load general settings error:', e);
-    }
-  }
-
-  async function saveGeneralSettings() {
-    try {
-      const defaultLang = document.getElementById('defaultLanguage').value;
-      
-      const payload = {
-        default_language: defaultLang
-      };
-
-      const resp = await fetch('/auth/app-config/setting', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (resp.ok) {
-        alert(getText('generalSettingsSaved'));
-        // Update current language if it matches the new default
-        if (currentLang === defaultLang) {
-          setLanguage(defaultLang);
-        }
-      } else {
-        alert(getText('saveFailed') + ': ' + (await resp.text()));
-      }
-    } catch (e) {
-      alert(getText('saveFailed') + ': ' + e.message);
-    }
-  }
-
-  // Event binding
+<script src="/static/bootstrap.bundle.min.js"></script>
+<script src="/static/settings/settings-core.js"></script>
+<script>
+  // Initialize everything when page loads
   document.addEventListener('DOMContentLoaded', () => {
-    const sel = document.getElementById('engineSelect');
-    if (sel) sel.addEventListener('change', () => updateEngineFields());
-    const saveBtn = document.getElementById('saveEngineBtn');
-    if (saveBtn) saveBtn.addEventListener('click', saveParsingEngineConfig);
-    
-    // General settings event binding
-    const saveGeneralBtn = document.getElementById('saveGeneralBtn');
-    if (saveGeneralBtn) saveGeneralBtn.addEventListener('click', saveGeneralSettings);
-  });
-  let platformNames = {};
-  let platformUrls = {};
-  let platformModels = {};
-
-  // Load platform information from configuration file
-  async function loadPlatformConfigs() {
-    try {
-      const resp = await fetch('/auth/app-config');
-      if (!resp.ok) return;
-      const cfg = await resp.json();
-      
-      // Read new ai_platforms structure
-      const aiPlatforms = cfg.ai_platforms || {};
-      
-      // Build platform configuration object
-      platformConfigs = {};
-      for (const [key, platform] of Object.entries(aiPlatforms)) {
-        platformConfigs[key] = {
-          name: platform.name || '',
-          url: platform.url || '',
-          model: platform.model || '',
-          maxTokens: platform.max_tokens || 4096,
-          temperature: platform.temperature || 0.7
-        };
-      }
-      
-      // Update platform selection dropdown
-      updatePlatformSelect();
-    } catch (e) {
-      console.error('Load platform configs error:', e);
-    }
-  }
-
-  // Update platform selection dropdown
-  function updatePlatformSelect() {
-    const select = document.getElementById('platformSelect');
-    if (!select) return;
-    
-    // Clear existing options
-    select.innerHTML = '';
-    
-    // Add options
-    for (const [key, config] of Object.entries(platformConfigs)) {
-      const option = document.createElement('option');
-      option.value = key;
-      option.textContent = config.name;
-      select.appendChild(option);
-    }
-  }
-
-  // Load AI platform configuration
-  async function loadAiPlatformConfig() {
-    try {
-      const resp = await fetch('/auth/app-config');
-      if (!resp.ok) return;
-      const cfg = await resp.json();
-      
-      // Get currently selected platform
-      const currentPlatform = document.getElementById('platformSelect').value;
-      
-      // Load data from new configuration structure
-      if (cfg.ai_platforms && cfg.ai_platforms[currentPlatform]) {
-        const platformConfig = cfg.ai_platforms[currentPlatform];
-        
-        // Fill form fields
-        document.getElementById('platformName').value = platformConfig.name || '';
-        document.getElementById('platformUrl').value = platformConfig.url || '';
-        document.getElementById('modelName').value = platformConfig.model || '';
-        document.getElementById('maxTokens').value = platformConfig.max_tokens || 4096;
-        document.getElementById('temperature').value = platformConfig.temperature || 0.7;
-      } else {
-        // If no configuration found, use default values
-        document.getElementById('platformName').value = '';
-        document.getElementById('platformUrl').value = '';
-        document.getElementById('modelName').value = '';
-        document.getElementById('maxTokens').value = 4096;
-        document.getElementById('temperature').value = 0.7;
-      }
-      
-      // Load API Key separately (from sensitive configuration)
-      await loadApiKey(currentPlatform);
-      
-    } catch (e) {
-      console.error('Load AI platform config error:', e);
-    }
-  }
-
-  // Load API Key
-  async function loadApiKey(platform) {
-    try {
-      const resp = await fetch('/auth/app-config/raw-secrets');
-      if (!resp.ok) return;
-      const secrets = await resp.json();
-      
-      const apiKeyInput = document.getElementById('platformApiKey');
-      const apiKey = secrets.platform_api_keys?.[platform];
-      
-      if (apiKey) {
-        // If API Key exists, display masked version
-        const maskedKey = apiKey.substring(0, 8) + '***';
-        apiKeyInput.value = maskedKey;
-        apiKeyInput.placeholder = getText('savedApiKeyPlaceholder');
-        // Ensure input type is password so masked display works properly
-        apiKeyInput.type = 'password';
-        
-        // Update eye icon state
-        const toggleButton = document.querySelector('[data-target="platformApiKey"]');
-        if (toggleButton) {
-          const icon = toggleButton.querySelector('i');
-          if (icon) {
-            icon.classList.remove('bi-eye');
-            icon.classList.add('bi-eye-slash');
-          }
-        }
-      } else {
-        // If no API Key, clear input box
-        apiKeyInput.value = '';
-        apiKeyInput.placeholder = getText('apiKeyPlaceholder');
-        apiKeyInput.type = 'password';
-      }
-    } catch (e) {
-      console.error('Load API key error:', e);
-      const apiKeyInput = document.getElementById('platformApiKey');
-      apiKeyInput.value = '';
-      apiKeyInput.placeholder = getText('apiKeyPlaceholder');
-      apiKeyInput.type = 'password';
-    }
-  }
-
-  // Update platform fields
-  function updatePlatformFields() {
-    const platform = document.getElementById('platformSelect').value;
-    const config = platformConfigs[platform];
-    if (!config) return;
-    
-    document.getElementById('platformName').value = config.name;
-    document.getElementById('platformUrl').value = config.url;
-    document.getElementById('modelName').value = config.model;
-    document.getElementById('maxTokens').value = config.maxTokens;
-    document.getElementById('temperature').value = config.temperature;
-    
-    // Reload current platform API Key
-    loadApiKey(platform);
-  }
-
-  async function saveAppConfig(patch) {
-    const resp = await fetch('/auth/app-config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(patch)
-    });
-    return resp.ok;
-  }
-
-  async function uploadCertAndKey(certFile, keyFile) {
-    const fd = new FormData();
-    if (certFile) fd.append('cert', certFile);
-    if (keyFile) fd.append('key', keyFile);
-    const resp = await fetch('/auth/web/upload-cert', { method: 'POST', body: fd });
-    return resp.ok;
-  }
-
-  (async function init(){
-    // Set default HTTPS disabled, and disable modification until tested
-    document.getElementById('httpsEnabled').checked = false;
-    document.getElementById('httpsEnabled').disabled = true;
-
-    const cfg = await loadAppConfig();
-    if (cfg && typeof cfg.https_enabled !== 'undefined') {
-      document.getElementById('httpsEnabled').checked = !!cfg.https_enabled;
-    }
-
-    document.getElementById('uploadCertBtn').addEventListener('click', async () => {
-      const cert = document.getElementById('certFile').files[0];
-      const key = document.getElementById('keyFile').files[0];
-      const ok = await uploadCertAndKey(cert, key);
-      if (ok) {
-        // Reload to update current file name display
-        const cfg2 = await loadAppConfig();
-        alert(getText('uploadSuccess'));
-      } else {
-        alert(getText('uploadFailed'));
-      }
-    });
-
-    // Remove separate "Save Web Settings" logic, merge into "Save Settings" button
-
-    document.getElementById('testHttpsBtn').addEventListener('click', async () => {
-      try {
-        // If password is entered, save first for server to read
-        const pwd = document.getElementById('keyPassword').value;
-        if (pwd) {
-          await saveAppConfig({ https_key_password: pwd });
-        }
-        // If user selected new file, upload first, then test with new certificate
-        const certSel = document.getElementById('certFile').files[0];
-        const keySel = document.getElementById('keyFile').files[0];
-        if (certSel || keySel) {
-          const upOk = await uploadCertAndKey(certSel, keySel);
-          if (!upOk) {
-            alert(getText('uploadFailed') + ', test cancelled');
-            return;
-          }
-          // Refresh display after upload
-          await loadAppConfig();
-        }
-        const resp = await fetch('/auth/web/test-https', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({})
-        });
-        const data = await resp.json();
-        if (resp.ok && data.ok) {
-          alert(getText('testSuccess') + '\n' + JSON.stringify(data, null, 2));
-          // After passing test, allow switching to enable HTTPS
-          document.getElementById('httpsEnabled').disabled = false;
-        } else {
-          alert(getText('testFailed') + '\n' + JSON.stringify(data, null, 2));
-          // Test failed, still keep disabled
-          document.getElementById('httpsEnabled').disabled = true;
-        }
-      } catch (e) {
-        alert(getText('testException') + ': ' + e);
-        document.getElementById('httpsEnabled').disabled = true;
-      }
-    });
-
-
-    document.getElementById('platformSelect').addEventListener('change', updatePlatformFields);
-
-    async function saveAiPlatformConfig() {
-      try {
-        const platformType = document.getElementById('platformSelect').value;
-        const platformName = document.getElementById('platformName').value;
-        const platformUrl = document.getElementById('platformUrl').value;
-        const apiKey = document.getElementById('platformApiKey').value;
-        const modelName = document.getElementById('modelName').value;
-        const maxTokens = parseInt(document.getElementById('maxTokens').value);
-        const temperature = parseFloat(document.getElementById('temperature').value);
-
-        // Build configuration structure (excluding API Key)
-        const config = {
-          ai_platforms: {
-            [platformType]: {
-              name: platformName,
-              url: platformUrl,
-              model: modelName,
-              max_tokens: maxTokens,
-              temperature: temperature
-            }
-          }
-        };
-
-        // Save basic configuration
-        const resp1 = await fetch('/auth/app-config', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(config)
-        });
-
-        // If there is API Key, save separately to sensitive configuration
-        if (apiKey && !apiKey.endsWith('***')) {
-          const resp2 = await fetch('/auth/app-config/setting', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              key: 'platform_api_keys', 
-              value: { [platformType]: apiKey } 
-            })
-          });
-          if (!resp2.ok) {
-            alert(getText('saveFailed') + ' API Key');
-            return false;
-          }
-        }
-
-        if (resp1.ok) {
-          alert(getText('aiPlatformSettingsSaved'));
-          // Reload API Key display (masked version)
-          await loadApiKey(platformType);
-          return true;
-        } else {
-          const error = await resp1.text();
-          alert(getText('saveFailed') + ': ' + error);
-          return false;
-        }
-      } catch (e) {
-        console.error('Save AI platform config error:', e);
-        alert(getText('saveFailed') + ': ' + e.message);
-        return false;
-      }
-    }
-
-    async function testAiPlatform() {
-      // Immediately show test progress dialog
-      showTestProgressModal();
-      
-      try {
-        const resp = await fetch('/auth/test-ai-platform', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            platform_type: document.getElementById('platformSelect').value,
-            base_url: document.getElementById('platformUrl').value,
-            model_name: document.getElementById('modelName').value
-          })
-        });
-        
-        // Check response status
-        if (!resp.ok) {
-          const errorText = await resp.text();
-          updateTestProgress('error', getText('testFailed') + ': ' + getText('httpError') + ' ' + resp.status + ' - ' + errorText);
-          return;
-        }
-        
-        // Try to parse JSON
-        let data;
-        try {
-          data = await resp.json();
-        } catch (jsonError) {
-          const responseText = await resp.text();
-          updateTestProgress('error', getText('testFailed') + ': Invalid JSON response from server: ' + responseText);
-          return;
-        }
-        
-        if (data.success) {
-          updateTestProgress('success', getText('testSuccess'));
-        } else {
-          updateTestProgress('error', getText('testFailed') + ': ' + (data.error || getText('unknownError')));
-        }
-      } catch (e) {
-        updateTestProgress('error', getText('testException') + ': ' + e.message);
-      }
-    }
-
-    function showTestProgressModal() {
-      // Create or update test progress modal
-      let modal = document.getElementById('testProgressModal');
-      if (!modal) {
-        modal = createTestProgressModal();
-      }
-      
-      // Reset state
-      updateTestProgress('loading', getText('testingConnection'));
-      
-      // Show modal
-      const bsModal = new bootstrap.Modal(modal);
-      bsModal.show();
-    }
-
-    function createTestProgressModal() {
-      const modalHtml = `
-        <div class="modal fade" id="testProgressModal" tabindex="-1" aria-labelledby="testProgressModalLabel" aria-hidden="true">
-          <div class="modal-dialog">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h5 class="modal-title" id="testProgressModalLabel" data-i18n="testProgressTitle">AI平台连接测试</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-              </div>
-              <div class="modal-body">
-                <div id="testProgressContent">
-                  <div class="d-flex align-items-center">
-                    <div class="spinner-border spinner-border-sm text-primary me-3" role="status" id="testSpinner">
-                      <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <span id="testProgressText" data-i18n="testingConnection">正在测试AI平台连接...</span>
-                  </div>
-                </div>
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="testCloseBtn" data-i18n="closeBtn">关闭</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-      
-      // Add modal to page
-      document.body.insertAdjacentHTML('beforeend', modalHtml);
-      return document.getElementById('testProgressModal');
-    }
-
-    function updateTestProgress(status, message) {
-      const spinner = document.getElementById('testSpinner');
-      const text = document.getElementById('testProgressText');
-      const closeBtn = document.getElementById('testCloseBtn');
-      
-      if (!spinner || !text) return;
-      
-      // Update text
-      text.textContent = message;
-      
-      // Update UI based on state
-      if (status === 'loading') {
-        spinner.style.display = 'inline-block';
-        spinner.className = 'spinner-border spinner-border-sm text-primary me-3';
-        closeBtn.textContent = getText('closeBtn');
-        closeBtn.className = 'btn btn-secondary';
-      } else if (status === 'success') {
-        spinner.style.display = 'inline-block';
-        spinner.className = 'spinner-border spinner-border-sm text-success me-3';
-        // Hide spinner after 1 second, show success icon
-        setTimeout(() => {
-          spinner.style.display = 'none';
-          text.innerHTML = '<i class="bi bi-check-circle-fill text-success me-2"></i>' + message;
-        }, 1000);
-        closeBtn.textContent = getText('confirmBtn');
-        closeBtn.className = 'btn btn-success';
-      } else if (status === 'error') {
-        spinner.style.display = 'none';
-        text.innerHTML = '<i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>' + message;
-        closeBtn.textContent = getText('confirmBtn');
-        closeBtn.className = 'btn btn-danger';
-      }
-    }
-
-    document.getElementById('saveAiPlatformBtn').addEventListener('click', saveAiPlatformConfig);
-    document.getElementById('testAiPlatformBtn').addEventListener('click', testAiPlatform);
-
-    document.getElementById('saveAllBtn').addEventListener('click', async () => {
-      // 1) First save LDAP login settings
-      const okLogin = await saveLoginSettings(true);
-      // 2) Then save Web/HTTPS settings
-      const patch = {
-        https_enabled: document.getElementById('httpsEnabled').checked,
-        https_key_password: document.getElementById('keyPassword').value || null
-      };
-      const okWeb = await saveAppConfig(patch);
-      // 3) Save AI platform settings
-      const okAi = await saveAiPlatformConfig();
-      alert(okLogin && okWeb && okAi ? getText('allSettingsSaved') : getText('partialSettingsSaved'));
-    });
-  })();
-
-  // Migrate login settings: load, linkage, save
-  async function loadLdapConfig() {
-    try {
-      const resp = await fetch('/auth/ldap-config');
-      if (!resp.ok) return false;
-      const cfg = await resp.json();
-      document.getElementById('ldapEnabled').checked = !!cfg.ldap_enabled;
-      document.getElementById('ldapProtocol').value = cfg.ldap_protocol || 'ldap';
-      document.getElementById('ldapHost').value = cfg.ldap_host || '';
-      document.getElementById('ldapPort').value = cfg.ldap_port || 389;
-      document.getElementById('ldapBindDnTemplate').value = cfg.ldap_bind_dn_template || '';
-      document.getElementById('ldapUserFilter').value = cfg.ldap_user_filter || '';
-      // Maintain compatibility with old homepage structure: fill both user and group Base DN
-      document.getElementById('ldapBaseDn').value = cfg.ldap_base_dn || '';
-      document.getElementById('ldapAdminGroupEnabled').checked = !!cfg.ldap_admin_group_enabled;
-      document.getElementById('ldapGlossaryGroupEnabled').checked = !!cfg.ldap_glossary_group_enabled;
-      document.getElementById('ldapAdminGroup').value = cfg.ldap_admin_group || '';
-      document.getElementById('ldapGlossaryGroup').value = cfg.ldap_glossary_group || '';
-      document.getElementById('ldapGroupBaseDn').value = cfg.ldap_group_base_dn || '';
-      document.getElementById('ldapTlsVerify').checked = cfg.ldap_tls_verify !== false;
-      document.getElementById('ldapTlsCacertfile').value = cfg.ldap_tls_cacertfile || '';
-
-      updateLdapsUi();
-      return true;
-    } catch (_) { return false; }
-  }
-
-  function updateLdapsUi() {
-    const isLdaps = document.getElementById('ldapProtocol').value === 'ldaps';
-    document.getElementById('ldapsConfigContainer').style.display = isLdaps ? '' : 'none';
-  }
-
-  document.getElementById('ldapProtocol').addEventListener('change', updateLdapsUi);
-
-  async function saveLoginSettings(silent=false) {
-    const payload = {
-      ldap_enabled: document.getElementById('ldapEnabled').checked,
-      ldap_protocol: document.getElementById('ldapProtocol').value,
-      ldap_host: document.getElementById('ldapHost').value,
-      ldap_port: parseInt(document.getElementById('ldapPort').value || '389'),
-      ldap_bind_dn_template: document.getElementById('ldapBindDnTemplate').value,
-      ldap_base_dn: document.getElementById('ldapBaseDn').value,
-      ldap_user_filter: document.getElementById('ldapUserFilter').value,
-      ldap_admin_group_enabled: document.getElementById('ldapAdminGroupEnabled').checked,
-      ldap_glossary_group_enabled: document.getElementById('ldapGlossaryGroupEnabled').checked,
-      ldap_admin_group: document.getElementById('ldapAdminGroup').value,
-      ldap_glossary_group: document.getElementById('ldapGlossaryGroup').value,
-      ldap_group_base_dn: document.getElementById('ldapGroupBaseDn').value,
-      ldap_tls_verify: document.getElementById('ldapTlsVerify').checked,
-      ldap_tls_cacertfile: document.getElementById('ldapTlsCacertfile').value
-    };
-    const resp = await fetch('/auth/ldap-config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    if (!silent) alert(resp.ok ? getText('loginSettingsSaved') : getText('saveFailed'));
-    return resp.ok;
-  }
-
-
-  // Generate LDAP test command (migrated from homepage)
-  document.getElementById('genLdapTestCmdBtn').addEventListener('click', async () => {
-    const protocol = document.getElementById('ldapProtocol').value || 'ldap';
-    const host = document.getElementById('ldapHost').value || 'dc.example.com';
-    const port = document.getElementById('ldapPort').value || (protocol === 'ldaps' ? '636' : '389');
-    const baseDn = document.getElementById('ldapBaseDn').value || 'OU=Users,DC=example,DC=com';
-    const tlsVerify = document.getElementById('ldapTlsVerify').checked;
-    const cacert = document.getElementById('ldapTlsCacertfile').value;
-    const username = prompt(getText('ldapTestUserPrompt'), 'testuser');
-    if (username === null) return;
-    const template = document.getElementById('ldapBindDnTemplate').value || '{username}@example.com';
-    const bindDnExample = template.replaceAll('{username}', username);
-    const baseCmd = `ldapsearch -H ${protocol}://${host}:${port} -D "${bindDnExample}" -W -b "${baseDn}" -x -LLL`;
-    const filter = '"(objectClass=*)"';
-    const tlsPart = protocol === 'ldaps' ? (tlsVerify ? '' : ' -o tls_reqcert=never') : '';
-    const cacertPart = (protocol === 'ldaps' && tlsVerify && cacert) ? ` LDAPTLS_CACERT=${cacert}` : '';
-    const finalCmd = `${cacertPart ? cacertPart + ' ' : ''}${baseCmd}${tlsPart} ${filter}`;
-    try {
-      await navigator.clipboard.writeText(finalCmd);
-      alert(getText('ldapTestCmdCopied'));
-    } catch (err) {
-      alert(getText('copyFailed'));
-      console.log(finalCmd);
-    }
-  });
-
-  // Open popup and execute connection test (migrated from homepage)
-  document.getElementById('runLdapConnectivityBtn').addEventListener('click', async () => {
-    const modalEl = document.getElementById('ldapTestModal');
-    const modal = new bootstrap.Modal(modalEl);
-    document.getElementById('ldapTestUsernameInput').value = '';
-    document.getElementById('ldapTestPasswordInput').value = '';
-    modal.show();
-
-    const confirmBtn = document.getElementById('ldapTestConfirmBtn');
-    const onConfirm = async () => {
-      confirmBtn.disabled = true;
-      try {
-        const username = document.getElementById('ldapTestUsernameInput').value.trim();
-        const password = document.getElementById('ldapTestPasswordInput').value;
-        if (!username || !password) {
-          alert(getText('ldapTestNeedBoth'));
-          return;
-        }
-        const payload = {
-          username,
-          password,
-          ldap_protocol: document.getElementById('ldapProtocol').value,
-          ldap_host: document.getElementById('ldapHost').value,
-          ldap_port: document.getElementById('ldapPort').value,
-          ldap_bind_dn_template: document.getElementById('ldapBindDnTemplate').value,
-          ldap_base_dn: document.getElementById('ldapBaseDn').value,
-          ldap_user_filter: document.getElementById('ldapUserFilter').value,
-          ldap_admin_group_enabled: document.getElementById('ldapAdminGroupEnabled').checked,
-          ldap_glossary_group_enabled: document.getElementById('ldapGlossaryGroupEnabled').checked,
-          ldap_admin_group: document.getElementById('ldapAdminGroup').value,
-          ldap_glossary_group: document.getElementById('ldapGlossaryGroup').value,
-          ldap_group_base_dn: document.getElementById('ldapGroupBaseDn').value,
-          ldap_tls_verify: document.getElementById('ldapTlsVerify').checked,
-          ldap_tls_cacertfile: document.getElementById('ldapTlsCacertfile').value
-        };
-        const resp = await fetch('/auth/test-ldap', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify(payload)
-        });
-        const text = await resp.text();
-        modal.hide();
-        alert(resp.ok ? (getText('ldapConnectivityOk') + '\n' + text) : (getText('ldapConnectivityFail') + '\n' + text));
-      } catch (e) {
-        alert(getText('ldapConnectivityFail') + ': ' + e);
-      } finally {
-        confirmBtn.disabled = false;
-        confirmBtn.removeEventListener('click', onConfirm);
-      }
-    };
-    confirmBtn.addEventListener('click', onConfirm);
-  });
-
-  // Load all settings when page initializes
-  async function initLogin(){
-    await loadLdapConfig();
-    await loadEngineConfigs(); // First load parsing engine configuration, fill "Current Engine" dropdown
-    await loadPlatformConfigs(); // Then load AI platform configuration
-    await loadAiPlatformConfig();
-  }
-  
-  // Initialize password toggle button
-  function initTogglePasswordButtons() {
-    const toggleButtons = document.querySelectorAll('.toggle-password');
-    toggleButtons.forEach(button => {
-      const targetId = button.getAttribute('data-target');
-      const passwordInput = document.getElementById(targetId);
-      const icon = button.querySelector('i');
-
-      if (!passwordInput || !icon) return;
-
-      button.addEventListener('click', async () => {
-        if (passwordInput.type === 'password') {
-          // Show password/API key
-          passwordInput.type = 'text';
-          icon.classList.remove('bi-eye-slash');
-          icon.classList.add('bi-eye');
-          
-          // If it is API key input box and currently showing masked value, get complete value
-          if (targetId === 'platformApiKey' && passwordInput.value && passwordInput.value.endsWith('***')) {
-            try {
-              const currentPlatform = document.getElementById('platformSelect').value;
-              const resp = await fetch('/auth/app-config/raw-secrets');
-              if (resp.ok) {
-                const secrets = await resp.json();
-                const apiKey = secrets.platform_api_keys?.[currentPlatform];
-                if (apiKey) {
-                  passwordInput.value = apiKey;
-                }
-              }
-            } catch (error) {
-              console.error('Error fetching raw API key:', error);
-            }
-          }
-        } else {
-          // Hide password/API key
-          passwordInput.type = 'password';
-          icon.classList.remove('bi-eye');
-          icon.classList.add('bi-eye-slash');
-          
-          // If it is API key input box, restore masked display
-          if (targetId === 'platformApiKey' && passwordInput.value && !passwordInput.value.endsWith('***')) {
-            const maskedKey = passwordInput.value.substring(0, 8) + '***';
-            passwordInput.value = maskedKey;
-          }
-        }
-      });
-    });
-  }
-
-  // Execute initialization after page loads
-  document.addEventListener('DOMContentLoaded', () => {
-    loadI18nData(); // First load internationalization data
-    initTogglePasswordButtons();
-    initLogin();
-    loadGeneralSettings(); // Load general settings
+    initSettings();
   });
 </script>
+
 </body>
 </html>
-
-LDAP

@@ -1,0 +1,31 @@
+<div class="border rounded p-4">
+  <div class="form-check form-switch mb-3">
+    <input class="form-check-input" type="checkbox" id="httpsEnabled" disabled>
+    <label class="form-check-label" for="httpsEnabled" data-i18n="enableHttpsLabel">启用 HTTPS</label>
+    <div class="form-text" data-i18n="httpsSecurityNote">为安全起见，未通过测试前禁用该开关</div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-md-6">
+      <label class="form-label" for="certFile" data-i18n="certFileLabel">证书文件（.crt/.pem）</label>
+      <input class="form-control" type="file" id="certFile" accept=".crt,.pem">
+      <div class="form-text" data-i18n="currentCertLabel">当前证书：<span id="currentCertName">-</span></div>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label" for="keyFile" data-i18n="keyFileLabel">私钥文件（.key/.pem）</label>
+      <input class="form-control" type="file" id="keyFile" accept=".key,.pem">
+      <div class="form-text" data-i18n="currentKeyLabel">当前私钥：<span id="currentKeyName">-</span></div>
+    </div>
+  </div>
+
+  <div class="mt-3">
+    <label class="form-label" for="keyPassword" data-i18n="keyPasswordLabel">私钥密码（可选）</label>
+    <input class="form-control" type="password" id="keyPassword" data-i18n-placeholder="keyPasswordPlaceholder" placeholder="输入私钥密码">
+  </div>
+
+  <div class="mt-4 d-flex gap-2">
+    <button id="saveWebBtn" class="btn btn-primary" data-i18n="saveWebSettingsBtn">保存Web设置</button>
+    <button id="uploadCertBtn" class="btn btn-outline-secondary" data-i18n="uploadCertKeyBtn">上传证书与私钥</button>
+    <button id="testHttpsBtn" class="btn btn-outline-success" data-i18n="testCertHttpsBtn">测试证书/HTTPS</button>
+  </div>
+</div>
