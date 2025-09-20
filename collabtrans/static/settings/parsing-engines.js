@@ -75,7 +75,7 @@ async function loadMineruApiKey() {
       el.type = 'password';
     } else {
       el.value = '';
-      el.placeholder = 'sk-...';
+      el.placeholder = window.SettingsCore ? window.SettingsCore.getText('mineruApiKeyPlaceholder') : '';
       el.type = 'password';
     }
   } catch (e) {
@@ -94,14 +94,14 @@ async function saveParsingEngineConfig() {
 
     // Update local engine configuration object
     engineConfigs[key] = engineConfigs[key] || {};
-    engineConfigs[key].name = name || key;
+    engineConfigs[key].name = name || getText('mineruPlaceholder');
     if (apiUrl) {
       engineConfigs[key].api_url = apiUrl;
     } else {
       delete engineConfigs[key].api_url;
     }
     if (key === 'mineru') {
-      engineConfigs[key].model_version = mineruModelVersion || 'vlm';
+      engineConfigs[key].model_version = mineruModelVersion || getText('mineruModelVersionPlaceholder');
     } else {
       delete engineConfigs[key].model_version;
     }
@@ -110,7 +110,7 @@ async function saveParsingEngineConfig() {
     const payload = {
       translator_settings: {
         convert_engine: key,
-        mineru_model_version: mineruModelVersion || 'vlm',
+        mineru_model_version: mineruModelVersion || getText('mineruModelVersionPlaceholder'),
         code_ocr: (window.appConfig?.translator_settings?.code_ocr) || false,
         skip_translate: (window.appConfig?.translator_settings?.skip_translate) || false,
         engines: engineConfigs

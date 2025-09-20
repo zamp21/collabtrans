@@ -74,8 +74,11 @@ async function loadAiPlatformConfig() {
       document.getElementById('platformName').value = '';
       document.getElementById('platformUrl').value = '';
       document.getElementById('modelName').value = '';
+      document.getElementById('modelName').placeholder = window.SettingsCore ? window.SettingsCore.getText('modelNamePlaceholder') : 'deepseek-chat';
       document.getElementById('maxTokens').value = 4096;
+      document.getElementById('maxTokens').placeholder = window.SettingsCore ? window.SettingsCore.getText('maxTokensPlaceholder') : '4096';
       document.getElementById('temperature').value = 0.7;
+      document.getElementById('temperature').placeholder = window.SettingsCore ? window.SettingsCore.getText('temperaturePlaceholder') : '0.7';
     }
     
     // Load API Key separately (from sensitive configuration)
@@ -116,14 +119,14 @@ async function loadApiKey(platform) {
     } else {
       // If no API Key, clear input box
       apiKeyInput.value = '';
-      apiKeyInput.placeholder = 'sk-...';
+      apiKeyInput.placeholder = window.SettingsCore ? window.SettingsCore.getText('apiKeyPlaceholder') : 'sk-...';
       apiKeyInput.type = 'password';
     }
   } catch (e) {
     console.error('Load API key error:', e);
     const apiKeyInput = document.getElementById('platformApiKey');
     apiKeyInput.value = '';
-    apiKeyInput.placeholder = 'sk-...';
+    apiKeyInput.placeholder = window.SettingsCore ? window.SettingsCore.getText('apiKeyPlaceholder') : 'sk-...';
     apiKeyInput.type = 'password';
   }
 }
@@ -249,7 +252,7 @@ async function testAiPlatform() {
       }
     } else {
       if (window.SettingsCore) {
-        window.SettingsCore.showNotification(window.SettingsCore.getText('testFailed') + ': ' + (data.error || '未知错误'), 'error');
+        window.SettingsCore.showNotification(window.SettingsCore.getText('testFailed') + ': ' + (data.error || window.SettingsCore.getText('unknownError')), 'error');
       }
     }
   } catch (e) {

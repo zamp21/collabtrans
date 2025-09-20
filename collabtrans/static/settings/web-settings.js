@@ -81,6 +81,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('httpsEnabled').checked = !!cfg.https_enabled;
   }
 
+  // Set internationalized placeholders
+  if (window.SettingsCore) {
+    const keyPassword = document.getElementById('keyPassword');
+    if (keyPassword && keyPassword.getAttribute('data-i18n-placeholder')) {
+      keyPassword.placeholder = window.SettingsCore.getText(keyPassword.getAttribute('data-i18n-placeholder')) || keyPassword.placeholder;
+    }
+    
+    const certFile = document.getElementById('certFile');
+    if (certFile && certFile.getAttribute('data-i18n-accept')) {
+      certFile.setAttribute('accept', window.SettingsCore.getText(certFile.getAttribute('data-i18n-accept')) || certFile.getAttribute('accept'));
+    }
+    
+    const keyFile = document.getElementById('keyFile');
+    if (keyFile && keyFile.getAttribute('data-i18n-accept')) {
+      keyFile.setAttribute('accept', window.SettingsCore.getText(keyFile.getAttribute('data-i18n-accept')) || keyFile.getAttribute('accept'));
+    }
+  }
+
   // Save web settings button
   const saveWebBtn = document.getElementById('saveWebBtn');
   if (saveWebBtn) {

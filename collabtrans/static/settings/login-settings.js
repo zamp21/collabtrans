@@ -75,14 +75,14 @@ async function saveLoginSettings(silent = false) {
 // Generate LDAP test command
 async function generateLdapTestCmd() {
   const protocol = document.getElementById('ldapProtocol').value || 'ldap';
-  const host = document.getElementById('ldapHost').value || 'dc.example.com';
+  const host = document.getElementById('ldapHost').value || '';
   const port = document.getElementById('ldapPort').value || (protocol === 'ldaps' ? '636' : '389');
-  const baseDn = document.getElementById('ldapBaseDn').value || 'OU=Users,DC=example,DC=com';
+  const baseDn = document.getElementById('ldapBaseDn').value || '';
   const tlsVerify = document.getElementById('ldapTlsVerify').checked;
   const cacert = document.getElementById('ldapTlsCacertfile').value;
-  const username = prompt(window.SettingsCore ? window.SettingsCore.getText('enterTestUsernamePrompt') : '请输入测试用户名:', 'testuser');
+  const username = prompt(window.SettingsCore ? window.SettingsCore.getText('enterTestUsernamePrompt') : '请输入测试用户名:', '');
   if (username === null) return;
-  const template = document.getElementById('ldapBindDnTemplate').value || '{username}@example.com';
+  const template = document.getElementById('ldapBindDnTemplate').value || '';
   const bindDnExample = template.replaceAll('{username}', username);
   const baseCmd = `ldapsearch -H ${protocol}://${host}:${port} -D "${bindDnExample}" -W -b "${baseDn}" -x -LLL`;
   const filter = '"(objectClass=*)"';
@@ -197,9 +197,23 @@ document.addEventListener('DOMContentLoaded', () => {
     testConnectivityBtn.addEventListener('click', testLdapConnectivity);
   }
   
-  // Initialize password toggle buttons
+  // Initialize password toggle buttons and set internationalized placeholders
   if (window.SettingsCore) {
     window.SettingsCore.initTogglePasswordButtons();
+    // Set internationalized placeholders
+    const elements = [
+      { id: 'ldapBindDnTemplate', attr: 'data-i18n-placeholder' },
+      { id: 'ldapUserFilter', attr: 'data-i18n-placeholder' },
+      { id: 'ldapTestPasswordInput', attr: 'data-i18n-placeholder' },
+      { id: 'ldapTestUsernameInput', attr: 'data-i18n-placeholder' }
+    ];
+    
+    elements.forEach(({ id, attr }) => {
+      const el = document.getElementById(id);
+      if (el && el.getAttribute(attr)) {
+        el.placeholder = window.SettingsCore.getText(el.getAttribute(attr)) || el.placeholder;
+      }
+    });
   }
 });
 
