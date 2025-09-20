@@ -3960,18 +3960,7 @@ $.*"></textarea>
     /**
      * Update LDAP configuration UI based on enabled state
      */
-    function updateLdapConfigUI() {
-        const ldapEnabled = document.getElementById('ldapEnabledSwitch').checked;
-        const ldapConfigGroup = document.getElementById('ldapConfigGroup');
-        const defaultUserConfigGroup = document.getElementById('defaultUserConfigGroup');
-        
-        if (ldapEnabled) {
-            if (ldapConfigGroup) ldapConfigGroup.style.display = 'block';
-            if (defaultUserConfigGroup) defaultUserConfigGroup.style.display = 'none';
-        } else {
-            if (ldapConfigGroup) ldapConfigGroup.style.display = 'none';
-            if (defaultUserConfigGroup) defaultUserConfigGroup.style.display = 'block';
-        }
+    
     }
     
     /**
@@ -4033,47 +4022,7 @@ $.*"></textarea>
             alert(getText('configResetSuccess', '配置已重置为默认值'));
         }
     }
-    /**
-     * Save AUTH configuration
-     */
-    async function saveAuthConfig() {
-        try {
-            const config = {
-                ldap_enabled: document.getElementById('ldapEnabledSwitch').checked,
-                ldap_protocol: document.getElementById('ldapProtocol').value,
-                ldap_host: document.getElementById('ldapHost').value,
-                ldap_port: parseInt(document.getElementById('ldapPort').value),
-                ldap_bind_dn_template: document.getElementById('ldapBindDnTemplate').value,
-                ldap_base_dn: document.getElementById('ldapBaseDn').value,
-                ldap_user_filter: document.getElementById('ldapUserFilter').value,
-                ldap_admin_group_enabled: document.getElementById('ldapAdminGroupEnabled').checked,
-                ldap_glossary_group_enabled: document.getElementById('ldapGlossaryGroupEnabled').checked,
-                ldap_admin_group: document.getElementById('ldapAdminGroup').value,
-                ldap_glossary_group: document.getElementById('ldapGlossaryGroup').value,
-                ldap_group_base_dn: document.getElementById('ldapGroupBaseDn').value,
-                ldap_tls_verify: document.getElementById('ldapTlsVerify').checked,
-                ldap_tls_cacertfile: document.getElementById('ldapTlsCacertfile').value,
-                default_username: document.getElementById('defaultUsernameInput').value,
-                default_password: (function(){
-                    // 仅超级管理员可提交默认密码
-                    if (window.userPermissions && window.userPermissions.is_super_admin) {
-                        return document.getElementById('defaultPasswordInput').value;
-                    }
-                    return undefined;
-                })(),
-                session_max_age: parseInt(document.getElementById('sessionMaxAgeInput').value),
-                max_login_attempts: parseInt(document.getElementById('maxLoginAttemptsInput').value),
-                login_attempt_window: parseInt(document.getElementById('loginAttemptWindowInput').value)
-            };
-
-            const response = await fetch('/auth/app-config', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(config),
-                credentials: 'include'
-            });
+    );
 
             if (response.ok) {
                 // 如果是管理员，同时尝试保存当前平台的全局 API Key 与 MinerU Token（写入服务器端敏感配置）
@@ -4135,67 +4084,13 @@ $.*"></textarea>
         }
     }
 
-    /**
-     * Load secrets configuration (API keys, tokens, etc.) from server
-     */
-    async function loadSecretsConfig() {
-        try {
-            const response = await fetch('/auth/app-config', {
-                method: 'GET',
-                credentials: 'include'
-            });
-
-            if (response.ok) {
-                const config = await response.json();
-                // 暴露给全局，便于其他初始化逻辑读取（包含管理员脱敏后的platform_api_keys）
-                window.appAuthConfig = config;
-                console.log('[DEBUG] loadSecretsConfig - loaded config:', config);
-                console.log('[DEBUG] loadSecretsConfig - platform_api_keys:', config.platform_api_keys);
-                console.log('[DEBUG] loadSecretsConfig - deepseek key:', config.platform_api_keys ? config.platform_api_keys.deepseek : 'undefined');
-                return true;
-            } else {
-                console.error('Failed to load secrets config');
-                return false;
-            }
-        } catch (error) {
+     catch (error) {
             console.error('Load secrets config error:', error);
             return false;
         }
     }
 
-    /**
-     * 仅加载非LDAP的AUTH配置（LDAP区域改为独立接口渲染）
-     */
-    async function loadAuthConfig() {
-        try {
-            const response = await fetch('/auth/app-config', {
-                method: 'GET',
-                credentials: 'include'
-            });
-
-            if (response.ok) {
-                const config = await response.json();
-                console.log('[DEBUG] loadAuthConfig - loaded auth config:', config);
-                
-                // Load default user settings
-                document.getElementById('defaultUsernameInput').value = config.default_username || 'admin';
-                document.getElementById('defaultPasswordInput').value = config.default_password || 'admin123';
-                
-                // Load session settings
-                document.getElementById('sessionMaxAgeInput').value = config.session_max_age || 604800;
-                
-                // Load security settings
-                document.getElementById('maxLoginAttemptsInput').value = config.max_login_attempts || 5;
-                document.getElementById('loginAttemptWindowInput').value = config.login_attempt_window || 300;
-                
-                // Update UI
-                updateLdapConfigUI();
-                return true;
-            } else {
-                console.error('Failed to load auth config');
-                return false;
-            }
-        } catch (error) {
+     catch (error) {
             console.error('Load auth config error:', error);
             // Use default values if loading fails
             updateLdapConfigUI();
@@ -4203,18 +4098,7 @@ $.*"></textarea>
     }
 
     // 独立加载LDAP配置并渲染
-    async function loadLdapConfigOnly() {
-        try {
-            const resp = await fetch('/auth/ldap-config', { method: 'GET', credentials: 'include' });
-            if (!resp.ok) return false;
-            const cfg = await resp.json();
-            document.getElementById('ldapEnabledSwitch').checked = cfg.ldap_enabled || false;
-            document.getElementById('ldapProtocol').value = cfg.ldap_protocol || 'ldap';
-            document.getElementById('ldapHost').value = cfg.ldap_host || '';
-            document.getElementById('ldapPort').value = cfg.ldap_port || '389';
-            document.getElementById('ldapBindDnTemplate').value = cfg.ldap_bind_dn_template || 'EXAMPLE\\{username}';
-            document.getElementById('ldapBaseDn').value = cfg.ldap_base_dn || 'OU=Users,DC=example,DC=com';
-            document.getElementById('ldapUserFilter').value = cfg.ldap_user_filter || '(sAMAccountName={username})';
+    )';
             document.getElementById('ldapAdminGroupEnabled').checked = cfg.ldap_admin_group_enabled || false;
             document.getElementById('ldapGlossaryGroupEnabled').checked = cfg.ldap_glossary_group_enabled || false;
             document.getElementById('ldapAdminGroup').value = cfg.ldap_admin_group || 'DocuTranslate-Admins';
@@ -4358,32 +4242,11 @@ $.*"></textarea>
         console.log("Loading user permissions and app config...");
         const permissionsLoaded = await loadUserPermissions();
         const appConfigLoaded = await loadAppConfig();
-        const ldapLoaded = await loadLdapConfigOnly();
-        
-        if (!permissionsLoaded || !appConfigLoaded || !ldapLoaded) {
+        if (!permissionsLoaded || !appConfigLoaded) {
             console.warn("Failed to load user permissions or app config, some features may not work properly");
         }
 
-        // 根据权限更新"保存配置"按钮文案（管理员：含全局Key）
-        (function updateSaveBtnLabel(){
-            const span = document.querySelector('#saveAuthConfigBtn span');
-            const btn = document.getElementById('saveAuthConfigBtn');
-            if (!span) return;
-            if (userPermissions && userPermissions.is_admin) {
-                span.setAttribute('data-i18n','saveConfigBtnAdmin');
-                span.innerHTML = getText('saveConfigBtnAdmin', '保存设置');
-                if (btn) {
-                    btn.dataset.role = 'admin';
-                    btn.title = 'role: admin (will save global keys if provided)';
-                }
-            } else {
-                span.setAttribute('data-i18n','saveConfigBtn');
-                span.innerHTML = getText('saveConfigBtn', '保存设置');
-                if (btn) {
-                    btn.dataset.role = 'user';
-                    btn.title = 'role: user (no global key saving)';
-                }
-            }
+        
 
             // 显示一个轻量调试徽标，标识当前权限
             try {
