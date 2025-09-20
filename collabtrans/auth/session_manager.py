@@ -10,6 +10,7 @@ from fastapi import Request, Response
 
 from .config import AuthConfig
 from .models import User
+from ..utils.redis_manager import get_redis_client
 
 
 class AuthSessionManager:
@@ -17,13 +18,38 @@ class AuthSessionManager:
     
     def __init__(self, config: AuthConfig):
         self.config = config
-        self.redis_client = redis.Redis(
-            host=config.redis_host,
-            port=config.redis_port,
-            db=config.redis_db,
-            password=config.redis_password,
-            decode_responses=True
-        )
+        self.redis_client = None
+        self._init_redis_client()
+    
+    def _init_redis_client(self):
+        """初始化Redis客户端"""
+        try:
+            # 首先尝试使用本地Redis管理器
+            self.redis_client = get_redis_client()
+            if self.redis_client:
+                print("✅ 使用本地Redis服务进行会话管理")
+                return
+        except Exception as e:
+            print(f"⚠️  本地Redis启动失败: {e}")
+        
+        # 如果本地Redis不可用，尝试连接外部Redis
+        try:
+            self.redis_client = redis.Redis(
+                host=self.config.redis_host,
+                port=self.config.redis_port,
+                db=self.config.redis_db,
+                password=self.config.redis_password,
+                decode_responses=True,
+                socket_connect_timeout=2,
+                socket_timeout=2
+            )
+            # 测试连接
+            self.redis_client.ping()
+            print("✅ 使用外部Redis服务进行会话管理")
+        except Exception as e:
+            print(f"❌ Redis连接失败: {e}")
+            print("📝 会话管理功能将不可用，请检查Redis服务")
+            self.redis_client = None
     
     def create_session_id(self) -> str:
         """创建会话ID"""
@@ -66,11 +92,15 @@ class AuthSessionManager:
             "created_at": time.time()
         }
         
-        self.redis_client.setex(
-            f"session:{session_id}",
-            self.config.session_max_age,
-            json.dumps(user_data)
-        )
+        if self.redis_client:
+            try:
+                self.redis_client.setex(
+                    f"session:{session_id}",
+                    self.config.session_max_age,
+                    json.dumps(user_data)
+                )
+            except Exception as e:
+                print(f"⚠️  存储会话到Redis失败: {e}")
         
         # 设置Cookie
         self.set_session_cookie(response, session_id)
@@ -83,12 +113,15 @@ class AuthSessionManager:
         if not session_id:
             return None
         
-        # 从Redis获取用户数据
-        user_data_str = self.redis_client.get(f"session:{session_id}")
-        if not user_data_str:
+        if not self.redis_client:
             return None
         
         try:
+            # 从Redis获取用户数据
+            user_data_str = self.redis_client.get(f"session:{session_id}")
+            if not user_data_str:
+                return None
+            
             user_data = json.loads(user_data_str)
             from .models import UserRole
             return User(
@@ -98,7 +131,8 @@ class AuthSessionManager:
                 is_authenticated=user_data.get("is_authenticated", True),
                 role=UserRole(user_data.get("role", "ldap_user"))  # 恢复用户角色，默认为ldap_user
             )
-        except (json.JSONDecodeError, KeyError):
+        except (json.JSONDecodeError, KeyError, Exception) as e:
+            print(f"⚠️  获取用户会话失败: {e}")
             return None
     
     async def destroy_session(self, request: Request, response: Response) -> bool:
@@ -108,7 +142,11 @@ class AuthSessionManager:
             return False
         
         # 从Redis删除会话数据
-        self.redis_client.delete(f"session:{session_id}")
+        if self.redis_client:
+            try:
+                self.redis_client.delete(f"session:{session_id}")
+            except Exception as e:
+                print(f"⚠️  删除会话失败: {e}")
         
         # 清除Cookie
         self.clear_session_cookie(response)
@@ -122,18 +160,38 @@ class AuthSessionManager:
     
     def get_login_attempts(self, ip_address: str) -> int:
         """获取IP地址的登录尝试次数"""
-        key = f"login_attempts:{ip_address}"
-        attempts = self.redis_client.get(key)
-        return int(attempts) if attempts else 0
+        if not self.redis_client:
+            return 0
+        
+        try:
+            key = f"login_attempts:{ip_address}"
+            attempts = self.redis_client.get(key)
+            return int(attempts) if attempts else 0
+        except Exception as e:
+            print(f"⚠️  获取登录尝试次数失败: {e}")
+            return 0
     
     def increment_login_attempts(self, ip_address: str) -> int:
         """增加IP地址的登录尝试次数"""
-        key = f"login_attempts:{ip_address}"
-        attempts = self.redis_client.incr(key)
-        self.redis_client.expire(key, self.config.login_attempt_window)
-        return attempts
+        if not self.redis_client:
+            return 1
+        
+        try:
+            key = f"login_attempts:{ip_address}"
+            attempts = self.redis_client.incr(key)
+            self.redis_client.expire(key, self.config.login_attempt_window)
+            return attempts
+        except Exception as e:
+            print(f"⚠️  增加登录尝试次数失败: {e}")
+            return 1
     
     def reset_login_attempts(self, ip_address: str):
         """重置IP地址的登录尝试次数"""
-        key = f"login_attempts:{ip_address}"
-        self.redis_client.delete(key)
+        if not self.redis_client:
+            return
+        
+        try:
+            key = f"login_attempts:{ip_address}"
+            self.redis_client.delete(key)
+        except Exception as e:
+            print(f"⚠️  重置登录尝试次数失败: {e}")

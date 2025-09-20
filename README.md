@@ -98,6 +98,50 @@ git clone https://github.com/xunbu/docutranslate.git
 cd docutranslate
 
 uv sync
+
+# First deployment setup (Windows)
+first_deploy.bat
+
+# Or run setup manually
+python setup_first_deploy.py
+```
+
+## First Deployment Setup
+
+For first-time deployment, CollabTrans will automatically:
+
+1. **Create configuration files**: Automatically copy `local_secrets.json.template` to `local_secrets.json`
+2. **Generate secure keys**: Create random session keys for security
+3. **Set default credentials**: 
+   - Username: `admin`
+   - Password: `admin123`
+4. **Create necessary directories**: `logs/`, `output/`, `certs/`, etc.
+5. **Auto-start Redis service**: Automatically detect and start local Redis for session management
+6. **Cross-platform LDAP support**: Uses ldap3 (pure Python) for better Windows compatibility
+
+### Quick Start (Windows)
+
+```bash
+# Run first deployment setup
+first_deploy.bat
+
+# Start the service (Redis will auto-start)
+.venv\Scripts\python.exe -m collabtrans.cli -i
+```
+
+**Note**: Redis service will be automatically started from `3rdParty/windows/Redis-x64-3.0.504/` directory.
+
+### Manual Setup
+
+```bash
+# Run setup script
+python setup_first_deploy.py
+
+# Edit configuration
+# Edit local_secrets.json to add your API keys
+
+# Start the service
+.venv\Scripts\python.exe -m collabtrans.cli -i
 ```
 
 ## Core Concept: Workflow

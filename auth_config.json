@@ -1,5 +1,5 @@
 {
-  "ldap_enabled": true,
+  "ldap_enabled": false,
   "ldap_protocol": "ldaps",
   "ldap_host": "adtest2.testldaps.io",
   "ldap_port": 636,

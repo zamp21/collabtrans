@@ -1810,6 +1810,19 @@ def find_free_port(start_port):
 
 
 def run_app(port: int | None = None):
+    # 首次部署时自动创建local_secrets.json文件
+    local_secrets_path = os.path.join(os.getcwd(), "local_secrets.json")
+    local_secrets_template_path = os.path.join(os.getcwd(), "local_secrets.json.template")
+    
+    if not os.path.exists(local_secrets_path) and os.path.exists(local_secrets_template_path):
+        try:
+            import shutil
+            shutil.copy2(local_secrets_template_path, local_secrets_path)
+            print("首次部署：已自动创建 local_secrets.json 配置文件")
+            print("请编辑 local_secrets.json 文件，设置您的API密钥和管理员密码")
+        except Exception as e:
+            print(f"自动创建 local_secrets.json 失败: {e}")
+    
     initial_port = port or int(os.environ.get("DOCUTRANSLATE_PORT", 8010))
     try:
         port_to_use = find_free_port(initial_port)
