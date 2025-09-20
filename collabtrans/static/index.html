@@ -1218,6 +1218,27 @@ $.*"></textarea>
                                         <!-- 已迁移到 /settings：LDAP 测试弹窗 -->
                                     </div>
 
+                                    <!-- 默认用户配置 -->
+                                    <div id="defaultUserConfigGroup">
+                                        <h6 class="mb-3" data-i18n="defaultUserConfigTitle">默认用户配置</h6>
+                                        <div class="mb-3">
+                                            <label for="defaultUsernameInput" class="form-label" data-i18n="defaultUsernameLabel">默认用户名</label>
+                                            <input type="text" class="form-control" id="defaultUsernameInput" 
+                                                   placeholder="admin">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="defaultPasswordInput" class="form-label" data-i18n="defaultPasswordLabel">默认密码</label>
+                                            <div class="input-group">
+                                                <input type="password" class="form-control" id="defaultPasswordInput" 
+                                                       placeholder="admin123">
+                                                <button class="btn btn-outline-secondary toggle-password" type="button" 
+                                                        data-target="defaultPasswordInput">
+                                                    <i class="bi bi-eye"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <!-- 会话配置 -->
                                     <h6 class="mb-3 mt-4" data-i18n="sessionConfigTitle">会话配置</h6>
                                     <div class="mb-3">
@@ -1874,12 +1895,6 @@ $.*"></textarea>
 
         // Save preference
         saveToConfig('ui_language', lang);
-        
-        // Also update localStorage for cross-page synchronization (especially for settings page)
-        localStorage.setItem('ui_language', lang);
-        
-        // Dispatch custom event for cross-page language sync
-        window.dispatchEvent(new CustomEvent('languageChanged', { detail: { language: lang } }));
     }
 
     // 加载并渲染当前用户信息
@@ -2753,12 +2768,18 @@ $.*"></textarea>
      */
     async function loadGlobalPlatformConfigs() {
         try {
+            console.log('[DEBUG] loadGlobalPlatformConfigs - starting to load platform configs');
             const resp = await fetch('/auth/app-config');
-            if (!resp.ok) return;
+            if (!resp.ok) {
+                console.error('[DEBUG] loadGlobalPlatformConfigs - API response not ok:', resp.status, resp.statusText);
+                return;
+            }
             const cfg = await resp.json();
+            console.log('[DEBUG] loadGlobalPlatformConfigs - received config:', cfg);
             
             // 读取新的 ai_platforms 结构
             const aiPlatforms = cfg.ai_platforms || {};
+            console.log('[DEBUG] loadGlobalPlatformConfigs - ai_platforms:', aiPlatforms);
             
             // 构建平台配置对象
             globalPlatformNames = {};
@@ -2773,10 +2794,12 @@ $.*"></textarea>
                 globalPlatformConfigs[key] = platform;
             }
             
+            console.log('[DEBUG] loadGlobalPlatformConfigs - built platform names:', globalPlatformNames);
+            
             // 更新平台选择下拉框
             updateMainPlatformSelect();
         } catch (e) {
-            console.error('Load global platform configs error:', e);
+            console.error('[DEBUG] loadGlobalPlatformConfigs - error:', e);
         }
     }
 
@@ -2784,18 +2807,31 @@ $.*"></textarea>
      * 更新主页平台选择下拉框
      */
     function updateMainPlatformSelect() {
-        if (!platformSelect) return;
+        console.log('[DEBUG] updateMainPlatformSelect - starting');
+        console.log('[DEBUG] updateMainPlatformSelect - platformSelect element:', platformSelect);
+        console.log('[DEBUG] updateMainPlatformSelect - globalPlatformNames:', globalPlatformNames);
+        
+        if (!platformSelect) {
+            console.error('[DEBUG] updateMainPlatformSelect - platformSelect element not found');
+            return;
+        }
         
         // 清空现有选项
         platformSelect.innerHTML = '';
         
         // 添加选项
+        const platformCount = Object.keys(globalPlatformNames).length;
+        console.log('[DEBUG] updateMainPlatformSelect - adding', platformCount, 'platforms');
+        
         for (const [key, name] of Object.entries(globalPlatformNames)) {
             const option = document.createElement('option');
             option.value = key;
             option.textContent = name;
             platformSelect.appendChild(option);
+            console.log('[DEBUG] updateMainPlatformSelect - added option:', key, '->', name);
         }
+        
+        console.log('[DEBUG] updateMainPlatformSelect - completed, total options:', platformSelect.options.length);
     }
 
     /**
@@ -3913,8 +3949,19 @@ $.*"></textarea>
     function restoreSettings(settingsConfig) {
         settingsConfig.forEach(setting => {
             if (!setting.element) {
-                console.warn('Element not found for setting:', setting);
-                return;
+                // 尝试通过selector查找元素
+                if (setting.selector) {
+                    const element = document.querySelector(setting.selector);
+                    if (element) {
+                        setting.element = element;
+                    } else {
+                        console.warn('Element not found for setting:', setting);
+                        return;
+                    }
+                } else {
+                    console.warn('Element not found for setting:', setting);
+                    return;
+                }
             }
             const savedValue = getFromConfig(setting.key, setting.defaultValue);
             if (setting.type === 'boolean') {
@@ -3960,7 +4007,18 @@ $.*"></textarea>
     /**
      * Update LDAP configuration UI based on enabled state
      */
-    
+    function updateLdapConfigUI() {
+        const ldapEnabled = document.getElementById('ldapEnabledSwitch').checked;
+        const ldapConfigGroup = document.getElementById('ldapConfigGroup');
+        const defaultUserConfigGroup = document.getElementById('defaultUserConfigGroup');
+        
+        if (ldapEnabled) {
+            if (ldapConfigGroup) ldapConfigGroup.style.display = 'block';
+            if (defaultUserConfigGroup) defaultUserConfigGroup.style.display = 'none';
+        } else {
+            if (ldapConfigGroup) ldapConfigGroup.style.display = 'none';
+            if (defaultUserConfigGroup) defaultUserConfigGroup.style.display = 'block';
+        }
     }
     
     /**
@@ -4022,7 +4080,47 @@ $.*"></textarea>
             alert(getText('configResetSuccess', '配置已重置为默认值'));
         }
     }
-    );
+    /**
+     * Save AUTH configuration
+     */
+    async function saveAuthConfig() {
+        try {
+            const config = {
+                ldap_enabled: document.getElementById('ldapEnabledSwitch').checked,
+                ldap_protocol: document.getElementById('ldapProtocol').value,
+                ldap_host: document.getElementById('ldapHost').value,
+                ldap_port: parseInt(document.getElementById('ldapPort').value),
+                ldap_bind_dn_template: document.getElementById('ldapBindDnTemplate').value,
+                ldap_base_dn: document.getElementById('ldapBaseDn').value,
+                ldap_user_filter: document.getElementById('ldapUserFilter').value,
+                ldap_admin_group_enabled: document.getElementById('ldapAdminGroupEnabled').checked,
+                ldap_glossary_group_enabled: document.getElementById('ldapGlossaryGroupEnabled').checked,
+                ldap_admin_group: document.getElementById('ldapAdminGroup').value,
+                ldap_glossary_group: document.getElementById('ldapGlossaryGroup').value,
+                ldap_group_base_dn: document.getElementById('ldapGroupBaseDn').value,
+                ldap_tls_verify: document.getElementById('ldapTlsVerify').checked,
+                ldap_tls_cacertfile: document.getElementById('ldapTlsCacertfile').value,
+                default_username: document.getElementById('defaultUsernameInput').value,
+                default_password: (function(){
+                    // 仅超级管理员可提交默认密码
+                    if (window.userPermissions && window.userPermissions.is_super_admin) {
+                        return document.getElementById('defaultPasswordInput').value;
+                    }
+                    return undefined;
+                })(),
+                session_max_age: parseInt(document.getElementById('sessionMaxAgeInput').value),
+                max_login_attempts: parseInt(document.getElementById('maxLoginAttemptsInput').value),
+                login_attempt_window: parseInt(document.getElementById('loginAttemptWindowInput').value)
+            };
+
+            const response = await fetch('/auth/app-config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(config),
+                credentials: 'include'
+            });
 
             if (response.ok) {
                 // 如果是管理员，同时尝试保存当前平台的全局 API Key 与 MinerU Token（写入服务器端敏感配置）
@@ -4084,13 +4182,67 @@ $.*"></textarea>
         }
     }
 
-     catch (error) {
+    /**
+     * Load secrets configuration (API keys, tokens, etc.) from server
+     */
+    async function loadSecretsConfig() {
+        try {
+            const response = await fetch('/auth/app-config', {
+                method: 'GET',
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                const config = await response.json();
+                // 暴露给全局，便于其他初始化逻辑读取（包含管理员脱敏后的platform_api_keys）
+                window.appAuthConfig = config;
+                console.log('[DEBUG] loadSecretsConfig - loaded config:', config);
+                console.log('[DEBUG] loadSecretsConfig - platform_api_keys:', config.platform_api_keys);
+                console.log('[DEBUG] loadSecretsConfig - deepseek key:', config.platform_api_keys ? config.platform_api_keys.deepseek : 'undefined');
+                return true;
+            } else {
+                console.error('Failed to load secrets config');
+                return false;
+            }
+        } catch (error) {
             console.error('Load secrets config error:', error);
             return false;
         }
     }
 
-     catch (error) {
+    /**
+     * 仅加载非LDAP的AUTH配置（LDAP区域改为独立接口渲染）
+     */
+    async function loadAuthConfig() {
+        try {
+            const response = await fetch('/auth/app-config', {
+                method: 'GET',
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                const config = await response.json();
+                console.log('[DEBUG] loadAuthConfig - loaded auth config:', config);
+                
+                // Load default user settings
+                document.getElementById('defaultUsernameInput').value = config.default_username || 'admin';
+                document.getElementById('defaultPasswordInput').value = config.default_password || 'admin123';
+                
+                // Load session settings
+                document.getElementById('sessionMaxAgeInput').value = config.session_max_age || 604800;
+                
+                // Load security settings
+                document.getElementById('maxLoginAttemptsInput').value = config.max_login_attempts || 5;
+                document.getElementById('loginAttemptWindowInput').value = config.login_attempt_window || 300;
+                
+                // Update UI
+                updateLdapConfigUI();
+                return true;
+            } else {
+                console.error('Failed to load auth config');
+                return false;
+            }
+        } catch (error) {
             console.error('Load auth config error:', error);
             // Use default values if loading fails
             updateLdapConfigUI();
@@ -4098,7 +4250,18 @@ $.*"></textarea>
     }
 
     // 独立加载LDAP配置并渲染
-    )';
+    async function loadLdapConfigOnly() {
+        try {
+            const resp = await fetch('/auth/ldap-config', { method: 'GET', credentials: 'include' });
+            if (!resp.ok) return false;
+            const cfg = await resp.json();
+            document.getElementById('ldapEnabledSwitch').checked = cfg.ldap_enabled || false;
+            document.getElementById('ldapProtocol').value = cfg.ldap_protocol || 'ldap';
+            document.getElementById('ldapHost').value = cfg.ldap_host || '';
+            document.getElementById('ldapPort').value = cfg.ldap_port || '389';
+            document.getElementById('ldapBindDnTemplate').value = cfg.ldap_bind_dn_template || 'EXAMPLE\\{username}';
+            document.getElementById('ldapBaseDn').value = cfg.ldap_base_dn || 'OU=Users,DC=example,DC=com';
+            document.getElementById('ldapUserFilter').value = cfg.ldap_user_filter || '(sAMAccountName={username})';
             document.getElementById('ldapAdminGroupEnabled').checked = cfg.ldap_admin_group_enabled || false;
             document.getElementById('ldapGlossaryGroupEnabled').checked = cfg.ldap_glossary_group_enabled || false;
             document.getElementById('ldapAdminGroup').value = cfg.ldap_admin_group || 'DocuTranslate-Admins';
@@ -4208,8 +4371,19 @@ $.*"></textarea>
     function setupEventListeners(listenersConfig) {
         listenersConfig.forEach(config => {
             if (!config.element) {
-                console.warn('Element not found for event listener:', config);
-                return;
+                // 尝试通过selector查找元素
+                if (config.selector) {
+                    const element = document.querySelector(config.selector);
+                    if (element) {
+                        config.element = element;
+                    } else {
+                        console.warn('Element not found for event listener:', config);
+                        return;
+                    }
+                } else {
+                    console.warn('Element not found for event listener:', config);
+                    return;
+                }
             }
             const handler = config.handler || ((e) => {
                 const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
@@ -4242,11 +4416,32 @@ $.*"></textarea>
         console.log("Loading user permissions and app config...");
         const permissionsLoaded = await loadUserPermissions();
         const appConfigLoaded = await loadAppConfig();
-        if (!permissionsLoaded || !appConfigLoaded) {
+        const ldapLoaded = await loadLdapConfigOnly();
+        
+        if (!permissionsLoaded || !appConfigLoaded || !ldapLoaded) {
             console.warn("Failed to load user permissions or app config, some features may not work properly");
         }
 
-        
+        // 根据权限更新"保存配置"按钮文案（管理员：含全局Key）
+        (function updateSaveBtnLabel(){
+            const span = document.querySelector('#saveAuthConfigBtn span');
+            const btn = document.getElementById('saveAuthConfigBtn');
+            if (!span) return;
+            if (userPermissions && userPermissions.is_admin) {
+                span.setAttribute('data-i18n','saveConfigBtnAdmin');
+                span.innerHTML = getText('saveConfigBtnAdmin', '保存设置');
+                if (btn) {
+                    btn.dataset.role = 'admin';
+                    btn.title = 'role: admin (will save global keys if provided)';
+                }
+            } else {
+                span.setAttribute('data-i18n','saveConfigBtn');
+                span.innerHTML = getText('saveConfigBtn', '保存设置');
+                if (btn) {
+                    btn.dataset.role = 'user';
+                    btn.title = 'role: user (no global key saving)';
+                }
+            }
 
             // 显示一个轻量调试徽标，标识当前权限
             try {
@@ -4600,121 +4795,8 @@ $.*"></textarea>
                     if (helpOff) helpOff.style.display = 'block';
                 }
             }},
-            {element: document.getElementById('genLdapTestCmdBtn'), event: 'click', handler: async () => {
-                // 仅前端生成命令并复制，不调用后端
-                const protocol = document.getElementById('ldapProtocol').value || 'ldap';
-                const host = document.getElementById('ldapHost').value || 'dc.example.com';
-                const port = document.getElementById('ldapPort').value || (protocol === 'ldaps' ? '636' : '389');
-                const baseDn = document.getElementById('ldapBaseDn').value || 'OU=Users,DC=example,DC=com';
-                const tlsVerify = document.getElementById('ldapTlsVerify').checked;
-                const cacert = document.getElementById('ldapTlsCacertfile').value;
-
-                // 交互提示用户输入一个测试用户名
-                const username = prompt(getText('ldapTestUserPrompt', ''), 'testuser');
-                if (username === null) return;
-
-                // 生成 Bind DN（仅展示模板思路，实际绑定在命令中仍需 -D 提供完整标识）
-                let bindDnExample = `${username}@example.com`;
-                const template = document.getElementById('ldapBindDnTemplate').value || '{username}@example.com';
-                bindDnExample = template.replaceAll('{username}', username);
-
-                // 构造命令
-                const baseCmd = `ldapsearch -H ${protocol}://${host}:${port} -D "${bindDnExample}" -W -b "${baseDn}" -x -LLL`;
-                const filter = '"(objectClass=*)"';
-                const tlsPart = protocol === 'ldaps' ? (tlsVerify ? '' : ' -o tls_reqcert=never') : '';
-                const cacertPart = (protocol === 'ldaps' && tlsVerify && cacert) ? ` LDAPTLS_CACERT=${cacert}` : '';
-                const finalCmd = `${cacertPart ? cacertPart + ' ' : ''}${baseCmd}${tlsPart} ${filter}`;
-
-                try {
-                    await navigator.clipboard.writeText(finalCmd);
-                    alert(getText('ldapTestCmdCopied', ''));
-                } catch (err) {
-                    console.warn('Clipboard copy failed:', err);
-                    alert(getText('ldapTestCmdShown', ''));
-                    console.log(finalCmd);
-                }
-            }},
-            {element: document.getElementById('runLdapConnectivityBtn'), event: 'click', handler: async () => {
-                // 打开弹窗，默认密码隐藏，可点击眼睛按钮切换
-                const modalEl = document.getElementById('ldapTestModal');
-                const modal = new bootstrap.Modal(modalEl);
-                // 清空输入
-                document.getElementById('ldapTestUsernameInput').value = '';
-                document.getElementById('ldapTestPasswordInput').value = '';
-                modal.show();
-
-                const confirmBtn = document.getElementById('ldapTestConfirmBtn');
-                const onConfirm = async () => {
-                    confirmBtn.disabled = true;
-                    try {
-                        const username = document.getElementById('ldapTestUsernameInput').value.trim();
-                        const password = document.getElementById('ldapTestPasswordInput').value;
-                        if (!username || !password) {
-                            alert(getText('ldapTestNeedBoth', '')); 
-                            return;
-                        }
-                        const payload = {
-                            username,
-                            password,
-                            ldap_protocol: document.getElementById('ldapProtocol').value,
-                            ldap_host: document.getElementById('ldapHost').value,
-                            ldap_port: document.getElementById('ldapPort').value,
-                            ldap_bind_dn_template: document.getElementById('ldapBindDnTemplate').value,
-                            ldap_base_dn: document.getElementById('ldapBaseDn').value,
-                            ldap_user_filter: document.getElementById('ldapUserFilter').value,
-                            ldap_admin_group_enabled: document.getElementById('ldapAdminGroupEnabled').checked,
-                            ldap_glossary_group_enabled: document.getElementById('ldapGlossaryGroupEnabled').checked,
-                            ldap_admin_group: document.getElementById('ldapAdminGroup').value,
-                            ldap_glossary_group: document.getElementById('ldapGlossaryGroup').value,
-                            ldap_group_base_dn: document.getElementById('ldapGroupBaseDn').value,
-                            ldap_tls_verify: document.getElementById('ldapTlsVerify').checked,
-                            ldap_tls_cacertfile: document.getElementById('ldapTlsCacertfile').value
-                        };
-                        const resp = await fetch('/auth/test-ldap', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            credentials: 'include',
-                            body: JSON.stringify(payload)
-                        });
-                        const data = await resp.json().catch(() => ({}));
-                        if (resp.ok && data && data.ok) {
-                            modal.hide();
-                            // i18n 渲染
-                            let lines = [];
-                            lines.push(getText('ldapConnectivityOk', ''));
-                            if (data.groups_enabled) {
-                                lines.push(getText('ldapTest_groupsEnabled', ''));
-                                if (Array.isArray(data.groups) && data.groups.length > 0) {
-                                    const groupNames = data.groups.map(code => {
-                                        if (code === 'admin') return getText('ldapTest_group_admin', '');
-                                        if (code === 'glossary') return getText('ldapTest_group_glossary', '');
-                                        return code;
-                                    }).join(', ');
-                                    lines.push(getText('ldapTest_belongsPrefix', '') + groupNames);
-                                } else {
-                                    lines.push(getText('ldapTest_noGroups', ''));
-                                }
-                            }
-                            if (data.user_role) {
-                                lines.push(getText('ldapTest_rolePrefix', '') + data.user_role);
-                            }
-                            if (data.is_admin !== undefined) {
-                                lines.push(getText('ldapTest_isAdminPrefix', '') + (data.is_admin ? getText('yes','') : getText('no','')));
-                            }
-                            alert(lines.join('\n'));
-                        } else {
-                            const msg = (data && data.message) ? data.message : `${resp.status}`;
-                            alert(getText('ldapConnectivityFail', '') + msg);
-                        }
-                    } catch (e) {
-                        alert(getText('ldapConnectivityFail', '') + (e?.message || 'unknown'));
-                    } finally {
-                        confirmBtn.disabled = false;
-                        confirmBtn.removeEventListener('click', onConfirm);
-                    }
-                };
-                confirmBtn.addEventListener('click', onConfirm);
-            }},
+            // 注意：genLdapTestCmdBtn 和 runLdapConnectivityBtn 等元素已迁移到 settings 页面
+            // 这些事件监听器现在在 settings/login-settings.js 中处理
         ];
         setupEventListeners(eventListenersConfig);
 
