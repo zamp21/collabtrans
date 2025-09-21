@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UI Display Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .debug-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .error { color: red; }
+        .success { color: green; }
+        .info { color: blue; }
+        .warning { color: orange; }
+        .debug-info { background: #f5f5f5; padding: 10px; margin: 10px 0; font-family: monospace; }
+        .test-button { margin: 5px; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .test-button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>Settings UI Display 调试工具</h1>
+    
+    <div class="debug-section">
+        <h2>1. 检查Settings页面状态</h2>
+        <button class="test-button" onclick="checkSettingsPage()">检查Settings页面</button>
+        <div id="settings-status"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>2. 检查AI Platform模块状态</h2>
+        <button class="test-button" onclick="checkAIPlatformModule()">检查AI Platform模块</button>
+        <div id="ai-platform-status"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>3. 模拟导航切换</h2>
+        <button class="test-button" onclick="simulateNavigation()">模拟点击AI Platform导航</button>
+        <div id="navigation-status"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>4. 检查DOM元素</h2>
+        <button class="test-button" onclick="checkDOMElements()">检查DOM元素</button>
+        <div id="dom-status"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>5. 调试信息</h2>
+        <div id="debug-log"></div>
+    </div>
+
+    <script>
+        function addLog(message, type = 'info') {
+            const div = document.getElementById('debug-log');
+            const p = document.createElement('p');
+            p.className = type;
+            p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            div.appendChild(p);
+        }
+        
+        async function checkSettingsPage() {
+            const resultDiv = document.getElementById('settings-status');
+            resultDiv.innerHTML = '<div class="info">检查中...</div>';
+            addLog('开始检查Settings页面状态');
+            
+            try {
+                const response = await fetch('/settings');
+                if (response.ok) {
+                    const html = await response.text();
+                    
+                    // 检查关键元素
+                    const hasAIPlatformNav = html.includes('data-section="ai-platforms"');
+                    const hasAIPlatformSection = html.includes('id="ai-platforms-section"');
+                    const hasActiveClass = html.includes('class="settings-section active"');
+                    
+                    // 更详细的检查
+                    const navLinkMatch = html.match(/data-section="ai-platforms"/g);
+                    const sectionMatch = html.match(/id="ai-platforms-section"/g);
+                    const activeMatch = html.match(/class="settings-section active"/g);
+                    
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ Settings页面加载成功</div>
+                        <div class="info">📋 AI Platform导航链接: ${hasAIPlatformNav ? '✅ 存在' : '❌ 不存在'} (匹配数: ${navLinkMatch ? navLinkMatch.length : 0})</div>
+                        <div class="info">📋 AI Platform模块区域: ${hasAIPlatformSection ? '✅ 存在' : '❌ 不存在'} (匹配数: ${sectionMatch ? sectionMatch.length : 0})</div>
+                        <div class="info">📋 默认active类: ${hasActiveClass ? '✅ 存在' : '❌ 不存在'} (匹配数: ${activeMatch ? activeMatch.length : 0})</div>
+                        <div class="debug-info">HTML片段检查:<br>
+                        AI Platform导航: ${html.includes('data-section="ai-platforms"') ? '✅' : '❌'}<br>
+                        AI Platform区域: ${html.includes('id="ai-platforms-section"') ? '✅' : '❌'}<br>
+                        Active类: ${html.includes('class="settings-section active"') ? '✅' : '❌'}
+                        </div>
+                    `;
+                    
+                    addLog(`Settings页面检查完成 - 导航:${hasAIPlatformNav}, 模块:${hasAIPlatformSection}, active:${hasActiveClass}`);
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Settings页面加载失败: ${response.status}</div>`;
+                    addLog(`Settings页面加载失败: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 检查失败: ${error.message}</div>`;
+                addLog(`Settings页面检查异常: ${error.message}`, 'error');
+            }
+        }
+        
+        async function checkAIPlatformModule() {
+            const resultDiv = document.getElementById('ai-platform-status');
+            resultDiv.innerHTML = '<div class="info">检查中...</div>';
+            addLog('开始检查AI Platform模块状态');
+            
+            try {
+                // 检查模块文件
+                const jsResponse = await fetch('/static/settings/ai-platforms.js');
+                const htmlResponse = await fetch('/static/settings/ai-platforms.html');
+                
+                let status = '';
+                if (jsResponse.ok && htmlResponse.ok) {
+                    status += '<div class="success">✅ AI Platform模块文件存在</div>';
+                    addLog('AI Platform模块文件存在');
+                    
+                    // 检查HTML内容
+                    const html = await htmlResponse.text();
+                    const hasPlatformSelect = html.includes('id="platformSelect"');
+                    const hasSaveButton = html.includes('id="saveAiPlatformBtn"');
+                    const hasTestButton = html.includes('id="testAiPlatformBtn"');
+                    
+                    status += `
+                        <div class="info">📋 平台选择框: ${hasPlatformSelect ? '✅ 存在' : '❌ 不存在'}</div>
+                        <div class="info">📋 保存按钮: ${hasSaveButton ? '✅ 存在' : '❌ 不存在'}</div>
+                        <div class="info">📋 测试按钮: ${hasTestButton ? '✅ 存在' : '❌ 不存在'}</div>
+                    `;
+                    
+                    addLog(`AI Platform HTML检查 - 选择框:${hasPlatformSelect}, 保存:${hasSaveButton}, 测试:${hasTestButton}`);
+                } else {
+                    status = '<div class="error">❌ AI Platform模块文件不存在</div>';
+                    addLog('AI Platform模块文件不存在', 'error');
+                }
+                
+                resultDiv.innerHTML = status;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 检查失败: ${error.message}</div>`;
+                addLog(`AI Platform模块检查异常: ${error.message}`, 'error');
+            }
+        }
+        
+        async function simulateNavigation() {
+            const resultDiv = document.getElementById('navigation-status');
+            resultDiv.innerHTML = '<div class="info">模拟中...</div>';
+            addLog('开始模拟导航切换');
+            
+            try {
+                // 打开Settings页面
+                const settingsWindow = window.open('/settings', '_blank');
+                
+                // 等待页面加载
+                setTimeout(() => {
+                    try {
+                        // 检查是否可以访问新窗口的DOM
+                        const aiPlatformSection = settingsWindow.document.getElementById('ai-platforms-section');
+                        const aiPlatformNav = settingsWindow.document.querySelector('[data-section="ai-platforms"]');
+                        
+                        if (aiPlatformSection && aiPlatformNav) {
+                            resultDiv.innerHTML = `
+                                <div class="success">✅ Settings页面已打开</div>
+                                <div class="info">📋 AI Platform模块区域: ✅ 存在</div>
+                                <div class="info">📋 AI Platform导航链接: ✅ 存在</div>
+                                <div class="info">📋 请在新窗口中点击AI Platform导航链接</div>
+                            `;
+                            addLog('Settings页面已打开，请手动点击AI Platform导航');
+                        } else {
+                            resultDiv.innerHTML = '<div class="error">❌ 无法访问Settings页面DOM</div>';
+                            addLog('无法访问Settings页面DOM', 'error');
+                        }
+                    } catch (error) {
+                        resultDiv.innerHTML = '<div class="error">❌ 跨域访问被阻止</div>';
+                        addLog('跨域访问被阻止', 'error');
+                    }
+                }, 2000);
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 模拟失败: ${error.message}</div>`;
+                addLog(`导航模拟异常: ${error.message}`, 'error');
+            }
+        }
+        
+        function checkDOMElements() {
+            const resultDiv = document.getElementById('dom-status');
+            resultDiv.innerHTML = '<div class="info">检查中...</div>';
+            addLog('开始检查DOM元素');
+            
+            // 检查当前页面的DOM元素
+            const platformSelect = document.getElementById('platformSelect');
+            const saveButton = document.getElementById('saveAiPlatformBtn');
+            const testButton = document.getElementById('testAiPlatformBtn');
+            const aiPlatformSection = document.getElementById('ai-platforms-section');
+            
+            let status = '';
+            if (platformSelect) {
+                status += `<div class="success">✅ 平台选择框存在 (选项数: ${platformSelect.options.length})</div>`;
+                addLog(`平台选择框存在，选项数: ${platformSelect.options.length}`);
+            } else {
+                status += '<div class="warning">⚠️ 平台选择框不存在</div>';
+                addLog('平台选择框不存在', 'warning');
+            }
+            
+            if (saveButton) {
+                status += '<div class="success">✅ 保存按钮存在</div>';
+                addLog('保存按钮存在');
+            } else {
+                status += '<div class="warning">⚠️ 保存按钮不存在</div>';
+                addLog('保存按钮不存在', 'warning');
+            }
+            
+            if (testButton) {
+                status += '<div class="success">✅ 测试按钮存在</div>';
+                addLog('测试按钮存在');
+            } else {
+                status += '<div class="warning">⚠️ 测试按钮不存在</div>';
+                addLog('测试按钮不存在', 'warning');
+            }
+            
+            if (aiPlatformSection) {
+                const isVisible = aiPlatformSection.classList.contains('active');
+                status += `<div class="info">📋 AI Platform模块区域存在 (可见: ${isVisible ? '是' : '否'})</div>`;
+                addLog(`AI Platform模块区域存在，可见: ${isVisible}`);
+            } else {
+                status += '<div class="warning">⚠️ AI Platform模块区域不存在</div>';
+                addLog('AI Platform模块区域不存在', 'warning');
+            }
+            
+            resultDiv.innerHTML = status;
+        }
+        
+        // 页面加载时自动运行检查
+        window.addEventListener('load', () => {
+            addLog('调试工具加载完成');
+            checkSettingsPage();
+            checkAIPlatformModule();
+        });
+    </script>
+</body>
+</html>

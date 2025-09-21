@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Platform保存问题测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .debug-info { background: #f5f5f5; padding: 10px; margin: 10px 0; font-family: monospace; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        .warning { color: orange; }
+    </style>
+</head>
+<body>
+    <h1>AI Platform保存问题测试</h1>
+    
+    <div class="test-section">
+        <h2>1. 测试保存前所有平台的API Key</h2>
+        <button onclick="testBeforeSave()">检查保存前的API Keys</button>
+        <div id="before-save-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. 模拟保存单个平台</h2>
+        <button onclick="simulateSave()">模拟保存deepseek平台</button>
+        <div id="save-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. 测试保存后所有平台的API Key</h2>
+        <button onclick="testAfterSave()">检查保存后的API Keys</button>
+        <div id="after-save-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. 调试信息</h2>
+        <div id="debug-log"></div>
+    </div>
+
+    <script>
+        let beforeSaveApiKeys = {};
+        let afterSaveApiKeys = {};
+        
+        function addLog(message, type = 'info') {
+            const div = document.getElementById('debug-log');
+            const p = document.createElement('p');
+            p.className = type;
+            p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            div.appendChild(p);
+        }
+        
+        async function testBeforeSave() {
+            const resultDiv = document.getElementById('before-save-result');
+            resultDiv.innerHTML = '<div class="info">检查中...</div>';
+            addLog('开始检查保存前的API Keys');
+            
+            try {
+                const resp = await fetch('/auth/app-config/raw-secrets');
+                if (resp.ok) {
+                    const secrets = await resp.json();
+                    beforeSaveApiKeys = secrets.platform_api_keys || {};
+                    
+                    const platforms = Object.keys(beforeSaveApiKeys);
+                    addLog(`✅ 找到 ${platforms.length} 个平台的API Keys: ${platforms.join(', ')}`);
+                    
+                    let html = '<div class="success">✅ 保存前的API Keys:</div>';
+                    platforms.forEach(platform => {
+                        const apiKey = beforeSaveApiKeys[platform];
+                        const maskedKey = apiKey ? apiKey.substring(0, 8) + '***' : '无';
+                        html += `<div class="info">📋 ${platform}: ${maskedKey}</div>`;
+                    });
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ 获取失败: ${resp.status}</div>`;
+                    addLog(`获取API Keys失败: ${resp.status}`, 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 错误: ${error.message}</div>`;
+                addLog(`检查API Keys异常: ${error.message}`, 'error');
+            }
+        }
+        
+        async function simulateSave() {
+            const resultDiv = document.getElementById('save-result');
+            resultDiv.innerHTML = '<div class="info">模拟保存中...</div>';
+            addLog('开始模拟保存deepseek平台');
+            
+            try {
+                // 模拟修复后的保存逻辑
+                const platformType = 'deepseek';
+                const newApiKey = 'sk-test123456789abcdefghijklmnopqrstuvwxyz';
+                
+                // 获取当前的API Keys
+                let currentApiKeys = {};
+                const resp = await fetch('/auth/app-config/raw-secrets');
+                if (resp.ok) {
+                    const secrets = await resp.json();
+                    currentApiKeys = secrets.platform_api_keys || {};
+                    addLog(`📋 获取到当前API Keys: ${Object.keys(currentApiKeys).join(', ')}`);
+                }
+                
+                // 只更新当前平台的API Key
+                currentApiKeys[platformType] = newApiKey;
+                addLog(`📋 更新后的API Keys: ${Object.keys(currentApiKeys).join(', ')}`);
+                
+                // 保存到后端
+                const saveResp = await fetch('/auth/app-config/setting', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        key: 'platform_api_keys', 
+                        value: currentApiKeys 
+                    })
+                });
+                
+                if (saveResp.ok) {
+                    resultDiv.innerHTML = '<div class="success">✅ 模拟保存成功</div>';
+                    addLog('✅ 模拟保存成功');
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ 保存失败: ${saveResp.status}</div>`;
+                    addLog(`保存失败: ${saveResp.status}`, 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 错误: ${error.message}</div>`;
+                addLog(`模拟保存异常: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testAfterSave() {
+            const resultDiv = document.getElementById('after-save-result');
+            resultDiv.innerHTML = '<div class="info">检查中...</div>';
+            addLog('开始检查保存后的API Keys');
+            
+            try {
+                const resp = await fetch('/auth/app-config/raw-secrets');
+                if (resp.ok) {
+                    const secrets = await resp.json();
+                    afterSaveApiKeys = secrets.platform_api_keys || {};
+                    
+                    const platforms = Object.keys(afterSaveApiKeys);
+                    addLog(`✅ 找到 ${platforms.length} 个平台的API Keys: ${platforms.join(', ')}`);
+                    
+                    let html = '<div class="success">✅ 保存后的API Keys:</div>';
+                    platforms.forEach(platform => {
+                        const apiKey = afterSaveApiKeys[platform];
+                        const maskedKey = apiKey ? apiKey.substring(0, 8) + '***' : '无';
+                        html += `<div class="info">📋 ${platform}: ${maskedKey}</div>`;
+                    });
+                    resultDiv.innerHTML = html;
+                    
+                    // 比较保存前后的差异
+                    const beforePlatforms = Object.keys(beforeSaveApiKeys);
+                    const afterPlatforms = Object.keys(afterSaveApiKeys);
+                    
+                    if (beforePlatforms.length === afterPlatforms.length) {
+                        addLog('✅ 平台数量保持一致', 'success');
+                    } else {
+                        addLog(`⚠️ 平台数量变化: ${beforePlatforms.length} -> ${afterPlatforms.length}`, 'warning');
+                    }
+                    
+                    const lostPlatforms = beforePlatforms.filter(p => !afterPlatforms.includes(p));
+                    if (lostPlatforms.length > 0) {
+                        addLog(`❌ 丢失的平台: ${lostPlatforms.join(', ')}`, 'error');
+                    } else {
+                        addLog('✅ 没有平台丢失', 'success');
+                    }
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ 获取失败: ${resp.status}</div>`;
+                    addLog(`获取API Keys失败: ${resp.status}`, 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 错误: ${error.message}</div>`;
+                addLog(`检查API Keys异常: ${error.message}`, 'error');
+            }
+        }
+        
+        // 页面加载时自动运行测试
+        window.addEventListener('load', () => {
+            addLog('测试页面加载完成');
+            testBeforeSave();
+        });
+    </script>
+</body>
+</html>

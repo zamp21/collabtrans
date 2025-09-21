@@ -162,6 +162,26 @@ async function loadModuleContent(moduleName) {
     script.onload = () => {
       loadedModules.add(moduleName);
       console.log(`Module ${moduleName} loaded successfully`);
+      
+      // Call module-specific initialization if available with a small delay
+      setTimeout(() => {
+        if (moduleName === 'ai-platforms' && window.initAiPlatformModule) {
+          console.log(`Calling ${moduleName} initialization`);
+          window.initAiPlatformModule();
+        } else if (moduleName === 'general' && window.initGeneralModule) {
+          console.log(`Calling ${moduleName} initialization`);
+          window.initGeneralModule();
+        } else if (moduleName === 'login-settings' && window.initLoginSettingsModule) {
+          console.log(`Calling ${moduleName} initialization`);
+          window.initLoginSettingsModule();
+        } else if (moduleName === 'parsing-engines' && window.initParsingEnginesModule) {
+          console.log(`Calling ${moduleName} initialization`);
+          window.initParsingEnginesModule();
+        } else if (moduleName === 'web-settings' && window.initWebSettingsModule) {
+          console.log(`Calling ${moduleName} initialization`);
+          window.initWebSettingsModule();
+        }
+      }, 50);
     };
     script.onerror = () => {
       console.error(`Failed to load JavaScript for module ${moduleName}`);
@@ -208,33 +228,56 @@ function showNotification(message, type = 'info') {
 
 // --- Password Toggle ---
 function initTogglePasswordButtons() {
+  console.log('[DEBUG] initTogglePasswordButtons - starting initialization');
   const toggleButtons = document.querySelectorAll('.toggle-password');
-  toggleButtons.forEach(button => {
+  console.log('[DEBUG] initTogglePasswordButtons - found toggle buttons:', toggleButtons.length);
+  
+  toggleButtons.forEach((button, index) => {
     const targetId = button.getAttribute('data-target');
     const passwordInput = document.getElementById(targetId);
     const icon = button.querySelector('i');
 
-    if (!passwordInput || !icon) return;
+    console.log(`[DEBUG] initTogglePasswordButtons - button ${index}: target=${targetId}, input exists=${!!passwordInput}, icon exists=${!!icon}`);
+
+    if (!passwordInput || !icon) {
+      console.warn(`[DEBUG] initTogglePasswordButtons - button ${index} missing target or icon`);
+      return;
+    }
 
     button.addEventListener('click', async () => {
+      console.log(`[DEBUG] toggle-password button clicked for target: ${targetId}`);
       if (passwordInput.type === 'password') {
         passwordInput.type = 'text';
         icon.classList.remove('bi-eye-slash');
         icon.classList.add('bi-eye');
         
-        if (targetId === 'platformApiKey' && passwordInput.value && passwordInput.value.endsWith('***')) {
+        if (targetId === 'platformApiKey' && passwordInput.value && passwordInput.value.includes('***')) {
+          const currentPlatform = document.getElementById('platformSelect').value;
+          console.log(`[DEBUG] Detected masked API key, fetching real key for platform: ${currentPlatform}`);
+          console.log(`[DEBUG] Current masked value: "${passwordInput.value}"`);
+          console.log(`[DEBUG] Input type: ${passwordInput.type}`);
+          
           try {
-            const currentPlatform = document.getElementById('platformSelect').value;
             const resp = await fetch('/auth/app-config/raw-secrets');
             if (resp.ok) {
               const secrets = await resp.json();
+              console.log(`[DEBUG] Raw secrets response:`, secrets);
+              console.log(`[DEBUG] Available platforms:`, Object.keys(secrets.platform_api_keys || {}));
+              
               const apiKey = secrets.platform_api_keys?.[currentPlatform];
               if (apiKey) {
+                console.log(`[DEBUG] Found API key for platform ${currentPlatform}, length: ${apiKey.length}`);
                 passwordInput.value = apiKey;
+                console.log(`[DEBUG] Real API key loaded for platform: ${currentPlatform}`);
+              } else {
+                console.log(`[DEBUG] No API key found for platform: ${currentPlatform}`);
+                console.log(`[DEBUG] Available platforms:`, Object.keys(secrets.platform_api_keys || {}));
               }
+            } else {
+              console.error(`[DEBUG] Failed to fetch raw secrets: ${resp.status}`);
             }
           } catch (error) {
-            console.error('Error fetching raw API key:', error);
+            console.error('[DEBUG] Error fetching raw API key:', error);
           }
         }
       } else {
@@ -242,9 +285,10 @@ function initTogglePasswordButtons() {
         icon.classList.remove('bi-eye');
         icon.classList.add('bi-eye-slash');
         
-        if (targetId === 'platformApiKey' && passwordInput.value && !passwordInput.value.endsWith('***')) {
+        if (targetId === 'platformApiKey' && passwordInput.value && !passwordInput.value.includes('***')) {
           const maskedKey = passwordInput.value.substring(0, 8) + '***';
           passwordInput.value = maskedKey;
+          console.log(`[DEBUG] API key masked for platform: ${document.getElementById('platformSelect').value}`);
         }
       }
     });

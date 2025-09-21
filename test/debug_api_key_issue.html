@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Key显示问题调试</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .debug-info { background: #f5f5f5; padding: 10px; margin: 10px 0; font-family: monospace; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        .warning { color: orange; }
+    </style>
+</head>
+<body>
+    <h1>API Key显示问题调试</h1>
+    
+    <div class="test-section">
+        <h2>1. 测试API端点</h2>
+        <button onclick="testEndpoints()">测试API端点</button>
+        <div id="endpoint-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. 模拟Settings页面API Key加载</h2>
+        <button onclick="simulateSettingsApiKey()">模拟Settings页面</button>
+        <div id="settings-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. 模拟密码切换按钮</h2>
+        <button onclick="simulatePasswordToggle()">模拟密码切换</button>
+        <div id="toggle-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. 调试信息</h2>
+        <div id="debug-log"></div>
+    </div>
+
+    <script>
+        let testApiKey = '';
+        let testMaskedKey = '';
+        
+        function addLog(message, type = 'info') {
+            const div = document.getElementById('debug-log');
+            const p = document.createElement('p');
+            p.className = type;
+            p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            div.appendChild(p);
+        }
+        
+        async function testEndpoints() {
+            const resultDiv = document.getElementById('endpoint-result');
+            resultDiv.innerHTML = '<div class="info">测试中...</div>';
+            addLog('开始测试API端点');
+            
+            try {
+                // 测试 /auth/app-config 端点
+                const appConfigResp = await fetch('/auth/app-config');
+                if (appConfigResp.ok) {
+                    const appConfig = await appConfigResp.json();
+                    addLog('✅ /auth/app-config 端点正常');
+                    
+                    // 检查platform_api_keys
+                    if (appConfig.platform_api_keys) {
+                        const platforms = Object.keys(appConfig.platform_api_keys);
+                        addLog(`📋 找到平台API Keys: ${platforms.join(', ')}`);
+                        
+                        // 检查第一个平台的API Key格式
+                        const firstPlatform = platforms[0];
+                        const firstApiKey = appConfig.platform_api_keys[firstPlatform];
+                        addLog(`📋 ${firstPlatform} API Key: ${firstApiKey}`);
+                    } else {
+                        addLog('⚠️ 未找到platform_api_keys', 'warning');
+                    }
+                } else {
+                    addLog(`❌ /auth/app-config 端点失败: ${appConfigResp.status}`, 'error');
+                }
+                
+                // 测试 /auth/app-config/raw-secrets 端点
+                const rawSecretsResp = await fetch('/auth/app-config/raw-secrets');
+                if (rawSecretsResp.ok) {
+                    const rawSecrets = await rawSecretsResp.json();
+                    addLog('✅ /auth/app-config/raw-secrets 端点正常');
+                    
+                    if (rawSecrets.platform_api_keys) {
+                        const platforms = Object.keys(rawSecrets.platform_api_keys);
+                        addLog(`📋 找到平台API Keys: ${platforms.join(', ')}`);
+                        
+                        // 保存第一个平台的API Key用于测试
+                        const firstPlatform = platforms[0];
+                        testApiKey = rawSecrets.platform_api_keys[firstPlatform];
+                        testMaskedKey = testApiKey.substring(0, 8) + '***';
+                        addLog(`📋 ${firstPlatform} 真实API Key: ${testApiKey}`);
+                        addLog(`📋 ${firstPlatform} 掩码API Key: ${testMaskedKey}`);
+                    }
+                } else {
+                    addLog(`❌ /auth/app-config/raw-secrets 端点失败: ${rawSecretsResp.status}`, 'error');
+                }
+                
+                resultDiv.innerHTML = '<div class="success">✅ API端点测试完成</div>';
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 测试失败: ${error.message}</div>`;
+                addLog(`API端点测试异常: ${error.message}`, 'error');
+            }
+        }
+        
+        async function simulateSettingsApiKey() {
+            const resultDiv = document.getElementById('settings-result');
+            resultDiv.innerHTML = '<div class="info">模拟中...</div>';
+            addLog('开始模拟Settings页面API Key加载');
+            
+            try {
+                // 模拟Settings页面的loadApiKey函数
+                const resp = await fetch('/auth/app-config/raw-secrets');
+                if (resp.ok) {
+                    const secrets = await resp.json();
+                    const platform = 'deepseek'; // 假设使用deepseek平台
+                    const apiKey = secrets.platform_api_keys?.[platform];
+                    
+                    if (apiKey) {
+                        const maskedKey = apiKey.substring(0, 8) + '***';
+                        addLog(`📋 模拟加载API Key: ${maskedKey}`);
+                        addLog(`📋 真实API Key长度: ${apiKey.length}`);
+                        addLog(`📋 掩码API Key长度: ${maskedKey.length}`);
+                        
+                        resultDiv.innerHTML = `
+                            <div class="success">✅ API Key加载成功</div>
+                            <div class="info">📋 平台: ${platform}</div>
+                            <div class="info">📋 掩码API Key: ${maskedKey}</div>
+                            <div class="info">📋 真实API Key长度: ${apiKey.length}</div>
+                        `;
+                    } else {
+                        addLog(`⚠️ 未找到平台 ${platform} 的API Key`, 'warning');
+                        resultDiv.innerHTML = `<div class="warning">⚠️ 未找到API Key</div>`;
+                    }
+                } else {
+                    addLog(`❌ 获取raw-secrets失败: ${resp.status}`, 'error');
+                    resultDiv.innerHTML = `<div class="error">❌ 获取失败: ${resp.status}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 模拟失败: ${error.message}</div>`;
+                addLog(`Settings页面模拟异常: ${error.message}`, 'error');
+            }
+        }
+        
+        function simulatePasswordToggle() {
+            const resultDiv = document.getElementById('toggle-result');
+            resultDiv.innerHTML = '<div class="info">模拟中...</div>';
+            addLog('开始模拟密码切换按钮');
+            
+            if (!testApiKey || !testMaskedKey) {
+                resultDiv.innerHTML = '<div class="error">❌ 请先测试API端点</div>';
+                addLog('请先测试API端点获取测试数据', 'error');
+                return;
+            }
+            
+            // 模拟密码切换逻辑
+            let currentValue = testMaskedKey;
+            let isMasked = true;
+            
+            addLog(`📋 初始值: ${currentValue} (掩码: ${isMasked})`);
+            
+            // 模拟点击眼睛按钮
+            if (isMasked && currentValue.includes('***')) {
+                addLog('📋 检测到掩码API Key，获取真实API Key');
+                currentValue = testApiKey;
+                isMasked = false;
+                addLog(`📋 切换后值: ${currentValue} (掩码: ${isMasked})`);
+            } else if (!isMasked && !currentValue.includes('***')) {
+                addLog('📋 检测到真实API Key，重新掩码');
+                currentValue = currentValue.substring(0, 8) + '***';
+                isMasked = true;
+                addLog(`📋 切换后值: ${currentValue} (掩码: ${isMasked})`);
+            }
+            
+            resultDiv.innerHTML = `
+                <div class="success">✅ 密码切换模拟完成</div>
+                <div class="info">📋 初始值: ${testMaskedKey}</div>
+                <div class="info">📋 切换后值: ${currentValue}</div>
+                <div class="info">📋 是否掩码: ${isMasked}</div>
+            `;
+        }
+        
+        // 页面加载时自动运行测试
+        window.addEventListener('load', () => {
+            addLog('调试页面加载完成');
+            testEndpoints();
+        });
+    </script>
+</body>
+</html>

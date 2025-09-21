@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Platform Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .error { color: red; }
+        .success { color: green; }
+        .info { color: blue; }
+        .debug { background: #f5f5f5; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>AI Platform 加载测试</h1>
+    
+    <div class="test-section">
+        <h2>1. 后端API测试</h2>
+        <button onclick="testAPI()">测试 /auth/app-config</button>
+        <div id="api-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. AI Platform模块测试</h2>
+        <button onclick="testModule()">测试模块加载</button>
+        <div id="module-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. 模拟Settings页面加载</h2>
+        <button onclick="simulateSettings()">模拟Settings页面</button>
+        <div id="settings-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. 调试信息</h2>
+        <div id="debug-info"></div>
+    </div>
+
+    <script>
+        function addDebug(message, type = 'info') {
+            const div = document.getElementById('debug-info');
+            const p = document.createElement('p');
+            p.className = type;
+            p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            div.appendChild(p);
+        }
+        
+        async function testAPI() {
+            const resultDiv = document.getElementById('api-result');
+            resultDiv.innerHTML = '<div class="info">测试中...</div>';
+            addDebug('开始测试后端API');
+            
+            try {
+                const response = await fetch('/auth/app-config');
+                if (response.ok) {
+                    const config = await response.json();
+                    const aiPlatforms = config.ai_platforms || {};
+                    const platformCount = Object.keys(aiPlatforms).length;
+                    
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ API响应成功: ${response.status}</div>
+                        <div class="info">📊 AI平台配置数量: ${platformCount}</div>
+                        <div class="info">📋 平台列表: ${Object.keys(aiPlatforms).join(', ')}</div>
+                    `;
+                    
+                    addDebug(`API测试成功，找到${platformCount}个平台`);
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ API响应失败: ${response.status}</div>`;
+                    addDebug(`API测试失败: ${response.status}`);
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ API测试失败: ${error.message}</div>`;
+                addDebug(`API测试异常: ${error.message}`);
+            }
+        }
+        
+        async function testModule() {
+            const resultDiv = document.getElementById('module-result');
+            resultDiv.innerHTML = '<div class="info">测试中...</div>';
+            addDebug('开始测试AI Platform模块');
+            
+            try {
+                // 测试模块文件
+                const response = await fetch('/static/settings/ai-platforms.js');
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">✅ AI Platform模块文件存在</div>
+                        <div class="info">📄 文件大小: ${response.headers.get('content-length')} bytes</div>
+                    `;
+                    addDebug('AI Platform模块文件存在');
+                    
+                    // 尝试加载模块
+                    const script = document.createElement('script');
+                    script.src = '/static/settings/ai-platforms.js';
+                    script.onload = () => {
+                        addDebug('AI Platform模块JavaScript加载成功');
+                        if (window.initAiPlatformModule) {
+                            addDebug('initAiPlatformModule函数可用');
+                        } else {
+                            addDebug('initAiPlatformModule函数不可用', 'error');
+                        }
+                    };
+                    script.onerror = () => {
+                        addDebug('AI Platform模块JavaScript加载失败', 'error');
+                    };
+                    document.head.appendChild(script);
+                    
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ AI Platform模块文件不存在: ${response.status}</div>`;
+                    addDebug(`AI Platform模块文件不存在: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 模块测试失败: ${error.message}</div>`;
+                addDebug(`模块测试异常: ${error.message}`, 'error');
+            }
+        }
+        
+        async function simulateSettings() {
+            const resultDiv = document.getElementById('settings-result');
+            resultDiv.innerHTML = '<div class="info">模拟中...</div>';
+            addDebug('开始模拟Settings页面加载');
+            
+            try {
+                // 创建AI Platform模块的HTML内容
+                const aiPlatformHTML = `
+                    <div class="border rounded p-4">
+                        <div class="mb-3">
+                            <label class="form-label" for="platformSelect">当前平台</label>
+                            <select id="platformSelect" class="form-select">
+                                <!-- Options will be dynamically loaded -->
+                            </select>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label" for="platformName">平台名称</label>
+                                <input type="text" class="form-control" id="platformName" placeholder="DeepSeek">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="platformUrl">平台链接</label>
+                                <input type="url" class="form-control" id="platformUrl" placeholder="https://api.deepseek.com">
+                            </div>
+                        </div>
+                        <div class="mt-4 d-flex gap-2">
+                            <button id="saveAiPlatformBtn" class="btn btn-primary">保存 AI 平台设置</button>
+                            <button id="testAiPlatformBtn" class="btn btn-outline-secondary">测试连接</button>
+                        </div>
+                    </div>
+                `;
+                
+                // 插入HTML
+                const container = document.createElement('div');
+                container.innerHTML = aiPlatformHTML;
+                resultDiv.appendChild(container);
+                
+                addDebug('AI Platform HTML已插入');
+                
+                // 等待一下再加载JavaScript
+                setTimeout(async () => {
+                    try {
+                        const script = document.createElement('script');
+                        script.src = '/static/settings/ai-platforms.js';
+                        script.onload = () => {
+                            addDebug('AI Platform模块JavaScript加载成功');
+                            
+                            // 尝试调用初始化函数
+                            if (window.initAiPlatformModule) {
+                                addDebug('调用initAiPlatformModule函数');
+                                window.initAiPlatformModule();
+                                
+                                // 检查平台选择框是否被填充
+                                setTimeout(() => {
+                                    const select = document.getElementById('platformSelect');
+                                    if (select && select.options.length > 0) {
+                                        addDebug(`平台选择框已填充，选项数量: ${select.options.length}`, 'success');
+                                        resultDiv.innerHTML += `<div class="success">✅ 平台选择框已填充，选项数量: ${select.options.length}</div>`;
+                                    } else {
+                                        addDebug('平台选择框未被填充', 'error');
+                                        resultDiv.innerHTML += `<div class="error">❌ 平台选择框未被填充</div>`;
+                                    }
+                                }, 1000);
+                            } else {
+                                addDebug('initAiPlatformModule函数不可用', 'error');
+                            }
+                        };
+                        script.onerror = () => {
+                            addDebug('AI Platform模块JavaScript加载失败', 'error');
+                        };
+                        document.head.appendChild(script);
+                    } catch (error) {
+                        addDebug(`模拟Settings页面异常: ${error.message}`, 'error');
+                    }
+                }, 100);
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 模拟失败: ${error.message}</div>`;
+                addDebug(`模拟Settings页面失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 页面加载时自动运行测试
+        window.addEventListener('load', () => {
+            addDebug('测试页面加载完成');
+            testAPI();
+        });
+    </script>
+</body>
+</html>

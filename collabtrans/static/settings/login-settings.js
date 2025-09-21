@@ -30,6 +30,36 @@ async function loadLdapConfig() {
   }
 }
 
+// Load session and security configuration
+async function loadSessionSecurityConfig() {
+  try {
+    const resp = await fetch('/auth/app-config');
+    if (!resp.ok) return false;
+    const cfg = await resp.json();
+    
+    // Load session settings
+    const sessionMaxAgeInput = document.getElementById('sessionMaxAgeInput');
+    if (sessionMaxAgeInput) {
+      sessionMaxAgeInput.value = cfg.session_max_age || 604800;
+    }
+    
+    // Load security settings
+    const maxLoginAttemptsInput = document.getElementById('maxLoginAttemptsInput');
+    if (maxLoginAttemptsInput) {
+      maxLoginAttemptsInput.value = cfg.max_login_attempts || 5;
+    }
+    
+    const loginAttemptWindowInput = document.getElementById('loginAttemptWindowInput');
+    if (loginAttemptWindowInput) {
+      loginAttemptWindowInput.value = cfg.login_attempt_window || 300;
+    }
+    
+    return true;
+  } catch (_) { 
+    return false; 
+  }
+}
+
 // Update LDAPS UI
 function updateLdapsUi() {
   const isLdaps = document.getElementById('ldapProtocol').value === 'ldaps';
@@ -38,7 +68,8 @@ function updateLdapsUi() {
 
 // Save login settings
 async function saveLoginSettings(silent = false) {
-  const payload = {
+  // Save LDAP configuration
+  const ldapPayload = {
     ldap_enabled: document.getElementById('ldapEnabled').checked,
     ldap_protocol: document.getElementById('ldapProtocol').value,
     ldap_host: document.getElementById('ldapHost').value,
@@ -55,21 +86,36 @@ async function saveLoginSettings(silent = false) {
     ldap_tls_cacertfile: document.getElementById('ldapTlsCacertfile').value
   };
   
-  const resp = await fetch('/auth/ldap-config', {
+  const ldapResp = await fetch('/auth/ldap-config', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(ldapPayload)
   });
   
+  // Save session and security configuration
+  const sessionSecurityPayload = {
+    session_max_age: parseInt(document.getElementById('sessionMaxAgeInput').value || '604800'),
+    max_login_attempts: parseInt(document.getElementById('maxLoginAttemptsInput').value || '5'),
+    login_attempt_window: parseInt(document.getElementById('loginAttemptWindowInput').value || '300')
+  };
+  
+  const sessionSecurityResp = await fetch('/auth/app-config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(sessionSecurityPayload)
+  });
+  
+  const success = ldapResp.ok && sessionSecurityResp.ok;
+  
   if (!silent && window.SettingsCore) {
-    if (resp.ok) {
+    if (success) {
       window.SettingsCore.showNotification(window.SettingsCore.getText('loginSettingsSaved'), 'success');
     } else {
       window.SettingsCore.showNotification(window.SettingsCore.getText('saveFailed'), 'error');
     }
   }
   
-  return resp.ok;
+  return success;
 }
 
 // Generate LDAP test command
@@ -176,6 +222,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Load LDAP configuration
   loadLdapConfig();
   
+  // Load session and security configuration
+  loadSessionSecurityConfig();
+  
   // Setup event listeners
   const ldapProtocol = document.getElementById('ldapProtocol');
   if (ldapProtocol) {
@@ -205,7 +254,10 @@ document.addEventListener('DOMContentLoaded', () => {
       { id: 'ldapBindDnTemplate', attr: 'data-i18n-placeholder' },
       { id: 'ldapUserFilter', attr: 'data-i18n-placeholder' },
       { id: 'ldapTestPasswordInput', attr: 'data-i18n-placeholder' },
-      { id: 'ldapTestUsernameInput', attr: 'data-i18n-placeholder' }
+      { id: 'ldapTestUsernameInput', attr: 'data-i18n-placeholder' },
+      { id: 'sessionMaxAgeInput', attr: 'data-i18n-placeholder' },
+      { id: 'maxLoginAttemptsInput', attr: 'data-i18n-placeholder' },
+      { id: 'loginAttemptWindowInput', attr: 'data-i18n-placeholder' }
     ];
     
     elements.forEach(({ id, attr }) => {

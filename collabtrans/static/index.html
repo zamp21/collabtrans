@@ -253,12 +253,7 @@
                             </div>
                             <!-- 下排：操作按钮 -->
                             <div class="d-flex flex-wrap align-items-center gap-2">
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="resetAuthConfigBtn">
-                                    <i class="bi bi-arrow-clockwise me-1"></i><span data-i18n="resetConfigBtn">重置配置</span>
-                                </button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="saveAuthConfigBtn">
-                                    <i class="bi bi-check-circle me-1"></i><span data-i18n="saveConfigBtn">保存配置</span>
-                                </button>
+                                <!-- AUTH 配置按钮已迁移到 /settings 页面 -->
                                 <button type="button" class="btn btn-sm btn-outline-danger" id="logoutBtn">
                                     <i class="bi bi-box-arrow-right me-1"></i><span data-i18n="logoutBtn">退出登录</span>
                                 </button>
@@ -1058,222 +1053,7 @@ $.*"></textarea>
                                 </div>
                             </div>
                         </div>
-                        <!-- AUTH Settings Container -->
-                        <div class="accordion-item" id="authSettingsContainer">
-                            <h2 class="accordion-header" id="headingAuth">
-                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                        data-bs-target="#collapseAuth" aria-expanded="false"
-                                        aria-controls="collapseAuth">
-                                    <strong><i class="bi bi-shield-lock me-2"></i><span data-i18n="authSettingsTitle">6. 登入设置</span></strong>
-                                </button>
-                            </h2>
-                            <div id="collapseAuth" class="accordion-collapse collapse" aria-labelledby="headingAuth">
-                                <div class="accordion-body">
-                                    <!-- LDAP 配置 -->
-                                    <div class="mb-3">
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" role="switch"
-                                                   id="ldapEnabledSwitch">
-                                            <label class="form-check-label" for="ldapEnabledSwitch"
-                                                   data-i18n="ldapEnabledLabel">启用 LDAP 认证</label>
-                                        </div>
-                                        <div class="form-text" data-i18n="ldapEnabledHelp">
-                                            启用后将使用 LDAP/AD 进行用户认证，否则使用默认用户认证。
-                                        </div>
-                                    </div>
-
-                                    <div id="ldapConfigGroup" style="display: none;">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="ldapProtocol" class="form-label" data-i18n="ldapProtocolLabel">协议类型</label>
-                                                    <select class="form-select" id="ldapProtocol" name="ldap_protocol">
-                                                        <option value="ldap" data-i18n="ldapProtocol389">LDAP (389端口)</option>
-                                                        <option value="ldaps" data-i18n="ldapProtocol636">LDAPS (636端口)</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="ldapHost" class="form-label" data-i18n="ldapHostLabel">LDAP服务器（与证书CN/SAN匹配）</label>
-                                                    <input type="text" class="form-control" id="ldapHost" name="ldap_host"
-                                                           data-i18n-placeholder="ldapHostPlaceholder"
-                                                           placeholder="adtest2.testldaps.io 或 192.168.x.x">
-                                                    <div class="form-text" data-i18n="ldapHostHelp">建议使用与证书匹配的主机名，否则可能导致验证失败</div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="ldapPort" class="form-label" data-i18n="ldapPortLabel">端口</label>
-                                                    <input type="number" class="form-control" id="ldapPort" name="ldap_port"
-                                                           placeholder="389">
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <div class="mb-3">
-                                                    <label for="ldapBaseDn" class="form-label" data-i18n="ldapBaseDnLabel">Base DN</label>
-                                                    <input type="text" class="form-control" id="ldapBaseDn" name="ldap_base_dn"
-                                                           placeholder="OU=Users,DC=example,DC=com">
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div class="mb-3">
-                                            <label for="ldapBindDnTemplate" class="form-label" data-i18n="ldapBindDnTemplateLabel">绑定 DN 模板</label>
-                                            <input type="text" class="form-control" id="ldapBindDnTemplate" name="ldap_bind_dn_template"
-                                                   data-i18n-placeholder="ldapBindDnPlaceholder"
-                                                   placeholder="EXAMPLE\\{username} 或 {username}@example.com">
-                                            <div class="form-text" data-i18n="ldapBindDnTemplateHelp">
-                                                使用{username}作为用户名占位符
-                                            </div>
-                                        </div>
-
-                                        <div class="mb-3">
-                                            <label for="ldapUserFilter" class="form-label" data-i18n="ldapUserFilterLabel">用户过滤器</label>
-                                            <input type="text" class="form-control" id="ldapUserFilter" name="ldap_user_filter"
-                                                   placeholder="(sAMAccountName={username})">
-                                        </div>
-
-                                        <!-- LDAP 组配置 -->
-                                        <div class="mb-3">
-                                            <h6 class="text-muted mb-3" data-i18n="ldapGroupConfigTitle">组权限配置</h6>
-                                            
-                                            <!-- 组查询开关 -->
-                                            <div class="row mb-3">
-                                                <div class="col-md-6">
-                                                    <div class="form-check form-switch">
-                                                        <input class="form-check-input" type="checkbox" id="ldapAdminGroupEnabled"
-                                                               name="ldap_admin_group_enabled">
-                                                        <label class="form-check-label" for="ldapAdminGroupEnabled"
-                                                               data-i18n="ldapAdminGroupEnabledLabel">启用管理员组查询</label>
-                                                    </div>
-                                                    <div class="form-text" data-i18n="ldapAdminGroupEnabledHelp">启用后，只有管理员组成员才能获得管理员权限</div>
-                                                </div>
-                                                <div class="col-md-6">
-                                                    <div class="form-check form-switch">
-                                                        <input class="form-check-input" type="checkbox" id="ldapGlossaryGroupEnabled"
-                                                               name="ldap_glossary_group_enabled">
-                                                        <label class="form-check-label" for="ldapUserGroupEnabled"
-                                                               data-i18n="ldapUserGroupEnabledLabel">启用术语表组查询</label>
-                                                    </div>
-                                                    <div class="form-text" data-i18n="ldapUserGroupEnabledHelp">启用后，只有术语表组成员才能管理术语表</div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="row">
-                                                <div class="col-md-6">
-                                                    <label for="ldapAdminGroup" class="form-label" data-i18n="ldapAdminGroupLabel">管理员组名</label>
-                                                    <input type="text" class="form-control" id="ldapAdminGroup" name="ldap_admin_group"
-                                                           placeholder="DocuTranslate-Admins">
-                                                    <div class="form-text" data-i18n="ldapAdminGroupHelp">LDAP中的管理员组名称</div>
-                                                </div>
-                                                <div class="col-md-6">
-                                                    <label for="ldapGlossaryGroup" class="form-label" data-i18n="ldapUserGroupLabel">术语表组名</label>
-                                                    <input type="text" class="form-control" id="ldapGlossaryGroup" name="ldap_glossary_group"
-                                                           placeholder="DocuTranslate-Glossary">
-                                                    <div class="form-text" data-i18n="ldapUserGroupHelp">LDAP中的术语表组名称</div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="mt-3">
-                                                <label for="ldapGroupBaseDn" class="form-label" data-i18n="ldapGroupBaseDnLabel">组搜索 Base DN</label>
-                                                <input type="text" class="form-control" id="ldapGroupBaseDn" name="ldap_group_base_dn"
-                                                       placeholder="OU=Groups,DC=example,DC=com">
-                                                <div class="form-text" data-i18n="ldapGroupBaseDnHelp">用于搜索LDAP组的基础DN</div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div id="ldapsConfigContainer" style="display: none;">
-                                            <div class="mb-3">
-                                                <div class="form-check form-switch">
-                                                    <input class="form-check-input" type="checkbox" id="ldapTlsVerify"
-                                                           name="ldap_tls_verify">
-                                                    <label class="form-check-label" for="ldapTlsVerify"
-                                                           data-i18n="ldapTlsVerifyLabel">验证TLS证书</label>
-                                                </div>
-                                                <div class="form-text" id="ldapTlsVerifyHelpOn" style="display:none;" data-i18n="ldapTlsVerifyHelpOn">已安装根CA时建议保持开启</div>
-                                                <div class="form-text" id="ldapTlsVerifyHelpOff" style="display:none;" data-i18n="ldapTlsVerifyHelpOff">不安全，仅用于临时排障</div>
-                                            </div>
-                                            
-                                            <div class="mb-3">
-                                                <label for="ldapTlsCacertfile" class="form-label" data-i18n="ldapTlsCacertfileLabel">TLS证书文件路径</label>
-                                                <input type="text" class="form-control" id="ldapTlsCacertfile" name="ldap_tls_cacertfile"
-                                                       placeholder="/path/to/ca.crt">
-                                                <div class="form-text" data-i18n="ldapTlsCacertfileHelp">可选，用于验证LDAPS服务器证书</div>
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- 已迁移到 /settings：LDAP 测试按钮 -->
-                                        
-                                        <!-- Admin Group用户的LDAP配置保存按钮 -->
-                                        <div class="mb-3" id="ldapConfigSaveSection" style="display: none;">
-                                            <button type="button" class="btn btn-outline-secondary" id="saveLdapConfigBtn">
-                                                <i class="bi bi-check-circle me-1"></i><span data-i18n="saveLdapConfigBtn">保存LDAP配置</span>
-                                            </button>
-                                        </div>
-
-                                        <!-- 已迁移到 /settings：LDAP 测试弹窗 -->
-                                    </div>
-
-                                    <!-- 默认用户配置 -->
-                                    <div id="defaultUserConfigGroup">
-                                        <h6 class="mb-3" data-i18n="defaultUserConfigTitle">默认用户配置</h6>
-                                        <div class="mb-3">
-                                            <label for="defaultUsernameInput" class="form-label" data-i18n="defaultUsernameLabel">默认用户名</label>
-                                            <input type="text" class="form-control" id="defaultUsernameInput" 
-                                                   placeholder="admin">
-                                        </div>
-                                        <div class="mb-3">
-                                            <label for="defaultPasswordInput" class="form-label" data-i18n="defaultPasswordLabel">默认密码</label>
-                                            <div class="input-group">
-                                                <input type="password" class="form-control" id="defaultPasswordInput" 
-                                                       placeholder="admin123">
-                                                <button class="btn btn-outline-secondary toggle-password" type="button" 
-                                                        data-target="defaultPasswordInput">
-                                                    <i class="bi bi-eye"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- 会话配置 -->
-                                    <h6 class="mb-3 mt-4" data-i18n="sessionConfigTitle">会话配置</h6>
-                                    <div class="mb-3">
-                                        <label for="sessionMaxAgeInput" class="form-label" data-i18n="sessionMaxAgeLabel">会话最大时长（秒）</label>
-                                        <input type="number" class="form-control" id="sessionMaxAgeInput" 
-                                               placeholder="604800" min="3600" max="2592000">
-                                        <div class="form-text" data-i18n="sessionMaxAgeHelp">
-                                            会话的最大持续时间，默认 7 天（604800 秒）。
-                                        </div>
-                                    </div>
-
-                                    <!-- 安全配置 -->
-                                    <h6 class="mb-3 mt-4" data-i18n="securityConfigTitle">安全配置</h6>
-                                    <div class="mb-3">
-                                        <label for="maxLoginAttemptsInput" class="form-label" data-i18n="maxLoginAttemptsLabel">最大登录尝试次数</label>
-                                        <input type="number" class="form-control" id="maxLoginAttemptsInput" 
-                                               placeholder="5" min="1" max="20">
-                                        <div class="form-text" data-i18n="maxLoginAttemptsHelp">
-                                            在锁定前允许的最大登录尝试次数。
-                                        </div>
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label for="loginAttemptWindowInput" class="form-label" data-i18n="loginAttemptWindowLabel">登录尝试窗口（秒）</label>
-                                        <input type="number" class="form-control" id="loginAttemptWindowInput" 
-                                               placeholder="300" min="60" max="3600">
-                                        <div class="form-text" data-i18n="loginAttemptWindowHelp">
-                                            登录尝试计数的重置时间窗口。
-                                        </div>
-                                    </div>
-
-                                    <!-- 操作按钮已上移到页面顶部按钮组 -->
-                                </div>
-                            </div>
-                        </div>
+                        <!-- AUTH Settings 已迁移到 /settings 页面 -->
 
                     </div>
                 </form>
@@ -2334,12 +2114,7 @@ $.*"></textarea>
     const hideAdminOnlySettings = () => {
         console.log('Applying LDAP user restrictions...');
         
-        // 1. 隐藏整个认证设置模块
-        const authSettingsContainer = document.getElementById('authSettingsContainer');
-        if (authSettingsContainer) {
-            authSettingsContainer.style.display = 'none';
-            console.log('Hidden: Auth Settings container');
-        }
+        // AUTH Settings 已迁移到 /settings 页面，无需隐藏
         
         // 2. 隐藏解析设置中的Mineru Token
         const mineruTokenGroup = document.getElementById('mineruTokenGroup');
@@ -2411,45 +2186,14 @@ $.*"></textarea>
     // admin group：开放所有设置，但禁用默认密码输入
     const enableAdminGroupFullAccessButDisableDefaultPassword = () => {
         console.log('Admin group: full access except changing default password');
-        // 显示认证设置容器
-        const authSettingsContainer = document.getElementById('authSettingsContainer');
-        if (authSettingsContainer) authSettingsContainer.style.display = '';
-        // 显示保存/重置按钮
-        const resetAuthConfigBtn = document.getElementById('resetAuthConfigBtn');
-        if (resetAuthConfigBtn) resetAuthConfigBtn.style.display = '';
-        const saveAuthConfigBtn = document.getElementById('saveAuthConfigBtn');
-        if (saveAuthConfigBtn) saveAuthConfigBtn.style.display = '';
-        // 禁用默认密码输入框
-        const defaultPasswordInput = document.getElementById('defaultPasswordInput');
-        if (defaultPasswordInput) {
-            defaultPasswordInput.disabled = true;
-            defaultPasswordInput.title = 'Only super admin can change default password';
-        }
+        // AUTH Settings 已迁移到 /settings 页面，无需处理
     };
     
     // 为Glossary Group用户隐藏除术语表管理外的所有管理功能
     const hideAllExceptGlossaryManagement = () => {
         console.log('Applying glossary group restrictions - hiding all except glossary management...');
         
-        // 1. 隐藏整个认证设置模块
-        const authSettingsContainer = document.getElementById('authSettingsContainer');
-        if (authSettingsContainer) {
-            authSettingsContainer.style.display = 'none';
-            console.log('Hidden: Auth Settings container for glossary group user');
-        }
-        
-        // 2. 隐藏重置配置和保存配置按钮
-        const resetAuthConfigBtn = document.getElementById('resetAuthConfigBtn');
-        if (resetAuthConfigBtn) {
-            resetAuthConfigBtn.style.display = 'none';
-            console.log('Hidden: Reset Auth Config button for glossary group user');
-        }
-        
-        const saveAuthConfigBtn = document.getElementById('saveAuthConfigBtn');
-        if (saveAuthConfigBtn) {
-            saveAuthConfigBtn.style.display = 'none';
-            console.log('Hidden: Save Auth Config button for glossary group user');
-        }
+        // AUTH Settings 已迁移到 /settings 页面，无需隐藏
         
         // 3. 隐藏解析设置中的Mineru Token
         const mineruTokenGroup = document.getElementById('mineruTokenGroup');
@@ -2708,13 +2452,7 @@ $.*"></textarea>
         }
         glossaryGenSettingsTitle.innerHTML = `<i class="bi bi-journal-bookmark-fill me-2"></i>${getStep()}. ${translations.glossaryGenTitle}`;
         
-        // 4. AUTH Settings (Always visible)
-        const authSettingsTitle = document.querySelector('#headingAuth button strong span');
-        if (authSettingsTitle) {
-            // Extract the text part without the number prefix
-            const titleText = translations.authSettingsTitle.replace(/^\d+\.\s*/, '');
-            authSettingsTitle.textContent = `${getStep()}. ${titleText}`;
-        }
+        // AUTH Settings 已迁移到 /settings 页面
 
         saveToConfig('translator_last_workflow', selectedWorkflow);
     }
@@ -4004,183 +3742,10 @@ $.*"></textarea>
         }
     }
 
-    /**
-     * Update LDAP configuration UI based on enabled state
-     */
-    function updateLdapConfigUI() {
-        const ldapEnabled = document.getElementById('ldapEnabledSwitch').checked;
-        const ldapConfigGroup = document.getElementById('ldapConfigGroup');
-        const defaultUserConfigGroup = document.getElementById('defaultUserConfigGroup');
-        
-        if (ldapEnabled) {
-            if (ldapConfigGroup) ldapConfigGroup.style.display = 'block';
-            if (defaultUserConfigGroup) defaultUserConfigGroup.style.display = 'none';
-        } else {
-            if (ldapConfigGroup) ldapConfigGroup.style.display = 'none';
-            if (defaultUserConfigGroup) defaultUserConfigGroup.style.display = 'block';
-        }
-    }
-    
-    /**
-     * Update LDAPS configuration UI based on protocol selection
-     */
-    function updateLdapsConfigUI() {
-        const protocol = document.getElementById('ldapProtocol').value;
-        const ldapsConfigContainer = document.getElementById('ldapsConfigContainer');
-        const portInput = document.getElementById('ldapPort');
-        const tlsVerify = document.getElementById('ldapTlsVerify');
-        const helpOn = document.getElementById('ldapTlsVerifyHelpOn');
-        const helpOff = document.getElementById('ldapTlsVerifyHelpOff');
-        
-        if (protocol === 'ldaps') {
-            ldapsConfigContainer.style.display = 'block';
-            portInput.value = '636';
-            if (tlsVerify) {
-                tlsVerify.checked = true;
-                if (helpOn) helpOn.style.display = 'block';
-                if (helpOff) helpOff.style.display = 'none';
-            }
-        } else {
-            ldapsConfigContainer.style.display = 'none';
-            portInput.value = '389';
-            if (tlsVerify) {
-                if (helpOn) helpOn.style.display = 'none';
-                if (helpOff) helpOff.style.display = 'none';
-            }
-        }
-    }
+    // AUTH Settings 相关函数已迁移到 /settings 页面
 
-    /**
-     * Reset AUTH configuration to defaults
-     */
-    function resetAuthConfig() {
-        if (confirm(getText('resetConfigConfirm', '确定要重置认证配置吗？'))) {
-            // Reset LDAP settings
-            document.getElementById('ldapEnabledSwitch').checked = false;
-            document.getElementById('ldapUriInput').value = 'ldap://dc.example.com:389';
-            document.getElementById('ldapBindDnTemplateInput').value = 'EXAMPLE\\{username}';
-            document.getElementById('ldapBaseDnInput').value = 'OU=Users,DC=example,DC=com';
-            document.getElementById('ldapUserFilterInput').value = '(sAMAccountName={username})';
-            document.getElementById('ldapTlsCacertfileInput').value = '';
-            
-            // Reset default user settings
-            document.getElementById('defaultUsernameInput').value = 'admin';
-            document.getElementById('defaultPasswordInput').value = 'admin123';
-            
-            // Reset session settings
-            document.getElementById('sessionMaxAgeInput').value = '604800';
-            
-            // Reset security settings
-            document.getElementById('maxLoginAttemptsInput').value = '5';
-            document.getElementById('loginAttemptWindowInput').value = '300';
-            
-            // Update UI
-            updateLdapConfigUI();
-            
-            alert(getText('configResetSuccess', '配置已重置为默认值'));
-        }
-    }
-    /**
-     * Save AUTH configuration
-     */
-    async function saveAuthConfig() {
-        try {
-            const config = {
-                ldap_enabled: document.getElementById('ldapEnabledSwitch').checked,
-                ldap_protocol: document.getElementById('ldapProtocol').value,
-                ldap_host: document.getElementById('ldapHost').value,
-                ldap_port: parseInt(document.getElementById('ldapPort').value),
-                ldap_bind_dn_template: document.getElementById('ldapBindDnTemplate').value,
-                ldap_base_dn: document.getElementById('ldapBaseDn').value,
-                ldap_user_filter: document.getElementById('ldapUserFilter').value,
-                ldap_admin_group_enabled: document.getElementById('ldapAdminGroupEnabled').checked,
-                ldap_glossary_group_enabled: document.getElementById('ldapGlossaryGroupEnabled').checked,
-                ldap_admin_group: document.getElementById('ldapAdminGroup').value,
-                ldap_glossary_group: document.getElementById('ldapGlossaryGroup').value,
-                ldap_group_base_dn: document.getElementById('ldapGroupBaseDn').value,
-                ldap_tls_verify: document.getElementById('ldapTlsVerify').checked,
-                ldap_tls_cacertfile: document.getElementById('ldapTlsCacertfile').value,
-                default_username: document.getElementById('defaultUsernameInput').value,
-                default_password: (function(){
-                    // 仅超级管理员可提交默认密码
-                    if (window.userPermissions && window.userPermissions.is_super_admin) {
-                        return document.getElementById('defaultPasswordInput').value;
-                    }
-                    return undefined;
-                })(),
-                session_max_age: parseInt(document.getElementById('sessionMaxAgeInput').value),
-                max_login_attempts: parseInt(document.getElementById('maxLoginAttemptsInput').value),
-                login_attempt_window: parseInt(document.getElementById('loginAttemptWindowInput').value)
-            };
-
-            const response = await fetch('/auth/app-config', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(config),
-                credentials: 'include'
-            });
-
-            if (response.ok) {
-                // 如果是管理员，同时尝试保存当前平台的全局 API Key 与 MinerU Token（写入服务器端敏感配置）
-                let extraMsg = '';
-                try {
-                    if (window.userPermissions && userPermissions.is_admin) {
-                        // 保存平台 API Key
-                        const apiKeyEl = document.getElementById('api_key');
-                        const apiKeyVal = (apiKeyEl?.value || '').trim();
-                        // 若是脱敏占位，则不保存，避免把 *** 写入文件
-                        if (apiKeyVal && apiKeyVal.endsWith('***')) {
-                            console.warn('Skip saving masked API key placeholder');
-                        }
-                        // AI model settings moved to settings page - no platform selection needed
-                        const platformType = (typeof getFromConfig === 'function' && getFromConfig('translator_platform_type')) || 'deepseek';
-                        if (apiKeyVal && !apiKeyVal.endsWith('***')) {
-                            const r1 = await fetch('/auth/app-config/setting', {
-                                method: 'POST',
-                                credentials: 'include',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ key: 'platform_api_keys', value: { [platformType]: apiKeyVal } })
-                            });
-                            const d1 = await r1.json().catch(() => ({}));
-                            if (r1.ok && d1 && d1.success) {
-                                extraMsg += '\n' + getText('adminSavedGlobalKey', '已保存全局API Key');
-                            }
-                        }
-
-                        // 保存 MinerU Token（当解析器为 MinerU 且填写了 token 时）
-                        const mineruTokenEl = document.getElementById('mineru_token');
-                        const mineruTokenVal = (mineruTokenEl?.value || '').trim();
-                        const convertEnginSel = document.getElementById('convertEnginSelect');
-                        const convertEnginVal = (convertEnginSel?.value || (typeof getFromConfig === 'function' && getFromConfig('translator_convert_engine'))) || '';
-                        if (mineruTokenVal && String(convertEnginVal).toLowerCase() === 'mineru') {
-                            const r2 = await fetch('/auth/app-config/setting', {
-                                method: 'POST',
-                                credentials: 'include',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ key: 'translator_mineru_token', value: mineruTokenVal })
-                            });
-                            const d2 = await r2.json().catch(() => ({}));
-                            if (r2.ok && d2 && d2.success) {
-                                extraMsg += '\n' + getText('adminSavedMineruToken', '已保存全局MinerU令牌');
-                            }
-                        }
-                    }
-                } catch (e) {
-                    console.warn('Save global secrets failed:', e);
-                }
-
-                alert(getText('configSaveSuccess', '配置保存成功！重启应用后生效。') + (extraMsg ? ('\n' + extraMsg) : ''));
-            } else {
-                const error = await response.text();
-                alert(getText('configSaveFailed', '配置保存失败：') + error);
-            }
-        } catch (error) {
-            console.error('Save config error:', error);
-            alert(getText('configSaveError', '保存配置时发生错误：') + error.message);
-        }
-    }
+    // resetAuthConfig 函数已迁移到 /settings 页面
+    // saveAuthConfig 函数已迁移到 /settings 页面
 
     /**
      * Load secrets configuration (API keys, tokens, etc.) from server
@@ -4210,125 +3775,20 @@ $.*"></textarea>
         }
     }
 
-    /**
-     * 仅加载非LDAP的AUTH配置（LDAP区域改为独立接口渲染）
-     */
-    async function loadAuthConfig() {
-        try {
-            const response = await fetch('/auth/app-config', {
-                method: 'GET',
-                credentials: 'include'
-            });
+    // loadAuthConfig 和 loadLdapConfigOnly 函数已迁移到 /settings 页面
 
-            if (response.ok) {
-                const config = await response.json();
-                console.log('[DEBUG] loadAuthConfig - loaded auth config:', config);
-                
-                // Load default user settings
-                document.getElementById('defaultUsernameInput').value = config.default_username || 'admin';
-                document.getElementById('defaultPasswordInput').value = config.default_password || 'admin123';
-                
-                // Load session settings
-                document.getElementById('sessionMaxAgeInput').value = config.session_max_age || 604800;
-                
-                // Load security settings
-                document.getElementById('maxLoginAttemptsInput').value = config.max_login_attempts || 5;
-                document.getElementById('loginAttemptWindowInput').value = config.login_attempt_window || 300;
-                
-                // Update UI
-                updateLdapConfigUI();
-                return true;
-            } else {
-                console.error('Failed to load auth config');
-                return false;
-            }
-        } catch (error) {
-            console.error('Load auth config error:', error);
-            // Use default values if loading fails
-            updateLdapConfigUI();
-        }
-    }
-
-    // 独立加载LDAP配置并渲染
-    async function loadLdapConfigOnly() {
-        try {
-            const resp = await fetch('/auth/ldap-config', { method: 'GET', credentials: 'include' });
-            if (!resp.ok) return false;
-            const cfg = await resp.json();
-            document.getElementById('ldapEnabledSwitch').checked = cfg.ldap_enabled || false;
-            document.getElementById('ldapProtocol').value = cfg.ldap_protocol || 'ldap';
-            document.getElementById('ldapHost').value = cfg.ldap_host || '';
-            document.getElementById('ldapPort').value = cfg.ldap_port || '389';
-            document.getElementById('ldapBindDnTemplate').value = cfg.ldap_bind_dn_template || 'EXAMPLE\\{username}';
-            document.getElementById('ldapBaseDn').value = cfg.ldap_base_dn || 'OU=Users,DC=example,DC=com';
-            document.getElementById('ldapUserFilter').value = cfg.ldap_user_filter || '(sAMAccountName={username})';
-            document.getElementById('ldapAdminGroupEnabled').checked = cfg.ldap_admin_group_enabled || false;
-            document.getElementById('ldapGlossaryGroupEnabled').checked = cfg.ldap_glossary_group_enabled || false;
-            document.getElementById('ldapAdminGroup').value = cfg.ldap_admin_group || 'DocuTranslate-Admins';
-            document.getElementById('ldapGlossaryGroup').value = cfg.ldap_glossary_group || 'DocuTranslate-Glossary';
-            document.getElementById('ldapGroupBaseDn').value = cfg.ldap_group_base_dn || 'OU=Groups,DC=example,DC=com';
-            document.getElementById('ldapTlsVerify').checked = cfg.ldap_tls_verify !== false;
-            document.getElementById('ldapTlsCacertfile').value = cfg.ldap_tls_cacertfile || '';
-            updateLdapConfigUI();
-            return true;
-        } catch (_) { return false; }
-    }
+    // saveLdapConfig 函数已迁移到 /settings 页面
 
     /**
-     * Save LDAP configuration (for admin group users)
-     */
-    async function saveLdapConfig() {
-        try {
-            const config = {
-                ldap_enabled: document.getElementById('ldapEnabledSwitch').checked,
-                ldap_protocol: document.getElementById('ldapProtocol').value,
-                ldap_host: document.getElementById('ldapHost').value,
-                ldap_port: parseInt(document.getElementById('ldapPort').value),
-                ldap_bind_dn_template: document.getElementById('ldapBindDnTemplate').value,
-                ldap_base_dn: document.getElementById('ldapBaseDn').value,
-                ldap_user_filter: document.getElementById('ldapUserFilter').value,
-                ldap_admin_group_enabled: document.getElementById('ldapAdminGroupEnabled').checked,
-                ldap_glossary_group_enabled: document.getElementById('ldapGlossaryGroupEnabled').checked,
-                ldap_admin_group: document.getElementById('ldapAdminGroup').value,
-                ldap_glossary_group: document.getElementById('ldapGlossaryGroup').value,
-                ldap_group_base_dn: document.getElementById('ldapGroupBaseDn').value,
-                ldap_tls_verify: document.getElementById('ldapTlsVerify').checked,
-                ldap_tls_cacertfile: document.getElementById('ldapTlsCacertfile').value
-            };
-
-            const response = await fetch('/auth/ldap-config', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(config),
-                credentials: 'include'
-            });
-
-            if (response.ok) {
-                showNotification('LDAP配置保存成功', 'success');
-            } else {
-                const error = await response.json();
-                showNotification(`保存失败: ${error.message || '未知错误'}`, 'error');
-            }
-        } catch (error) {
-            console.error('保存LDAP配置失败:', error);
-            showNotification('保存失败，请稍后重试', 'error');
-        }
-    }
-
-    /**
-     * Load all configurations (secrets + auth)
+     * Load all configurations (secrets only, AUTH config moved to /settings)
      */
     async function loadConfig() {
-        console.log('[DEBUG] loadConfig - starting to load all configurations');
+        console.log('[DEBUG] loadConfig - starting to load configurations');
         
         // Load secrets configuration first (needed for API key display)
         const secretsLoaded = await loadSecretsConfig();
         
-        // Load auth configuration
-        const authLoaded = await loadAuthConfig();
-        // Load platform configurations first
+        // Load platform configurations
         await loadGlobalPlatformConfigs();
         
         // Display current AI configuration
@@ -4338,31 +3798,10 @@ $.*"></textarea>
         if (platformSelect) {
             platformSelect.addEventListener('change', handlePlatformChange);
         }
-        // Load LDAP config from unified endpoint to ensure latest keys
-        try {
-            const resp = await fetch('/auth/ldap-config', { method: 'GET', credentials: 'include' });
-            if (resp.ok) {
-                const cfg = await resp.json();
-                document.getElementById('ldapEnabledSwitch').checked = cfg.ldap_enabled || false;
-                document.getElementById('ldapProtocol').value = cfg.ldap_protocol || 'ldap';
-                document.getElementById('ldapHost').value = cfg.ldap_host || '';
-                document.getElementById('ldapPort').value = cfg.ldap_port || 389;
-                document.getElementById('ldapBindDnTemplate').value = cfg.ldap_bind_dn_template || 'EXAMPLE\\{username}';
-                document.getElementById('ldapBaseDn').value = cfg.ldap_base_dn || 'OU=Users,DC=example,DC=com';
-                document.getElementById('ldapUserFilter').value = cfg.ldap_user_filter || '(sAMAccountName={username})';
-                document.getElementById('ldapAdminGroupEnabled').checked = cfg.ldap_admin_group_enabled || false;
-                document.getElementById('ldapGlossaryGroupEnabled').checked = cfg.ldap_glossary_group_enabled || false;
-                document.getElementById('ldapAdminGroup').value = cfg.ldap_admin_group || 'DocuTranslate-Admins';
-                document.getElementById('ldapGlossaryGroup').value = cfg.ldap_glossary_group || 'DocuTranslate-Glossary';
-                document.getElementById('ldapGroupBaseDn').value = cfg.ldap_group_base_dn || 'OU=Groups,DC=example,DC=com';
-                document.getElementById('ldapTlsVerify').checked = cfg.ldap_tls_verify !== false;
-                document.getElementById('ldapTlsCacertfile').value = cfg.ldap_tls_cacertfile || '';
-            }
-        } catch (e) { /* ignore */ }
         
-        console.log('[DEBUG] loadConfig - secrets loaded:', secretsLoaded, 'auth loaded:', authLoaded);
+        console.log('[DEBUG] loadConfig - secrets loaded:', secretsLoaded);
         
-        return secretsLoaded && authLoaded;
+        return secretsLoaded;
     }
 
     /**
@@ -4416,69 +3855,13 @@ $.*"></textarea>
         console.log("Loading user permissions and app config...");
         const permissionsLoaded = await loadUserPermissions();
         const appConfigLoaded = await loadAppConfig();
-        const ldapLoaded = await loadLdapConfigOnly();
+        // LDAP 配置加载已迁移到 /settings 页面
         
-        if (!permissionsLoaded || !appConfigLoaded || !ldapLoaded) {
+        if (!permissionsLoaded || !appConfigLoaded) {
             console.warn("Failed to load user permissions or app config, some features may not work properly");
         }
 
-        // 根据权限更新"保存配置"按钮文案（管理员：含全局Key）
-        (function updateSaveBtnLabel(){
-            const span = document.querySelector('#saveAuthConfigBtn span');
-            const btn = document.getElementById('saveAuthConfigBtn');
-            if (!span) return;
-            if (userPermissions && userPermissions.is_admin) {
-                span.setAttribute('data-i18n','saveConfigBtnAdmin');
-                span.innerHTML = getText('saveConfigBtnAdmin', '保存设置');
-                if (btn) {
-                    btn.dataset.role = 'admin';
-                    btn.title = 'role: admin (will save global keys if provided)';
-                }
-            } else {
-                span.setAttribute('data-i18n','saveConfigBtn');
-                span.innerHTML = getText('saveConfigBtn', '保存设置');
-                if (btn) {
-                    btn.dataset.role = 'user';
-                    btn.title = 'role: user (no global key saving)';
-                }
-            }
-
-            // 显示一个轻量调试徽标，标识当前权限
-            try {
-                let dbg = document.getElementById('permDebug');
-                if (!dbg) {
-                    dbg = document.createElement('div');
-                    dbg.id = 'permDebug';
-                    dbg.style.position = 'fixed';
-                    dbg.style.right = '8px';
-                    dbg.style.bottom = '8px';
-                    dbg.style.zIndex = '9999';
-                    dbg.style.padding = '2px 6px';
-                    dbg.style.fontSize = '12px';
-                    dbg.style.borderRadius = '4px';
-                    dbg.style.opacity = '0.7';
-                    document.body.appendChild(dbg);
-                }
-                let permText = 'perm: user';
-                let permColor = '#6c757d';
-                
-                if (userPermissions && userPermissions.is_admin) {
-                    permText = 'perm: super admin';
-                    permColor = '#198754';
-                } else if (userPermissions && userPermissions.can_access_admin_settings) {
-                    permText = 'perm: admin group';
-                    permColor = '#0d6efd';
-                } else if (userPermissions && userPermissions.can_access_glossary_management) {
-                    permText = 'perm: glossary group';
-                    permColor = '#fd7e14';
-                }
-                
-                dbg.textContent = permText;
-                dbg.style.background = permColor;
-                dbg.style.color = '#fff';
-                console.log('[DEBUG] permission badge:', dbg.textContent);
-            } catch (e) { /* noop */ }
-        })();
+        // AUTH 配置按钮已迁移到 /settings 页面，无需更新按钮文案
 
         // 管理员显示平台API Key的"已保存（脱敏）"占位 - 将在配置加载后执行
         function showMaskedApiKeyForAdmin(){
@@ -4778,23 +4161,7 @@ $.*"></textarea>
             {element: setBilingualViewBtn, event: 'click', handler: () => setPreviewDisplayMode('bilingual')},
             {element: setTranslatedOnlyViewBtn, event: 'click', handler: () => setPreviewDisplayMode('translatedOnly')},
             {element: document.getElementById('logoutBtn'), event: 'click', handler: handleLogout},
-            // AUTH 配置相关事件监听器
-            {element: document.getElementById('ldapEnabledSwitch'), event: 'change', handler: updateLdapConfigUI},
-            {element: document.getElementById('ldapProtocol'), event: 'change', handler: updateLdapsConfigUI},
-            {element: document.getElementById('resetAuthConfigBtn'), event: 'click', handler: resetAuthConfig},
-            {element: document.getElementById('saveAuthConfigBtn'), event: 'click', handler: saveAuthConfig},
-            {element: document.getElementById('saveLdapConfigBtn'), event: 'click', handler: saveLdapConfig},
-            {element: document.getElementById('ldapTlsVerify'), event: 'change', handler: (e) => {
-                const helpOn = document.getElementById('ldapTlsVerifyHelpOn');
-                const helpOff = document.getElementById('ldapTlsVerifyHelpOff');
-                if (e.target.checked) {
-                    if (helpOn) helpOn.style.display = 'block';
-                    if (helpOff) helpOff.style.display = 'none';
-                } else {
-                    if (helpOn) helpOn.style.display = 'none';
-                    if (helpOff) helpOff.style.display = 'block';
-                }
-            }},
+            // AUTH 配置相关事件监听器已迁移到 /settings 页面
             // 注意：genLdapTestCmdBtn 和 runLdapConnectivityBtn 等元素已迁移到 settings 页面
             // 这些事件监听器现在在 settings/login-settings.js 中处理
         ];
@@ -4842,10 +4209,7 @@ $.*"></textarea>
             }
         });
 
-        // Ensure LDAP UI is updated after a short delay to handle async loading
-        setTimeout(() => {
-            updateLdapConfigUI();
-        }, 100);
+        // AUTH Settings 已迁移到 /settings 页面，无需更新LDAP UI
     }
 
     // --- Theme switcher logic ---

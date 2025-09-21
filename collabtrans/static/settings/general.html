@@ -9,6 +9,31 @@
       <div class="form-text" data-i18n="defaultLanguageHelp">设置用户的默认界面语言，用户可以在导航栏中切换语言。</div>
     </div>
   </div>
+
+  <!-- 超级管理员配置 -->
+  <div class="mt-4">
+    <h6 class="mb-3" data-i18n="superAdminConfigTitle">超级管理员配置</h6>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label for="defaultUsernameInput" class="form-label" data-i18n="defaultUsernameLabel">默认用户名</label>
+        <input type="text" class="form-control" id="defaultUsernameInput" 
+               data-i18n-placeholder="defaultUsernamePlaceholder" placeholder="admin">
+        <div class="form-text" data-i18n="defaultUsernameHelp">系统默认管理员的用户名</div>
+      </div>
+      <div class="col-md-6">
+        <label for="defaultPasswordInput" class="form-label" data-i18n="defaultPasswordLabel">默认密码</label>
+        <div class="input-group">
+          <input type="password" class="form-control" id="defaultPasswordInput" 
+                 data-i18n-placeholder="defaultPasswordPlaceholder" placeholder="admin123">
+          <button class="btn btn-outline-secondary toggle-password" type="button" 
+                  data-target="defaultPasswordInput">
+            <i class="bi bi-eye"></i>
+          </button>
+        </div>
+        <div class="form-text" data-i18n="defaultPasswordHelp">系统默认管理员的密码</div>
+      </div>
+    </div>
+  </div>
   
   <div class="mt-4 d-flex gap-2">
     <button id="saveGeneralBtn" class="btn btn-primary" data-i18n="saveGeneralSettingsBtn">保存 General 设置</button>

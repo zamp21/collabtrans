@@ -1,17 +1,23 @@
 // AI Platform Settings Module
 // AI平台设置模块
 
-let platformConfigs = {};
+let platformConfigs = window.platformConfigs || {};
 
 // Load platform information from configuration file
 async function loadPlatformConfigs() {
   try {
+    console.log('[DEBUG] loadPlatformConfigs - starting to load platform configs');
     const resp = await fetch('/auth/app-config');
-    if (!resp.ok) return;
+    if (!resp.ok) {
+      console.error('[DEBUG] loadPlatformConfigs - API response not ok:', resp.status, resp.statusText);
+      return;
+    }
     const cfg = await resp.json();
+    console.log('[DEBUG] loadPlatformConfigs - received config:', cfg);
     
     // Read new ai_platforms structure
     const aiPlatforms = cfg.ai_platforms || {};
+    console.log('[DEBUG] loadPlatformConfigs - ai_platforms:', aiPlatforms);
     
     // Build platform configuration object
     platformConfigs = {};
@@ -25,28 +31,46 @@ async function loadPlatformConfigs() {
       };
     }
     
+    // Store in global scope to prevent re-declaration errors
+    window.platformConfigs = platformConfigs;
+    
+    console.log('[DEBUG] loadPlatformConfigs - built platform configs:', platformConfigs);
+    
     // Update platform selection dropdown
     updatePlatformSelect();
   } catch (e) {
-    console.error('Load platform configs error:', e);
+    console.error('[DEBUG] loadPlatformConfigs - error:', e);
   }
 }
 
 // Update platform selection dropdown
 function updatePlatformSelect() {
+  console.log('[DEBUG] updatePlatformSelect - starting');
   const select = document.getElementById('platformSelect');
-  if (!select) return;
+  console.log('[DEBUG] updatePlatformSelect - select element:', select);
+  console.log('[DEBUG] updatePlatformSelect - platformConfigs:', platformConfigs);
+  
+  if (!select) {
+    console.error('[DEBUG] updatePlatformSelect - select element not found');
+    return;
+  }
   
   // Clear existing options
   select.innerHTML = '';
   
   // Add options
+  const platformCount = Object.keys(platformConfigs).length;
+  console.log('[DEBUG] updatePlatformSelect - adding', platformCount, 'platforms');
+  
   for (const [key, config] of Object.entries(platformConfigs)) {
     const option = document.createElement('option');
     option.value = key;
     option.textContent = config.name;
     select.appendChild(option);
+    console.log('[DEBUG] updatePlatformSelect - added option:', key, '->', config.name);
   }
+  
+  console.log('[DEBUG] updatePlatformSelect - completed, total options:', select.options.length);
 }
 
 // Load AI platform configuration
@@ -180,12 +204,31 @@ async function saveAiPlatformConfig() {
 
     // If there is API Key, save separately to sensitive configuration
     if (apiKey && !apiKey.endsWith('***')) {
+      console.log(`[DEBUG] saveAiPlatformConfig - saving API key for platform: ${platformType}`);
+      
+      // 获取当前的API Keys，确保不覆盖其他平台
+      let currentApiKeys = {};
+      try {
+        const resp = await fetch('/auth/app-config/raw-secrets');
+        if (resp.ok) {
+          const secrets = await resp.json();
+          currentApiKeys = secrets.platform_api_keys || {};
+          console.log(`[DEBUG] saveAiPlatformConfig - current API keys:`, Object.keys(currentApiKeys));
+        }
+      } catch (error) {
+        console.warn('[DEBUG] saveAiPlatformConfig - failed to get current API keys:', error);
+      }
+      
+      // 只更新当前平台的API Key，保留其他平台
+      currentApiKeys[platformType] = apiKey;
+      console.log(`[DEBUG] saveAiPlatformConfig - updated API keys:`, Object.keys(currentApiKeys));
+      
       const resp2 = await fetch('/auth/app-config/setting', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           key: 'platform_api_keys', 
-          value: { [platformType]: apiKey } 
+          value: currentApiKeys 
         })
       });
       if (!resp2.ok) {
@@ -263,31 +306,101 @@ async function testAiPlatform() {
 }
 
 // Initialize AI platform settings module
-document.addEventListener('DOMContentLoaded', () => {
-  // Load platform configurations
-  loadPlatformConfigs();
+function initAiPlatformModule() {
+  console.log('[DEBUG] initAiPlatformModule - starting initialization');
   
-  // Setup event listeners
-  const platformSelect = document.getElementById('platformSelect');
-  if (platformSelect) {
-    platformSelect.addEventListener('change', updatePlatformFields);
-  }
-  
-  const saveBtn = document.getElementById('saveAiPlatformBtn');
-  if (saveBtn) {
-    saveBtn.addEventListener('click', saveAiPlatformConfig);
-  }
-  
-  const testBtn = document.getElementById('testAiPlatformBtn');
-  if (testBtn) {
-    testBtn.addEventListener('click', testAiPlatform);
-  }
-  
-  // Initialize password toggle buttons
-  if (window.SettingsCore) {
-    window.SettingsCore.initTogglePasswordButtons();
-  }
-});
+  // Wait a bit for DOM elements to be available
+  setTimeout(() => {
+    // Load platform configurations
+    loadPlatformConfigs();
+    
+    // Setup event listeners
+    const platformSelect = document.getElementById('platformSelect');
+    if (platformSelect) {
+      platformSelect.addEventListener('change', updatePlatformFields);
+      console.log('[DEBUG] initAiPlatformModule - platform select event listener added');
+    } else {
+      console.error('[DEBUG] initAiPlatformModule - platform select element not found');
+    }
+    
+    const saveBtn = document.getElementById('saveAiPlatformBtn');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', saveAiPlatformConfig);
+      console.log('[DEBUG] initAiPlatformModule - save button event listener added');
+    } else {
+      console.error('[DEBUG] initAiPlatformModule - save button element not found');
+    }
+    
+    const testBtn = document.getElementById('testAiPlatformBtn');
+    if (testBtn) {
+      testBtn.addEventListener('click', testAiPlatform);
+      console.log('[DEBUG] initAiPlatformModule - test button event listener added');
+    } else {
+      console.error('[DEBUG] initAiPlatformModule - test button element not found');
+    }
+    
+    // Initialize password toggle buttons after a delay to ensure DOM elements are ready
+    setTimeout(() => {
+      if (window.SettingsCore) {
+        // 先移除可能存在的旧事件监听器
+        const toggleButtons = document.querySelectorAll('.toggle-password');
+        toggleButtons.forEach(button => {
+          const newButton = button.cloneNode(true);
+          button.parentNode.replaceChild(newButton, button);
+        });
+        
+        // 重新初始化密码切换按钮
+        window.SettingsCore.initTogglePasswordButtons();
+        console.log('[DEBUG] initAiPlatformModule - password toggle buttons re-initialized');
+        
+        // 验证密码切换按钮是否正确初始化
+        const newToggleButtons = document.querySelectorAll('.toggle-password');
+        console.log('[DEBUG] initAiPlatformModule - found toggle buttons:', newToggleButtons.length);
+        newToggleButtons.forEach((button, index) => {
+          const targetId = button.getAttribute('data-target');
+          const targetElement = document.getElementById(targetId);
+          console.log(`[DEBUG] initAiPlatformModule - toggle button ${index}: target=${targetId}, element exists=${!!targetElement}`);
+        });
+      }
+    }, 300);
+    
+    // 确保AI Platform模块区域可见
+    const aiPlatformSection = document.getElementById('ai-platforms-section');
+    if (aiPlatformSection) {
+      // 移除其他模块的active类
+      const allSections = document.querySelectorAll('.settings-section');
+      allSections.forEach(section => section.classList.remove('active'));
+      
+      // 添加active类到AI Platform模块
+      aiPlatformSection.classList.add('active');
+      
+      // 更新导航链接状态
+      const allNavLinks = document.querySelectorAll('.settings-nav .nav-link');
+      allNavLinks.forEach(link => link.classList.remove('active'));
+      
+      const aiPlatformNav = document.querySelector('[data-section="ai-platforms"]');
+      if (aiPlatformNav) {
+        aiPlatformNav.classList.add('active');
+      }
+      
+      console.log('[DEBUG] initAiPlatformModule - AI Platform section made visible');
+    }
+    
+    console.log('[DEBUG] initAiPlatformModule - initialization completed');
+  }, 100);
+}
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', initAiPlatformModule);
+
+// Also initialize when module is loaded dynamically
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initAiPlatformModule);
+} else {
+  // DOM is already ready, initialize immediately
+  initAiPlatformModule();
+}
 
 // Export functions for global access
 window.saveAiPlatformConfig = saveAiPlatformConfig;
+window.initAiPlatformModule = initAiPlatformModule;
