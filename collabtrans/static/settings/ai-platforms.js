@@ -27,7 +27,9 @@ async function loadPlatformConfigs() {
         url: platform.url || '',
         model: platform.model || '',
         maxTokens: platform.max_tokens || 4096,
-        temperature: platform.temperature || 0.7
+        temperature: platform.temperature || 0.7,
+        recommendedTokens: platform.recommended_tokens || null,
+        performanceNote: platform.performance_note || null
       };
     }
     
@@ -157,15 +159,28 @@ async function loadApiKey(platform) {
 
 // Update platform fields
 function updatePlatformFields() {
-  const platform = document.getElementById('platformSelect').value;
+  const platformSelect = document.getElementById('platformSelect');
+  if (!platformSelect) return;
+  
+  const platform = platformSelect.value;
   const config = platformConfigs[platform];
   if (!config) return;
   
-  document.getElementById('platformName').value = config.name;
-  document.getElementById('platformUrl').value = config.url;
-  document.getElementById('modelName').value = config.model;
-  document.getElementById('maxTokens').value = config.maxTokens;
-  document.getElementById('temperature').value = config.temperature;
+  const platformNameEl = document.getElementById('platformName');
+  const platformUrlEl = document.getElementById('platformUrl');
+  const modelNameEl = document.getElementById('modelName');
+  const maxTokensEl = document.getElementById('maxTokens');
+  const temperatureEl = document.getElementById('temperature');
+  const recommendedTokensEl = document.getElementById('recommendedTokens');
+  const performanceNoteEl = document.getElementById('performanceNote');
+  
+  if (platformNameEl) platformNameEl.value = config.name;
+  if (platformUrlEl) platformUrlEl.value = config.url;
+  if (modelNameEl) modelNameEl.value = config.model;
+  if (maxTokensEl) maxTokensEl.value = config.maxTokens;
+  if (temperatureEl) temperatureEl.value = config.temperature;
+  if (recommendedTokensEl) recommendedTokensEl.value = config.recommendedTokens || '';
+  if (performanceNoteEl) performanceNoteEl.value = config.performanceNote || '';
   
   // Reload current platform API Key
   loadApiKey(platform);
@@ -174,23 +189,81 @@ function updatePlatformFields() {
 // Save AI platform configuration
 async function saveAiPlatformConfig() {
   try {
-    const platformType = document.getElementById('platformSelect').value;
-    const platformName = document.getElementById('platformName').value;
-    const platformUrl = document.getElementById('platformUrl').value;
-    const apiKey = document.getElementById('platformApiKey').value;
-    const modelName = document.getElementById('modelName').value;
-    const maxTokens = parseInt(document.getElementById('maxTokens').value);
-    const temperature = parseFloat(document.getElementById('temperature').value);
+    console.log('[DEBUG] saveAiPlatformConfig - starting save process');
+    
+    // Check if all required elements exist
+    const platformSelect = document.getElementById('platformSelect');
+    const platformName = document.getElementById('platformName');
+    const platformUrl = document.getElementById('platformUrl');
+    const apiKey = document.getElementById('platformApiKey');
+    const modelName = document.getElementById('modelName');
+    const maxTokens = document.getElementById('maxTokens');
+    const temperature = document.getElementById('temperature');
+    const recommendedTokens = document.getElementById('recommendedTokens');
+    const performanceNote = document.getElementById('performanceNote');
+    
+    console.log('[DEBUG] saveAiPlatformConfig - element checks:', {
+      platformSelect: !!platformSelect,
+      platformName: !!platformName,
+      platformUrl: !!platformUrl,
+      apiKey: !!apiKey,
+      modelName: !!modelName,
+      maxTokens: !!maxTokens,
+      temperature: !!temperature,
+      recommendedTokens: !!recommendedTokens,
+      performanceNote: !!performanceNote
+    });
+    
+    if (!platformSelect) {
+      throw new Error('Platform select element not found');
+    }
+    
+    const platformType = platformSelect.value;
+    const platformNameValue = platformName?.value || '';
+    const platformUrlValue = platformUrl?.value || '';
+    const apiKeyValue = apiKey?.value || '';
+    const modelNameValue = modelName?.value || '';
+    const maxTokensValue = parseInt(maxTokens?.value || '4096');
+    const temperatureValue = parseFloat(temperature?.value || '0.7');
+    const recommendedTokensValue = recommendedTokens?.value ? parseInt(recommendedTokens.value) : null;
+    const performanceNoteValue = performanceNote?.value || null;
+    
+    console.log('[DEBUG] saveAiPlatformConfig - values:', {
+      platformType,
+      platformNameValue,
+      platformUrlValue,
+      modelNameValue,
+      maxTokensValue,
+      temperatureValue,
+      recommendedTokensValue,
+      performanceNoteValue
+    });
 
-    // Build configuration structure (excluding API Key)
+    // Get current platform configurations to avoid overwriting other platforms
+    let currentPlatforms = {};
+    try {
+      const resp = await fetch('/auth/app-config');
+      if (resp.ok) {
+        const config = await resp.json();
+        currentPlatforms = config.ai_platforms || {};
+        console.log(`[DEBUG] saveAiPlatformConfig - current platforms:`, Object.keys(currentPlatforms));
+      }
+    } catch (error) {
+      console.warn('[DEBUG] saveAiPlatformConfig - failed to get current platforms:', error);
+    }
+
+    // Build configuration structure (excluding API Key) - only update current platform
     const config = {
       ai_platforms: {
-        [platformType]: {
-          name: platformName,
-          url: platformUrl,
-          model: modelName,
-          max_tokens: maxTokens,
-          temperature: temperature
+        ...currentPlatforms,  // Keep existing platforms
+        [platformType]: {     // Update only current platform
+          name: platformNameValue,
+          url: platformUrlValue,
+          model: modelNameValue,
+          max_tokens: maxTokensValue,
+          temperature: temperatureValue,
+          recommended_tokens: recommendedTokensValue,
+          performance_note: performanceNoteValue
         }
       }
     };
@@ -203,7 +276,7 @@ async function saveAiPlatformConfig() {
     });
 
     // If there is API Key, save separately to sensitive configuration
-    if (apiKey && !apiKey.endsWith('***')) {
+    if (apiKeyValue && !apiKeyValue.endsWith('***')) {
       console.log(`[DEBUG] saveAiPlatformConfig - saving API key for platform: ${platformType}`);
       
       // 获取当前的API Keys，确保不覆盖其他平台

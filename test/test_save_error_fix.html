@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>保存错误修复测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .debug-info { background: #f5f5f5; padding: 10px; margin: 10px 0; font-family: monospace; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        .warning { color: orange; }
+    </style>
+</head>
+<body>
+    <h1>保存错误修复测试</h1>
+    
+    <div class="test-section">
+        <h2>1. 测试DOM元素检查</h2>
+        <button onclick="testElementChecks()">检查DOM元素</button>
+        <div id="element-check-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. 模拟保存过程</h2>
+        <button onclick="simulateSaveProcess()">模拟保存过程</button>
+        <div id="save-simulate-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. 调试信息</h2>
+        <div id="debug-log"></div>
+    </div>
+
+    <script>
+        function addLog(message, type = 'info') {
+            const div = document.getElementById('debug-log');
+            const p = document.createElement('p');
+            p.className = type;
+            p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            div.appendChild(p);
+        }
+        
+        function testElementChecks() {
+            const resultDiv = document.getElementById('element-check-result');
+            resultDiv.innerHTML = '<div class="info">检查中...</div>';
+            addLog('开始检查DOM元素');
+            
+            // 模拟修复后的元素检查逻辑
+            const platformSelect = document.getElementById('platformSelect');
+            const platformName = document.getElementById('platformName');
+            const platformUrl = document.getElementById('platformUrl');
+            const apiKey = document.getElementById('platformApiKey');
+            const modelName = document.getElementById('modelName');
+            const maxTokens = document.getElementById('maxTokens');
+            const temperature = document.getElementById('temperature');
+            const recommendedTokens = document.getElementById('recommendedTokens');
+            const performanceNote = document.getElementById('performanceNote');
+            
+            const elementChecks = {
+                platformSelect: !!platformSelect,
+                platformName: !!platformName,
+                platformUrl: !!platformUrl,
+                apiKey: !!apiKey,
+                modelName: !!modelName,
+                maxTokens: !!maxTokens,
+                temperature: !!temperature,
+                recommendedTokens: !!recommendedTokens,
+                performanceNote: !!performanceNote
+            };
+            
+            addLog('DOM元素检查结果:', elementChecks);
+            
+            let html = '<div class="success">✅ DOM元素检查完成:</div>';
+            for (const [elementName, exists] of Object.entries(elementChecks)) {
+                const status = exists ? '✅' : '❌';
+                const color = exists ? 'success' : 'error';
+                html += `<div class="${color}">${status} ${elementName}: ${exists ? '存在' : '不存在'}</div>`;
+            }
+            
+            resultDiv.innerHTML = html;
+            
+            // 检查是否有缺失的元素
+            const missingElements = Object.entries(elementChecks).filter(([name, exists]) => !exists);
+            if (missingElements.length > 0) {
+                addLog(`⚠️ 缺失的元素: ${missingElements.map(([name]) => name).join(', ')}`, 'warning');
+            } else {
+                addLog('✅ 所有元素都存在', 'success');
+            }
+        }
+        
+        function simulateSaveProcess() {
+            const resultDiv = document.getElementById('save-simulate-result');
+            resultDiv.innerHTML = '<div class="info">模拟中...</div>';
+            addLog('开始模拟保存过程');
+            
+            try {
+                // 模拟修复后的保存逻辑
+                const platformSelect = document.getElementById('platformSelect');
+                if (!platformSelect) {
+                    throw new Error('Platform select element not found');
+                }
+                
+                const platformType = platformSelect.value;
+                const platformNameValue = document.getElementById('platformName')?.value || '';
+                const platformUrlValue = document.getElementById('platformUrl')?.value || '';
+                const apiKeyValue = document.getElementById('platformApiKey')?.value || '';
+                const modelNameValue = document.getElementById('modelName')?.value || '';
+                const maxTokensValue = parseInt(document.getElementById('maxTokens')?.value || '4096');
+                const temperatureValue = parseFloat(document.getElementById('temperature')?.value || '0.7');
+                const recommendedTokensElement = document.getElementById('recommendedTokens');
+                const recommendedTokensValue = recommendedTokensElement?.value ? parseInt(recommendedTokensElement.value) : null;
+                const performanceNoteElement = document.getElementById('performanceNote');
+                const performanceNoteValue = performanceNoteElement?.value || null;
+                
+                const values = {
+                    platformType,
+                    platformNameValue,
+                    platformUrlValue,
+                    modelNameValue,
+                    maxTokensValue,
+                    temperatureValue,
+                    recommendedTokensValue,
+                    performanceNoteValue
+                };
+                
+                addLog('模拟保存的值:', values);
+                
+                resultDiv.innerHTML = '<div class="success">✅ 模拟保存过程成功</div>';
+                addLog('✅ 模拟保存过程成功，没有出现null错误', 'success');
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 模拟保存失败: ${error.message}</div>`;
+                addLog(`❌ 模拟保存失败: ${error.message}`, 'error');
+            }
+        }
+        
+        // 页面加载时自动运行测试
+        window.addEventListener('load', () => {
+            addLog('测试页面加载完成');
+            testElementChecks();
+        });
+    </script>
+</body>
+</html>

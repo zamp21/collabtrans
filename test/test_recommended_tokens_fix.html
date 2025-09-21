@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>推荐Token数保存测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .debug-info { background: #f5f5f5; padding: 10px; margin: 10px 0; font-family: monospace; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        .warning { color: orange; }
+    </style>
+</head>
+<body>
+    <h1>推荐Token数保存测试</h1>
+    
+    <div class="test-section">
+        <h2>1. 测试保存前的平台配置</h2>
+        <button onclick="testBeforeSave()">检查保存前的配置</button>
+        <div id="before-save-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. 模拟保存平台配置（包含recommended_tokens）</h2>
+        <button onclick="simulateSave()">模拟保存deepseek平台</button>
+        <div id="save-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. 测试保存后的平台配置</h2>
+        <button onclick="testAfterSave()">检查保存后的配置</button>
+        <div id="after-save-result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. 调试信息</h2>
+        <div id="debug-log"></div>
+    </div>
+
+    <script>
+        let beforeSaveConfig = {};
+        let afterSaveConfig = {};
+        
+        function addLog(message, type = 'info') {
+            const div = document.getElementById('debug-log');
+            const p = document.createElement('p');
+            p.className = type;
+            p.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            div.appendChild(p);
+        }
+        
+        async function testBeforeSave() {
+            const resultDiv = document.getElementById('before-save-result');
+            resultDiv.innerHTML = '<div class="info">检查中...</div>';
+            addLog('开始检查保存前的平台配置');
+            
+            try {
+                const resp = await fetch('/auth/app-config');
+                if (resp.ok) {
+                    const config = await resp.json();
+                    beforeSaveConfig = config.ai_platforms || {};
+                    
+                    const deepseekConfig = beforeSaveConfig.deepseek;
+                    if (deepseekConfig) {
+                        addLog(`✅ 找到deepseek平台配置`);
+                        addLog(`📋 recommended_tokens: ${deepseekConfig.recommended_tokens}`);
+                        addLog(`📋 performance_note: ${deepseekConfig.performance_note}`);
+                        
+                        let html = '<div class="success">✅ 保存前的deepseek配置:</div>';
+                        html += `<div class="info">📋 name: ${deepseekConfig.name}</div>`;
+                        html += `<div class="info">📋 url: ${deepseekConfig.url}</div>`;
+                        html += `<div class="info">📋 model: ${deepseekConfig.model}</div>`;
+                        html += `<div class="info">📋 max_tokens: ${deepseekConfig.max_tokens}</div>`;
+                        html += `<div class="info">📋 temperature: ${deepseekConfig.temperature}</div>`;
+                        html += `<div class="info">📋 recommended_tokens: ${deepseekConfig.recommended_tokens}</div>`;
+                        html += `<div class="info">📋 performance_note: ${deepseekConfig.performance_note}</div>`;
+                        resultDiv.innerHTML = html;
+                    } else {
+                        resultDiv.innerHTML = '<div class="error">❌ 未找到deepseek平台配置</div>';
+                        addLog('未找到deepseek平台配置', 'error');
+                    }
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ 获取失败: ${resp.status}</div>`;
+                    addLog(`获取配置失败: ${resp.status}`, 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 错误: ${error.message}</div>`;
+                addLog(`检查配置异常: ${error.message}`, 'error');
+            }
+        }
+        
+        async function simulateSave() {
+            const resultDiv = document.getElementById('save-result');
+            resultDiv.innerHTML = '<div class="info">模拟保存中...</div>';
+            addLog('开始模拟保存deepseek平台配置');
+            
+            try {
+                // 获取当前平台配置
+                let currentPlatforms = {};
+                const resp = await fetch('/auth/app-config');
+                if (resp.ok) {
+                    const config = await resp.json();
+                    currentPlatforms = config.ai_platforms || {};
+                    addLog(`📋 获取到当前平台配置: ${Object.keys(currentPlatforms).join(', ')}`);
+                }
+                
+                // 模拟保存包含recommended_tokens的配置
+                const updatedConfig = {
+                    ...currentPlatforms,
+                    deepseek: {
+                        ...currentPlatforms.deepseek,
+                        name: "DeepSeek",
+                        url: "https://api.deepseek.com/v1",
+                        model: "deepseek-chat",
+                        max_tokens: 64000,
+                        temperature: 0.7,
+                        recommended_tokens: 50000,  // 新增的字段
+                        performance_note: "Excellent for complex reasoning and long documents"  // 新增的字段
+                    }
+                };
+                
+                addLog(`📋 准备保存的配置包含recommended_tokens: ${updatedConfig.deepseek.recommended_tokens}`);
+                addLog(`📋 准备保存的配置包含performance_note: ${updatedConfig.deepseek.performance_note}`);
+                
+                // 保存配置
+                const saveResp = await fetch('/auth/app-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ai_platforms: updatedConfig
+                    })
+                });
+                
+                if (saveResp.ok) {
+                    resultDiv.innerHTML = '<div class="success">✅ 模拟保存成功</div>';
+                    addLog('✅ 模拟保存成功');
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ 保存失败: ${saveResp.status}</div>`;
+                    addLog(`保存失败: ${saveResp.status}`, 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 错误: ${error.message}</div>`;
+                addLog(`模拟保存异常: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testAfterSave() {
+            const resultDiv = document.getElementById('after-save-result');
+            resultDiv.innerHTML = '<div class="info">检查中...</div>';
+            addLog('开始检查保存后的平台配置');
+            
+            try {
+                const resp = await fetch('/auth/app-config');
+                if (resp.ok) {
+                    const config = await resp.json();
+                    afterSaveConfig = config.ai_platforms || {};
+                    
+                    const deepseekConfig = afterSaveConfig.deepseek;
+                    if (deepseekConfig) {
+                        addLog(`✅ 找到deepseek平台配置`);
+                        addLog(`📋 recommended_tokens: ${deepseekConfig.recommended_tokens}`);
+                        addLog(`📋 performance_note: ${deepseekConfig.performance_note}`);
+                        
+                        let html = '<div class="success">✅ 保存后的deepseek配置:</div>';
+                        html += `<div class="info">📋 name: ${deepseekConfig.name}</div>`;
+                        html += `<div class="info">📋 url: ${deepseekConfig.url}</div>`;
+                        html += `<div class="info">📋 model: ${deepseekConfig.model}</div>`;
+                        html += `<div class="info">📋 max_tokens: ${deepseekConfig.max_tokens}</div>`;
+                        html += `<div class="info">📋 temperature: ${deepseekConfig.temperature}</div>`;
+                        html += `<div class="info">📋 recommended_tokens: ${deepseekConfig.recommended_tokens}</div>`;
+                        html += `<div class="info">📋 performance_note: ${deepseekConfig.performance_note}</div>`;
+                        resultDiv.innerHTML = html;
+                        
+                        // 比较保存前后的差异
+                        const beforeDeepseek = beforeSaveConfig.deepseek;
+                        if (beforeDeepseek) {
+                            if (beforeDeepseek.recommended_tokens !== deepseekConfig.recommended_tokens) {
+                                addLog(`✅ recommended_tokens已更新: ${beforeDeepseek.recommended_tokens} -> ${deepseekConfig.recommended_tokens}`, 'success');
+                            } else {
+                                addLog(`⚠️ recommended_tokens未变化: ${deepseekConfig.recommended_tokens}`, 'warning');
+                            }
+                            
+                            if (beforeDeepseek.performance_note !== deepseekConfig.performance_note) {
+                                addLog(`✅ performance_note已更新: ${beforeDeepseek.performance_note} -> ${deepseekConfig.performance_note}`, 'success');
+                            } else {
+                                addLog(`⚠️ performance_note未变化: ${deepseekConfig.performance_note}`, 'warning');
+                            }
+                        }
+                    } else {
+                        resultDiv.innerHTML = '<div class="error">❌ 未找到deepseek平台配置</div>';
+                        addLog('未找到deepseek平台配置', 'error');
+                    }
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ 获取失败: ${resp.status}</div>`;
+                    addLog(`获取配置失败: ${resp.status}`, 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 错误: ${error.message}</div>`;
+                addLog(`检查配置异常: ${error.message}`, 'error');
+            }
+        }
+        
+        // 页面加载时自动运行测试
+        window.addEventListener('load', () => {
+            addLog('测试页面加载完成');
+            testBeforeSave();
+        });
+    </script>
+</body>
+</html>

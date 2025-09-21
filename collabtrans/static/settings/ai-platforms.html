@@ -47,6 +47,21 @@
     </div>
   </div>
 
+  <div class="mt-3">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label" for="recommendedTokens" data-i18n="recommendedTokensLabel">推荐 Token 数</label>
+        <input type="number" class="form-control" id="recommendedTokens" data-i18n-placeholder="recommendedTokensPlaceholder" placeholder="4000" min="1" max="100000">
+        <div class="form-text" data-i18n="recommendedTokensHelp">建议的 Token 数量，用于优化性能</div>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="performanceNote" data-i18n="performanceNoteLabel">性能说明</label>
+        <input type="text" class="form-control" id="performanceNote" data-i18n-placeholder="performanceNotePlaceholder" placeholder="性能特点说明">
+        <div class="form-text" data-i18n="performanceNoteHelp">该平台的性能特点或使用建议</div>
+      </div>
+    </div>
+  </div>
+
   <div class="mt-4 d-flex gap-2">
     <button id="saveAiPlatformBtn" class="btn btn-primary" data-i18n="saveAiPlatformSettingsBtn">保存 AI 平台设置</button>
     <button id="testAiPlatformBtn" class="btn btn-outline-secondary" data-i18n="testConnectionBtn">测试连接</button>
