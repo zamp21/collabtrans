@@ -2577,7 +2577,7 @@ $.*"></textarea>
      */
     async function displayCurrentAiConfig() {
         try {
-            const resp = await fetch('/auth/app-config');
+            const resp = await fetch('/auth/app-config', { credentials: 'include' });
             if (!resp.ok) return;
             const cfg = await resp.json();
             
@@ -2590,17 +2590,12 @@ $.*"></textarea>
             // Display platform name
             currentPlatformName.textContent = globalPlatformNames[platformType] || platformType;
             
-            // Display model name
-            currentModelName.textContent = cfg.translator_model_name || '-';
-            
-            // Display base URL
-            currentBaseUrl.textContent = cfg.translator_base_url || '-';
-            
-            // Display max tokens
-            currentMaxTokens.textContent = cfg.translator_max_tokens || '-';
-            
-            // Display temperature
-            currentTemperature.textContent = cfg.translator_temperature || '-';
+            // Display from new structured ai_platforms
+            const pf = (cfg.ai_platforms && cfg.ai_platforms[platformType]) || {};
+            currentModelName.textContent = pf.model || '-';
+            currentBaseUrl.textContent = pf.url || '-';
+            currentMaxTokens.textContent = (pf.max_tokens != null ? pf.max_tokens : '-');
+            currentTemperature.textContent = (pf.temperature != null ? pf.temperature : '-');
             
             // Display API Key status
             const hasApiKey = cfg.platform_api_keys && cfg.platform_api_keys[platformType];
@@ -2649,10 +2644,26 @@ $.*"></textarea>
                 currentTemperature.textContent = platformConfig?.temperature || '0.7';
             }
             
-            // Update API Key status
-            const hasApiKey = cfg.platform_api_keys && cfg.platform_api_keys[selectedPlatform];
-            currentApiKeyStatus.textContent = hasApiKey ? '已配置' : '未配置';
-            currentApiKeyStatus.className = hasApiKey ? 'form-control-plaintext text-success' : 'form-control-plaintext text-warning';
+            // Update API Key status (fetch raw secrets meta for accurate configured flag)
+            try {
+                const rsec = await fetch('/auth/app-config/raw-secrets', { credentials: 'include' });
+                if (rsec.ok) {
+                    const sec = await rsec.json();
+                    const meta = (sec.platform_api_keys_meta && sec.platform_api_keys_meta[selectedPlatform]) || null;
+                    const hasApiKey = meta ? (!!meta.configured && !!meta.key) : !!(sec.platform_api_keys && sec.platform_api_keys[selectedPlatform]);
+                    currentApiKeyStatus.textContent = hasApiKey ? '已配置' : '未配置';
+                    currentApiKeyStatus.className = hasApiKey ? 'form-control-plaintext text-success' : 'form-control-plaintext text-warning';
+                } else {
+                    // fallback to previous logic if raw secrets not accessible
+                    const hasApiKey = cfg.platform_api_keys && cfg.platform_api_keys[selectedPlatform];
+                    currentApiKeyStatus.textContent = hasApiKey ? '已配置' : '未配置';
+                    currentApiKeyStatus.className = hasApiKey ? 'form-control-plaintext text-success' : 'form-control-plaintext text-warning';
+                }
+            } catch (err) {
+                const hasApiKey = cfg.platform_api_keys && cfg.platform_api_keys[selectedPlatform];
+                currentApiKeyStatus.textContent = hasApiKey ? '已配置' : '未配置';
+                currentApiKeyStatus.className = hasApiKey ? 'form-control-plaintext text-success' : 'form-control-plaintext text-warning';
+            }
         } catch (e) {
             console.error('Load platform config error:', e);
         }

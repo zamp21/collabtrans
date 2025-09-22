@@ -67,11 +67,14 @@ async function loadMineruApiKey() {
     const resp = await fetch('/auth/app-config/raw-secrets', { credentials: 'include' });
     if (!resp.ok) return;
     const secrets = await resp.json();
-    const key = secrets.translator_mineru_token || '';
+    // 优先用新结构 meta
+    const mineruMeta = secrets.translator_mineru_token_meta || null;
+    const key = mineruMeta ? (mineruMeta.key || '') : (secrets.translator_mineru_token || '');
+    const isConfigured = mineruMeta ? !!mineruMeta.configured : !!key;
     const el = document.getElementById('mineruApiKey');
     const status = document.getElementById('mineruApiKeyStatus');
     if (!el) return;
-    if (key) {
+    if (isConfigured && key) {
       el.value = key.substring(0, 8) + '***';
       el.type = 'password';
       if (status) {
@@ -187,7 +190,10 @@ async function saveParsingEngineConfig() {
 // Initialize parsing engine settings module
 document.addEventListener('DOMContentLoaded', () => {
   // Load engine configurations
-  loadEngineConfigs();
+  loadEngineConfigs().then(() => {
+    // 延迟再次刷新一次 MinerU Key 状态，避免被其它渲染覆盖
+    setTimeout(() => { try { loadMineruApiKey(); } catch (e) {} }, 150);
+  });
   
   // Setup event listeners
   const sel = document.getElementById('engineSelect');

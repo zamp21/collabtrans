@@ -36,6 +36,11 @@ def setup_first_deploy():
             # 生成随机密钥
             with open(local_secrets_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
+
+            # 移除模板说明字段，避免进入生产文件
+            for k in ['_comment', '_warning']:
+                if k in config:
+                    config.pop(k, None)
             
             # 生成随机会话密钥
             config['auth_secrets']['session_secret_key'] = generate_random_key(64)

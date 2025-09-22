@@ -542,13 +542,16 @@ async def get_raw_secrets_api(
     from ..config.secrets_manager import get_secrets_manager
     secrets_manager = get_secrets_manager()
     
-    # 获取完整的API密钥（不脱敏）
-    api_keys = secrets_manager.get_api_keys()
-    mineru_token = secrets_manager.get_mineru_token()
-    
+    # 获取完整的API密钥及元信息（不脱敏）
+    api_keys_meta = secrets_manager.get_api_keys_meta()
+    mineru_meta = secrets_manager.get_mineru_token_meta()
+    # 保持向后兼容：同时提供旧字段
+    api_keys_plain = {k: v.get("key", "") for k, v in api_keys_meta.items()}
     return {
-        "platform_api_keys": api_keys,
-        "translator_mineru_token": mineru_token or ""
+        "platform_api_keys": api_keys_plain,
+        "platform_api_keys_meta": api_keys_meta,
+        "translator_mineru_token": mineru_meta.get("key", ""),
+        "translator_mineru_token_meta": mineru_meta
     }
 
 @auth_router.post("/web/upload-cert")
@@ -1019,13 +1022,20 @@ async def update_app_config_api(
             del config_data['platform_api_keys']
         
         
-        # 处理Mineru Token（保存到敏感配置）
+        # 处理Mineru Token（保存到敏感配置） - 支持 {key, configured}
         if 'translator_mineru_token' in config_data:
-            token = config_data['translator_mineru_token']
-            if token and not token.endswith('***'):
-                from ..config.secrets_manager import get_secrets_manager
-                secrets_manager = get_secrets_manager()
-                secrets_manager.update_mineru_token(token)
+            token_val = config_data['translator_mineru_token']
+            from ..config.secrets_manager import get_secrets_manager
+            secrets_manager = get_secrets_manager()
+            if isinstance(token_val, dict):
+                raw = token_val.get('key', '')
+                configured = token_val.get('configured')
+                if raw and not str(raw).endswith('***'):
+                    secrets_manager.update_mineru_token(str(raw), configured)
+            else:
+                raw = token_val
+                if raw and not str(raw).endswith('***'):
+                    secrets_manager.update_mineru_token(str(raw))
             del config_data['translator_mineru_token']
         
         # 禁止非超级管理员修改默认密码
@@ -1217,8 +1227,13 @@ async def update_single_setting(
                 if isinstance(value, dict):
                     updated_any = False
                     for platform, api_key in value.items():
-                        if api_key and api_key.strip():  # 只保存非空密钥
-                            if secrets_manager.update_api_key(platform, api_key):
+                        # 兼容：value可能是 {platform: str} 或 {platform: {key, configured}}
+                        configured_flag = None
+                        if isinstance(api_key, dict):
+                            configured_flag = api_key.get('configured')
+                            api_key = api_key.get('key', '')
+                        if api_key and str(api_key).strip():  # 只保存非空密钥
+                            if secrets_manager.update_api_key(platform, str(api_key), configured_flag):
                                 updated_any = True
                     # 同步刷新内存中的全局配置，确保刷新页面即可看到最新脱敏密钥
                     if updated_any:
@@ -1226,8 +1241,12 @@ async def update_single_setting(
                             from ..config.global_config import get_global_config
                             global_config = get_global_config()
                             for platform, api_key in value.items():
-                                if api_key and api_key.strip():
-                                    global_config.update_platform_api_key(platform, api_key)
+                                if isinstance(api_key, dict):
+                                    raw_key = api_key.get('key', '')
+                                else:
+                                    raw_key = str(api_key) if api_key is not None else ''
+                                if raw_key and raw_key.strip():
+                                    global_config.update_platform_api_key(platform, raw_key)
                         except Exception as _e:
                             logger.warning(f"刷新内存全局API密钥失败: {_e}")
                     logger.info(f"平台API密钥已由用户 {_mask_username(user.username)} 更新")
@@ -1466,7 +1485,6 @@ async def test_ai_platform(
         }
         
         # 发送测试请求
-        import httpx
         async with httpx.AsyncClient(timeout=30.0) as client:
             if platform_type == "anthropic":
                 # Anthropic 使用不同的API格式

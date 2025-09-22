@@ -118,15 +118,18 @@ async function loadAiPlatformConfig() {
 // Load API Key
 async function loadApiKey(platform) {
   try {
-    const resp = await fetch('/auth/app-config/raw-secrets');
+    const resp = await fetch('/auth/app-config/raw-secrets', { credentials: 'include' });
     if (!resp.ok) return;
     const secrets = await resp.json();
     
     const apiKeyInput = document.getElementById('platformApiKey');
     const statusBadge = document.getElementById('platformApiKeyStatus');
-    const apiKey = secrets.platform_api_keys?.[platform];
+    // 优先用 meta（新结构），回退到旧结构
+    const meta = (secrets.platform_api_keys_meta && secrets.platform_api_keys_meta[platform]) || null;
+    const apiKey = meta ? meta.key : (secrets.platform_api_keys?.[platform]);
+    const isConfigured = meta ? !!meta.configured : !!apiKey;
     
-    if (apiKey) {
+    if (isConfigured && apiKey) {
       // If API Key exists, display masked version
       const maskedKey = apiKey.substring(0, 8) + '***';
       apiKeyInput.value = maskedKey;
@@ -241,7 +244,7 @@ async function saveAiPlatformConfig() {
     const platformType = platformSelect.value;
     const platformNameValue = platformName?.value || '';
     const platformUrlValue = platformUrl?.value || '';
-    const apiKeyValue = apiKey?.value || '';
+    const apiKeyValue = (apiKey?.value || '').trim();
     const modelNameValue = modelName?.value || '';
     const maxTokensValue = parseInt(maxTokens?.value || '4096');
     const temperatureValue = parseFloat(temperature?.value || '0.7');
@@ -262,7 +265,7 @@ async function saveAiPlatformConfig() {
     // Get current platform configurations to avoid overwriting other platforms
     let currentPlatforms = {};
     try {
-      const resp = await fetch('/auth/app-config');
+      const resp = await fetch('/auth/app-config', { credentials: 'include' });
       if (resp.ok) {
         const config = await resp.json();
         currentPlatforms = config.ai_platforms || {};
@@ -292,6 +295,7 @@ async function saveAiPlatformConfig() {
     const resp1 = await fetch('/auth/app-config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify(config)
     });
 
@@ -299,26 +303,37 @@ async function saveAiPlatformConfig() {
     if (apiKeyValue && !apiKeyValue.endsWith('***')) {
       console.log(`[DEBUG] saveAiPlatformConfig - saving API key for platform: ${platformType}`);
       
-      // 获取当前的API Keys，确保不覆盖其他平台
+      // 获取当前的API Keys，确保不覆盖其他平台（优先使用带meta的新结构）
       let currentApiKeys = {};
       try {
-        const resp = await fetch('/auth/app-config/raw-secrets');
+        const resp = await fetch('/auth/app-config/raw-secrets', { credentials: 'include' });
         if (resp.ok) {
           const secrets = await resp.json();
-          currentApiKeys = secrets.platform_api_keys || {};
+          if (secrets.platform_api_keys_meta && typeof secrets.platform_api_keys_meta === 'object') {
+            currentApiKeys = secrets.platform_api_keys_meta;
+          } else {
+            // 回退并规范化旧结构
+            const plain = secrets.platform_api_keys || {};
+            currentApiKeys = {};
+            Object.entries(plain).forEach(([p, v]) => {
+              const keyStr = (typeof v === 'string') ? v : (v?.key || '');
+              currentApiKeys[p] = { key: keyStr, configured: !!keyStr };
+            });
+          }
           console.log(`[DEBUG] saveAiPlatformConfig - current API keys:`, Object.keys(currentApiKeys));
         }
       } catch (error) {
         console.warn('[DEBUG] saveAiPlatformConfig - failed to get current API keys:', error);
       }
       
-      // 只更新当前平台的API Key，保留其他平台
-      currentApiKeys[platformType] = apiKey;
+      // 只更新当前平台的API Key，保留其他平台（新结构：{key, configured}）
+      currentApiKeys[platformType] = { key: apiKeyValue, configured: true };
       console.log(`[DEBUG] saveAiPlatformConfig - updated API keys:`, Object.keys(currentApiKeys));
       
       const resp2 = await fetch('/auth/app-config/setting', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ 
           key: 'platform_api_keys', 
           value: currentApiKeys 
@@ -336,7 +351,7 @@ async function saveAiPlatformConfig() {
       if (window.SettingsCore) {
         window.SettingsCore.showNotification(window.SettingsCore.getText('aiPlatformSettingsSaved'), 'success');
       }
-      // Reload API Key display (masked version)
+      // Reload API Key display (masked version) and status
       await loadApiKey(platformType);
       return true;
     } else {
@@ -366,6 +381,7 @@ async function testAiPlatform() {
     const resp = await fetch('/auth/test-ai-platform', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({
         platform_type: document.getElementById('platformSelect').value,
         base_url: document.getElementById('platformUrl').value,

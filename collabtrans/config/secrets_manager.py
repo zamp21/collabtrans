@@ -46,6 +46,48 @@ class SecretsManager:
         try:
             with open(self.secrets_file, 'r', encoding='utf-8') as f:
                 secrets = json.load(f)
+
+            # 规范化结构：为 api keys 与 mineru token 增加 configured 属性（向后兼容）
+            try:
+                changed = False
+                # 平台API Keys
+                pak = secrets.get("platform_api_keys")
+                if isinstance(pak, dict):
+                    for platform, val in list(pak.items()):
+                        if isinstance(val, str):
+                            pak[platform] = {"key": val, "configured": bool(val)}
+                            changed = True
+                        elif isinstance(val, dict):
+                            # 确保字段存在
+                            if "key" not in val:
+                                val["key"] = ""
+                                changed = True
+                            if "configured" not in val:
+                                val["configured"] = bool(val.get("key"))
+                                changed = True
+                # MinerU Token
+                if isinstance(secrets.get("translator_mineru_token"), str):
+                    secrets["translator_mineru_token"] = {
+                        "key": secrets["translator_mineru_token"],
+                        "configured": bool(secrets["translator_mineru_token"])
+                    }
+                    changed = True
+                elif isinstance(secrets.get("translator_mineru_token"), dict):
+                    mt = secrets["translator_mineru_token"]
+                    if "key" not in mt:
+                        mt["key"] = ""
+                        changed = True
+                    if "configured" not in mt:
+                        mt["configured"] = bool(mt.get("key"))
+                        changed = True
+
+                if changed:
+                    # 立即保存一次，保证文件落盘为新结构
+                    self._secrets_cache = secrets
+                    self.save_secrets(secrets)
+            except Exception:
+                # 规范化失败不影响读取
+                pass
             
             logger.info(f"成功加载敏感配置文件: {self.secrets_file}")
             self._secrets_cache = secrets
@@ -64,7 +106,35 @@ class SecretsManager:
             API密钥字典
         """
         secrets = self.load_secrets()
-        return secrets.get("platform_api_keys", {})
+        raw = secrets.get("platform_api_keys", {})
+        # 兼容：返回平台->字符串
+        result: Dict[str, str] = {}
+        if isinstance(raw, dict):
+            for platform, val in raw.items():
+                if isinstance(val, dict):
+                    result[platform] = val.get("key", "")
+                else:
+                    result[platform] = str(val) if val is not None else ""
+        return result
+
+    def get_api_keys_meta(self) -> Dict[str, Dict[str, Any]]:
+        """
+        返回平台API Key的元信息 { platform: { key: str, configured: bool } }
+        """
+        secrets = self.load_secrets()
+        pak = secrets.get("platform_api_keys", {})
+        meta: Dict[str, Dict[str, Any]] = {}
+        if isinstance(pak, dict):
+            for platform, val in pak.items():
+                if isinstance(val, dict):
+                    meta[platform] = {
+                        "key": val.get("key", ""),
+                        "configured": bool(val.get("configured", bool(val.get("key"))))
+                    }
+                else:
+                    key = str(val) if val is not None else ""
+                    meta[platform] = {"key": key, "configured": bool(key)}
+        return meta
     
     def get_mineru_token(self) -> Optional[str]:
         """
@@ -74,7 +144,19 @@ class SecretsManager:
             MinerU令牌，如果不存在则返回None
         """
         secrets = self.load_secrets()
-        return secrets.get("translator_mineru_token")
+        val = secrets.get("translator_mineru_token")
+        if isinstance(val, dict):
+            return val.get("key")
+        return val
+
+    def get_mineru_token_meta(self) -> Dict[str, Any]:
+        """返回 { key: str, configured: bool }"""
+        secrets = self.load_secrets()
+        val = secrets.get("translator_mineru_token")
+        if isinstance(val, dict):
+            return {"key": val.get("key", ""), "configured": bool(val.get("configured", bool(val.get("key"))))}
+        key = str(val) if val is not None else ""
+        return {"key": key, "configured": bool(key)}
 
     def get_docling_auth(self) -> Dict[str, Any]:
         """
@@ -151,7 +233,7 @@ class SecretsManager:
             logger.error(f"保存敏感配置文件失败: {e}")
             return False
     
-    def update_api_key(self, platform: str, api_key: str) -> bool:
+    def update_api_key(self, platform: str, api_key: str, configured: Optional[bool] = None) -> bool:
         """
         更新指定平台的API密钥
         
@@ -163,15 +245,20 @@ class SecretsManager:
             是否更新成功
         """
         secrets = self.load_secrets()
-        
         if "platform_api_keys" not in secrets:
             secrets["platform_api_keys"] = {}
-        
-        secrets["platform_api_keys"][platform] = api_key
-        
+        key_meta = secrets["platform_api_keys"].get(platform)
+        if not isinstance(key_meta, dict):
+            key_meta = {"key": "", "configured": False}
+        key_meta["key"] = api_key
+        if configured is None:
+            key_meta["configured"] = bool(api_key)
+        else:
+            key_meta["configured"] = bool(configured)
+        secrets["platform_api_keys"][platform] = key_meta
         return self.save_secrets(secrets)
     
-    def update_mineru_token(self, token: str) -> bool:
+    def update_mineru_token(self, token: str, configured: Optional[bool] = None) -> bool:
         """
         更新MinerU令牌
         
@@ -182,8 +269,12 @@ class SecretsManager:
             是否更新成功
         """
         secrets = self.load_secrets()
-        secrets["translator_mineru_token"] = token
-        
+        meta = secrets.get("translator_mineru_token")
+        if not isinstance(meta, dict):
+            meta = {"key": "", "configured": False}
+        meta["key"] = token
+        meta["configured"] = bool(configured) if configured is not None else bool(token)
+        secrets["translator_mineru_token"] = meta
         return self.save_secrets(secrets)
     
     def update_auth_secret(self, key: str, value: str) -> bool:
