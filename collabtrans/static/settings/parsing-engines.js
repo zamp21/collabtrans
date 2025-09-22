@@ -182,5 +182,24 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// Initialize parsing engine module
+function initParsingEngineModule() {
+  console.log('Initializing parsing engine module...');
+  loadEngineConfigs();
+  
+  // Setup event listeners
+  const sel = document.getElementById('engineSelect');
+  if (sel) sel.addEventListener('change', () => updateEngineFields());
+  
+  const saveBtn = document.getElementById('saveEngineBtn');
+  if (saveBtn) saveBtn.addEventListener('click', saveParsingEngineConfig);
+  
+  // Initialize password toggle buttons
+  if (window.SettingsCore) {
+    window.SettingsCore.initTogglePasswordButtons();
+  }
+}
+
 // Export functions for global access
 window.saveParsingEngineConfig = saveParsingEngineConfig;
+window.initParsingEnginesModule = initParsingEngineModule;
