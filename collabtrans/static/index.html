@@ -666,11 +666,12 @@ $.*"></textarea>
 
                                     <!-- AI Model settings (Platform selection + Display) -->
                                     <div id="aiModelSettingsContainer">
-                                        <div class="mb-3">
+                                        <div class="mb-3 d-flex align-items-end gap-2">
                                             <label for="platform_select" class="form-label" data-i18n="platformLabel">选择平台</label>
                                             <select class="form-select" id="platform_select">
                                                 <!-- 选项将从配置文件动态加载 -->
                                             </select>
+                                            <button type="button" id="home_test_platform_btn" class="btn btn-outline-secondary ms-2">测试连接</button>
                                         </div>
                                         
                                         <div class="alert alert-info">
@@ -2492,6 +2493,11 @@ $.*"></textarea>
         if (platformSelect) {
             platformSelect.addEventListener('change', handlePlatformChange);
         }
+        // Bind home test button
+        const homeTestBtn = document.getElementById('home_test_platform_btn');
+        if (homeTestBtn) {
+            homeTestBtn.addEventListener('click', homeTestAiPlatform);
+        }
         updateWorkflowUI(); // Call to update numbering
     }
 
@@ -2668,6 +2674,43 @@ $.*"></textarea>
             }
         } catch (e) {
             console.error('Load platform config error:', e);
+        }
+    }
+
+    // Home: Test AI platform connection (user-friendly)
+    async function homeTestAiPlatform() {
+        const selectedPlatform = platformSelect?.value || 'deepseek';
+        // Show progress via simple alert-like banner
+        try {
+            const r = await fetch('/auth/app-config', { credentials: 'include' });
+            if (!r.ok) throw new Error('Failed to load config');
+            const cfg = await r.json();
+            const pf = (cfg.ai_platforms && cfg.ai_platforms[selectedPlatform]) || {};
+            const baseUrl = pf.url || '';
+            const model = pf.model || '';
+            if (!baseUrl || !model) {
+                alert('测试失败：缺少平台URL或模型，请先在设置页完善');
+                return;
+            }
+            const resp = await fetch('/auth/test-ai-platform', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ platform_type: selectedPlatform, base_url: baseUrl, model_name: model })
+            });
+            if (!resp.ok) {
+                const t = await resp.text();
+                alert('测试失败：HTTP ' + resp.status + ' - ' + t);
+                return;
+            }
+            const data = await resp.json();
+            if (data.success) {
+                alert('测试成功');
+            } else {
+                alert('测试失败：' + (data.error || '未知错误'));
+            }
+        } catch (e) {
+            alert('测试异常：' + (e?.message || e));
         }
     }
 
@@ -3106,6 +3149,21 @@ $.*"></textarea>
                 });
                 break;
         }
+        // Attach AI platform essentials (base_url, model_name/model_id) for backend validation
+        try {
+            const selectedPlatform = platformSelect?.value;
+            const pf = selectedPlatform ? (globalPlatformConfigs[selectedPlatform] || {}) : {};
+            if (!workflowPayload.base_url && pf.url) {
+                workflowPayload.base_url = pf.url;
+            }
+            const modelId = pf.model;
+            if (!workflowPayload.model_name && modelId) {
+                workflowPayload.model_name = modelId;
+            }
+            if (!workflowPayload.model_id && modelId) {
+                workflowPayload.model_id = modelId;
+            }
+        } catch (e) { /* no-op */ }
 
         return {payload: isValid ? workflowPayload : null, isValid};
     }
