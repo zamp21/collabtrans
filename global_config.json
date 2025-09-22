@@ -9,7 +9,8 @@
       "mineru": {
         "name": "MinerU",
         "model": "vlm",
-        "api_url": "https://mineru.net/api/v4"
+        "api_url": "https://mineru.net/api/v4",
+        "model_version": "vlm"
       },
       "docling": {
         "name": "Docling",

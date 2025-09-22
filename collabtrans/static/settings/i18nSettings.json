@@ -1,5 +1,7 @@
 {
   "zh": {
+    "statusConfigured": "已配置",
+    "statusNotConfigured": "未配置",
     "ldapUserFilterExample": "(sAMAccountName={username})",
     "testLdapConnectionLabel": "测试LDAP连接",
     "saveWebSettingsBtn": "保存Web设置",
@@ -167,6 +169,8 @@
     "init_i18n_failed_alert": "国际化初始化失败，请刷新页面重试。"
   },
   "en": {
+    "statusConfigured": "Configured",
+    "statusNotConfigured": "Not configured",
     "ldapUserFilterExample": "(sAMAccountName={username})",
     "testLdapConnectionLabel": "Test LDAP Connection",
     "saveWebSettingsBtn": "Save Web Settings",

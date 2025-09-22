@@ -23,8 +23,9 @@
   </div>
 
   <div class="row g-3 mt-1" id="mineruApiKeyRow" style="display:none;">
-    <div class="col-md-6">
+    <div class="col-md-12">
       <label class="form-label" for="mineruApiKey" data-i18n="mineruApiKeyLabel">MinerU API Key</label>
+      <span id="mineruApiKeyStatus" class="badge bg-secondary ms-2" data-i18n="statusNotConfigured">未配置</span>
       <div class="input-group">
         <input type="password" class="form-control" id="mineruApiKey" data-i18n-placeholder="mineruApiKeyPlaceholder" placeholder="sk-...">
         <button class="btn btn-outline-secondary toggle-password" type="button" data-target="mineruApiKey">

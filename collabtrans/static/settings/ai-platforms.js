@@ -123,6 +123,7 @@ async function loadApiKey(platform) {
     const secrets = await resp.json();
     
     const apiKeyInput = document.getElementById('platformApiKey');
+    const statusBadge = document.getElementById('platformApiKeyStatus');
     const apiKey = secrets.platform_api_keys?.[platform];
     
     if (apiKey) {
@@ -132,6 +133,12 @@ async function loadApiKey(platform) {
       apiKeyInput.placeholder = window.SettingsCore ? window.SettingsCore.getText('savedApiKeyPlaceholder') : 'Saved API Key';
       // Ensure input type is password so masked display works properly
       apiKeyInput.type = 'password';
+      if (statusBadge) {
+        statusBadge.classList.remove('bg-secondary');
+        statusBadge.classList.add('bg-success');
+        statusBadge.textContent = window.SettingsCore ? window.SettingsCore.getText('statusConfigured') : '已配置';
+        statusBadge.setAttribute('data-i18n', 'statusConfigured');
+      }
       
       // Update eye icon state
       const toggleButton = document.querySelector('[data-target="platformApiKey"]');
@@ -147,6 +154,12 @@ async function loadApiKey(platform) {
       apiKeyInput.value = '';
       apiKeyInput.placeholder = window.SettingsCore ? window.SettingsCore.getText('apiKeyPlaceholder') : 'sk-...';
       apiKeyInput.type = 'password';
+      if (statusBadge) {
+        statusBadge.classList.remove('bg-success');
+        statusBadge.classList.add('bg-secondary');
+        statusBadge.textContent = window.SettingsCore ? window.SettingsCore.getText('statusNotConfigured') : '未配置';
+        statusBadge.setAttribute('data-i18n', 'statusNotConfigured');
+      }
     }
   } catch (e) {
     console.error('Load API key error:', e);
@@ -154,6 +167,13 @@ async function loadApiKey(platform) {
     apiKeyInput.value = '';
     apiKeyInput.placeholder = window.SettingsCore ? window.SettingsCore.getText('apiKeyPlaceholder') : 'sk-...';
     apiKeyInput.type = 'password';
+    const statusBadge = document.getElementById('platformApiKeyStatus');
+    if (statusBadge) {
+      statusBadge.classList.remove('bg-success');
+      statusBadge.classList.add('bg-secondary');
+      statusBadge.textContent = window.SettingsCore ? window.SettingsCore.getText('statusNotConfigured') : '未配置';
+      statusBadge.setAttribute('data-i18n', 'statusNotConfigured');
+    }
   }
 }
 

@@ -251,27 +251,41 @@ function initTogglePasswordButtons() {
         icon.classList.remove('bi-eye-slash');
         icon.classList.add('bi-eye');
         
-        if (targetId === 'platformApiKey' && passwordInput.value && passwordInput.value.includes('***')) {
-          const currentPlatform = document.getElementById('platformSelect').value;
-          console.log(`[DEBUG] Detected masked API key, fetching real key for platform: ${currentPlatform}`);
-          console.log(`[DEBUG] Current masked value: "${passwordInput.value}"`);
-          console.log(`[DEBUG] Input type: ${passwordInput.type}`);
-          
+        if ((targetId === 'platformApiKey' || targetId === 'mineruApiKey') && passwordInput.value && passwordInput.value.includes('***')) {
           try {
             const resp = await fetch('/auth/app-config/raw-secrets');
             if (resp.ok) {
               const secrets = await resp.json();
               console.log(`[DEBUG] Raw secrets response:`, secrets);
-              console.log(`[DEBUG] Available platforms:`, Object.keys(secrets.platform_api_keys || {}));
               
-              const apiKey = secrets.platform_api_keys?.[currentPlatform];
-              if (apiKey) {
-                console.log(`[DEBUG] Found API key for platform ${currentPlatform}, length: ${apiKey.length}`);
-                passwordInput.value = apiKey;
-                console.log(`[DEBUG] Real API key loaded for platform: ${currentPlatform}`);
-              } else {
-                console.log(`[DEBUG] No API key found for platform: ${currentPlatform}`);
+              if (targetId === 'platformApiKey') {
+                const currentPlatform = document.getElementById('platformSelect').value;
+                console.log(`[DEBUG] Detected masked API key, fetching real key for platform: ${currentPlatform}`);
+                console.log(`[DEBUG] Current masked value: "${passwordInput.value}"`);
+                console.log(`[DEBUG] Input type: ${passwordInput.type}`);
                 console.log(`[DEBUG] Available platforms:`, Object.keys(secrets.platform_api_keys || {}));
+                
+                const apiKey = secrets.platform_api_keys?.[currentPlatform];
+                if (apiKey) {
+                  console.log(`[DEBUG] Found API key for platform ${currentPlatform}, length: ${apiKey.length}`);
+                  passwordInput.value = apiKey;
+                  console.log(`[DEBUG] Real API key loaded for platform: ${currentPlatform}`);
+                } else {
+                  console.log(`[DEBUG] No API key found for platform: ${currentPlatform}`);
+                  console.log(`[DEBUG] Available platforms:`, Object.keys(secrets.platform_api_keys || {}));
+                }
+              } else if (targetId === 'mineruApiKey') {
+                console.log(`[DEBUG] Detected masked MinerU API key, fetching real key`);
+                console.log(`[DEBUG] Current masked value: "${passwordInput.value}"`);
+                
+                const mineruToken = secrets.translator_mineru_token;
+                if (mineruToken) {
+                  console.log(`[DEBUG] Found MinerU token, length: ${mineruToken.length}`);
+                  passwordInput.value = mineruToken;
+                  console.log(`[DEBUG] Real MinerU token loaded`);
+                } else {
+                  console.log(`[DEBUG] No MinerU token found`);
+                }
               }
             } else {
               console.error(`[DEBUG] Failed to fetch raw secrets: ${resp.status}`);
@@ -285,10 +299,14 @@ function initTogglePasswordButtons() {
         icon.classList.remove('bi-eye');
         icon.classList.add('bi-eye-slash');
         
-        if (targetId === 'platformApiKey' && passwordInput.value && !passwordInput.value.includes('***')) {
+        if ((targetId === 'platformApiKey' || targetId === 'mineruApiKey') && passwordInput.value && !passwordInput.value.includes('***')) {
           const maskedKey = passwordInput.value.substring(0, 8) + '***';
           passwordInput.value = maskedKey;
-          console.log(`[DEBUG] API key masked for platform: ${document.getElementById('platformSelect').value}`);
+          if (targetId === 'platformApiKey') {
+            console.log(`[DEBUG] API key masked for platform: ${document.getElementById('platformSelect').value}`);
+          } else if (targetId === 'mineruApiKey') {
+            console.log(`[DEBUG] MinerU API key masked`);
+          }
         }
       }
     });

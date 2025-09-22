@@ -3591,7 +3591,7 @@ $.*"></textarea>
                 icon.classList.add('bi-eye');
                 
                 // 如果是API key输入框且当前显示的是脱敏值，则获取完整值
-                if (targetId === 'api_key' && passwordInput.value && passwordInput.value.endsWith('***')) {
+                if ((targetId === 'api_key' || targetId === 'mineru_token') && passwordInput.value && passwordInput.value.endsWith('***')) {
                     try {
                         // 检查用户权限
                         if (window.userPermissions && window.userPermissions.is_admin) {
@@ -3602,6 +3602,12 @@ $.*"></textarea>
                             
                             if (response.ok) {
                                 const rawSecrets = await response.json();
+                                
+                                // 处理MinerU token
+                                if (targetId === 'mineru_token' && rawSecrets.translator_mineru_token) {
+                                    passwordInput.value = rawSecrets.translator_mineru_token;
+                                    console.log('MinerU token loaded from raw secrets');
+                                }
                                 // AI model settings moved to settings page - no platform selection needed
                             } else {
                                 console.warn('Failed to fetch raw secrets');
@@ -3618,7 +3624,11 @@ $.*"></textarea>
                 icon.classList.add('bi-eye-slash');
                 
                 // 如果是API key输入框，恢复脱敏显示
-                if (targetId === 'api_key' && passwordInput.value && !passwordInput.value.endsWith('***')) {
+                if ((targetId === 'api_key' || targetId === 'mineru_token') && passwordInput.value && !passwordInput.value.endsWith('***')) {
+                    // 恢复脱敏显示
+                    if (targetId === 'mineru_token') {
+                        passwordInput.value = passwordInput.value.substring(0, 8) + '***';
+                    }
                     // AI model settings moved to settings page - no platform selection needed
                 }
             }

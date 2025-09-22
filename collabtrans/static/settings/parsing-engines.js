@@ -69,17 +69,37 @@ async function loadMineruApiKey() {
     const secrets = await resp.json();
     const key = secrets.translator_mineru_token || '';
     const el = document.getElementById('mineruApiKey');
+    const status = document.getElementById('mineruApiKeyStatus');
     if (!el) return;
     if (key) {
       el.value = key.substring(0, 8) + '***';
       el.type = 'password';
+      if (status) {
+        status.classList.remove('bg-secondary');
+        status.classList.add('bg-success');
+        status.textContent = window.SettingsCore ? window.SettingsCore.getText('statusConfigured') : '已配置';
+        status.setAttribute('data-i18n', 'statusConfigured');
+      }
     } else {
       el.value = '';
       el.placeholder = window.SettingsCore ? window.SettingsCore.getText('mineruApiKeyPlaceholder') : '';
       el.type = 'password';
+      if (status) {
+        status.classList.remove('bg-success');
+        status.classList.add('bg-secondary');
+        status.textContent = window.SettingsCore ? window.SettingsCore.getText('statusNotConfigured') : '未配置';
+        status.setAttribute('data-i18n', 'statusNotConfigured');
+      }
     }
   } catch (e) {
     console.warn('Load MinerU API Key failed', e);
+    const status = document.getElementById('mineruApiKeyStatus');
+    if (status) {
+      status.classList.remove('bg-success');
+      status.classList.add('bg-secondary');
+      status.textContent = window.SettingsCore ? window.SettingsCore.getText('statusNotConfigured') : '未配置';
+      status.setAttribute('data-i18n', 'statusNotConfigured');
+    }
   }
 }
 
