@@ -2507,7 +2507,7 @@ $.*"></textarea>
     async function loadGlobalPlatformConfigs() {
         try {
             console.log('[DEBUG] loadGlobalPlatformConfigs - starting to load platform configs');
-            const resp = await fetch('/auth/app-config');
+            const resp = await fetch('/auth/app-config', { credentials: 'include' });
             if (!resp.ok) {
                 console.error('[DEBUG] loadGlobalPlatformConfigs - API response not ok:', resp.status, resp.statusText);
                 return;
@@ -2581,8 +2581,9 @@ $.*"></textarea>
             if (!resp.ok) return;
             const cfg = await resp.json();
             
-            // Set platform selection
-            const platformType = cfg.translator_platform_type || 'deepseek';
+            // Determine platform selection: backend user config > localStorage > default
+            const stored = (() => { try { return localStorage.getItem('translator_platform_type'); } catch (e) { return null; } })();
+            const platformType = cfg.translator_platform_type || stored || 'deepseek';
             if (platformSelect) {
                 platformSelect.value = platformType;
             }
@@ -2601,6 +2602,15 @@ $.*"></textarea>
             const hasApiKey = cfg.platform_api_keys && cfg.platform_api_keys[platformType];
             currentApiKeyStatus.textContent = hasApiKey ? '已配置' : '未配置';
             currentApiKeyStatus.className = hasApiKey ? 'form-control-plaintext text-success' : 'form-control-plaintext text-warning';
+
+            // Ensure initial platform details are fully refreshed based on the selected/default platform
+            try {
+                if (typeof handlePlatformChange === 'function') {
+                    await handlePlatformChange();
+                }
+            } catch (e) {
+                console.warn('[DEBUG] displayCurrentAiConfig: initial handlePlatformChange failed:', e);
+            }
         } catch (e) {
             console.error('Load AI config error:', e);
             currentPlatformName.textContent = '加载失败';
@@ -2629,20 +2639,12 @@ $.*"></textarea>
             if (!resp.ok) return;
             const cfg = await resp.json();
             
-            // If the selected platform is the current active platform, show current config
-            if (cfg.translator_platform_type === selectedPlatform) {
-                currentModelName.textContent = cfg.translator_model_name || '-';
-                currentBaseUrl.textContent = cfg.translator_base_url || '-';
-                currentMaxTokens.textContent = cfg.translator_max_tokens || '-';
-                currentTemperature.textContent = cfg.translator_temperature || '-';
-            } else {
-                // Show default values for other platforms from config
-                const platformConfig = globalPlatformConfigs[selectedPlatform];
-                currentModelName.textContent = platformConfig?.model || '-';
-                currentBaseUrl.textContent = platformConfig?.url || '-';
-                currentMaxTokens.textContent = platformConfig?.max_tokens || '4096';
-                currentTemperature.textContent = platformConfig?.temperature || '0.7';
-            }
+            // Always read from new structured ai_platforms for consistent display
+            const pf = (cfg.ai_platforms && cfg.ai_platforms[selectedPlatform]) || globalPlatformConfigs[selectedPlatform] || {};
+            currentModelName.textContent = pf.model || '-';
+            currentBaseUrl.textContent = pf.url || '-';
+            currentMaxTokens.textContent = (pf.max_tokens != null ? pf.max_tokens : '4096');
+            currentTemperature.textContent = (pf.temperature != null ? pf.temperature : '0.7');
             
             // Update API Key status (fetch raw secrets meta for accurate configured flag)
             try {

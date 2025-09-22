@@ -353,6 +353,19 @@ async function saveAiPlatformConfig() {
       }
       // Reload API Key display (masked version) and status
       await loadApiKey(platformType);
+      // 同步当前平台到后端用户配置，供主页读取
+      try {
+        await fetch('/auth/app-config/setting', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ key: 'translator_platform_type', value: platformType })
+        });
+        // 同步到本地存储，供主页备用读取
+        try { localStorage.setItem('translator_platform_type', platformType); } catch (e) {}
+      } catch (e) {
+        console.warn('[DEBUG] saveAiPlatformConfig - failed to sync translator_platform_type:', e);
+      }
       return true;
     } else {
       const error = await resp1.text();
