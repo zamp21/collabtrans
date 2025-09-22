@@ -30,8 +30,8 @@
       "model": "gpt-4o",
       "max_tokens": 128000,
       "temperature": 0.7,
-      "recommended_tokens": 32000,
-      "performance_note": "Strong long-text processing capability, but longer response time"
+      "recommended_tokens": null,
+      "performance_note": null
     },
     "azure": {
       "name": "Azure OpenAI",

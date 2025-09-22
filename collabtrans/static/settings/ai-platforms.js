@@ -387,6 +387,13 @@ function initAiPlatformModule() {
     // Load platform configurations
     loadPlatformConfigs();
     
+    // 修复: 确保在加载平台配置后，主动加载当前选中平台的配置信息
+    // 这里添加一个小延迟确保updatePlatformSelect完成后再调用updatePlatformFields
+    setTimeout(() => {
+      updatePlatformFields();
+      console.log('[DEBUG] initAiPlatformModule -主动加载了当前选中平台的配置');
+    }, 100);
+    
     // Setup event listeners
     const platformSelect = document.getElementById('platformSelect');
     if (platformSelect) {
