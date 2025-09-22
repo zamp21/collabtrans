@@ -1122,6 +1122,9 @@ $.*"></textarea>
                         <span class="fw-bold" data-i18n="taskCardFilenameLabel">文件名: </span>
                         <span class="file-name-display text-success"></span>
                     </div>
+                    <div class="token-stats-wrapper mt-1" style="display: none;">
+                        <span class="token-stats small text-muted"></span>
+                    </div>
                 </div>
                 <div class="col-md-7">
                     <h6><i class="bi bi-terminal me-2"></i><span data-i18n="taskCardLogLabel">日志</span></h6>
@@ -2852,6 +2855,8 @@ $.*"></textarea>
             fileDropSelected: cardElement.querySelector('.file-drop-selected'),
             fileNameDisplayWrapper: cardElement.querySelector('.file-name-display-wrapper'),
             fileNameDisplay: cardElement.querySelector('.file-name-display'),
+            tokenStatsWrapper: cardElement.querySelector('.token-stats-wrapper'),
+            tokenStats: cardElement.querySelector('.token-stats'),
             logArea: cardElement.querySelector('.log-area'),
             statusMessage: cardElement.querySelector('.status-message'),
             downloadButtons: cardElement.querySelector('.download-buttons'),
@@ -3358,6 +3363,14 @@ $.*"></textarea>
             if (status.original_filename && (!state.file || isRestore)) {
                 elements.fileNameDisplay.textContent = status.original_filename;
                 elements.fileNameDisplayWrapper.style.display = 'block';
+            }
+
+            // Display token stats if available
+            if (status.token_stats && typeof status.token_stats === 'object') {
+                const s = status.token_stats;
+                const fmt = (v) => (typeof v === 'number' ? (v/1000).toFixed(2) + 'K' : String(v));
+                elements.tokenStats.textContent = `Tokens: in ${fmt(s.input_tokens)} (cached ${fmt(s.cached_tokens)}), out ${fmt(s.output_tokens)} (reasoning ${fmt(s.reasoning_tokens)}), total ${fmt(s.total_tokens)}`;
+                elements.tokenStatsWrapper.style.display = 'block';
             }
 
             elements.statusMessage.textContent = status.status_message || getText('status_gettingStatus');

@@ -1086,6 +1086,68 @@ async def _perform_translation(
         # 5. 任务成功，更新最终状态
         end_time = time.time()
         duration = end_time - task_state["task_start_time"]
+        # --- Attach token stats if available ---
+        token_stats_obj = None
+        try:
+            # 1) 优先从 workflow.translator.agent.token_counter 提取
+            _translator = getattr(workflow, 'translator', None)
+            _agent_via_translator = getattr(_translator, 'agent', None) if _translator is not None else None
+            _tc_via_translator = getattr(_agent_via_translator, 'token_counter', None) if _agent_via_translator is not None else None
+            if _tc_via_translator is not None:
+                token_stats_obj = _tc_via_translator.get_stats()
+                task_logger.info(f"[TokenStats] using translator.agent path: {token_stats_obj}")
+            else:
+                if _translator is None:
+                    task_logger.info("[TokenStats] workflow.translator is None")
+                elif _agent_via_translator is None:
+                    task_logger.info("[TokenStats] workflow.translator.agent is None")
+                else:
+                    task_logger.info("[TokenStats] workflow.translator.agent.token_counter is None")
+
+                # 2) 备用：从 workflow.agent.token_counter 提取
+                _agent = getattr(workflow, 'agent', None)
+                _tc = getattr(_agent, 'token_counter', None) if _agent is not None else None
+                if _tc is not None:
+                    token_stats_obj = _tc.get_stats()
+                    task_logger.info(f"[TokenStats] using workflow.agent path: {token_stats_obj}")
+                else:
+                    if _agent is None:
+                        task_logger.info("[TokenStats] workflow.agent is None")
+                    else:
+                        task_logger.info("[TokenStats] workflow.agent.token_counter is None")
+        except Exception as _e:
+            task_logger.warning(f"[TokenStats] failed to extract stats: {_e}")
+
+        # If still None, try extracting from log history (fallback)
+        if token_stats_obj is None:
+            try:
+                import re
+                log_history = tasks_log_histories.get(task_id, [])
+                # Find last line containing token stats
+                for line in reversed(log_history):
+                    if "Token使用统计" in line:
+                        # Example: 输入: 1.23K(含cached: 0.45K), 输出: 2.34K(含reasoning: 0.10K), 总计: 3.67K
+                        def _extract(pattern):
+                            m = re.search(pattern, line)
+                            if not m:
+                                return None
+                            try:
+                                v = float(m.group(1))
+                                return int(v * 1000)
+                            except Exception:
+                                return None
+                        token_stats_obj = {
+                            "input_tokens": _extract(r"输入:\s*([0-9.]+)K"),
+                            "cached_tokens": _extract(r"含cached:\s*([0-9.]+)K"),
+                            "output_tokens": _extract(r"输出:\s*([0-9.]+)K"),
+                            "reasoning_tokens": _extract(r"含reasoning:\s*([0-9.]+)K"),
+                            "total_tokens": _extract(r"总计:\s*([0-9.]+)K"),
+                        }
+                        task_logger.info(f"[TokenStats] extracted from logs: {token_stats_obj}")
+                        break
+            except Exception as _e:
+                task_logger.warning(f"[TokenStats] failed to extract from logs: {_e}")
+
         task_state.update({
             "status_message": f"翻译成功！用时 {duration:.2f} 秒。",
             "download_ready": True,
@@ -1093,6 +1155,8 @@ async def _perform_translation(
             "task_end_time": end_time,
             "downloadable_files": downloadable_files,
             "attachment_files": attachment_files,
+            # attach token stats if the workflow exposes it via agent
+            "token_stats": token_stats_obj,
         })
         task_logger.info(f"翻译成功完成，用时 {duration:.2f} 秒。")
 
@@ -1465,7 +1529,9 @@ async def service_get_status(
         "task_start_time": task_state["task_start_time"],
         "task_end_time": task_state["task_end_time"],
         "downloads": downloads,
-        "attachment": attachments
+        "attachment": attachments,
+        # expose token stats if available
+        "token_stats": task_state.get("token_stats")
     })
 
 
