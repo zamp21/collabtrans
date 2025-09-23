@@ -1,14 +1,14 @@
 # CollabTrans
 
 **Project Description**: This project is a fork of [DocuTranslate](https://github.com/xunbu/DocuTranslate), enhanced with collaborative translation features including multi-user support:
-1, Authentication by using LDAP/LDAPS (user managed via LDAP server)
-2, Support HTTPS
-3, Glossary shared and management
-4, Model API keys can only be managed by authenticated users(or admin)
+- 1, Authentication by using LDAP/LDAPS (user managed via LDAP server)
+- 2, Support HTTPS
+- 3, Glossary shared and management
+- 4, Model API keys can only be managed by authenticated users(or admin)
 
 TODO:
-1, Support local user management w/o LDAP/LDAPS
-2, Enhance the workflow to redact the document and replace the sensitive words with mask word in local inference server, and then recover the sensitive word after it's translated.
+- 1, Support local user management w/o LDAP/LDAPS
+- 2, Enhance the workflow to redact the document and replace the sensitive words with mask word in local inference server, and then recover the sensitive word after it's translated.
 
 
 If you are a desktop user, you can also download and try docutranslate instead.
