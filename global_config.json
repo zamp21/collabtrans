@@ -1,4 +1,5 @@
 {
+  "default_language": "en",
   "translator_settings": {
     "convert_engine": "mineru",
     "mineru_model_version": "vlm",

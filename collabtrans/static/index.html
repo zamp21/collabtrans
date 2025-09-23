@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title data-i18n-title="pageTitle">CollabTrans - 脱敏化翻译平台</title>
+    <title data-i18n-title="pageTitle">CollabTrans - 交互式文档翻译</title>
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
     <!-- Bootstrap CSS -->
     <link href="/static/bootstrap.css" rel="stylesheet" crossorigin="anonymous">
@@ -247,7 +247,7 @@
                                     <li><a class="dropdown-item" href="#" data-lang="zh" data-i18n="languageChinese">中文</a></li>
                                     <li><a class="dropdown-item" href="#" data-lang="en" data-i18n="languageEnglish">English</a></li>
                                 </ul>
-                                <span id="currentUserBadge" class="badge rounded-pill text-bg-light ms-2" title="当前用户">
+                                <span id="currentUserBadge" class="badge rounded-pill text-bg-light ms-2" data-i18n-title="currentUserTitle" title="当前用户">
                                     <i class="bi bi-person-circle me-1"></i><span id="currentUserName">--</span>
                                 </span>
                             </div>
@@ -671,43 +671,43 @@ $.*"></textarea>
                                             <select class="form-select" id="platform_select">
                                                 <!-- 选项将从配置文件动态加载 -->
                                             </select>
-                                            <button type="button" id="home_test_platform_btn" class="btn btn-outline-secondary ms-2">测试连接</button>
+                                            <button type="button" id="home_test_platform_btn" class="btn btn-outline-secondary ms-2" data-i18n="testConnectionBtn">测试连接</button>
                                         </div>
                                         
                                         <div class="alert alert-info">
                                             <i class="bi bi-info-circle me-2"></i>
-                                            详细配置请前往 <a href="/settings" class="alert-link">设置页面</a>
+                                            <span data-i18n="detailedConfigInfo">详细配置请前往</span> <a href="/settings" class="alert-link" data-i18n="settingsPageLink">设置页面</a>
                                         </div>
                                         
                                         <div class="row g-3">
                                             <div class="col-md-6">
-                                                <label class="form-label">平台名称</label>
+                                                <label class="form-label" data-i18n="platformNameLabel">平台名称</label>
                                                 <div class="form-control-plaintext" id="current_platform_name">-</div>
                                             </div>
                                             <div class="col-md-6">
-                                                <label class="form-label">模型名称</label>
+                                                <label class="form-label" data-i18n="modelNameLabel">模型名称</label>
                                                 <div class="form-control-plaintext" id="current_model_name">-</div>
                                             </div>
                                         </div>
                                         
                                         <div class="row g-3 mt-2">
                                             <div class="col-md-6">
-                                                <label class="form-label">API 地址</label>
+                                                <label class="form-label" data-i18n="apiAddressLabel">API 地址</label>
                                                 <div class="form-control-plaintext" id="current_base_url">-</div>
                                             </div>
                                             <div class="col-md-6">
-                                                <label class="form-label">API Key 状态</label>
+                                                <label class="form-label" data-i18n="apiKeyStatusLabel">API Key 状态</label>
                                                 <div class="form-control-plaintext" id="current_api_key_status">-</div>
                                             </div>
                                         </div>
                                         
                                         <div class="row g-3 mt-2">
                                             <div class="col-md-6">
-                                                <label class="form-label">最大 Token 数</label>
+                                                <label class="form-label" data-i18n="maxTokensLabel">最大 Token 数</label>
                                                 <div class="form-control-plaintext" id="current_max_tokens">-</div>
                                             </div>
                                             <div class="col-md-6">
-                                                <label class="form-label">温度参数</label>
+                                                <label class="form-label" data-i18n="temperatureLabel">温度参数</label>
                                                 <div class="form-control-plaintext" id="current_temperature">-</div>
                                             </div>
                                         </div>
@@ -915,7 +915,7 @@ $.*"></textarea>
                                                 </select>
                                             </div>
                                             <div class="form-text mb-3" id="glossary_base_url_display_container">
-                                                Base URL: <code id="glossary_base_url_display"></code>
+                                                <span data-i18n="baseUrlDisplayLabel">Base URL:</span> <code id="glossary_base_url_display"></code>
                                             </div>
                                             <div class="mb-3" id="glossaryAgentBaseUrlGroup" style="display: none;">
                                                 <label for="glossary_agent_baseurl" class="form-label"
@@ -927,7 +927,7 @@ $.*"></textarea>
                                             </div>
 
                                             <div class="mb-3">
-                                                <label for="glossary_agent_key" class="form-label">API Key</label>
+                                                <label for="glossary_agent_key" class="form-label" data-i18n="glossaryApiKeyLabel">API Key</label>
                                                 <div class="input-group">
                                                     <input type="password" class="form-control" id="glossary_agent_key"
                                                            name="glossary_agent_key"
@@ -1507,7 +1507,7 @@ $.*"></textarea>
                             <!-- 全局术语表列表 -->
                         </div>
                         <div class="form-text mt-2">
-                            <i class="bi bi-info-circle"></i> 个人术语表请在外层的"My Glossary"中管理
+                            <i class="bi bi-info-circle"></i> <span data-i18n="personalGlossaryManageInfo">个人术语表请在外层的"My Glossary"中管理</span>
                         </div>
                     </div>
                 </div>
@@ -2609,7 +2609,7 @@ $.*"></textarea>
             
             // Display API Key status
             const hasApiKey = cfg.platform_api_keys && cfg.platform_api_keys[platformType];
-            currentApiKeyStatus.textContent = hasApiKey ? '已配置' : '未配置';
+            currentApiKeyStatus.textContent = hasApiKey ? getText('configuredStatus') : getText('notConfiguredStatus');
             currentApiKeyStatus.className = hasApiKey ? 'form-control-plaintext text-success' : 'form-control-plaintext text-warning';
 
             // Ensure initial platform details are fully refreshed based on the selected/default platform
@@ -2662,17 +2662,17 @@ $.*"></textarea>
                     const sec = await rsec.json();
                     const meta = (sec.platform_api_keys_meta && sec.platform_api_keys_meta[selectedPlatform]) || null;
                     const hasApiKey = meta ? (!!meta.configured && !!meta.key) : !!(sec.platform_api_keys && sec.platform_api_keys[selectedPlatform]);
-                    currentApiKeyStatus.textContent = hasApiKey ? '已配置' : '未配置';
+                    currentApiKeyStatus.textContent = hasApiKey ? getText('configuredStatus') : getText('notConfiguredStatus');
                     currentApiKeyStatus.className = hasApiKey ? 'form-control-plaintext text-success' : 'form-control-plaintext text-warning';
                 } else {
                     // fallback to previous logic if raw secrets not accessible
                     const hasApiKey = cfg.platform_api_keys && cfg.platform_api_keys[selectedPlatform];
-                    currentApiKeyStatus.textContent = hasApiKey ? '已配置' : '未配置';
+                    currentApiKeyStatus.textContent = hasApiKey ? getText('configuredStatus') : getText('notConfiguredStatus');
                     currentApiKeyStatus.className = hasApiKey ? 'form-control-plaintext text-success' : 'form-control-plaintext text-warning';
                 }
             } catch (err) {
                 const hasApiKey = cfg.platform_api_keys && cfg.platform_api_keys[selectedPlatform];
-                currentApiKeyStatus.textContent = hasApiKey ? '已配置' : '未配置';
+                currentApiKeyStatus.textContent = hasApiKey ? getText('configuredStatus') : getText('notConfiguredStatus');
                 currentApiKeyStatus.className = hasApiKey ? 'form-control-plaintext text-success' : 'form-control-plaintext text-warning';
             }
         } catch (e) {
@@ -4492,7 +4492,7 @@ $.*"></textarea>
             container.innerHTML = '';
             
             if (globalGlossaries.length === 0) {
-                container.innerHTML = '<p class="text-muted">暂无全局术语表</p>';
+                container.innerHTML = '<p class="text-muted"><span data-i18n="noGlobalGlossariesAvailable">暂无可用全局术语表</span></p>';
                 return;
             }
             
@@ -4545,7 +4545,7 @@ $.*"></textarea>
             container.innerHTML = '';
             
             if (globalGlossaries.length === 0) {
-                container.innerHTML = '<p class="text-muted">暂无全局术语表</p>';
+                container.innerHTML = '<p class="text-muted"><span data-i18n="noGlobalGlossariesAvailable">暂无可用全局术语表</span></p>';
                 return;
             }
             
@@ -4884,13 +4884,13 @@ $.*"></textarea>
                 container.appendChild(div);
             });
         } else {
-            container.innerHTML = '<p class="text-muted mb-0">暂无可用全局术语表</p>';
+            container.innerHTML = '<p class="text-muted mb-0"><span data-i18n="noGlobalGlossariesAvailable">暂无可用全局术语表</span></p>';
         }
         
         // 添加说明文字
         const helpText = document.createElement('div');
         helpText.className = 'form-text mt-2';
-        helpText.innerHTML = '<i class="bi bi-info-circle"></i> 个人术语表请在外层的"My Glossary"中管理，预览时会自动合并';
+        helpText.innerHTML = '<i class="bi bi-info-circle"></i> <span data-i18n="personalGlossaryPreviewInfo">个人术语表请在外层的"My Glossary"中管理，预览时会自动合并</span>';
         container.appendChild(helpText);
     }
     

@@ -496,7 +496,7 @@ async def get_app_config_api(
             'glossary_agent_frequency_penalty', 'glossary_agent_presence_penalty', 'glossary_agent_to_lang',
             'glossary_agent_chunk_size', 'glossary_agent_concurrent',
             # 全局配置中的非敏感设置
-            'ai_platforms', 'translator_settings',
+            'ai_platforms', 'translator_settings', 'default_language',
             # 用户维度模型覆盖
             'translator_platform_models', 'glossary_agent_platform_models',
             # LDAP配置（非敏感部分）
@@ -1101,6 +1101,21 @@ async def update_app_config_api(
         if ai_platform_updates or translator_settings_updates:
             global_cfg.update_from_dict({**ai_platform_updates, **translator_settings_updates})
         
+        # 处理默认语言，写入全局配置根字段
+        if 'default_language' in config_data:
+            try:
+                dl = str(config_data.get('default_language') or '').lower()
+                if dl in ('zh', 'en'):
+                    setattr(global_cfg, 'default_language', dl)
+                else:
+                    # 简单兜底：非预期值一律按en
+                    setattr(global_cfg, 'default_language', 'en')
+            except Exception as _e:
+                logger.warning(f"[APP-CONFIG] 更新默认语言失败: {_e}")
+            finally:
+                # 避免同时写入用户级App配置
+                del config_data['default_language']
+
         # 更新其他配置（用户级App配置）
         app_config.update_from_dict({k: v for k, v in config_data.items() if k not in https_keys and k not in ['https_cert_file','https_key_file']})
         

@@ -148,6 +148,7 @@ class GlobalConfig:
         """Get configuration dictionary in new format"""
         # Manually construct the dictionary to avoid asdict() issues with nested dataclasses
         config_dict = {
+            'default_language': self.default_language,
             'translator_settings': asdict(self.translator_settings),
             'ai_platforms': {},
             'active_task_ids': self.active_task_ids,

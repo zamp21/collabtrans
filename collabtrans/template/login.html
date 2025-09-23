@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>登录 - DocuTranslate</title>
+    <title data-i18n-title="loginPageTitle">登录 - DocuTranslate</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     <style>
@@ -70,7 +70,7 @@
                                 <i class="bi bi-translate"></i>
                                 DocuTranslate
                             </h2>
-                            <p class="text-white-50">文档翻译系统</p>
+                            <p class="text-white-50"><span data-i18n="loginSubTitle">文档翻译系统</span></p>
                         </div>
 
                         <!-- 错误提示 -->
@@ -85,12 +85,13 @@
                             
                             <div class="mb-3">
                                 <label for="username" class="form-label text-white">
-                                    <i class="bi bi-person-fill me-2"></i>用户名
+                                    <i class="bi bi-person-fill me-2"></i><span data-i18n="loginUsernameLabel">用户名</span>
                                 </label>
                                 <input type="text" 
                                        class="form-control" 
                                        id="username" 
                                        name="username" 
+                                       data-i18n-placeholder="loginUsernamePlaceholder"
                                        placeholder="请输入用户名"
                                        required
                                        autocomplete="username">
@@ -98,12 +99,13 @@
 
                             <div class="mb-3">
                                 <label for="password" class="form-label text-white">
-                                    <i class="bi bi-lock-fill me-2"></i>密码
+                                    <i class="bi bi-lock-fill me-2"></i><span data-i18n="loginPasswordLabel">密码</span>
                                 </label>
                                 <input type="password" 
                                        class="form-control" 
                                        id="password" 
                                        name="password" 
+                                       data-i18n-placeholder="loginPasswordPlaceholder"
                                        placeholder="请输入密码"
                                        required
                                        autocomplete="current-password">
@@ -111,13 +113,13 @@
 
                             <div class="d-grid mb-3">
                                 <button type="submit" class="btn btn-primary btn-lg">
-                                    <i class="bi bi-box-arrow-in-right me-2"></i>登录
+                                    <i class="bi bi-box-arrow-in-right me-2"></i><span data-i18n="loginBtn">登录</span>
                                 </button>
                             </div>
 
                             <div class="text-center">
-                                <a href="mailto:admin@example.com?subject=忘记密码" class="forgot-password">
-                                    <i class="bi bi-question-circle me-1"></i>忘记密码？
+                                <a href="mailto:admin@example.com?subject=Forgot%20Password" class="forgot-password">
+                                    <i class="bi bi-question-circle me-1"></i><span data-i18n="loginForgotPassword">忘记密码？</span>
                                 </a>
                             </div>
                         </form>
@@ -127,14 +129,14 @@
                         <div class="mt-3 text-center">
                             <small class="text-white-50">
                                 <i class="bi bi-shield-check me-1"></i>
-                                使用LDAP/AD认证
+                                <span data-i18n="loginLdapEnabled">使用LDAP/AD认证</span>
                             </small>
                         </div>
                         {% else %}
                         <div class="mt-3 text-center">
                             <small class="text-white-50">
                                 <i class="bi bi-info-circle me-1"></i>
-                                使用默认认证
+                                <span data-i18n="loginDefaultAuth">使用默认认证</span>
                             </small>
                         </div>
                         {% endif %}
@@ -146,6 +148,49 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // i18n init for login page
+        (async function initLoginI18n() {
+            try {
+                // 1) 读取语言优先级：localStorage → 后端默认语言 → 浏览器 → en
+                let lang = localStorage.getItem('ui_language');
+                if (!lang) {
+                    try {
+                        const resp = await fetch('/auth/app-config', { credentials: 'include' });
+                        if (resp.ok) {
+                            const data = await resp.json();
+                            lang = data.default_language || null;
+                        }
+                    } catch (e) { /* ignore */ }
+                }
+                if (!lang) {
+                    const browserLang = (navigator.language || navigator.userLanguage || 'en').toLowerCase();
+                    lang = browserLang.startsWith('zh') ? 'zh' : 'en';
+                }
+
+                // 2) 加载 i18nData.json
+                const res = await fetch('/static/i18nData.json', { cache: 'no-store' });
+                const all = await res.json();
+                const dict = all[lang] || all['en'];
+
+                // 3) 应用 data-i18n 文本
+                document.querySelectorAll('[data-i18n]').forEach(el => {
+                    const key = el.getAttribute('data-i18n');
+                    if (dict[key]) el.innerHTML = dict[key];
+                });
+                // 4) 应用 data-i18n-placeholder
+                document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                    const key = el.getAttribute('data-i18n-placeholder');
+                    if (dict[key]) el.setAttribute('placeholder', dict[key]);
+                });
+                // 5) 应用 data-i18n-title（包括 <title>）
+                const titleKey = document.querySelector('title')?.getAttribute('data-i18n-title');
+                if (titleKey && dict[titleKey]) document.title = dict[titleKey];
+
+            } catch (e) {
+                // 忽略登录页i18n失败
+            }
+        })();
+
         // 显示错误信息
         function showError(message) {
             const errorAlert = document.getElementById('errorAlert');
@@ -179,15 +224,37 @@
                     window.location.href = result.next_url || '/';
                 } else {
                     // 登录失败，显示错误
-                    showError(result.message || '登录失败');
+                    try {
+                        const res = await fetch('/static/i18nData.json', { cache: 'no-store' });
+                        const dictAll = await res.json();
+                        const lang = localStorage.getItem('ui_language') || 'en';
+                        const dict = dictAll[lang] || dictAll['en'];
+                        showError(result.message || dict['loginFailed'] || 'Login failed');
+                    } catch (_) {
+                        showError(result.message || '登录失败');
+                    }
                 }
             } catch (error) {
-                if (error.status === 429) {
-                    showError('登录尝试次数过多，请稍后再试');
-                } else if (error.status === 401) {
-                    showError('用户名或密码错误');
-                } else {
-                    showError('登录时发生错误，请稍后再试');
+                try {
+                    const res = await fetch('/static/i18nData.json', { cache: 'no-store' });
+                    const dictAll = await res.json();
+                    const lang = localStorage.getItem('ui_language') || 'en';
+                    const dict = dictAll[lang] || dictAll['en'];
+                    if (error.status === 429) {
+                        showError(dict['loginTooManyAttempts'] || 'Too many attempts');
+                    } else if (error.status === 401) {
+                        showError(dict['loginWrongCredentials'] || 'Incorrect username or password');
+                    } else {
+                        showError(dict['loginErrorOccurred'] || 'An error occurred during login');
+                    }
+                } catch (_) {
+                    if (error.status === 429) {
+                        showError('登录尝试次数过多，请稍后再试');
+                    } else if (error.status === 401) {
+                        showError('用户名或密码错误');
+                    } else {
+                        showError('登录时发生错误，请稍后再试');
+                    }
                 }
             }
         });

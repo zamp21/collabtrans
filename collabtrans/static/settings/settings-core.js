@@ -24,6 +24,7 @@ const getText = (key, fallback = '') => {
 
 function setLanguage(lang) {
   if (!i18nData[lang]) return;
+  console.log('[I18N][settings] setLanguage called with:', lang);
   currentLang = lang;
   const translations = i18nData[lang];
   document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
@@ -54,6 +55,26 @@ function setLanguage(lang) {
     });
   });
 
+  // Debug: verify specific titles after applying i18n
+  try {
+    const petEls = document.querySelectorAll('[data-i18n="parsingEngineTitle"]');
+    console.log('[I18N][settings][debug] parsingEngineTitle count =', petEls.length);
+    petEls.forEach((el, idx) => {
+      console.log('[I18N][settings][debug] parsingEngineTitle #' + idx, {
+        expected: translations['parsingEngineTitle'],
+        actual: el.textContent
+      });
+    });
+    const genEls = document.querySelectorAll('[data-i18n="generalTitle"]');
+    console.log('[I18N][settings][debug] generalTitle count =', genEls.length);
+    genEls.forEach((el, idx) => {
+      console.log('[I18N][settings][debug] generalTitle #' + idx, {
+        expected: translations['generalTitle'],
+        actual: el.textContent
+      });
+    });
+  } catch (e) {}
+
   // 更新语言切换按钮状态
   document.querySelectorAll('.dropdown-menu a[data-lang]').forEach(a => {
     a.classList.remove('active');
@@ -74,12 +95,14 @@ function setLanguage(lang) {
 async function initI18n() {
   // 与主页保持一致的语言检测机制
   let savedLang = localStorage.getItem('ui_language');
+  console.log('[I18N][settings] localStorage.ui_language =', savedLang);
   
   if (!savedLang) {
     try {
-      const resp = await fetch('/auth/app-config');
+      const resp = await fetch('/auth/app-config', { credentials: 'include' });
       if (resp.ok) {
         const cfg = await resp.json();
+        console.log('[I18N][settings] backend default_language =', cfg.default_language);
         savedLang = cfg.default_language || 'en';
       }
     } catch (e) {
@@ -88,9 +111,12 @@ async function initI18n() {
   }
   
   if (!savedLang) {
-    savedLang = navigator.language.toLowerCase().startsWith('en') ? 'en' : 'zh';
+    const browserLang = (navigator.language || navigator.userLanguage || 'en').toLowerCase();
+    savedLang = browserLang.startsWith('en') ? 'en' : 'zh';
+    console.log('[I18N][settings] using browser fallback =', browserLang, '=>', savedLang);
   }
   
+  console.log('[I18N][settings] final resolved language =', savedLang);
   setLanguage(savedLang);
 }
 
@@ -98,9 +124,10 @@ async function initI18n() {
 async function loadI18nData() {
   try {
     // Change to load from settings directory
-    const response = await fetch('/static/settings/i18nSettings.json');
+    const response = await fetch('/static/settings/i18nSettings.json', { cache: 'no-store' });
     if (!response.ok) throw new Error('Failed to load i18n data');
     i18nData = await response.json();
+    console.log('[I18N][settings] i18nSettings.json loaded. Languages:', Object.keys(i18nData));
     await initI18n();
   } catch (error) {
     console.error('Failed to load i18n data:', error);
@@ -155,6 +182,8 @@ async function loadModuleContent(moduleName) {
     
     const html = await response.text();
     contentDiv.innerHTML = html;
+    // Apply i18n to newly injected content
+    try { setLanguage(currentLang); } catch (_) {}
     
     // Load corresponding JavaScript module
     const script = document.createElement('script');
@@ -165,6 +194,7 @@ async function loadModuleContent(moduleName) {
       
       // Call module-specific initialization if available with a small delay
       setTimeout(() => {
+        try { setLanguage(currentLang); } catch (_) {}
         if (moduleName === 'ai-platforms' && window.initAiPlatformModule) {
           console.log(`Calling ${moduleName} initialization`);
           window.initAiPlatformModule();
@@ -190,10 +220,11 @@ async function loadModuleContent(moduleName) {
     
   } catch (error) {
     console.error(`Error loading module ${moduleName}:`, error);
+    const failText = getText('moduleLoadFailed', 'Failed to load module');
     contentDiv.innerHTML = `
       <div class="alert alert-danger">
         <i class="bi bi-exclamation-triangle me-2"></i>
-        加载模块失败: ${error.message}
+        ${failText}: ${error.message}
       </div>
     `;
   }
@@ -350,18 +381,21 @@ async function saveAllSettings() {
     const totalCount = results.length;
 
     if (successCount === totalCount) {
-      showNotification('所有设置保存成功！', 'success');
+      showNotification(getText('saveAllSuccess', 'All settings saved successfully!'), 'success');
     } else {
-      showNotification(`部分设置保存成功 (${successCount}/${totalCount})`, 'warning');
+      const msgTpl = getText('saveAllPartial', 'Partially saved ({success}/{total})');
+      const msg = msgTpl.replace('{success}', successCount).replace('{total}', totalCount);
+      showNotification(msg, 'warning');
     }
 
   } catch (error) {
     console.error('Error saving settings:', error);
-    showNotification('保存设置时发生错误', 'error');
+    showNotification(getText('saveAllError', 'Error occurred while saving settings'), 'error');
   } finally {
     if (saveAllBtn) {
       saveAllBtn.disabled = false;
-      saveAllBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>保存所有设置';
+      const label = getText('saveAllBtn', 'Save All Settings');
+      saveAllBtn.innerHTML = `<i class="bi bi-check-circle me-2"></i>${label}`;
     }
   }
 }
