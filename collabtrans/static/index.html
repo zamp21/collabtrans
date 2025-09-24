@@ -93,6 +93,34 @@
             font-weight: bold;
         }
 
+        /* 统一按钮样式 */
+        .btn {
+            height: 38px !important;
+            min-height: 38px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            padding: 0.375rem 0.75rem !important;
+            font-size: 0.875rem !important;
+            line-height: 1.5 !important;
+            border-radius: 0.375rem !important;
+            transition: all 0.15s ease-in-out !important;
+        }
+        
+        .btn-sm {
+            height: 32px !important;
+            min-height: 32px !important;
+            padding: 0.25rem 0.5rem !important;
+            font-size: 0.8125rem !important;
+        }
+        
+        .btn-lg {
+            height: 48px !important;
+            min-height: 48px !important;
+            padding: 0.5rem 1rem !important;
+            font-size: 1.125rem !important;
+        }
+
         /* Emphasize outline buttons with sky-blue borders */
         .btn.btn-outline-secondary {
             border-color: #1da1f2 !important;
@@ -253,8 +281,10 @@
                             </div>
                             <!-- 下排：操作按钮 -->
                             <div class="d-flex flex-wrap align-items-center gap-2">
-                                <!-- AUTH 配置按钮已迁移到 /settings 页面 -->
-                                <button type="button" class="btn btn-sm btn-outline-danger" id="logoutBtn">
+                                <a href="/settings" class="btn btn-outline-secondary" id="settingsBtn">
+                                    <i class="bi bi-gear me-1"></i><span data-i18n="settingsTitle">Settings</span>
+                                </a>
+                                <button type="button" class="btn btn-outline-danger" id="logoutBtn">
                                     <i class="bi bi-box-arrow-right me-1"></i><span data-i18n="logoutBtn">退出登录</span>
                                 </button>
                             </div>
@@ -792,7 +822,7 @@ $.*"></textarea>
                                             <span><span data-i18n="chunkSizeLabel">分块大小</span>: <span
                                                     id="chunk-size-display"></span></span>
                                             <button type="button"
-                                                    class="btn btn-sm btn-outline-secondary py-0 px-1 slider-reset-btn"
+                                                    class="btn btn-sm btn-outline-secondary slider-reset-btn"
                                                     id="chunk-size-reset" data-i18n="resetBtn">重置
                                             </button>
                                         </label>
@@ -805,7 +835,7 @@ $.*"></textarea>
                                             <span><span data-i18n="concurrentLabel">并发数</span>: <span
                                                     id="concurrent-display"></span></span>
                                             <button type="button"
-                                                    class="btn btn-sm btn-outline-secondary py-0 px-1 slider-reset-btn"
+                                                    class="btn btn-sm btn-outline-secondary slider-reset-btn"
                                                     id="concurrent-reset" data-i18n="resetBtn">重置
                                             </button>
                                         </label>
@@ -817,7 +847,7 @@ $.*"></textarea>
                                                class="form-label d-flex justify-content-between">
                                             <span>Temperature: <span id="temperature-display"></span></span>
                                             <button type="button"
-                                                    class="btn btn-sm btn-outline-secondary py-0 px-1 slider-reset-btn"
+                                                    class="btn btn-sm btn-outline-secondary slider-reset-btn"
                                                     id="temperature-reset" data-i18n="resetBtn">重置
                                             </button>
                                         </label>
@@ -862,14 +892,14 @@ $.*"></textarea>
                                         
                                         <!-- 术语表操作按钮 - 整理到一行 -->
                                         <div class="mt-2 d-flex flex-wrap gap-2">
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="glossaryManagementBtn">
+                                            <button type="button" class="btn btn-outline-secondary" id="glossaryManagementBtn">
                                                 <i class="bi bi-gear me-1"></i><span data-i18n="glossaryManagementBtn">术语表管理</span>
                                             </button>
                                             
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="previewMergedGlossary()" data-i18n="previewGlossaryBtn">
+                                            <button type="button" class="btn btn-outline-secondary" onclick="previewMergedGlossary()" data-i18n="previewGlossaryBtn">
                                                 <i class="bi bi-eye me-1"></i><span data-i18n="previewGlossaryBtn">预览术语表</span>
                                             </button>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="saveGlossarySelection()" data-i18n="saveGlossarySelectionBtn">
+                                            <button type="button" class="btn btn-outline-secondary" onclick="saveGlossarySelection()" data-i18n="saveGlossarySelectionBtn">
                                                 <i class="bi bi-check-circle me-1"></i><span data-i18n="saveGlossarySelectionBtn">保存选择</span>
                                             </button>
                                         </div>
@@ -987,7 +1017,7 @@ $.*"></textarea>
                                                     <span><span data-i18n="chunkSizeLabel">分块大小</span>: <span
                                                             id="glossary-agent-chunk-size-display"></span></span>
                                                     <button type="button"
-                                                            class="btn btn-sm btn-outline-secondary py-0 px-1 slider-reset-btn"
+                                                            class="btn btn-sm btn-outline-secondary slider-reset-btn"
                                                             id="glossary-agent-chunk-size-reset" data-i18n="resetBtn">重置
                                                     </button>
                                                 </label>
@@ -1001,7 +1031,7 @@ $.*"></textarea>
                                                     <span><span data-i18n="concurrentLabel">并发数</span>: <span
                                                             id="glossary-agent-concurrent-display"></span></span>
                                                     <button type="button"
-                                                            class="btn btn-sm btn-outline-secondary py-0 px-1 slider-reset-btn"
+                                                            class="btn btn-sm btn-outline-secondary slider-reset-btn"
                                                             id="glossary-agent-concurrent-reset" data-i18n="resetBtn">重置
                                                     </button>
                                                 </label>
@@ -1015,7 +1045,7 @@ $.*"></textarea>
                                                     <span>Temperature: <span
                                                             id="glossary-agent-temperature-display">0.7</span></span>
                                                     <button type="button"
-                                                            class="btn btn-sm btn-outline-secondary py-0 px-1 slider-reset-btn"
+                                                            class="btn btn-sm btn-outline-secondary slider-reset-btn"
                                                             id="glossary-agent-temperature-reset" data-i18n="resetBtn">
                                                         重置
                                                     </button>
@@ -1296,9 +1326,6 @@ $.*"></textarea>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body" data-i18n="tutorialModalBody">
-                <p><i class="bi bi-camera-video me-2"></i>视频教程可以在B站搜索 <a
-                        href="https://search.bilibili.com/all?keyword=docutranslate" target="_blank">docutranslate</a>
-                    获取。</p>
                 <p>欢迎使用 DocuTranslate！请按照以下步骤完成文档翻译：</p>
                 <ol>
                     <li>
