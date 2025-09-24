@@ -269,7 +269,8 @@
                                     <i class="bi bi-people-fill me-1"></i><span data-i18n="projectContributeBtn">项目协作</span>
                                 </a> -->
                                 <span id="topLanguageDropdownBtn" class="ms-1" data-i18n-title="languageSwitcherTitle" title="切换语言 / Switch Language" style="cursor: pointer;">
-                                    <i class="bi bi-translate me-1"></i><span data-i18n="languageBtn">语言</span>
+                                    <i class="bi bi-translate me-1"></i><span data-i18n="languageBtn"></span>
+                                    <span class="text-muted ms-1" id="currentLangText" data-i18n="languageCurrentSuffix">(English)</span>
                                 </span>
                                 <ul class="dropdown-menu" id="topLanguageMenu" style="display:none; position:absolute; z-index: 1030;">
                                     <li><a class="dropdown-item" href="#" data-lang="zh" data-i18n="languageChinese">中文</a></li>
@@ -1089,7 +1090,7 @@ $.*"></textarea>
                     </div>
                 </form>
 
-                <!-- 项目信息 -->
+                <!-- 项目信息 
                 <div class="mt-4 text-center text-muted small project-info">
                     <p class="bi bi-github mb-2" data-i18n="githubInfo">
                         GitHub主页(欢迎star❤): <br/>
@@ -1100,7 +1101,7 @@ $.*"></textarea>
                     </p>
                     <p class="bi mb-0">version:<span id="versionDisplay"></span></p>
                 </div>
-
+                -->
             </div>
         </div>
 
@@ -1316,134 +1317,7 @@ $.*"></textarea>
 </div>
 
 
-<!-- Tutorial Modal -->
-<div class="modal fade" id="tutorialModal" tabindex="-1" aria-labelledby="tutorialModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="tutorialModalLabel"><i class="bi bi-book-half me-2"></i><span
-                        data-i18n="tutorialModalTitle">使用教程</span></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body" data-i18n="tutorialModalBody">
-                <p>欢迎使用 DocuTranslate！请按照以下步骤完成文档翻译：</p>
-                <ol>
-                    <li>
-                        <strong><i class="bi bi-diagram-3 me-2"></i>选择工作流</strong>
-                        <p class="mt-2">
-                            首先，在配置面板顶部选择您需要的翻译流程。不同的工作流适用于不同类型的文件：
-                        <ul>
-                            <li><b>转Markdown再翻译</b>: 适用于翻译PDF、markdown、图片等文件。</li>
-                            <li><b>纯文本翻译</b>: 用于翻译 <code>.txt</code> 等纯文本文件。</li>
-                            <li><b>JSON翻译</b>: 用于翻译 <code>.json</code> 文件中的特定字段。</li>
-                            <li><b>DOCX翻译</b>: 用于翻译 <code>.docx</code> 文件。</li>
-                            <li><b>XLSX翻译</b>: 用于翻译 <code>.xlsx</code> 电子表格、 <code>.csv</code> 文件。</li>
-                            <li><b>SRT字幕翻译</b>: 用于翻译 <code>.srt</code> 字幕文件。</li>
-                            <li><b>EPUB翻译</b>: 用于翻译 <code>.epub</code> 电子书文件。</li>
-                            <li><b>HTML翻译</b>: 用于翻译 <code>.html</code> 文件。</li>
-                        </ul>
-                        <div class="alert alert-info mt-2" role="alert">
-                            <i class="bi bi-lightbulb-fill me-2"></i>新增功能:
-                            "自动选择工作流"开关已默认开启。您只需上传文件，系统会自动为您匹配合适的工作流，简化操作。
-                        </div>
-                        </p>
-                    </li>
-                    <li>
-                        <strong><i class="bi bi-gear-fill me-2"></i>配置参数</strong>
-                        <p class="mt-2">根据您选择的工作流，完成相应的配置。所有配置项都会自动保存在您的浏览器中。</p>
-                        <ul>
-                            <li class="mb-2"><strong>解析配置</strong> (仅在"转Markdown再翻译"工作流下显示):
-                                <ul class="mt-1">
-                                    <li><strong>解析引擎</strong>:
-                                        选择一个引擎将您的文件（如PDF）转换为适合翻译的Markdown格式。如果您的文件已经是Markdown格式，则无需选择。
-                                    </li>
-                                    <li><strong>Mineru Token</strong>: 如果您选择 <code>minerU</code> 引擎，需要在此处填入您的Token。
-                                    </li>
-                                </ul>
-                            </li>
-                            <li class="mb-2"><strong>TXT/DOCX/XLSX/SRT/EPUB/HTML翻译选项</strong> (在对应工作流下显示):
-                                <ul class="mt-1">
-                                    <li><strong>插入模式</strong>:
-                                        定义翻译结果如何放入文档或字幕。您可以选择直接"替换"原文，或是在原文之后"附加"，或是在原文之前"前置"。
-                                    </li>
-                                    <li><strong>分隔符</strong>: 当选择"附加"或"前置"模式时，此项用于在原文和译文之间插入分隔符。
-                                    </li>
-                                </ul>
-                            </li>
-                            <li class="mb-2"><strong>JSON路径配置</strong> (仅在"JSON翻译"工作流下显示):
-                                <ul class="mt-1">
-                                    <li><strong>需要翻译的JSON路径</strong>: 每行输入一个 <a
-                                            href="https://goessner.net/articles/JsonPath/" target="_blank">JSONPath</a>
-                                        表达式，指定需要翻译的字段。
-                                    </li>
-                                    <li>例如:<code>$..description</code>翻译所有键为description的值。<code>$.items[0].name</code>翻译第一个item的name值。
-                                        <code>$.*</code>翻译所有字符串。
-                                    </li>
-                                </ul>
-                            </li>
-                            <li class="mb-2"><strong>翻译模型</strong>:
-                                <ul class="mt-1">
-                                    <li><strong>跳过翻译</strong>:
-                                        勾选此项后，将只执行文档解析和格式转换，不调用AI进行翻译。
-                                    </li>
-                                    <li><strong>选择平台/API 地址/API Key/模型 ID</strong>:
-                                        配置您希望使用的AI翻译服务。
-                                    </li>
-                                    <li>模型ID参考平台文档，建议使用非推理模型或混合推理模型（关闭思考）。</li>
-                                    <li>模型能力指令遵循越强，<strong>出错</strong>、<strong>漏翻</strong>的概率越低。</li>
-                                </ul>
-                            </li>
-                            <li class="mb-2"><strong>翻译配置</strong>:
-                                <ul class="mt-1">
-                                    <li><strong>目标语言/自定义Prompt/术语表</strong>:
-                                        指定翻译的目标语言、附加指令以及用于保证特定名词翻译准确性的术语表。
-                                    </li>
-                                    <li><strong>思考模式</strong>:设置混合推理模型是否进行思考，目前支持智谱的glm4.5系列、阿里云的qwen3系列、火山引擎的seed1.6系列，建议选择禁用思考。
-                                    </li>
-                                    <li><strong>分块大小/并发数/Temperature</strong>: 发给AI的分块大小、并发请求数和温度，通常保持默认即可。
-                                    </li>
-                                </ul>
-                            </li>
-                        </ul>
-                    </li>
-                    <li>
-                        <strong><i class="bi bi-file-earmark-arrow-up-fill me-2"></i>上传文件</strong>
-                        <p class="mt-2">在右侧的任务列表中，点击或拖拽您的文档到文件上传区域。</p>
-                    </li>
-                    <li>
-                        <strong><i class="bi bi-play-circle-fill me-2"></i>开始翻译</strong>
-                        <p class="mt-2">文件选择成功后，点击任务卡片右下角的 <span
-                                class="badge bg-primary">开始翻译</span> 按钮。系统将开始处理任务，您可以在日志区域查看实时进度。
-                        </p>
-                    </li>
-                    <li>
-                        <strong><i class="bi bi-check-circle-fill me-2"></i>查看与下载</strong>
-                        <p class="mt-2">翻译完成后，任务卡片下方会出现操作按钮：</p>
-                        <ul>
-                            <li><span class="badge bg-success"><i class="bi bi-eye-fill me-1"></i>预览</span>:
-                                在右侧滑出的面板中进行原文和译文的对照预览（仅作参考）。
-                            </li>
-                            <li><span class="badge bg-secondary"><i class="bi bi-download me-1"></i>下载</span>:
-                                下载包括 PDF, DOCX, XLSX, HTML, Markdown 等多种格式的译文。
-                            </li>
-                            <li><span class="badge bg-info"><i class="bi bi-paperclip me-1"></i>附件</span>:
-                                如果翻译过程中生成了附加文件（如术语表），可在此处下载。
-                            </li>
-                        </ul>
-                    </li>
-                </ol>
-                <div class="alert alert-info mt-3" role="alert">
-                    <i class="bi bi-info-circle-fill me-2"></i><strong>提示</strong>: 所有配置都会自动保存在您的浏览器本地，方便下次使用。
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-i18n="tutorialUnderstandBtn">
-                    我明白了
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- Tutorial Modal moved to /static/tutorial.html and will be dynamically loaded -->
 <!-- Contributors Modal -->
 <!-- <div class="modal fade" id="contributorsModal" tabindex="-1" aria-labelledby="contributorsModalLabel"
      aria-hidden="true">
@@ -1617,6 +1491,24 @@ $.*"></textarea>
 </div>
 
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/static/tutorial.html')
+        .then(function(resp) { return resp.text(); })
+        .then(function(html) {
+            var container = document.createElement('div');
+            container.innerHTML = html;
+            var modal = container.querySelector('#tutorialModal');
+            if (modal) {
+                document.body.appendChild(modal);
+            }
+        })
+        .catch(function(err) {
+            // Silently ignore load failures
+            console.warn('Failed to load tutorial.html', err);
+        });
+});
+</script>
 <!-- Bootstrap JS -->
 <script src="/static/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
 <!-- Split.js for resizable panes -->
@@ -1702,6 +1594,14 @@ $.*"></textarea>
             topLangMenu.querySelectorAll('a.active').forEach(a => a.classList.remove('active'));
             const activeLink = topLangMenu.querySelector(`a[data-lang="${lang}"]`);
             if (activeLink) activeLink.classList.add('active');
+        }
+
+        // Update current language text next to the top language link
+        const currentLangTextEl = document.getElementById('currentLangText');
+        if (currentLangTextEl) {
+            const nameKey = lang === 'zh' ? 'languageChinese' : 'languageEnglish';
+            const nameText = translations[nameKey] || (lang === 'zh' ? '中文' : 'English');
+            currentLangTextEl.textContent = `(${nameText})`;
         }
 
         // Save preference
@@ -4043,7 +3943,9 @@ $.*"></textarea>
             if (!metaRes.ok || !enginRes.ok || !paramsRes.ok) throw new Error("Failed to fetch initial data.");
 
             const meta = await metaRes.json();
-            versionDisplay.textContent = `v${meta.version}`;
+            if (versionDisplay) {
+                versionDisplay.textContent = `v${meta.version}`;
+            }
 
             const enginList = await enginRes.json();
             convertEnginSelect.innerHTML = '<option value="identity"></option>'; // Default option ，选项显示"已经是markdown格式"

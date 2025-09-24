@@ -1,5 +1,6 @@
 {
   "zh": {
+    "languageBtn": "语言",
     "pageTitle": "CollabTrans - 交互式文档翻译",
     "tutorialBtn": "教程",
     "projectContributeBtn": "项目协作",
@@ -212,6 +213,7 @@
     "loginErrorOccurred": "登录时发生错误，请稍后再试"
   },
   "en": {
+    "languageBtn": "Language",
     "pageTitle": "CollabTrans - Interactive Document Translation",
     "tutorialBtn": "Tutorial",
     "projectContributeBtn": "Project Contribution",

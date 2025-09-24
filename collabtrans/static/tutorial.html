@@ -1,0 +1,125 @@
+<!-- Tutorial Modal extracted from index.html -->
+<div class="modal fade" id="tutorialModal" tabindex="-1" aria-labelledby="tutorialModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="tutorialModalLabel"><i class="bi bi-book-half me-2"></i><span
+                        data-i18n="tutorialModalTitle">Tutorial</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" data-i18n="tutorialModalBody">
+                <p>Welcome to DocuTranslate! Follow these steps to translate your documents:</p>
+                <ol>
+                    <li>
+                        <strong><i class="bi bi-diagram-3 me-2"></i>Choose a workflow</strong>
+                        <p class="mt-2">
+                            First, choose the translation workflow at the top of the configuration panel. Different workflows suit different file types:
+                        <ul>
+                            <li><b>Convert to Markdown then translate</b>: For translating PDFs, Markdown, images, and more.</li>
+                            <li><b>Plain text translation</b>: For files like <code>.txt</code>.</li>
+                            <li><b>JSON translation</b>: Translate selected fields in <code>.json</code> files.</li>
+                            <li><b>DOCX translation</b>: For <code>.docx</code> files.</li>
+                            <li><b>XLSX/CSV translation</b>: For <code>.xlsx</code> spreadsheets and <code>.csv</code> files.</li>
+                            <li><b>SRT subtitle translation</b>: For <code>.srt</code> subtitle files.</li>
+                            <li><b>EPUB translation</b>: For <code>.epub</code> ebooks.</li>
+                            <li><b>HTML translation</b>: For <code>.html</code> files.</li>
+                        </ul>
+                        <div class="alert alert-info mt-2" role="alert">
+                            <i class="bi bi-lightbulb-fill me-2"></i>New feature:
+                            The "Auto-select workflow" switch is enabled by default. Just upload your files and the system will pick a suitable workflow automatically.
+                        </div>
+                        </p>
+                    </li>
+                    <li>
+                        <strong><i class="bi bi-gear-fill me-2"></i>Configure parameters</strong>
+                        <p class="mt-2">Complete the relevant settings based on the selected workflow. All settings are saved locally in your browser.</p>
+                        <ul>
+                            <li class="mb-2"><strong>Parsing settings</strong> (only under "Convert to Markdown then translate" workflow):
+                                <ul class="mt-1">
+                                    <li><strong>Parsing engine</strong>:
+                                        Choose an engine to convert your files (e.g., PDFs) to Markdown for translation. If your file is already Markdown, you can skip this.
+                                    </li>
+                                    <li><strong>Mineru Token</strong>: If you select the <code>minerU</code> engine, provide your token here.
+                                    </li>
+                                </ul>
+                            </li>
+                            <li class="mb-2"><strong>TXT/DOCX/XLSX/SRT/EPUB/HTML options</strong> (shown in corresponding workflows):
+                                <ul class="mt-1">
+                                    <li><strong>Insertion mode</strong>:
+                                        Define how the translation is placed in the document or subtitles: "replace", "append", or "prepend".
+                                    </li>
+                                    <li><strong>Separator</strong>: Used to separate source and target when using "append" or "prepend".
+                                    </li>
+                                </ul>
+                            </li>
+                            <li class="mb-2"><strong>JSON path settings</strong> (only under "JSON translation"):
+                                <ul class="mt-1">
+                                    <li><strong>JSON paths to translate</strong>: Enter one <a
+                                            href="https://goessner.net/articles/JsonPath/" target="_blank">JSONPath</a>
+                                        expression per line to specify which fields to translate.
+                                    </li>
+                                    <li>Examples: <code>$..description</code> translates all values with the key "description". <code>$.items[0].name</code> translates the first item's name. <code>$.*</code> translates all strings.
+                                    </li>
+                                </ul>
+                            </li>
+                            <li class="mb-2"><strong>Translation model</strong>:
+                                <ul class="mt-1">
+                                    <li><strong>Skip translation</strong>:
+                                        When enabled, only parsing/format conversion runs, without calling AI for translation.
+                                    </li>
+                                    <li><strong>Select Platform/API URL/API Key/Model ID</strong>:
+                                        Configure the AI translation service you want to use.
+                                    </li>
+                                    <li>Refer to your platform's docs for model IDs. Prefer non-reasoning or hybrid reasoning models (with thinking disabled).</li>
+                                    <li>Generally, stronger instruction-following reduces <strong>errors</strong> and <strong>omissions</strong>.</li>
+                                </ul>
+                            </li>
+                            <li class="mb-2"><strong>Translation preferences</strong>:
+                                <ul class="mt-1">
+                                    <li><strong>Target language / Custom prompt / Glossary</strong>:
+                                        Specify the target language, additional instructions, and glossary to ensure terminology consistency.
+                                    </li>
+                                    <li><strong>Thinking mode</strong>: Control whether hybrid reasoning models perform thinking. Currently supports GLM-4.5 (Zhipu), Qwen-3 (AliCloud), and Seed-1.6 (Volcengine). Disabling thinking is recommended.
+                                    </li>
+                                    <li><strong>Chunk size / Concurrency / Temperature</strong>: Usually keep defaults.
+                                    </li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                    <li>
+                        <strong><i class="bi bi-file-earmark-arrow-up-fill me-2"></i>Upload files</strong>
+                        <p class="mt-2">In the task list on the right, click or drag your documents into the upload area.</p>
+                    </li>
+                    <li>
+                        <strong><i class="bi bi-play-circle-fill me-2"></i>Start translation</strong>
+                        <p class="mt-2">After selecting files, click the <span class="badge bg-primary">Start</span> button at the bottom-right of the task card. Processing will begin and you can monitor progress in the log area.</p>
+                    </li>
+                    <li>
+                        <strong><i class="bi bi-check-circle-fill me-2"></i>Review and download</strong>
+                        <p class="mt-2">When translation completes, action buttons will appear under the task card:</p>
+                        <ul>
+                            <li><span class="badge bg-success"><i class="bi bi-eye-fill me-1"></i>Preview</span>:
+                                Open a side panel to preview source vs. translation (for reference).
+                            </li>
+                            <li><span class="badge bg-secondary"><i class="bi bi-download me-1"></i>Download</span>:
+                                Download translations in formats like PDF, DOCX, XLSX, HTML, Markdown, and more.
+                            </li>
+                            <li><span class="badge bg-info"><i class="bi bi-paperclip me-1"></i>Attachments</span>:
+                                Download any additional files generated during processing (e.g., glossary).
+                            </li>
+                        </ul>
+                    </li>
+                </ol>
+                <div class="alert alert-info mt-3" role="alert">
+                    <i class="bi bi-info-circle-fill me-2"></i><strong>Tip</strong>: All settings are saved locally in your browser for next time.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-i18n="tutorialUnderstandBtn">
+                    Got it
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
