@@ -62,7 +62,9 @@ $$1+1=2$$
     def _pre_send_handler(self, system_prompt, prompt):
         if self.glossary_dict:
             glossary = Glossary(glossary_dict=self.glossary_dict)
-            system_prompt += glossary.append_system_prompt(prompt)
+            append_text, _, _ = glossary.build_append_prompt_with_stats(prompt, max_items=100)
+            if append_text:
+                system_prompt += append_text
         return system_prompt, prompt
 
     def send_chunks(self, prompts: list[str]):

@@ -28,6 +28,30 @@ class Glossary:
         else:
             return ""
 
+    def build_append_prompt_with_stats(self, text: str, max_items: int = 100):
+        """根据输入文本构建需要拼接到 system prompt 的术语片段，并返回统计信息。
+        返回: (prompt_text, hit_count, samples[List[Tuple[src, dst]]])
+        仅拼接命中的前 max_items 条。
+        """
+        matches = []
+        if not self.glossary_dict:
+            return "", 0, []
+        for src, dst in self.glossary_dict.items():
+            if src and src in text:
+                matches.append((src, dst))
+                if len(matches) >= max_items:
+                    break
+        if not matches:
+            return "", 0, []
+        prompt_lines = ["\nHere is the reference glossary:"]
+        for src, dst in matches:
+            prompt_lines.append(f"{src}=>{dst}")
+        prompt_lines.append("Glossary ends\n")
+        prompt_text = "\n".join(prompt_lines)
+        # 返回最多3条作为示例
+        samples = matches[:3]
+        return prompt_text, len(matches), samples
+
     @staticmethod
     def glossary_dict2csv(glossary_dict: dict[str, str], delimiter=",", stem="glossary_gen") -> Document:
         csv_rows = [[src, dst] for src, dst in glossary_dict.items()]

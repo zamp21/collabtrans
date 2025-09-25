@@ -3117,6 +3117,19 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 获取合并后的提示词
         const mergedPrompt = await getMergedPrompt();
+
+        // 合并术语表：选中的全局术语表 + 个人术语表（优先级更高）
+        let mergedGlossaryDict = {};
+        try {
+            const selectedGlobalIds = Array.from(document.querySelectorAll('#glossarySelectionList input[type="checkbox"]:checked'))
+                .filter(input => input.value.startsWith('global_'))
+                .map(input => input.value);
+            const personalGlossaryContent = getPersonalGlossaryFromMyGlossary();
+            mergedGlossaryDict = await getMergedGlossaryContent(selectedGlobalIds, personalGlossaryContent);
+        } catch (e) {
+            console.warn('获取合并术语表失败，将跳过 glossary_dict 注入:', e);
+            mergedGlossaryDict = {};
+        }
         
         const basePayload = {
             skip_translate: skipTranslate,
@@ -3126,7 +3139,7 @@ document.addEventListener('DOMContentLoaded', function() {
             concurrent: parseInt(concurrentSlider.value, 10),
             temperature: parseFloat(temperatureSlider.value),
             custom_prompt: mergedPrompt,
-            glossary_dict: Object.keys(glossaryData).length > 0 ? glossaryData : null,
+            glossary_dict: Object.keys(mergedGlossaryDict).length > 0 ? mergedGlossaryDict : null,
         };
 
         // --- Glossary Generation Config ---
