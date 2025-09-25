@@ -20,6 +20,7 @@ local_secrets.json
 secrets.json
 .env
 .env.local
+.vscode
 
 # 用户配置文件
 user_profiles/

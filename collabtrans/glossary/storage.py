@@ -5,6 +5,7 @@ import json
 import csv
 import time
 import logging
+import uuid
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
@@ -35,6 +36,11 @@ class GlossaryStorage:
         self.global_glossaries = self._load_global_glossaries()
         self.user_selections = self._load_user_selections()
         self.versions = self._load_versions()
+        # 启动时做一次元数据自检，清理无效项
+        try:
+            self.reconcile_metadata()
+        except Exception as _e:
+            logger.warning(f"启动时术语表元数据自检失败: {_e}")
     
     def _ensure_directories(self):
         """确保目录结构存在"""
@@ -213,13 +219,19 @@ class GlossaryStorage:
         description: Optional[str] = None
     ) -> GlossaryFile:
         """创建全局术语表"""
-        # 生成文件名
+        # 生成唯一文件名（避免同名覆盖）：名称_时间戳[(_短UID)].csv
         safe_name = "".join(c for c in name if c.isalnum() or c in (' ', '-', '_')).rstrip()
         safe_name = safe_name.replace(' ', '_')
-        file_path = f"{safe_name}.csv"
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        file_path = f"{safe_name}_{timestamp}.csv"
+        full_path = self.global_dir / file_path
+        # 若极端情况下仍冲突，则追加短UID
+        if full_path.exists():
+            short_uid = uuid.uuid4().hex[:6]
+            file_path = f"{safe_name}_{timestamp}_{short_uid}.csv"
+            full_path = self.global_dir / file_path
         
         # 保存文件
-        full_path = self.global_dir / file_path
         self.save_glossary_to_csv(glossary_dict, full_path)
         
         # 创建元数据
@@ -299,7 +311,39 @@ class GlossaryStorage:
             del self.versions[glossary_id]
             self._save_versions()
         
+        # 再次校验并清理残留
+        try:
+            self.reconcile_metadata()
+        except Exception as _e:
+            logger.warning(f"删除后术语表元数据自检失败: {_e}")
+        
         return True
+
+    def reconcile_metadata(self):
+        """对齐元数据与实际文件：
+        - 移除global_glossaries中指向不存在文件的项
+        - 移除versions中不存在的glossary_id
+        """
+        # 清理全局术语表元数据
+        removed_ids: List[str] = []
+        for glossary_id, meta in list(self.global_glossaries.items()):
+            file_path = self.global_dir / meta.get('file_path', '')
+            if not file_path.exists():
+                removed_ids.append(glossary_id)
+                del self.global_glossaries[glossary_id]
+        if removed_ids:
+            logger.info(f"清理无效术语表元数据: {removed_ids}")
+            self._save_global_glossaries()
+        
+        # 清理版本信息
+        removed_version_ids: List[str] = []
+        for glossary_id in list(self.versions.keys()):
+            if glossary_id not in self.global_glossaries and not glossary_id.startswith('personal_'):
+                removed_version_ids.append(glossary_id)
+                del self.versions[glossary_id]
+        if removed_version_ids:
+            logger.info(f"清理无效术语表版本信息: {removed_version_ids}")
+            self._save_versions()
     
     def save_user_personal_glossary(
         self, 
