@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
+import sys
 from PyInstaller.utils.hooks import collect_data_files
 import collabtrans
 
@@ -33,13 +34,15 @@ a = Analysis(
 
 pyz = PYZ(a.pure)
 
+platform_suffix = 'win' if sys.platform.startswith('win') else ('mac' if sys.platform == 'darwin' else 'linux')
+
 exe = EXE(
     pyz,
     a.scripts,
     a.binaries,
     a.datas,
     [],
-    name=f'DocuTranslate-{collabtrans.__version__}-win',
+    name=f'CollabTrans-{collabtrans.__version__}-{platform_suffix}',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -51,5 +54,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='DocuTranslate.ico',  # 修正为字符串
+    icon='CollabTrans.ico',  # 修正为字符串
 )

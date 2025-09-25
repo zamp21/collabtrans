@@ -5,6 +5,7 @@ from fastapi import APIRouter, Request, Response, HTTPException, Form, Depends, 
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from typing import Optional
+from pathlib import Path
 import time
 import logging
 import os
@@ -966,6 +967,512 @@ async def delete_glossary(
             raise HTTPException(status_code=500, detail="删除个人术语表失败")
     
     return {"success": True, "message": "术语表已删除"}
+
+
+# === 提示词管理API ===
+
+@auth_router.get("/prompts")
+async def get_prompts_list(
+    user: User = Depends(get_current_user)
+):
+    """获取提示词列表"""
+    from ..prompts.manager import get_prompt_manager
+    
+    manager = get_prompt_manager()
+    
+    # 获取全局提示词
+    global_prompts = manager.get_global_prompts()
+    
+    # 获取用户个人提示词
+    personal_prompt = manager.get_user_personal_prompt(user.username)
+    
+    # 获取用户选择
+    user_selection = manager.get_user_selection(user.username)
+    
+    # 获取版本信息
+    versions = manager.get_all_versions()
+    
+    return {
+        "global_prompts": [
+            {
+                "id": p.id,
+                "name": p.name,
+                "owner": p.owner,
+                "is_global": p.is_global,
+                "created_at": p.created_at.isoformat(),
+                "updated_at": p.updated_at.isoformat(),
+                "item_count": p.item_count,
+                "description": p.description
+            }
+            for p in global_prompts
+        ],
+        "personal_prompt": {
+            "id": personal_prompt.id,
+            "name": personal_prompt.name,
+            "owner": personal_prompt.owner,
+            "is_global": personal_prompt.is_global,
+            "created_at": personal_prompt.created_at.isoformat(),
+            "updated_at": personal_prompt.updated_at.isoformat(),
+            "item_count": personal_prompt.item_count,
+            "description": personal_prompt.description
+        } if personal_prompt else None,
+        "user_selection": {
+            "username": user_selection.username,
+            "selected_global_prompts": user_selection.selected_global_prompts,
+            "personal_prompt": user_selection.personal_prompt
+        },
+        "versions": versions
+    }
+
+
+@auth_router.get("/prompts/check-updates")
+async def check_prompts_updates(
+    request: Request,
+    user: User = Depends(get_current_user)
+):
+    """检查提示词更新"""
+    from ..prompts.manager import get_prompt_manager
+    
+    manager = get_prompt_manager()
+    
+    try:
+        # 获取当前版本信息
+        current_versions = manager.get_all_versions()
+        
+        # 这里可以添加更复杂的更新检查逻辑
+        # 比如检查文件修改时间等
+        
+        return {
+            "has_updates": False,  # 简化实现，总是返回无更新
+            "current_versions": current_versions
+        }
+        
+    except Exception as e:
+        logger.error(f"检查提示词更新失败: {e}")
+        return {
+            "has_updates": False,
+            "current_versions": {}
+        }
+
+
+@auth_router.post("/prompts/upload")
+async def upload_prompt(
+    request: Request,
+    user: User = Depends(get_current_user)
+):
+    """上传提示词"""
+    from ..prompts.manager import get_prompt_manager
+    
+    manager = get_prompt_manager()
+    
+    try:
+        form = await request.form()
+        file = form.get("file")
+        name = form.get("name", "").strip()
+        description = form.get("description", "").strip()
+        is_global = form.get("is_global", "false").lower() == "true"
+        
+        if not file or not name:
+            raise HTTPException(status_code=400, detail="文件名和提示词名称不能为空")
+        
+        # 检查权限
+        if is_global and not user.is_admin():
+            raise HTTPException(status_code=403, detail="只有管理员可以上传全局提示词")
+        
+        # 读取文件内容
+        content = await file.read()
+        content_str = content.decode('utf-8-sig')
+        
+        # 解析JSON
+        import json
+        try:
+            prompts_dict = json.loads(content_str)
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=400, detail=f"JSON格式错误: {str(e)}")
+        
+        if not prompts_dict:
+            raise HTTPException(status_code=400, detail="提示词不能为空")
+        
+        # 验证提示词
+        is_valid, message = manager.validate_prompt_dict(prompts_dict)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=message)
+        
+        # 保存提示词
+        if is_global:
+            prompt = manager.create_global_prompt(name, prompts_dict, user.username, description)
+            logger.info(f"管理员 {user.username} 创建了全局提示词: {name}")
+        else:
+            # 个人提示词
+            success = manager.save_user_personal_prompt(user.username, prompts_dict)
+            if not success:
+                raise HTTPException(status_code=500, detail="保存个人提示词失败")
+            logger.info(f"用户 {user.username} 更新了个人提示词")
+        
+        return {
+            "success": True,
+            "message": "提示词上传成功",
+            "item_count": len(prompts_dict)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"上传提示词失败: {e}")
+        raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}")
+
+
+@auth_router.get("/prompts/{prompt_id}/download")
+async def download_prompt(
+    prompt_id: str,
+    user: User = Depends(get_current_user)
+):
+    """下载提示词"""
+    from ..prompts.manager import get_prompt_manager
+    
+    manager = get_prompt_manager()
+    
+    # 获取提示词文件
+    if prompt_id.startswith('global_'):
+        global_prompts = manager.get_global_prompts()
+        prompt_file = None
+        for p in global_prompts:
+            if p.id == prompt_id:
+                prompt_file = p
+                break
+        
+        if not prompt_file:
+            raise HTTPException(status_code=404, detail="提示词不存在")
+        
+        # 读取提示词内容
+        prompts_dict = manager.storage.load_prompts_from_json(
+            manager.storage.global_dir / manager.storage.global_prompts[prompt_id]['file_path']
+        )
+        
+        filename = f"{prompt_file.name}.json"
+        
+    elif prompt_id.startswith(f"personal_{user.username}"):
+        # 个人提示词
+        personal_prompt = manager.get_user_personal_prompt(user.username)
+        if not personal_prompt:
+            raise HTTPException(status_code=404, detail="个人提示词不存在")
+        
+        prompts_dict = manager.storage.load_prompts_from_json(
+            manager.storage.users_dir / f"{user.username}_prompts.json"
+        )
+        filename = f"{user.username}_personal_prompts.json"
+        
+    else:
+        raise HTTPException(status_code=404, detail="提示词不存在")
+    
+    # 生成JSON内容
+    import json
+    content = json.dumps(prompts_dict, ensure_ascii=False, indent=2)
+    
+    return Response(
+        content=content,
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+        media_type='application/json'
+    )
+
+
+@auth_router.put("/prompts/selection")
+async def update_prompt_selection(
+    request: Request,
+    user: User = Depends(get_current_user)
+):
+    """更新用户提示词选择"""
+    from ..prompts.manager import get_prompt_manager
+    from ..prompts.models import UserPromptSelection
+    
+    manager = get_prompt_manager()
+    
+    try:
+        data = await request.json()
+        logger.info(f"[PROMPT-API] 收到更新请求: {data}")
+        selected_global_prompts = data.get("selected_global_prompts", [])
+        personal_prompt = data.get("personal_prompt")
+        
+        # 验证选择的全局提示词是否存在
+        global_prompts = manager.get_global_prompts()
+        valid_global_ids = [p.id for p in global_prompts]
+        
+        for prompt_id in selected_global_prompts:
+            if prompt_id not in valid_global_ids:
+                raise HTTPException(status_code=400, detail=f"提示词 {prompt_id} 不存在")
+        
+        # 验证个人提示词
+        if personal_prompt and personal_prompt != f"personal_{user.username}":
+            raise HTTPException(status_code=400, detail="无效的个人提示词ID")
+        
+        # 保存选择
+        selection = UserPromptSelection(
+            username=user.username,
+            selected_global_prompts=selected_global_prompts,
+            personal_prompt=personal_prompt
+        )
+        manager.save_user_selection(selection)
+        
+        logger.info(f"用户 {user.username} 更新了提示词选择")
+        
+        return {"success": True, "message": "提示词选择已更新"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"更新提示词选择失败: {e}")
+        raise HTTPException(status_code=500, detail=f"更新失败: {str(e)}")
+
+
+@auth_router.delete("/prompts/personal")
+async def delete_personal_prompt(
+    user: User = Depends(get_current_user)
+):
+    """删除用户个人提示词"""
+    from ..prompts.manager import get_prompt_manager
+    
+    manager = get_prompt_manager()
+    
+    try:
+        # 检查是否存在个人提示词
+        personal_prompt = manager.get_user_personal_prompt(user.username)
+        if not personal_prompt:
+            raise HTTPException(status_code=404, detail="个人提示词不存在")
+        
+        # 删除个人提示词文件
+        success = manager.storage.delete_user_personal_prompt(user.username)
+        if not success:
+            raise HTTPException(status_code=500, detail="删除个人提示词失败")
+        
+        logger.info(f"用户 {user.username} 删除了个人提示词")
+        
+        return {"success": True, "message": "个人提示词已删除"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"删除个人提示词失败: {e}")
+        raise HTTPException(status_code=500, detail=f"删除失败: {str(e)}")
+
+
+@auth_router.delete("/prompts/{prompt_id}")
+async def delete_prompt(
+    prompt_id: str,
+    user: User = Depends(get_current_user)
+):
+    """删除提示词"""
+    from ..prompts.manager import get_prompt_manager
+    
+    manager = get_prompt_manager()
+    
+    # 检查权限
+    if prompt_id.startswith('global_'):
+        if not user.is_admin():
+            raise HTTPException(status_code=403, detail="只有管理员可以删除全局提示词")
+        
+        success = manager.delete_global_prompt(prompt_id)
+        if success:
+            logger.info(f"管理员 {user.username} 删除了全局提示词: {prompt_id}")
+        else:
+            raise HTTPException(status_code=404, detail="提示词不存在")
+    else:
+        # 个人提示词 - 用户只能删除自己的
+        if not prompt_id.startswith(f"personal_{user.username}"):
+            raise HTTPException(status_code=403, detail="只能删除自己的个人提示词")
+        
+        # 清空个人提示词
+        success = manager.save_user_personal_prompt(user.username, {})
+        if success:
+            logger.info(f"用户 {user.username} 清空了个人提示词")
+        else:
+            raise HTTPException(status_code=500, detail="删除个人提示词失败")
+    
+    return {"success": True, "message": "提示词已删除"}
+
+
+@auth_router.get("/prompts/merged")
+async def get_merged_prompts(
+    user: User = Depends(get_current_user)
+):
+    """获取用户合并后的提示词"""
+    from ..prompts.manager import get_prompt_manager
+    
+    manager = get_prompt_manager()
+    merged_prompts = manager.get_merged_prompts(user.username)
+    
+    return {
+        "prompts": merged_prompts,
+        "count": len(merged_prompts)
+    }
+
+
+# === 简化的提示词管理API ===
+
+@auth_router.get("/prompts/simple")
+async def get_simple_prompts(
+    user: User = Depends(get_current_user)
+):
+    """获取简化的全局提示词列表"""
+    from ..prompts.manager import get_prompt_manager
+    
+    manager = get_prompt_manager()
+    
+    # 获取全局提示词集合
+    global_prompts = manager.get_global_prompts()
+    
+    # 查找名为"Simple Prompts"的全局提示词集合
+    simple_prompts_collection = None
+    for prompt_file in global_prompts:
+        if prompt_file.name == "Simple Prompts":
+            simple_prompts_collection = prompt_file
+            break
+    
+    if simple_prompts_collection:
+        # 加载提示词内容
+        prompts_dict = manager.storage.load_prompts_from_json(
+            Path(simple_prompts_collection.file_path)
+        )
+        
+        # 转换为简化的格式
+        simple_prompts = [
+            {"id": f"global_{i}", "name": name, "content": content}
+            for i, (name, content) in enumerate(prompts_dict.items())
+        ]
+        
+        return simple_prompts
+    else:
+        return []
+
+
+@auth_router.post("/prompts/simple")
+async def add_simple_prompt(
+    request: Request,
+    user: User = Depends(get_current_user)
+):
+    """添加简化的全局提示词"""
+    from ..prompts.manager import get_prompt_manager
+    
+    manager = get_prompt_manager()
+    
+    try:
+        data = await request.json()
+        name = data.get("name", "").strip()
+        content = data.get("content", "").strip()
+        
+        if not name or not content:
+            raise HTTPException(status_code=400, detail="提示词描述和内容不能为空")
+        
+        # 获取全局提示词集合
+        global_prompts = manager.get_global_prompts()
+        
+        # 查找名为"Simple Prompts"的全局提示词集合
+        simple_prompts_collection = None
+        for prompt_file in global_prompts:
+            if prompt_file.name == "Simple Prompts":
+                simple_prompts_collection = prompt_file
+                break
+        
+        if simple_prompts_collection:
+            # 加载现有提示词
+            prompts_dict = manager.storage.load_prompts_from_json(
+                Path(simple_prompts_collection.file_path)
+            )
+        else:
+            # 创建新的全局提示词集合
+            prompts_dict = {}
+            simple_prompts_collection = manager.create_global_prompt(
+                name="Simple Prompts",
+                prompts_dict={},
+                owner=user.username,
+                description="简化的全局提示词集合"
+            )
+        
+        # 添加新提示词
+        prompts_dict[name] = content
+        
+        # 更新全局提示词
+        success = manager.update_global_prompt(
+            simple_prompts_collection.id,
+            prompts_dict,
+            user.username
+        )
+        if not success:
+            raise HTTPException(status_code=500, detail="保存提示词失败")
+        
+        logger.info(f"用户 {user.username} 添加了全局提示词: {name}")
+        
+        return {"success": True, "message": "提示词添加成功"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"添加提示词失败: {e}")
+        raise HTTPException(status_code=500, detail=f"添加失败: {str(e)}")
+
+
+@auth_router.delete("/prompts/simple/{prompt_id}")
+async def delete_simple_prompt(
+    prompt_id: str,
+    user: User = Depends(get_current_user)
+):
+    """删除简化的全局提示词"""
+    from ..prompts.manager import get_prompt_manager
+    
+    manager = get_prompt_manager()
+    
+    try:
+        # 解析提示词ID
+        if not prompt_id.startswith("global_"):
+            raise HTTPException(status_code=400, detail="无效的提示词ID")
+        
+        index = int(prompt_id.replace("global_", ""))
+        
+        # 获取全局提示词集合
+        global_prompts = manager.get_global_prompts()
+        
+        # 查找名为"Simple Prompts"的全局提示词集合
+        simple_prompts_collection = None
+        for prompt_file in global_prompts:
+            if prompt_file.name == "Simple Prompts":
+                simple_prompts_collection = prompt_file
+                break
+        
+        if not simple_prompts_collection:
+            raise HTTPException(status_code=404, detail="全局提示词集合不存在")
+        
+        # 加载提示词
+        prompts_dict = manager.storage.load_prompts_from_json(
+            Path(simple_prompts_collection.file_path)
+        )
+        
+        # 获取要删除的提示词名称
+        prompt_names = list(prompts_dict.keys())
+        if index >= len(prompt_names):
+            raise HTTPException(status_code=404, detail="提示词不存在")
+        
+        prompt_name = prompt_names[index]
+        
+        # 删除提示词
+        del prompts_dict[prompt_name]
+        
+        # 更新全局提示词
+        success = manager.update_global_prompt(
+            simple_prompts_collection.id,
+            prompts_dict,
+            user.username
+        )
+        if not success:
+            raise HTTPException(status_code=500, detail="保存提示词失败")
+        
+        logger.info(f"用户 {user.username} 删除了全局提示词: {prompt_name}")
+        
+        return {"success": True, "message": "提示词删除成功"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"删除提示词失败: {e}")
+        raise HTTPException(status_code=500, detail=f"删除失败: {str(e)}")
 
 
 @auth_router.post("/app-config")

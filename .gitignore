@@ -42,3 +42,12 @@ certs/*.crt
 # Redis database files
 dump.rdb
 *.rdb
+
+# prompts
+*_Prompts.json
+*_prompts.json
+*_glossaries.json
+*_selections.json
+versions.json
+
+metadata/

@@ -809,13 +809,7 @@ $.*"></textarea>
                                                    data-i18n="thinkingModeDefault">默认</label>
                                         </div>
                                     </div>
-                                    <div class="mb-3">
-                                        <label for="custom_prompt" class="form-label" data-i18n="customPromptLabel">自定义Prompt</label>
-                                        <textarea class="form-control" id="custom_prompt"
-                                                  name="custom_prompt" rows="3"
-                                                  data-i18n-placeholder="customPromptPlaceholder"
-                                                  placeholder="可选，如"人名保持原文不翻译"></textarea>
-                                    </div>
+                                    
                                     <!-- MOVED FROM ADVANCED SETTINGS -->
                                     <div class="mb-3 border-top pt-3">
                                         <label for="chunk-size-slider"
@@ -1081,6 +1075,71 @@ $.*"></textarea>
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Prompt Settings -->
+                        <div class="accordion-item" id="promptSettingsContainer">
+                            <h2 class="accordion-header" id="headingPrompt">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#collapsePrompt" aria-expanded="false"
+                                        aria-controls="collapsePrompt">
+                                    <strong id="promptSettingsTitle"><i
+                                            class="bi bi-chat-text me-2"></i><span data-i18n="promptSettingsTitle">6. Prompt</span></strong>
+                                </button>
+                            </h2>
+                            <div id="collapsePrompt" class="accordion-collapse collapse"
+                                 aria-labelledby="headingPrompt">
+                                <div class="accordion-body">
+                                    <!-- 个人自定义提示词 -->
+                                    <div class="mb-3">
+                                        <label for="custom_prompt" class="form-label" data-i18n="customPromptLabel">Custom Prompt</label>
+                                        <textarea class="form-control" id="custom_prompt"
+                                                  name="custom_prompt" rows="4"
+                                                  data-i18n-placeholder="customPromptPlaceholder"
+                                                  placeholder="Optional, e.g. 'Keep person names in original language'"></textarea>
+                                        <div class="form-text" data-i18n="customPromptHelp">Additional prompts will be merged with selected prompt collections</div>
+                                        
+                                        <!-- 个人提示词上传按钮 -->
+                                        <div class="mt-2">
+                                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="openPersonalPromptUpload()" data-i18n="uploadPersonalPromptBtn">
+                                                <i class="bi bi-upload me-1"></i><span data-i18n="uploadPersonalPromptBtn">Upload Personal Prompts</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- 提示词集合选择 -->
+                                    <div class="mb-3 border-top pt-3">
+                                        <label class="form-label" data-i18n="selectPromptsLabel">Select Prompts</label>
+                                        <div id="promptSelectionList" class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">
+                                            <p class="text-muted mb-0" data-i18n="loadingPrompts">Loading...</p>
+                                        </div>
+                                        <div class="form-text" data-i18n="globalPromptsInfo">These are global prompts that all users can see and use. Hover over the prompt description to view the full content.</div>
+                                        
+                                        <!-- 提示词操作按钮 -->
+                                        <div class="mt-2 d-flex flex-wrap gap-2">
+                                            <button type="button" class="btn btn-outline-secondary" onclick="openPromptsSettings()" data-i18n="managePromptsBtn">
+                                                <i class="bi bi-gear me-1"></i><span data-i18n="managePromptsBtn">Manage Prompts</span>
+                                            </button>
+                                            
+                                            <button type="button" class="btn btn-outline-secondary" onclick="previewMergedPrompts()" data-i18n="previewPromptsBtn">
+                                                <i class="bi bi-eye me-1"></i><span data-i18n="previewPromptsBtn">Preview Prompts</span>
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary" onclick="savePromptSelection()" data-i18n="savePromptSelectionBtn">
+                                                <i class="bi bi-check-circle me-1"></i><span data-i18n="savePromptSelectionBtn">Save Selection</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- 预览区域 -->
+                                    <div class="mb-3 border-top pt-3">
+                                        <h6 class="mb-3" data-i18n="promptPreviewTitle">Prompt Preview</h6>
+                                        <div id="promptPreviewArea" class="border rounded p-3 bg-light" style="min-height: 100px;">
+                                            <p class="text-muted mb-0" data-i18n="promptPreviewPlaceholder">Select prompts and add custom prompt to see preview</p>
+                                        </div>
+                                        <div class="form-text mt-2" data-i18n="promptPreviewHelp">This shows how your prompts will be combined for translation</div>
                                     </div>
                                 </div>
                             </div>
@@ -1391,79 +1450,6 @@ $.*"></textarea>
     </div>
 </div>
 
-<!-- [NEW] Glossary Management Modal -->
-<div class="modal fade" id="glossaryManagementModal" tabindex="-1" aria-labelledby="glossaryManagementModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="glossaryManagementModalLabel" data-i18n="glossaryManagementTitle">术语表管理</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <!-- 术语表选择区域 -->
-                <div class="row">
-                    <div class="col-12">
-                        <h6 data-i18n="globalGlossariesTitle">全局术语表</h6>
-                        <div id="globalGlossariesList" class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
-                            <!-- 全局术语表列表 -->
-                        </div>
-                        <div class="form-text mt-2">
-                            <i class="bi bi-info-circle"></i> <span data-i18n="personalGlossaryManageInfo">个人术语表请在外层的"My Glossary"中管理</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- 管理员操作区域 -->
-                <div id="adminGlossarySection" class="mt-4" style="display: none;">
-                    <hr>
-                    <h6 data-i18n="adminGlossaryTitle">管理员操作</h6>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h6 class="mb-0" data-i18n="uploadGlobalGlossaryTitle">上传全局术语表</h6>
-                                </div>
-                                <div class="card-body">
-                                    <form id="uploadGlobalGlossaryForm">
-                                        <div class="mb-3">
-                                            <label for="globalGlossaryName" class="form-label" data-i18n="glossaryNameLabel">术语表名称</label>
-                                            <input type="text" class="form-control" id="globalGlossaryName" required>
-                                        </div>
-                                        <div class="mb-3">
-                                            <label for="globalGlossaryDescription" class="form-label" data-i18n="glossaryDescriptionLabel">描述</label>
-                                            <input type="text" class="form-control" id="globalGlossaryDescription">
-                                        </div>
-                                        <div class="mb-3">
-                                            <label for="globalGlossaryFile" class="form-label" data-i18n="glossaryFileLabel">CSV文件</label>
-                                            <input type="file" class="form-control" id="globalGlossaryFile" accept=".csv" required>
-                                        </div>
-                                        <button type="submit" class="btn btn-outline-secondary" data-i18n="uploadBtn">上传</button>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h6 class="mb-0" data-i18n="globalGlossariesListTitle">全局术语表列表</h6>
-                                </div>
-                                <div class="card-body">
-                                    <div id="adminGlobalGlossariesList" style="max-height: 300px; overflow-y: auto;">
-                                        <!-- 管理员看到的全局术语表列表 -->
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" id="saveGlossarySelectionBtn" data-i18n="saveSelectionBtn">保存选择</button>
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-i18n="closeBtn">关闭</button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- [NEW] Glossary Upload Modal -->
 <div class="modal fade" id="glossaryUploadModal" tabindex="-1" aria-labelledby="glossaryUploadModalLabel" aria-hidden="true">
@@ -1485,6 +1471,126 @@ $.*"></textarea>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" id="uploadPersonalGlossaryBtn" data-i18n="uploadBtn">上传</button>
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-i18n="cancelBtn">取消</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- [NEW] Prompt Management Modal -->
+<div class="modal fade" id="promptManagementModal" tabindex="-1" aria-labelledby="promptManagementModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="promptManagementModalLabel" data-i18n="promptManagementTitle">Prompt Management</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- 提示词选择区域 -->
+                <div class="row">
+                    <div class="col-12">
+                        <h6 data-i18n="globalPromptsTitle">Global Prompts</h6>
+                        <div id="globalPromptsList" class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
+                            <!-- 全局提示词列表 -->
+                        </div>
+                        <div class="form-text mt-2">
+                            <i class="bi bi-info-circle"></i> <span data-i18n="personalPromptManageInfo">Personal prompts are managed in the "My Prompts" section below</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 个人提示词管理区域 -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <h6 data-i18n="personalPromptsTitle">My Prompts</h6>
+                        <div id="personalPromptsList" class="border rounded p-3" style="max-height: 200px; overflow-y: auto;">
+                            <p class="text-muted mb-0" data-i18n="loadingPersonalPrompts">Loading...</p>
+                        </div>
+                        <div class="form-text mt-2" data-i18n="personalPromptsHelp">Personal prompts have higher priority and will override global prompts with the same name</div>
+                        
+                        <!-- 个人提示词操作按钮 -->
+                        <div class="mt-2 d-flex flex-wrap gap-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="openPersonalPromptUpload()" data-i18n="uploadPersonalPromptBtn">
+                                <i class="bi bi-upload me-1"></i><span data-i18n="uploadPersonalPromptBtn">Upload Personal Prompts</span>
+                            </button>
+                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="deletePersonalPrompts()" data-i18n="deletePersonalPromptsBtn">
+                                <i class="bi bi-trash me-1"></i><span data-i18n="deletePersonalPromptsBtn">Delete Personal Prompts</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 管理员操作区域 -->
+                <div id="adminPromptSection" class="mt-4" style="display: none;">
+                    <hr>
+                    <h6 data-i18n="adminPromptTitle">Admin Operations</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0" data-i18n="uploadGlobalPromptTitle">Upload Global Prompts</h6>
+                                </div>
+                                <div class="card-body">
+                                    <form id="uploadGlobalPromptForm">
+                                        <div class="mb-3">
+                                            <label for="globalPromptName" class="form-label" data-i18n="promptNameLabel">Prompt Collection Name</label>
+                                            <input type="text" class="form-control" id="globalPromptName" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="globalPromptDescription" class="form-label" data-i18n="promptDescriptionLabel">Description</label>
+                                            <input type="text" class="form-control" id="globalPromptDescription">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="globalPromptFile" class="form-label" data-i18n="promptFileLabel">JSON File</label>
+                                            <input type="file" class="form-control" id="globalPromptFile" accept=".json" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-outline-secondary" data-i18n="uploadBtn">Upload</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0" data-i18n="globalPromptsListTitle">Global Prompts List</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="adminGlobalPromptsList" style="max-height: 300px; overflow-y: auto;">
+                                        <!-- 管理员看到的全局提示词列表 -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" id="savePromptSelectionBtn" data-i18n="saveSelectionBtn">Save Selection</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-i18n="closeBtn">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- [NEW] Prompt Upload Modal -->
+<div class="modal fade" id="promptUploadModal" tabindex="-1" aria-labelledby="promptUploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="promptUploadModalLabel" data-i18n="uploadPersonalPromptTitle">Upload Personal Prompts</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="uploadPersonalPromptForm">
+                    <div class="mb-3">
+                        <label for="personalPromptFile" class="form-label" data-i18n="promptFileLabel">JSON File</label>
+                        <input type="file" class="form-control" id="personalPromptFile" accept=".json" required>
+                        <div class="form-text" data-i18n="promptFileHelp">Please select a JSON file with prompt name-content pairs</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" id="uploadPersonalPromptBtn" data-i18n="uploadBtn">Upload</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-i18n="cancelBtn">Cancel</button>
             </div>
         </div>
     </div>
@@ -2989,7 +3095,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
 
-    function validateAndBuildPayload() {
+    async function validateAndBuildPayload() {
         const skipTranslate = skipTranslationSwitch.checked;
         let isValid = true;
 
@@ -3008,6 +3114,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // --- Base Payload Construction ---
         const targetLanguage = toLangSelect.value === 'custom' ? customLangInput.value.trim() : toLangSelect.value;
+        
+        // 获取合并后的提示词
+        const mergedPrompt = await getMergedPrompt();
+        
         const basePayload = {
             skip_translate: skipTranslate,
             to_lang: targetLanguage,
@@ -3015,7 +3125,7 @@ document.addEventListener('DOMContentLoaded', function() {
             chunk_size: parseInt(chunkSizeSlider.value, 10),
             concurrent: parseInt(concurrentSlider.value, 10),
             temperature: parseFloat(temperatureSlider.value),
-            custom_prompt: customPromptTranslateArea.value || null,
+            custom_prompt: mergedPrompt,
             glossary_dict: Object.keys(glossaryData).length > 0 ? glossaryData : null,
         };
 
@@ -3110,7 +3220,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        const {payload, isValid} = validateAndBuildPayload();
+        const {payload, isValid} = await validateAndBuildPayload();
         state.workflow = workflowTypeSelect.value; // Store the workflow type for the task
 
         if (!isValid) {
@@ -3925,8 +4035,10 @@ document.addEventListener('DOMContentLoaded', function() {
             console.warn("Failed to load configurations, some features may not work properly");
         }
         
-        // Step 4: Initialize glossary manager
-        initGlossaryManager();
+        // Step 4: Glossary manager已迁移到Settings页面
+        
+        // Step 5: Initialize prompt manager
+        initPromptManager();
 
         // Step 3.5: Show masked API keys for admin after config is loaded
         console.log('[DEBUG] About to call showMaskedApiKeyForAdmin');
@@ -3944,7 +4056,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const meta = await metaRes.json();
             if (versionDisplay) {
-                versionDisplay.textContent = `v${meta.version}`;
+            versionDisplay.textContent = `v${meta.version}`;
             }
 
             const enginList = await enginRes.json();
@@ -3999,7 +4111,7 @@ document.addEventListener('DOMContentLoaded', function() {
             {element: customLangInput, key: 'translator_custom_language', defaultValue: ''},
             {element: formulaCheckbox, key: 'translator_formula_ocr', defaultValue: 'true', type: 'boolean'},
             {element: codeCheckbox, key: 'translator_code_ocr', defaultValue: 'true', type: 'boolean'},
-            {element: customPromptTranslateArea, key: 'custom_prompt', defaultValue: ''},
+            {element: customPromptTranslateArea, key: 'translator_custom_prompt', defaultValue: ''},
             {
                 type: 'radio',
                 selector: '#thinkingModeBtnGroup input[name="thinking"]',
@@ -4128,7 +4240,7 @@ document.addEventListener('DOMContentLoaded', function() {
             {element: customLangInput, event: 'input', saveKey: 'translator_custom_language'},
             {element: formulaCheckbox, event: 'change', saveKey: 'translator_formula_ocr'},
             {element: codeCheckbox, event: 'change', saveKey: 'translator_code_ocr'},
-            {element: customPromptTranslateArea, event: 'input', saveKey: 'custom_prompt'},
+            {element: customPromptTranslateArea, event: 'input', saveKey: 'translator_custom_prompt'},
             // Glossary Gen event listeners
             {
                 element: glossaryGenerateEnableSwitch,
@@ -4276,450 +4388,7 @@ document.addEventListener('DOMContentLoaded', function() {
             showActiveTheme(theme);
         });
     });
-    // 术语表管理功能
-    class GlossaryManager {
-        constructor() {
-            this.glossariesData = null;
-            this.updateCheckInterval = null;
-            this.lastVersions = {};
-            this.init();
-        }
-        
-        init() {
-            this.setupEventListeners();
-            this.startUpdateCheck();
-        }
-        
-        setupEventListeners() {
-            // 术语表管理按钮
-            const glossaryManagementBtn = document.getElementById('glossaryManagementBtn');
-            if (glossaryManagementBtn) {
-                glossaryManagementBtn.addEventListener('click', () => {
-                    this.showGlossaryManagementModal();
-                });
-            }
-            
-            // 保存选择按钮
-            const saveSelectionBtn = document.getElementById('saveGlossarySelectionBtn');
-            if (saveSelectionBtn) {
-                saveSelectionBtn.addEventListener('click', () => {
-                    this.saveGlossarySelection();
-                });
-            }
-            
-            // 上传全局术语表表单
-            const uploadGlobalForm = document.getElementById('uploadGlobalGlossaryForm');
-            if (uploadGlobalForm) {
-                uploadGlobalForm.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.uploadGlobalGlossary();
-                });
-            }
-            
-        }
-        
-        startUpdateCheck() {
-            // 每30秒检查一次更新
-            this.updateCheckInterval = setInterval(() => {
-                this.checkForUpdates();
-            }, 30000);
-        }
-        
-        async checkForUpdates() {
-            try {
-                const response = await fetch('/auth/glossaries/check-updates', {
-                    method: 'GET',
-                    credentials: 'include'
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.has_updates) {
-                        await this.refreshGlossaries();
-                        this.showUpdateNotification();
-                    }
-                }
-            } catch (error) {
-                console.warn('检查术语表更新失败:', error);
-            }
-        }
-        
-        async refreshGlossaries() {
-            try {
-                const response = await fetch('/auth/glossaries', {
-                    method: 'GET',
-                    credentials: 'include'
-                });
-                
-                if (response.ok) {
-                    this.glossariesData = await response.json();
-                    this.lastVersions = this.glossariesData.versions;
-                    this.updateGlossariesUI();
-                }
-            } catch (error) {
-                console.error('刷新术语表失败:', error);
-            }
-        }
-        
-        showUpdateNotification() {
-            const notification = document.createElement('div');
-            notification.className = 'alert alert-info alert-dismissible fade show position-fixed';
-            notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999;';
-            notification.innerHTML = `
-                <i class="bi bi-info-circle me-2"></i>
-                术语表已更新，页面将自动刷新
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.remove();
-            }, 3000);
-        }
-        
-        async showGlossaryManagementModal() {
-            await this.loadGlossaries();
-            this.updateGlossariesUI();
-            
-            const modal = new bootstrap.Modal(document.getElementById('glossaryManagementModal'));
-            modal.show();
-        }
-        
-        async loadGlossaries() {
-            try {
-                const response = await fetch('/auth/glossaries', {
-                    method: 'GET',
-                    credentials: 'include'
-                });
-                
-                if (response.ok) {
-                    this.glossariesData = await response.json();
-                    this.lastVersions = this.glossariesData.versions;
-                } else {
-                    console.error('加载术语表失败:', response.statusText);
-                }
-            } catch (error) {
-                console.error('加载术语表失败:', error);
-            }
-        }
-        
-        updateGlossariesUI() {
-            if (!this.glossariesData) return;
-            
-            this.updateGlobalGlossariesList();
-            this.updateAdminSection();
-        }
-        
-        updateGlobalGlossariesList() {
-            const container = document.getElementById('globalGlossariesList');
-            if (!container) return;
-            
-            const globalGlossaries = this.glossariesData.global_glossaries || [];
-            const userSelection = this.glossariesData.user_selection || {};
-            const selectedIds = userSelection.selected_global_glossaries || [];
-            
-            container.innerHTML = '';
-            
-            if (globalGlossaries.length === 0) {
-                container.innerHTML = '<p class="text-muted"><span data-i18n="noGlobalGlossariesAvailable">暂无可用全局术语表</span></p>';
-                return;
-            }
-            
-            globalGlossaries.forEach(glossary => {
-                const div = document.createElement('div');
-                div.className = 'form-check mb-2 d-flex align-items-start justify-content-between';
-                div.innerHTML = `
-                    <div>
-                        <input class="form-check-input" type="checkbox" value="${glossary.id}" 
-                               id="global_${glossary.id}" ${selectedIds.includes(glossary.id) ? 'checked' : ''}>
-                        <label class="form-check-label ms-2" for="global_${glossary.id}">
-                            <strong>${glossary.name}</strong>
-                            <small class="text-muted d-block">
-                                ${glossary.description || ''} (${glossary.item_count} 条术语)
-                            </small>
-                        </label>
-                    </div>
-                    <div class="btn-group btn-group-sm">
-                        <button type="button" class="btn btn-outline-secondary" onclick="glossaryManager.downloadGlossary('${glossary.id}')" title="下载">
-                            <i class="bi bi-download"></i>
-                        </button>
-                    </div>
-                `;
-                container.appendChild(div);
-            });
-        }
-        
-        
-        updateAdminSection() {
-            const adminSection = document.getElementById('adminGlossarySection');
-            const adminGlossariesList = document.getElementById('adminGlobalGlossariesList');
-            
-            if (!adminSection || !adminGlossariesList) return;
-            
-            // 检查是否为管理员、管理组用户或术语表组用户
-            if (window.userPermissions && (window.userPermissions.is_admin || window.userPermissions.can_access_admin_settings || window.userPermissions.can_access_glossary_management)) {
-                adminSection.style.display = 'block';
-                this.updateAdminGlobalGlossariesList();
-            } else {
-                adminSection.style.display = 'none';
-            }
-        }
-        
-        updateAdminGlobalGlossariesList() {
-            const container = document.getElementById('adminGlobalGlossariesList');
-            if (!container) return;
-            
-            const globalGlossaries = this.glossariesData.global_glossaries || [];
-            
-            container.innerHTML = '';
-            
-            if (globalGlossaries.length === 0) {
-                container.innerHTML = '<p class="text-muted"><span data-i18n="noGlobalGlossariesAvailable">暂无可用全局术语表</span></p>';
-                return;
-            }
-            
-            globalGlossaries.forEach(glossary => {
-                const div = document.createElement('div');
-                div.className = 'd-flex justify-content-between align-items-center mb-2 p-2 border rounded';
-                div.innerHTML = `
-                    <div>
-                        <strong>${glossary.name}</strong>
-                        <small class="text-muted d-block">
-                            ${glossary.description || ''} (${glossary.item_count} 条术语)
-                        </small>
-                        <small class="text-muted">创建者: ${glossary.owner}</small>
-                    </div>
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-secondary" onclick="glossaryManager.downloadGlossary('${glossary.id}')">
-                            <i class="bi bi-download"></i>
-                        </button>
-                        <button class="btn btn-outline-danger" onclick="glossaryManager.deleteGlobalGlossary('${glossary.id}')">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-                `;
-                container.appendChild(div);
-            });
-        }
-        
-        async saveGlossarySelection() {
-            try {
-                const selectedGlobalIds = Array.from(document.querySelectorAll('#globalGlossariesList input[type="checkbox"]:checked'))
-                    .map(input => input.value);
-                
-                const response = await fetch('/auth/glossaries/selection', {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        selected_global_glossaries: selectedGlobalIds,
-                        personal_glossary: null  // 个人术语表不再通过管理器管理
-                    })
-                });
-                
-                if (response.ok) {
-                    const result = await response.json();
-                    this.showNotification(result.message, 'success');
-                    
-                    // 关闭模态框
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('glossaryManagementModal'));
-                    modal.hide();
-                } else {
-                    const error = await response.json();
-                    this.showNotification(error.detail || '保存失败', 'error');
-                }
-            } catch (error) {
-                console.error('保存术语表选择失败:', error);
-                this.showNotification('保存失败', 'error');
-            }
-        }
-        
-        async uploadGlobalGlossary() {
-            const name = document.getElementById('globalGlossaryName').value.trim();
-            const description = document.getElementById('globalGlossaryDescription').value.trim();
-            const fileInput = document.getElementById('globalGlossaryFile');
-            
-            if (!name || !fileInput.files[0]) {
-                this.showNotification('请填写术语表名称并选择文件', 'error');
-                return;
-            }
-            
-            const formData = new FormData();
-            formData.append('name', name);
-            formData.append('description', description);
-            formData.append('file', fileInput.files[0]);
-            formData.append('is_global', 'true');
-            
-            try {
-                const response = await fetch('/auth/glossaries/upload', {
-                    method: 'POST',
-                    credentials: 'include',
-                    body: formData
-                });
-                
-                if (response.ok) {
-                    const result = await response.json();
-                    this.showNotification(result.message, 'success');
-                    
-                    // 清空表单
-                    document.getElementById('uploadGlobalGlossaryForm').reset();
-                    
-                    // 刷新术语表列表
-                    await this.refreshGlossaries();
-                    this.updateGlossariesUI();
-                } else {
-                    const error = await response.json();
-                    this.showNotification(error.detail || '上传失败', 'error');
-                }
-            } catch (error) {
-                console.error('上传全局术语表失败:', error);
-                this.showNotification('上传失败', 'error');
-            }
-        }
-        
-        showUploadPersonalModal() {
-            const modal = new bootstrap.Modal(document.getElementById('glossaryUploadModal'));
-            modal.show();
-        }
-        
-        async uploadPersonalGlossary() {
-            const fileInput = document.getElementById('personalGlossaryFile');
-            
-            if (!fileInput.files[0]) {
-                this.showNotification('请选择文件', 'error');
-                return;
-            }
-            
-            const formData = new FormData();
-            formData.append('name', '个人术语表');
-            formData.append('file', fileInput.files[0]);
-            formData.append('is_global', 'false');
-            
-            try {
-                const response = await fetch('/auth/glossaries/upload', {
-                    method: 'POST',
-                    credentials: 'include',
-                    body: formData
-                });
-                
-                if (response.ok) {
-                    const result = await response.json();
-                    this.showNotification(result.message, 'success');
-                    
-                    // 关闭模态框
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('glossaryUploadModal'));
-                    modal.hide();
-                    
-                    // 刷新术语表列表
-                    await this.refreshGlossaries();
-                    this.updateGlossariesUI();
-                } else {
-                    const error = await response.json();
-                    this.showNotification(error.detail || '上传失败', 'error');
-                }
-            } catch (error) {
-                console.error('上传个人术语表失败:', error);
-                this.showNotification('上传失败', 'error');
-            }
-        }
-        
-        async downloadGlossary(glossaryId) {
-            try {
-                const response = await fetch(`/auth/glossaries/${glossaryId}/download`, {
-                    method: 'GET',
-                    credentials: 'include'
-                });
-                
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = response.headers.get('Content-Disposition')?.split('filename=')[1] || 'glossary.csv';
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                } else {
-                    this.showNotification('下载失败', 'error');
-                }
-            } catch (error) {
-                console.error('下载术语表失败:', error);
-                this.showNotification('下载失败', 'error');
-            }
-        }
-        
-        async deleteGlobalGlossary(glossaryId) {
-            if (!confirm('确定要删除这个全局术语表吗？')) {
-                return;
-            }
-            
-            try {
-                const response = await fetch(`/auth/glossaries/${glossaryId}`, {
-                    method: 'DELETE',
-                    credentials: 'include'
-                });
-                
-                if (response.ok) {
-                    this.showNotification('删除成功', 'success');
-                    await this.refreshGlossaries();
-                    this.updateGlossariesUI();
-                } else {
-                    const error = await response.json();
-                    this.showNotification(error.detail || '删除失败', 'error');
-                }
-            } catch (error) {
-                console.error('删除全局术语表失败:', error);
-                this.showNotification('删除失败', 'error');
-            }
-        }
-        
-        async deletePersonalGlossary() {
-            if (!confirm('确定要删除个人术语表吗？')) {
-                return;
-            }
-            
-            try {
-                const personalId = `personal_${window.userPermissions?.username || 'unknown'}`;
-                const response = await fetch(`/auth/glossaries/${personalId}`, {
-                    method: 'DELETE',
-                    credentials: 'include'
-                });
-                
-                if (response.ok) {
-                    this.showNotification('删除成功', 'success');
-                    await this.refreshGlossaries();
-                    this.updateGlossariesUI();
-                } else {
-                    const error = await response.json();
-                    this.showNotification(error.detail || '删除失败', 'error');
-                }
-            } catch (error) {
-                console.error('删除个人术语表失败:', error);
-                this.showNotification('删除失败', 'error');
-            }
-        }
-        
-        showNotification(message, type = 'info') {
-            const alertClass = type === 'success' ? 'alert-success' : 
-                             type === 'error' ? 'alert-danger' : 'alert-info';
-            
-            const notification = document.createElement('div');
-            notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
-            notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999;';
-            notification.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.remove();
-            }, 3000);
-        }
-    }
+    // 术语表管理功能已迁移到Settings页面
     
     // 全局通知函数
     function showNotification(message, type = 'info') {
@@ -4740,20 +4409,929 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 3000);
     }
     
-    // 初始化术语表管理器
-    let glossaryManager;
-    
-    // 在init函数中初始化术语表管理器
-    function initGlossaryManager() {
-        if (typeof GlossaryManager !== 'undefined') {
-            glossaryManager = new GlossaryManager();
-            console.log('术语表管理器已初始化');
-            // 加载术语表选择列表
-            loadGlossarySelectionList();
-        } else {
-            console.error('GlossaryManager类未定义');
+    // 提示词管理功能
+    class PromptManager {
+        constructor() {
+            this.promptsData = null;
+            this.updateCheckInterval = null;
+            this.lastVersions = {};
+            this.init();
+        }
+        
+        init() {
+            this.setupEventListeners();
+            this.startUpdateCheck();
+        }
+        
+        setupEventListeners() {
+            // 提示词管理按钮事件
+            const promptManagementBtn = document.getElementById('promptManagementBtn');
+            if (promptManagementBtn) {
+                promptManagementBtn.addEventListener('click', () => {
+                    this.showPromptManagementModal();
+                });
+            }
+            
+            // 保存提示词选择按钮事件
+            const savePromptSelectionBtn = document.getElementById('savePromptSelectionBtn');
+            if (savePromptSelectionBtn) {
+                savePromptSelectionBtn.addEventListener('click', () => {
+                    this.savePromptSelection();
+                });
+            }
+            
+            // 全局提示词上传表单事件
+            const uploadGlobalPromptForm = document.getElementById('uploadGlobalPromptForm');
+            if (uploadGlobalPromptForm) {
+                uploadGlobalPromptForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    await this.uploadGlobalPrompt();
+                });
+            }
+            
+            // 个人提示词上传按钮事件
+            const uploadPersonalPromptBtn = document.getElementById('uploadPersonalPromptBtn');
+            if (uploadPersonalPromptBtn) {
+                uploadPersonalPromptBtn.addEventListener('click', async () => {
+                    await this.uploadPersonalPrompt();
+                });
+            }
+        }
+        
+        startUpdateCheck() {
+            // 定期检查提示词更新
+            this.updateCheckInterval = setInterval(async () => {
+                await this.checkForUpdates();
+            }, 30000); // 每30秒检查一次
+        }
+        
+        async checkForUpdates() {
+            try {
+                const response = await fetch('/auth/prompts/check-updates', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.has_updates) {
+                        this.showUpdateNotification();
+                        await this.refreshPrompts();
+                    }
+                }
+            } catch (error) {
+                console.error('检查提示词更新失败:', error);
+            }
+        }
+        
+        async refreshPrompts() {
+            try {
+                const response = await fetch('/auth/prompts', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    this.promptsData = await response.json();
+                    this.lastVersions = this.promptsData.versions;
+                    this.updatePromptsUI();
+                }
+            } catch (error) {
+                console.error('刷新提示词失败:', error);
+            }
+        }
+        
+        showUpdateNotification() {
+            const notification = document.createElement('div');
+            notification.className = 'alert alert-info alert-dismissible fade show position-fixed';
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999;';
+            notification.innerHTML = `
+                <i class="bi bi-info-circle me-2"></i>
+                Prompts have been updated, page will refresh automatically
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+        
+        async showPromptManagementModal() {
+            await this.loadPrompts();
+            this.updatePromptsUI();
+            
+            const modal = new bootstrap.Modal(document.getElementById('promptManagementModal'));
+            modal.show();
+        }
+        
+        async loadPrompts() {
+            try {
+                const response = await fetch('/auth/prompts', {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    this.promptsData = await response.json();
+                    console.log('提示词数据已加载:', this.promptsData);
+                }
+            } catch (error) {
+                console.error('加载提示词失败:', error);
+            }
+        }
+        
+        updatePromptsUI() {
+            this.updateGlobalPromptsList();
+            this.updatePersonalPromptsList();
+            this.updateAdminGlobalPromptsList();
+            this.checkAdminPermissions();
+        }
+        
+        updateGlobalPromptsList() {
+            const container = document.getElementById('globalPromptsList');
+            if (!container || !this.promptsData) return;
+            
+            const globalPrompts = this.promptsData.global_prompts || [];
+            const userSelection = this.promptsData.user_selection || {};
+            
+            container.innerHTML = '';
+            
+            if (globalPrompts.length === 0) {
+                container.innerHTML = '<p class="text-muted mb-0">No global prompts available</p>';
+                return;
+            }
+            
+            globalPrompts.forEach(prompt => {
+                const isSelected = userSelection.selected_global_prompts?.includes(prompt.id);
+                
+                const div = document.createElement('div');
+                div.className = 'form-check mb-2 p-2 border rounded';
+                div.innerHTML = `
+                    <input class="form-check-input" type="checkbox" value="${prompt.id}" 
+                           id="prompt_${prompt.id}" ${isSelected ? 'checked' : ''}>
+                    <label class="form-check-label w-100" for="prompt_${prompt.id}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>${prompt.name}</strong>
+                                <small class="text-muted d-block">
+                                    ${prompt.description || ''} (${prompt.item_count} prompts)
+                                </small>
+                                <small class="text-muted">Creator: ${prompt.owner}</small>
+                            </div>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="promptManager.downloadPrompt('${prompt.id}')">
+                                <i class="bi bi-download"></i>
+                            </button>
+                        </div>
+                    </label>
+                `;
+                container.appendChild(div);
+            });
+        }
+        
+        updatePersonalPromptsList() {
+            const container = document.getElementById('personalPromptsList');
+            if (!container || !this.promptsData) return;
+            
+            const personalPrompt = this.promptsData.personal_prompt;
+            
+            container.innerHTML = '';
+            
+            if (personalPrompt) {
+                const div = document.createElement('div');
+                div.className = 'd-flex justify-content-between align-items-center p-2 border rounded';
+                div.innerHTML = `
+                    <div>
+                        <strong>${personalPrompt.name}</strong>
+                        <small class="text-muted d-block">
+                            ${personalPrompt.description || ''} (${personalPrompt.item_count} prompts)
+                        </small>
+                        <small class="text-muted">Created: ${new Date(personalPrompt.created_at).toLocaleDateString()}</small>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary" onclick="promptManager.downloadPrompt('${personalPrompt.id}')">
+                            <i class="bi bi-download"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(div);
+            } else {
+                container.innerHTML = '<p class="text-muted mb-0" data-i18n="noPersonalPrompts">No personal prompts uploaded</p>';
+            }
+        }
+        
+        updateAdminGlobalPromptsList() {
+            const container = document.getElementById('adminGlobalPromptsList');
+            if (!container || !this.promptsData) return;
+            
+            const globalPrompts = this.promptsData.global_prompts || [];
+            
+            container.innerHTML = '';
+            
+            if (globalPrompts.length === 0) {
+                container.innerHTML = '<p class="text-muted mb-0">No global prompts</p>';
+                return;
+            }
+            
+            globalPrompts.forEach(prompt => {
+                const div = document.createElement('div');
+                div.className = 'd-flex justify-content-between align-items-center mb-2 p-2 border rounded';
+                div.innerHTML = `
+                    <div>
+                        <strong>${prompt.name}</strong>
+                        <small class="text-muted d-block">
+                            ${prompt.description || ''} (${prompt.item_count} prompts)
+                        </small>
+                        <small class="text-muted">Creator: ${prompt.owner}</small>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary" onclick="promptManager.downloadPrompt('${prompt.id}')">
+                            <i class="bi bi-download"></i>
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="promptManager.deleteGlobalPrompt('${prompt.id}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+        
+        async savePromptSelection() {
+            try {
+                const selectedGlobalIds = Array.from(document.querySelectorAll('#globalPromptsList input[type="checkbox"]:checked'))
+                    .map(input => input.value);
+                
+                const response = await fetch('/auth/prompts/selection', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        selected_global_prompts: selectedGlobalIds,
+                        personal_prompt: null  // 个人提示词不再通过管理器管理
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    this.showNotification(result.message, 'success');
+                    
+                    // 关闭模态框
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('promptManagementModal'));
+                    modal.hide();
+                } else {
+                    const error = await response.json();
+                    this.showNotification(error.detail || 'Save failed', 'error');
+                }
+            } catch (error) {
+                console.error('保存提示词选择失败:', error);
+                this.showNotification('Save failed', 'error');
+            }
+        }
+        
+        async uploadGlobalPrompt() {
+            const name = document.getElementById('globalPromptName').value.trim();
+            const description = document.getElementById('globalPromptDescription').value.trim();
+            const file = document.getElementById('globalPromptFile').files[0];
+            
+            if (!name || !file) {
+                this.showNotification('Please fill in the prompt name and select a file', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('name', name);
+            formData.append('description', description);
+            formData.append('file', file);
+            formData.append('is_global', 'true');
+            
+            try {
+                const response = await fetch('/auth/prompts/upload', {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    this.showNotification(result.message, 'success');
+                    
+                    // 清空表单
+                    document.getElementById('uploadGlobalPromptForm').reset();
+                    
+                    // 重新加载提示词
+                    await this.loadPrompts();
+                    this.updatePromptsUI();
+                } else {
+                    const error = await response.json();
+                    this.showNotification(error.detail || 'Upload failed', 'error');
+                }
+            } catch (error) {
+                console.error('上传全局提示词失败:', error);
+                this.showNotification('Upload failed', 'error');
+            }
+        }
+        
+        async uploadPersonalPrompt() {
+            const file = document.getElementById('personalPromptFile').files[0];
+            
+            if (!file) {
+                this.showNotification('Please select a file', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('name', 'Personal Prompts');
+            formData.append('file', file);
+            formData.append('is_global', 'false');
+            
+            try {
+                const response = await fetch('/auth/prompts/upload', {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    this.showNotification(result.message, 'success');
+                    
+                    // 清空表单
+                    document.getElementById('uploadPersonalPromptForm').reset();
+                    
+                    // 关闭模态框
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('promptUploadModal'));
+                    modal.hide();
+                    
+                    // 重新加载提示词
+                    await this.loadPrompts();
+                    this.updatePromptsUI();
+                } else {
+                    const error = await response.json();
+                    this.showNotification(error.detail || 'Upload failed', 'error');
+                }
+            } catch (error) {
+                console.error('上传个人提示词失败:', error);
+                this.showNotification('Upload failed', 'error');
+            }
+        }
+        
+        async downloadPrompt(promptId) {
+            try {
+                const response = await fetch(`/auth/prompts/${promptId}/download`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `prompt_${promptId}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } else {
+                    this.showNotification('Download failed', 'error');
+                }
+            } catch (error) {
+                console.error('下载提示词失败:', error);
+                this.showNotification('Download failed', 'error');
+            }
+        }
+        
+        async deleteGlobalPrompt(promptId) {
+            if (!confirm('Are you sure you want to delete this prompt collection?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/auth/prompts/${promptId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    this.showNotification(result.message, 'success');
+                    
+                    // 重新加载提示词
+                    await this.loadPrompts();
+                    this.updatePromptsUI();
+                } else {
+                    const error = await response.json();
+                    this.showNotification(error.detail || 'Delete failed', 'error');
+                }
+            } catch (error) {
+                console.error('删除提示词失败:', error);
+                this.showNotification('Delete failed', 'error');
+            }
+        }
+        
+        checkAdminPermissions() {
+            // 检查是否为管理员，显示/隐藏管理员操作区域
+            const adminSection = document.getElementById('adminPromptSection');
+            if (adminSection && userPermissions && userPermissions.is_admin) {
+                adminSection.style.display = 'block';
+            } else if (adminSection) {
+                adminSection.style.display = 'none';
+            }
+        }
+        
+        showNotification(message, type = 'info') {
+            const alertClass = type === 'success' ? 'alert-success' : 
+                              type === 'error' ? 'alert-danger' : 'alert-info';
+            
+            const notification = document.createElement('div');
+            notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999;';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
         }
     }
+    
+    // 术语表管理器已迁移到Settings页面
+    
+    // 初始化提示词管理器
+    let promptManager;
+    
+    // 在init函数中初始化提示词管理器
+    function initPromptManager() {
+        if (typeof PromptManager !== 'undefined') {
+            promptManager = new PromptManager();
+            console.log('提示词管理器已初始化');
+            // 加载提示词选择列表
+            loadPromptSelectionList();
+            // 设置提示词预览更新
+            setupPromptPreviewUpdates();
+        } else {
+            console.error('PromptManager类未定义');
+        }
+    }
+    
+    // 设置提示词预览更新
+    function setupPromptPreviewUpdates() {
+        // 监听自定义提示词输入框的变化
+        const customPromptTextarea = document.getElementById('custom_prompt');
+        if (customPromptTextarea) {
+            customPromptTextarea.addEventListener('input', updatePromptPreview);
+        }
+        
+        // 监听提示词选择的变化
+        const promptSelectionList = document.getElementById('promptSelectionList');
+        if (promptSelectionList) {
+            promptSelectionList.addEventListener('change', updatePromptPreview);
+        }
+    }
+    
+    // 更新提示词预览
+    async function updatePromptPreview() {
+        const previewArea = document.getElementById('promptPreviewArea');
+        if (!previewArea) return;
+        
+        try {
+            // 获取选中的提示词集合
+            const response = await fetch('/auth/prompts/merged', {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                const selectedPrompts = data.prompts || {};
+                
+                // 获取用户自定义提示词
+                const customPrompt = document.getElementById('custom_prompt')?.value?.trim() || '';
+                
+                // 合并提示词
+                let mergedContent = '';
+                
+                // 添加选中的提示词内容
+                Object.values(selectedPrompts).forEach(prompt => {
+                    if (prompt && prompt.trim()) {
+                        mergedContent += prompt.trim() + '\n\n';
+                    }
+                });
+                
+                // 添加自定义提示词
+                if (customPrompt) {
+                    mergedContent += customPrompt.trim();
+                }
+                
+                // 显示预览
+                if (mergedContent.trim()) {
+                    previewArea.innerHTML = `<pre class="mb-0" style="white-space: pre-wrap; font-size: 0.9em;">${mergedContent.trim()}</pre>`;
+                } else {
+                    previewArea.innerHTML = '<p class="text-muted mb-0" data-i18n="promptPreviewEmpty">No prompts selected or custom prompt provided</p>';
+                }
+            } else {
+                previewArea.innerHTML = '<p class="text-muted mb-0">Failed to load prompts</p>';
+            }
+        } catch (error) {
+            console.error('更新提示词预览失败:', error);
+            previewArea.innerHTML = '<p class="text-muted mb-0">Failed to load prompts</p>';
+        }
+    }
+    
+    // 加载提示词选择列表
+    async function loadPromptSelectionList() {
+        const container = document.getElementById('promptSelectionList');
+        if (!container) return;
+        
+        try {
+            // 获取简化的全局提示词
+            const response = await fetch('/auth/prompts/simple', {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const prompts = await response.json();
+                renderSimplePromptList(prompts);
+            } else {
+                container.innerHTML = '<p class="text-muted mb-0">Failed to load prompts</p>';
+            }
+        } catch (error) {
+            console.error('加载提示词选择列表失败:', error);
+            container.innerHTML = '<p class="text-muted mb-0">Failed to load prompts</p>';
+        }
+    }
+    
+    // 渲染简化的提示词列表
+    function renderSimplePromptList(prompts) {
+        const container = document.getElementById('promptSelectionList');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        if (prompts.length > 0) {
+            // 创建表格结构
+            const table = document.createElement('table');
+            table.className = 'table table-hover';
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">
+                            <input type="checkbox" id="selectAllPrompts" class="form-check-input">
+                        </th>
+                        <th style="width: 200px;" data-i18n="promptDescriptionLabel">Prompt Description</th>
+                        <th data-i18n="promptTextLabel">Prompt Text</th>
+                        <th style="width: 100px;" data-i18n="detailsLabel">Details</th>
+                    </tr>
+                </thead>
+                <tbody id="promptTableBody">
+                </tbody>
+            `;
+            container.appendChild(table);
+            
+            const tbody = document.getElementById('promptTableBody');
+            
+            prompts.forEach((prompt, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <input class="form-check-input" type="checkbox" value="${prompt.id}" 
+                               id="prompt_simple_${index}">
+                    </td>
+                    <td>
+                        <label class="form-check-label" for="prompt_simple_${index}">
+                            <strong>${prompt.name}</strong>
+                        </label>
+                    </td>
+                    <td>
+                        <div class="prompt-text-preview" style="max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            ${prompt.content}
+                        </div>
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-outline-info" 
+                                onclick="showPromptDetail('${prompt.name.replace(/'/g, "\\'").replace(/\n/g, '\\n')}', '${prompt.content.replace(/'/g, "\\'").replace(/\n/g, '\\n')}')"
+                                data-bs-toggle="tooltip" data-bs-placement="top" 
+                                title="${prompt.content.replace(/"/g, '&quot;').replace(/\n/g, '&#10;')}"
+                                data-i18n="viewBtn">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            // 全选功能
+            const selectAllCheckbox = document.getElementById('selectAllPrompts');
+            selectAllCheckbox.addEventListener('change', function() {
+                const checkboxes = tbody.querySelectorAll('input[type="checkbox"]');
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = this.checked;
+                });
+            });
+            
+            // 初始化tooltip
+            const tooltipTriggerList = [].slice.call(container.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+            
+        } else {
+            container.innerHTML = '<p class="text-muted mb-0" data-i18n="noPromptsAvailable">No prompts available</p>';
+        }
+    }
+    
+    
+    // 渲染提示词选择列表
+    function renderPromptSelectionList(data) {
+        const container = document.getElementById('promptSelectionList');
+        if (!container) return;
+        
+        const globalPrompts = data.global_prompts || [];
+        const userSelection = data.user_selection || {};
+        const selectedGlobalIds = userSelection.selected_global_prompts || [];
+        
+        container.innerHTML = '';
+        
+        // 只显示全局提示词
+        if (globalPrompts.length > 0) {
+            globalPrompts.forEach(prompt => {
+                const div = document.createElement('div');
+                div.className = 'form-check mb-2 d-flex align-items-start justify-content-between';
+                div.innerHTML = `
+                    <div>
+                        <input class="form-check-input" type="checkbox" value="${prompt.id}" 
+                               id="prompt_global_${prompt.id}" 
+                               ${selectedGlobalIds.includes(prompt.id) ? 'checked' : ''}>
+                        <label class="form-check-label ms-2" for="prompt_global_${prompt.id}">
+                            <strong>${prompt.name}</strong>
+                            <small class="text-muted d-block">${prompt.description || ''} (${prompt.item_count} prompts)</small>
+                        </label>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-secondary" onclick="promptManager.downloadPrompt('${prompt.id}')" title="Download">
+                            <i class="bi bi-download"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        } else {
+            container.innerHTML = '<p class="text-muted mb-0"><span data-i18n="noGlobalPromptsAvailable">No global prompts available</span></p>';
+        }
+        
+        // 添加说明文字
+        const helpText = document.createElement('div');
+        helpText.className = 'form-text mt-2';
+        helpText.innerHTML = '<i class="bi bi-info-circle"></i> <span data-i18n="personalPromptPreviewInfo">Personal prompts are managed separately and will be merged during preview</span>';
+        container.appendChild(helpText);
+    }
+    
+    // 打开提示词设置页面
+    window.openPromptsSettings = function() {
+        window.open('/settings#prompts', '_blank');
+    };
+    
+    window.showPromptDetail = function(name, content) {
+        // 创建模态框
+        const modalHtml = `
+            <div class="modal fade" id="promptDetailModal" tabindex="-1" aria-labelledby="promptDetailModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="promptDetailModalLabel">${name}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold" data-i18n="promptDescriptionLabel">Prompt Description:</label>
+                                <p class="form-control-plaintext">${name}</p>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold" data-i18n="promptTextLabel">Prompt Text:</label>
+                                <div class="border rounded p-3 bg-light" style="max-height: 400px; overflow-y: auto;">
+                                    <pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0;">${content}</pre>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="closeBtn">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // 移除已存在的模态框
+        const existingModal = document.getElementById('promptDetailModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // 添加新的模态框
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // 显示模态框
+        const modal = new bootstrap.Modal(document.getElementById('promptDetailModal'));
+        modal.show();
+        
+        // 模态框关闭后移除DOM元素
+        document.getElementById('promptDetailModal').addEventListener('hidden.bs.modal', function() {
+            this.remove();
+        });
+    };
+    
+    // 打开个人提示词上传模态框
+    window.openPersonalPromptUpload = function() {
+        const modal = new bootstrap.Modal(document.getElementById('promptUploadModal'));
+        modal.show();
+    };
+    
+    // 删除个人提示词
+    window.deletePersonalPrompts = async function() {
+        if (!confirm('Are you sure you want to delete your personal prompts? This action cannot be undone.')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch('/auth/prompts/personal', {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                showNotification(result.message, 'success');
+                
+                // 重新加载提示词
+                if (promptManager) {
+                    await promptManager.loadPrompts();
+                    promptManager.updatePromptsUI();
+                }
+                
+                // 更新主页的提示词选择列表
+                loadPromptSelectionList();
+            } else {
+                const error = await response.json();
+                showNotification(error.detail || 'Delete failed', 'error');
+            }
+        } catch (error) {
+            console.error('删除个人提示词失败:', error);
+            showNotification('Delete failed', 'error');
+        }
+    };
+    
+    // 预览合并的提示词
+    window.previewMergedPrompts = async function() {
+        try {
+            // 获取简化的全局提示词
+            const response = await fetch('/auth/prompts/simple', {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const prompts = await response.json();
+                
+                // 获取用户自定义提示词
+                const customPrompt = document.getElementById('custom_prompt')?.value?.trim() || '';
+                
+                // 获取选中的提示词
+                const selectedPrompts = [];
+                const checkboxes = document.querySelectorAll('#promptSelectionList input[type="checkbox"]:checked');
+                checkboxes.forEach(checkbox => {
+                    const promptId = checkbox.value;
+                    const prompt = prompts.find(p => p.id === promptId);
+                    if (prompt) {
+                        selectedPrompts.push(prompt);
+                    }
+                });
+                
+                if (selectedPrompts.length === 0 && !customPrompt) {
+                    showNotification('No prompts selected or custom prompt provided', 'warning');
+                    return;
+                }
+                
+                // 创建预览模态框内容
+                let modalContent = `
+                    <div class="modal fade" id="promptPreviewModal" tabindex="-1">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Merged Prompts Preview</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="alert alert-info">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        Total ${selectedPrompts.length} selected prompts + ${customPrompt ? '1 custom prompt' : '0 custom prompts'}
+                                    </div>
+                                    <div style="max-height: 400px; overflow-y: auto;">
+                `;
+                
+                // 添加选中的提示词内容
+                selectedPrompts.forEach(prompt => {
+                    modalContent += `
+                        <div class="card mb-2">
+                            <div class="card-header">
+                                <strong>${prompt.name}</strong>
+                            </div>
+                            <div class="card-body">
+                                <pre style="white-space: pre-wrap; word-break: break-word;">${prompt.content}</pre>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                // 添加自定义提示词
+                if (customPrompt) {
+                    modalContent += `
+                        <div class="card mb-2">
+                            <div class="card-header">
+                                <strong>Custom Prompt</strong>
+                            </div>
+                            <div class="card-body">
+                                <pre style="white-space: pre-wrap; word-break: break-word;">${customPrompt}</pre>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                modalContent += `
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // 移除已存在的模态框
+                const existingModal = document.getElementById('promptPreviewModal');
+                if (existingModal) {
+                    existingModal.remove();
+                }
+                
+                // 添加新模态框到页面
+                document.body.insertAdjacentHTML('beforeend', modalContent);
+                
+                // 显示模态框
+                const modal = new bootstrap.Modal(document.getElementById('promptPreviewModal'));
+                modal.show();
+                
+                // 模态框关闭后移除
+                document.getElementById('promptPreviewModal').addEventListener('hidden.bs.modal', function () {
+                    this.remove();
+                });
+            } else {
+                showNotification('Failed to preview prompts', 'error');
+            }
+        } catch (error) {
+            console.error('预览提示词失败:', error);
+            showNotification('Failed to preview prompts', 'error');
+        }
+    };
+    
+    // 保存提示词选择
+    window.savePromptSelection = async function() {
+        try {
+            const selectedGlobalIds = Array.from(document.querySelectorAll('#promptSelectionList input[type="checkbox"]:checked'))
+                .filter(input => input.value.startsWith('global_'))
+                .map(input => input.value);
+            
+            const response = await fetch('/auth/prompts/selection', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    selected_global_prompts: selectedGlobalIds,
+                    personal_prompt: null  // 个人提示词通过主页输入框管理
+                })
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                showNotification(result.message, 'success');
+            } else {
+                const error = await response.json();
+                showNotification(error.detail || 'Save failed', 'error');
+            }
+        } catch (error) {
+            console.error('保存提示词选择失败:', error);
+            showNotification('Save failed', 'error');
+        }
+    };
     
     // 加载术语表选择列表
     async function loadGlossarySelectionList() {
@@ -5000,6 +5578,61 @@ document.addEventListener('DOMContentLoaded', function() {
             showNotification('保存失败', 'error');
         }
     };
+    
+    
+    // 获取合并后的提示词（选中的提示词 + 用户自定义提示词）
+    async function getMergedPrompt() {
+        try {
+            // 获取简化的全局提示词
+            const response = await fetch('/auth/prompts/simple', {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const prompts = await response.json();
+                
+                // 获取用户自定义提示词（从主页输入框）
+                const customPrompt = document.getElementById('custom_prompt')?.value?.trim() || '';
+                
+                // 合并提示词：选中的提示词内容 + 用户自定义提示词
+                const promptParts = [];
+                
+                // 获取选中的提示词
+                const selectedPrompts = [];
+                const checkboxes = document.querySelectorAll('#promptSelectionList input[type="checkbox"]:checked');
+                checkboxes.forEach(checkbox => {
+                    const promptId = checkbox.value;
+                    const prompt = prompts.find(p => p.id === promptId);
+                    if (prompt) {
+                        selectedPrompts.push(prompt.content);
+                    }
+                });
+                
+                // 添加选中的提示词内容
+                if (selectedPrompts.length > 0) {
+                    promptParts.push(...selectedPrompts);
+                }
+                
+                // 添加用户自定义提示词
+                if (customPrompt) {
+                    promptParts.push(customPrompt);
+                }
+                
+                // 用换行符连接所有提示词
+                return promptParts.length > 0 ? promptParts.join('\n\n') : null;
+            } else {
+                // 如果获取选中提示词失败，只返回用户自定义提示词
+                const customPrompt = document.getElementById('custom_prompt')?.value?.trim() || '';
+                return customPrompt || null;
+            }
+        } catch (error) {
+            console.error('获取合并提示词失败:', error);
+            // 出错时返回用户自定义提示词
+            const customPrompt = document.getElementById('custom_prompt')?.value?.trim() || '';
+            return customPrompt || null;
+        }
+    }
 
     // --- Start the application ---
     document.addEventListener('DOMContentLoaded', init);

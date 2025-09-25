@@ -293,7 +293,13 @@ class Agent:
             system_prompt = self.system_prompt
         if pre_send_handler:
             system_prompt, prompt = pre_send_handler(system_prompt, prompt)
-        # print(f"system_prompt:\n{system_prompt}")
+        
+        # 打印给agent的提示词日志
+        self.logger.info("=" * 80)
+        self.logger.info("🤖 发送给Agent的提示词:")
+        self.logger.info(f"📋 System Prompt:\n{system_prompt}")
+        self.logger.info(f"💬 User Prompt:\n{prompt}")
+        self.logger.info("=" * 80)
 
         headers, data = self._prepare_request_data(prompt, system_prompt)
         should_retry = False

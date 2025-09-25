@@ -122,6 +122,63 @@ first_deploy.bat
 python setup_first_deploy.py
 ```
 
+### Linux .deb packaging (lite/full)
+
+We provide PyInstaller-based builds and Debian packages for Linux. The build script will create an isolated venv, build executables, and produce .deb packages with systemd services.
+
+Build both lite and full packages:
+
+```bash
+bash tools/build_deb.sh
+```
+
+Build only lite or only full:
+
+```bash
+bash tools/build_deb.sh --lite
+bash tools/build_deb.sh --full
+```
+
+Artifacts (examples):
+- Executables: `dist/CollabTrans-<version>-linux`, `dist/CollabTrans_full-<version>-linux`
+- Debian packages:
+  - `build/deb/collabtrans_<version>_amd64.deb` (lite)
+  - `build/deb/collabtrans-full_<version>_amd64.deb` (full)
+
+Install (Debian/Ubuntu):
+
+```bash
+sudo dpkg -i build/deb/collabtrans_<version>_amd64.deb
+# or full
+sudo dpkg -i build/deb/collabtrans-full_<version>_amd64.deb
+```
+
+Manage service (systemd):
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now collabtrans          # lite
+sudo systemctl enable --now collabtrans-full     # full
+
+# status & logs
+systemctl status collabtrans
+journalctl -u collabtrans -f
+```
+
+Configure default port and working directory:
+
+```bash
+sudo nano /etc/default/collabtrans          # lite
+sudo nano /etc/default/collabtrans-full     # full
+# COLLABTRANS_PORT=8010
+# COLLABTRANS_WORKDIR=/opt/collabtrans
+sudo systemctl restart collabtrans
+```
+
+Notes:
+- On Linux, icons are ignored by PyInstaller (expected).
+- lite excludes heavy local PDF parsing toolchains; full includes them (larger size).
+
 ## First Deployment Setup
 
 For first-time deployment, CollabTrans will automatically:

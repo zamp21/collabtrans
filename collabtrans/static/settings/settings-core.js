@@ -210,6 +210,12 @@ async function loadModuleContent(moduleName) {
         } else if (moduleName === 'web-settings' && window.initWebSettingsModule) {
           console.log(`Calling ${moduleName} initialization`);
           window.initWebSettingsModule();
+        } else if (moduleName === 'prompts' && window.initPromptsModule) {
+          console.log(`Calling ${moduleName} initialization`);
+          window.initPromptsModule();
+        } else if (moduleName === 'glossary' && window.initGlossaryModule) {
+          console.log(`Calling ${moduleName} initialization`);
+          window.initGlossaryModule();
         }
       }, 50);
     };
