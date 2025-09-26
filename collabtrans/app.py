@@ -18,7 +18,7 @@ import httpx
 import uvicorn
 from fastapi import FastAPI, HTTPException, APIRouter, Body, Path as FastApiPath, Request
 from fastapi.openapi.docs import get_swagger_ui_html, get_swagger_ui_oauth2_redirect_html, get_redoc_html
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator, model_validator, AliasChoices
 
@@ -86,6 +86,165 @@ from collabtrans.translator.ai_translator.html_translator import HtmlTranslatorC
 from collabtrans.logger import global_logger
 from collabtrans.translator import default_params
 from collabtrans.utils.resource_utils import resource_path
+
+# --- Optional: Playwright for server-side PDF export ---
+try:
+    from playwright.async_api import async_playwright
+    PLAYWRIGHT_AVAILABLE = True
+except Exception:
+    PLAYWRIGHT_AVAILABLE = False
+
+
+pdf_router = APIRouter()
+
+
+class PdfExportRequest(BaseModel):
+    html_url: str
+    file_name: str | None = None
+    # 页面设置（可选）
+    format: str | None = "A4"
+    margin_top: str | None = "10mm"
+    margin_right: str | None = "10mm"
+    margin_bottom: str | None = "10mm"
+    margin_left: str | None = "10mm"
+
+
+@pdf_router.post("/export/pdf")
+async def export_pdf(req: PdfExportRequest, request: Request):
+    if not PLAYWRIGHT_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Playwright 未安装，无法生成PDF。请安装可选依赖 'pdf_export'.")
+
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch()
+            context = await browser.new_context()
+            # 将当前请求的会话 Cookie 注入到无头浏览器，以便访问受保护的页面
+            try:
+                host = request.headers.get('host', '')
+                cookie_domain = host.split(':')[0] if host else 'localhost'
+                cookies_to_set = []
+                for name, value in request.cookies.items():
+                    cookies_to_set.append({
+                        'name': name,
+                        'value': value,
+                        'domain': cookie_domain,
+                        'path': '/',
+                        'httpOnly': False,
+                        'secure': False,
+                        'sameSite': 'Lax',
+                    })
+                if cookies_to_set:
+                    await context.add_cookies(cookies_to_set)
+            except Exception as _:
+                pass
+
+            page = await context.new_page()
+            # 规范化 URL：支持前端传入以 "/" 开头的相对路径
+            html_url = req.html_url
+            if html_url.startswith('/'):
+                origin = f"{request.url.scheme}://{request.headers.get('host')}"
+                html_url = origin + html_url
+            # 若传入的是触发下载的接口（如 /service/download/.../html），直接导航会触发下载而非展示。
+            # 这里改为在后端抓取 HTML 文本，并用 set_content 渲染。
+            try:
+                # 构造 Cookie 头，沿用请求会话
+                cookie_header = "; ".join([f"{k}={v}" for k, v in request.cookies.items()]) if request.cookies else ""
+                headers = {"Cookie": cookie_header} if cookie_header else {}
+                resp = await httpx_client.get(html_url, headers=headers)
+                resp.raise_for_status()
+                html_text = resp.text
+            except Exception as fe:
+                raise HTTPException(status_code=502, detail=f"获取HTML失败: {fe}")
+
+            # 注入 <base>，保证相对资源（CSS/JS/图片）可正确解析
+            from urllib.parse import urlparse
+            parsed = urlparse(html_url)
+            origin = f"{parsed.scheme}://{parsed.netloc}"
+            base_href = origin + "/"
+            if "<head" in html_text:
+                html_with_base = html_text.replace("<head>", f"<head><base href=\"{base_href}\">", 1)
+            else:
+                html_with_base = f"<head><base href=\"{base_href}\"></head>" + html_text
+
+            await page.set_content(html_with_base, wait_until="networkidle")
+            # 生成PDF（无页眉页脚，保留背景，使用CSS页面尺寸）
+            pdf_bytes = await page.pdf(
+                format=req.format or "A4",
+                print_background=True,
+                display_header_footer=False,
+                prefer_css_page_size=True,
+                margin={
+                    "top": req.margin_top or "10mm",
+                    "right": req.margin_right or "10mm",
+                    "bottom": req.margin_bottom or "10mm",
+                    "left": req.margin_left or "10mm",
+                }
+            )
+            await context.close()
+            await browser.close()
+
+            filename = (req.file_name or "document") + ".pdf"
+            headers = {
+                "Content-Disposition": f"attachment; filename*=UTF-8''{filename}"
+            }
+            return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+    except Exception as e:
+        logger.error(f"导出PDF失败: {e}")
+        raise HTTPException(status_code=500, detail=f"导出PDF失败: {e}")
+
+
+class PdfExportHtmlRequest(BaseModel):
+    html: str
+    file_name: str | None = None
+    base_url: str | None = None
+    format: str | None = "A4"
+    margin_top: str | None = "10mm"
+    margin_right: str | None = "10mm"
+    margin_bottom: str | None = "10mm"
+    margin_left: str | None = "10mm"
+
+
+@pdf_router.post("/export/pdf/from-html")
+async def export_pdf_from_html(req: PdfExportHtmlRequest):
+    if not PLAYWRIGHT_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Playwright 未安装，无法生成PDF。请安装可选依赖 'pdf_export'.")
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch()
+            context = await browser.new_context()
+            page = await context.new_page()
+
+            html_text = req.html
+            base_href = (req.base_url or '').rstrip('/') + '/'
+            if base_href and "<head" in html_text:
+                html_with_base = html_text.replace("<head>", f"<head><base href=\"{base_href}\">", 1)
+            elif base_href:
+                html_with_base = f"<head><base href=\"{base_href}\"></head>" + html_text
+            else:
+                html_with_base = html_text
+
+            await page.set_content(html_with_base, wait_until="networkidle")
+            pdf_bytes = await page.pdf(
+                format=req.format or "A4",
+                print_background=True,
+                display_header_footer=False,
+                prefer_css_page_size=True,
+                margin={
+                    "top": req.margin_top or "10mm",
+                    "right": req.margin_right or "10mm",
+                    "bottom": req.margin_bottom or "10mm",
+                    "left": req.margin_left or "10mm",
+                }
+            )
+            await context.close()
+            await browser.close()
+
+            filename = (req.file_name or "document") + ".pdf"
+            headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"}
+            return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+    except Exception as e:
+        logger.error(f"导出PDF失败: {e}")
+        raise HTTPException(status_code=500, detail=f"导出PDF失败: {e}")
 
 # --- 全局配置 ---
 tasks_state: Dict[str, Dict[str, Any]] = {}
@@ -1869,6 +2028,7 @@ async def temp_translate(
 
 
 app.include_router(service_router)
+app.include_router(pdf_router)
 
 
 def find_free_port(start_port):

@@ -3716,40 +3716,56 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
-    function downloadPdf(cardId) {
-        const {elements, state} = tasks[cardId];
+    async function downloadPdf(cardId) {
+        const { state } = tasks[cardId];
         if (!state.htmlUrl) return;
 
-        const toast = new bootstrap.Toast(document.createElement('div'), {
-            autohide: true,
-            delay: 3000
-        });
+        const toast = new bootstrap.Toast(document.createElement('div'), { autohide: true, delay: 5000 });
         toast._element.classList.add('toast', 'position-fixed', 'top-0', 'end-0', 'p-3', 'bg-info', 'text-white');
-        toast._element.innerHTML = `<div class="toast-body">${getText('pdf_preparing')}</div>`;
+        toast._element.innerHTML = `<div class=\"toast-body\">${getText('pdf_preparing')}</div>`;
         document.body.appendChild(toast._element);
         toast.show();
 
-        fetch(state.htmlUrl)
-            .then(resp => resp.ok ? resp.text() : Promise.reject(`HTTP error ${resp.status}`))
-            .then(html => {
-                printFrameEl.onload = () => {
-                    setTimeout(() => {
-                        try {
-                            printFrameEl.contentWindow.focus();
-                            printFrameEl.contentWindow.print();
-                        } catch (err) {
-                            alert(getText('pdf_print_failed'));
-                        } finally {
-                            printFrameEl.onload = null;
-                            printFrameEl.srcdoc = ''; // Clear content
-                        }
-                    }, 500);
-                };
-                printFrameEl.srcdoc = html;
-            })
-            .catch(err => {
-                alert(getText('pdf_fetch_failed'));
+        try {
+            // 直接获取翻译后的 HTML 文本，避免服务端误拿到原文或下载触发
+            const htmlResp = await fetch(state.htmlUrl);
+            if (!htmlResp.ok) throw new Error('获取翻译后的HTML失败');
+            const htmlText = await htmlResp.text();
+
+            const origin = location.origin;
+            const resp = await fetch('/export/pdf/from-html', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    html: htmlText,
+                    base_url: origin,
+                    file_name: (state.original_filename_stem || 'document') + '_translated',
+                    format: 'A4',
+                    margin_top: '10mm',
+                    margin_right: '10mm',
+                    margin_bottom: '10mm',
+                    margin_left: '10mm'
+                })
             });
+            if (!resp.ok) throw new Error(await resp.text());
+            const blob = await resp.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${(state.original_filename_stem || 'document')}_translated.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            URL.revokeObjectURL(url);
+            a.remove();
+            toast._element.innerHTML = `<div class=\"toast-body\">PDF生成完成！</div>`;
+            setTimeout(() => toast.hide(), 2000);
+        } catch (err) {
+            console.error('PDF export failed:', err);
+            toast._element.innerHTML = `<div class=\"toast-body\">PDF生成失败: ${err.message}</div>`;
+            toast._element.classList.remove('bg-info');
+            toast._element.classList.add('bg-danger');
+            setTimeout(() => toast.hide(), 3000);
+        }
     }
 
     function setPreviewDisplayMode(mode) {
