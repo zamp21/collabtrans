@@ -1,6 +1,10 @@
 {
   "zh": {
     "languageBtn": "语言",
+    "themeBtn": "主题",
+    "themeLight": "浅色",
+    "themeDark": "深色",
+    "themeAuto": "自动",
     "selectPromptsLabel": "选择提示词",
     "loadingPrompts": "加载中...",
     "promptSelectionHelp": "可以选择多个提示词集合，个人提示词优先级更高",
@@ -198,7 +202,6 @@
     "preview_bilingual": "双语预览",
     "preview_translatedOnly": "仅译文预览",
     "logoutBtn": "退出登录",
-    "languageSwitcherTitle": "切换语言 / Switch Language",
     "currentUserTitle": "当前用户",
     "platformNameLabel": "平台名称",
     "modelNameLabel": "模型名称",
@@ -264,6 +267,10 @@
   },
   "en": {
     "languageBtn": "Language",
+    "themeBtn": "Theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeAuto": "Auto",
     "selectPromptsLabel": "Select Prompts",
     "loadingPrompts": "Loading...",
     "promptSelectionHelp": "You can select multiple prompt collections, personal prompts have higher priority",
@@ -460,7 +467,6 @@
     "preview_bilingual": "Bilingual Preview",
     "preview_translatedOnly": "Translated Only Preview",
     "logoutBtn": "Logout",
-    "languageSwitcherTitle": "Switch Language / 切换语言",
     "currentUserTitle": "Current User",
     "platformNameLabel": "Platform Name",
     "modelNameLabel": "Model Name",

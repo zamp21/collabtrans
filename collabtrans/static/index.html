@@ -207,14 +207,6 @@
             visibility: hidden;
         }
 
-        .bottom-left-controls {
-            position: fixed;
-            bottom: 1rem;
-            left: 1rem;
-            z-index: 1050;
-            display: flex;
-            gap: 0.5rem;
-        }
 
         .project-info p {
             letter-spacing: 0.8px;
@@ -275,6 +267,18 @@
                                 <ul class="dropdown-menu" id="topLanguageMenu" style="display:none; position:absolute; z-index: 1030;">
                                     <li><a class="dropdown-item" href="#" data-lang="zh" data-i18n="languageChinese">中文</a></li>
                                     <li><a class="dropdown-item" href="#" data-lang="en" data-i18n="languageEnglish">English</a></li>
+                                </ul>
+                                
+
+                                <!-- Theme Switcher -->
+                                <span id="topThemeDropdownBtn" class="ms-2" title="切换主题 / Switch Theme" style="cursor: pointer;">
+                                    <i class="bi bi-circle-half me-1"></i><span data-i18n="themeBtn">Theme</span>
+                                    <span class="text-muted ms-1" id="currentThemeText">(Auto)</span>
+                                </span>
+                                <ul class="dropdown-menu" id="topThemeMenu" style="display:none; position:absolute; z-index: 1030;">
+                                    <li><a class="dropdown-item" href="#" data-theme="light"><i class="bi bi-sun-fill me-2"></i><span data-i18n="themeLight">Light</span></a></li>
+                                    <li><a class="dropdown-item" href="#" data-theme="dark"><i class="bi bi-moon-fill me-2"></i><span data-i18n="themeDark">Dark</span></a></li>
+                                    <li><a class="dropdown-item" href="#" data-theme="auto"><i class="bi bi-circle-half me-2"></i><span data-i18n="themeAuto">Auto</span></a></li>
                                 </ul>
                                 <span id="currentUserBadge" class="badge rounded-pill text-bg-light ms-2" data-i18n-title="currentUserTitle" title="当前用户">
                                     <i class="bi bi-person-circle me-1"></i><span id="currentUserName">--</span>
@@ -1334,46 +1338,6 @@ $.*"></textarea>
 <!-- Hidden iframe for direct PDF printing -->
 <iframe id="printFrame" style="display: none;"></iframe>
 
-<!-- Bottom Left Controls -->
-<div class="bottom-left-controls">
-    <!-- Language Switcher -->
-    <div class="dropdown">
-        <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="language-switcher" data-bs-toggle="dropdown"
-                aria-expanded="false" data-i18n-title="languageSwitcherTitle" title="切换语言 / Switch Language">
-            <i class="bi bi-translate"></i>
-        </button>
-        <ul class="dropdown-menu" aria-labelledby="language-switcher" id="languageMenu">
-            <li><a class="dropdown-item" href="#" data-lang="zh" data-i18n="languageChinese">中文</a></li>
-            <li><a class="dropdown-item" href="#" data-lang="en" data-i18n="languageEnglish">English</a></li>
-        </ul>
-    </div>
-
-    <!-- Theme Switcher -->
-    <div class="dropdown">
-        <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="theme-switcher" data-bs-toggle="dropdown"
-                aria-expanded="false">
-            <i class="bi bi-circle-half"></i>
-        </button>
-        <ul class="dropdown-menu" aria-labelledby="theme-switcher">
-            <li>
-                <button class="dropdown-item" type="button" data-bs-theme-value="light"><i
-                        class="bi bi-sun-fill me-2"></i>
-                    Light
-                </button>
-            </li>
-            <li>
-                <button class="dropdown-item" type="button" data-bs-theme-value="dark"><i
-                        class="bi bi-moon-stars-fill me-2"></i> Dark
-                </button>
-            </li>
-            <li>
-                <button class="dropdown-item active" type="button" data-bs-theme-value="auto"><i
-                        class="bi bi-circle-half me-2"></i> Auto
-                </button>
-            </li>
-        </ul>
-    </div>
-</div>
 
 
 <!-- Tutorial Modal moved to /static/tutorial.html and will be dynamically loaded -->
@@ -1681,6 +1645,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         });
+        
+        // Force update theme-related elements (additional safety)
+        const themeElements = [
+            { selector: '#topThemeDropdownBtn span[data-i18n=\"themeBtn\"]', key: 'themeBtn' },
+            { selector: '#topThemeMenu [data-theme=\"light\"] span[data-i18n=\"themeLight\"]', key: 'themeLight' },
+            { selector: '#topThemeMenu [data-theme=\"dark\"] span[data-i18n=\"themeDark\"]', key: 'themeDark' },
+            { selector: '#topThemeMenu [data-theme=\"auto\"] span[data-i18n=\"themeAuto\"]', key: 'themeAuto' }
+        ];
+        
+        themeElements.forEach(({ selector, key }) => {
+            const element = document.querySelector(selector);
+            if (element && translations[key]) {
+                element.textContent = translations[key];
+            }
+        });
 
         // Update dynamic UI parts that are built with JS
         updateWorkflowUI();
@@ -1708,6 +1687,45 @@ document.addEventListener('DOMContentLoaded', function() {
             const nameKey = lang === 'zh' ? 'languageChinese' : 'languageEnglish';
             const nameText = translations[nameKey] || (lang === 'zh' ? '中文' : 'English');
             currentLangTextEl.textContent = `(${nameText})`;
+        }
+
+        // Update current theme text to reflect language change
+        const currentTheme = localStorage.getItem('theme') || 'auto';
+        const currentThemeTextEl = document.getElementById('currentThemeText');
+        if (currentThemeTextEl) {
+            const themeKeys = {
+                'light': 'themeLight',
+                'dark': 'themeDark', 
+                'auto': 'themeAuto'
+            };
+            const themeKey = themeKeys[currentTheme] || 'themeAuto';
+            const themeText = translations[themeKey] || (themeKey === 'themeLight' ? 'Light' : 
+                                                       themeKey === 'themeDark' ? 'Dark' : 'Auto');
+            currentThemeTextEl.textContent = `(${themeText})`;
+        }
+        
+        // Force update all theme-related i18n elements
+        const themeBtnEl = document.querySelector('#topThemeDropdownBtn span[data-i18n=\"themeBtn\"]');
+        if (themeBtnEl) {
+            themeBtnEl.textContent = translations['themeBtn'] || 'Theme';
+        }
+        
+        // Manually update theme menu text as fallback
+        const themeMenu = document.getElementById('topThemeMenu');
+        if (themeMenu) {
+            const themeLightEl = themeMenu.querySelector('[data-theme=\"light\"] span[data-i18n=\"themeLight\"]');
+            const themeDarkEl = themeMenu.querySelector('[data-theme=\"dark\"] span[data-i18n=\"themeDark\"]');
+            const themeAutoEl = themeMenu.querySelector('[data-theme=\"auto\"] span[data-i18n=\"themeAuto\"]');
+            
+            if (themeLightEl) {
+                themeLightEl.textContent = translations['themeLight'] || 'Light';
+            }
+            if (themeDarkEl) {
+                themeDarkEl.textContent = translations['themeDark'] || 'Dark';
+            }
+            if (themeAutoEl) {
+                themeAutoEl.textContent = translations['themeAuto'] || 'Auto';
+            }
         }
 
         // Save preference
@@ -1776,9 +1794,94 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
+        // Initialize theme menu (top): hover to show list
+        const topThemeBtn = document.getElementById('topThemeDropdownBtn');
+        const topThemeMenu = document.getElementById('topThemeMenu');
+        if (topThemeBtn && topThemeMenu) {
+            let hoverTimer = null;
+            const showMenu = () => {
+                const rect = topThemeBtn.getBoundingClientRect();
+                topThemeMenu.style.left = rect.left + 'px';
+                topThemeMenu.style.top = (rect.bottom + window.scrollY) + 'px';
+                topThemeMenu.style.display = 'block';
+            };
+            const hideMenu = () => {
+                topThemeMenu.style.display = 'none';
+            };
+            const scheduleHide = () => {
+                hoverTimer = setTimeout(hideMenu, 150);
+            };
+            const cancelHide = () => {
+                if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
+            };
+            topThemeBtn.addEventListener('mouseenter', () => { cancelHide(); showMenu(); });
+            topThemeBtn.addEventListener('mouseleave', scheduleHide);
+            topThemeMenu.addEventListener('mouseenter', cancelHide);
+            topThemeMenu.addEventListener('mouseleave', scheduleHide);
+            topThemeMenu.querySelectorAll('a[data-theme]').forEach(a => {
+                a.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    setTheme(a.dataset.theme);
+                    hideMenu();
+                });
+            });
+        }
+
+
         // Set initial language
         const savedLang = getFromStorage('ui_language') || (navigator.language.toLowerCase().startsWith('en') ? 'en' : 'zh');
         setLanguage(savedLang);
+        
+        // Set initial theme (after language is set)
+        const savedTheme = localStorage.getItem('theme') || 'auto';
+        setTheme(savedTheme);
+        
+        // Listen for system theme changes
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+            const storedTheme = localStorage.getItem('theme');
+            if (storedTheme === 'auto' || !storedTheme) {
+                setTheme('auto');
+            }
+        });
+    }
+
+    /**
+     * Updates the UI theme based on the selected theme.
+     * @param {string} theme - The theme value (e.g., 'light', 'dark', 'auto').
+     */
+    function setTheme(theme) {
+        localStorage.setItem('theme', theme);
+        if (theme === 'auto') {
+            // For auto theme, use system preference
+            const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            document.documentElement.setAttribute('data-bs-theme', isDark ? 'dark' : 'light');
+        } else {
+            document.documentElement.setAttribute('data-bs-theme', theme);
+        }
+        
+        // Update current theme text
+        const currentThemeTextEl = document.getElementById('currentThemeText');
+        if (currentThemeTextEl) {
+            const themeKeys = {
+                'light': 'themeLight',
+                'dark': 'themeDark', 
+                'auto': 'themeAuto'
+            };
+            const themeKey = themeKeys[theme] || 'themeAuto';
+            // Ensure we have valid i18n data and currentLang
+            const translations = i18nData && i18nData[currentLang] ? i18nData[currentLang] : {};
+            const themeText = translations[themeKey] || (themeKey === 'themeLight' ? 'Light' : 
+                                                       themeKey === 'themeDark' ? 'Dark' : 'Auto');
+            currentThemeTextEl.textContent = `(${themeText})`;
+        }
+        
+        // Update active state in dropdown
+        const topThemeMenu = document.getElementById('topThemeMenu');
+        if (topThemeMenu) {
+            topThemeMenu.querySelectorAll('a.active').forEach(a => a.classList.remove('active'));
+            const activeLink = topThemeMenu.querySelector(`a[data-theme="${theme}"]`);
+            if (activeLink) activeLink.classList.add('active');
+        }
     }
 
     // --- End I18N ---
@@ -3984,7 +4087,9 @@ document.addEventListener('DOMContentLoaded', function() {
     async function init() {
         // Step 1: Fetch i18n data
         try {
-            const response = await fetch("/static/i18nData.json");
+            // Add cache busting parameter to force reload
+            const timestamp = new Date().getTime();
+            const response = await fetch(`/static/i18nData.json?t=${timestamp}`);
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             i18nData = await response.json();
         } catch (error) {
@@ -4367,47 +4472,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // AUTH Settings 已迁移到 /settings 页面，无需更新LDAP UI
     }
 
-    // --- Theme switcher logic ---
-    const getPreferredTheme = () => {
-        const storedTheme = localStorage.getItem('theme');
-        if (storedTheme) {
-            return storedTheme;
-        }
-        return 'auto';
-    };
-    const setTheme = theme => {
-        if (theme === 'auto') {
-            document.documentElement.setAttribute('data-bs-theme', window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-        } else {
-            document.documentElement.setAttribute('data-bs-theme', theme);
-        }
-    };
-    const showActiveTheme = (theme) => {
-        document.querySelectorAll('[data-bs-theme-value]').forEach(element => {
-            element.classList.remove('active');
-        });
-        const activeButton = document.querySelector(`[data-bs-theme-value="${theme}"]`);
-        if (activeButton) {
-            activeButton.classList.add('active');
-        }
-    };
-    const preferredTheme = getPreferredTheme();
-    setTheme(preferredTheme);
-    showActiveTheme(preferredTheme);
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-        const storedTheme = localStorage.getItem('theme');
-        if (storedTheme === 'auto' || !storedTheme) {
-            setTheme('auto');
-        }
-    });
-    document.querySelectorAll('[data-bs-theme-value]').forEach(toggle => {
-        toggle.addEventListener('click', () => {
-            const theme = toggle.getAttribute('data-bs-theme-value');
-            localStorage.setItem('theme', theme);
-            setTheme(theme);
-            showActiveTheme(theme);
-        });
-    });
+    // --- Theme switcher logic (moved to initI18n function) ---
     // 术语表管理功能已迁移到Settings页面
     
     // 全局通知函数
@@ -4592,17 +4657,17 @@ document.addEventListener('DOMContentLoaded', function() {
                            id="prompt_${prompt.id}" ${isSelected ? 'checked' : ''}>
                     <label class="form-check-label w-100" for="prompt_${prompt.id}">
                         <div class="d-flex justify-content-between align-items-start">
-                            <div>
+                    <div>
                                 <strong>${prompt.name}</strong>
-                                <small class="text-muted d-block">
+                            <small class="text-muted d-block">
                                     ${prompt.description || ''} (${prompt.item_count} prompts)
-                                </small>
+                            </small>
                                 <small class="text-muted">Creator: ${prompt.owner}</small>
-                            </div>
+                    </div>
                             <button class="btn btn-outline-secondary btn-sm" onclick="promptManager.downloadPrompt('${prompt.id}')">
-                                <i class="bi bi-download"></i>
-                            </button>
-                        </div>
+                            <i class="bi bi-download"></i>
+                        </button>
+                    </div>
                     </label>
                 `;
                 container.appendChild(div);
@@ -4865,7 +4930,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         showNotification(message, type = 'info') {
             const alertClass = type === 'success' ? 'alert-success' : 
-                              type === 'error' ? 'alert-danger' : 'alert-info';
+                             type === 'error' ? 'alert-danger' : 'alert-info';
             
             const notification = document.createElement('div');
             notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
