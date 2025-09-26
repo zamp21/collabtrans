@@ -4,10 +4,13 @@
 import asyncio
 import time
 import zipfile
+import logging
 from dataclasses import dataclass
 from typing import Hashable, Literal
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 from collabtrans.converter.x2md.base import X2MarkdownConverter, X2MarkdownConverterConfig
 from collabtrans.ir.attachment_manager import AttachMent
@@ -53,6 +56,7 @@ class ConverterMineru(X2MarkdownConverter):
         self.formula = config.formula_ocr
         self.model_version = config.model_version
         self.attachments: list[AttachMent] = []
+        
 
     def _get_header(self):
         return {

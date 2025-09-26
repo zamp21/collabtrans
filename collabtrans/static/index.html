@@ -5468,6 +5468,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         </label>
                     </div>
                     <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-info" onclick="previewSingleGlossary('${glossary.id}')" title="预览">
+                            <i class="bi bi-eye"></i>
+                        </button>
                         <button type="button" class="btn btn-outline-secondary" onclick="glossaryManager.downloadGlossary('${glossary.id}')" title="下载">
                             <i class="bi bi-download"></i>
                         </button>
@@ -5509,6 +5512,37 @@ document.addEventListener('DOMContentLoaded', function() {
             
         } catch (error) {
             console.error('预览术语表失败:', error);
+            showNotification('预览失败', 'error');
+        }
+    };
+    
+    // 预览单个术语表
+    window.previewSingleGlossary = async function(glossaryId) {
+        try {
+            // 获取单个术语表内容
+            const response = await fetch(`/auth/glossaries/${glossaryId}/download`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (!response.ok) {
+                showNotification('获取术语表失败', 'error');
+                return;
+            }
+            
+            const text = await response.text();
+            const glossaryDict = parseCSVToGlossary(text);
+            
+            if (Object.keys(glossaryDict).length === 0) {
+                showNotification('术语表为空', 'warning');
+                return;
+            }
+            
+            // 显示预览模态框
+            showSingleGlossaryPreviewModal(glossaryDict, glossaryId);
+            
+        } catch (error) {
+            console.error('预览单个术语表失败:', error);
             showNotification('预览失败', 'error');
         }
     };
@@ -5630,6 +5664,55 @@ document.addEventListener('DOMContentLoaded', function() {
         // 显示模态框
         const bootstrapModal = new bootstrap.Modal(modal);
         bootstrapModal.show();
+    };
+    
+    // 显示单个术语表预览模态框
+    window.showSingleGlossaryPreviewModal = function(glossaryDict, glossaryId) {
+        const modal = document.getElementById('glossaryModal');
+        const modalTitle = document.getElementById('glossaryModalLabel');
+        const modalBody = document.getElementById('glossaryTableBody');
+        
+        if (!modal || !modalTitle || !modalBody) {
+            console.error('术语表预览模态框元素未找到');
+            return;
+        }
+        
+        // 获取术语表名称
+        const glossaryName = getGlossaryNameById(glossaryId);
+        
+        // 设置标题
+        modalTitle.textContent = `预览术语表: ${glossaryName} (${Object.keys(glossaryDict).length} 条术语)`;
+        
+        // 清空并填充表格
+        modalBody.innerHTML = '';
+        
+        const sortedEntries = Object.entries(glossaryDict).sort((a, b) => a[0].localeCompare(b[0]));
+        
+        sortedEntries.forEach(([src, dst]) => {
+            const row = modalBody.insertRow();
+            row.insertCell(0).textContent = src;
+            row.insertCell(1).textContent = dst;
+        });
+        
+        // 显示模态框
+        const bootstrapModal = new bootstrap.Modal(modal);
+        bootstrapModal.show();
+    };
+    
+    // 根据ID获取术语表名称
+    window.getGlossaryNameById = function(glossaryId) {
+        // 从术语表选择列表中查找对应的术语表名称
+        const glossaryElement = document.querySelector(`#glossary_global_${glossaryId}`);
+        if (glossaryElement) {
+            const label = glossaryElement.nextElementSibling;
+            if (label) {
+                const nameElement = label.querySelector('strong');
+                if (nameElement) {
+                    return nameElement.textContent;
+                }
+            }
+        }
+        return `术语表 ${glossaryId}`;
     };
     
     // 保存术语表选择

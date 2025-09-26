@@ -751,13 +751,17 @@ async def _perform_translation(
             if payload.convert_engine == 'mineru':
                 # 若前端未传入 MinerU Token，则从本地敏感配置注入
                 mineru_token = payload.mineru_token
-                if not mineru_token:
+                
+                # 检查token是否为空或长度不足（正常的JWT token应该有400+字符）
+                if not mineru_token or len(mineru_token) < 100:
                     try:
                         from .config.secrets_manager import get_secrets_manager
                         sm = get_secrets_manager()
                         mineru_token = sm.get_mineru_token() or ""
-                    except Exception:
+                    except Exception as e:
+                        task_logger.error(f"[MinerU] 获取token失败: {e}")
                         mineru_token = ""
+                
                 converter_config = ConverterMineruConfig(
                     logger=task_logger,
                     mineru_token=mineru_token,
