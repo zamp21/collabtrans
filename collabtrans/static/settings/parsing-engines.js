@@ -7,7 +7,9 @@ let engineConfigs = {};
 async function loadEngineConfigs() {
   try {
     const resp = await fetch('/auth/app-config');
-    if (!resp.ok) return;
+    if (!resp.ok) {
+      return;
+    }
     const cfg = await resp.json();
     const ts = (cfg.translator_settings || {});
     engineConfigs = ts.engines || {};
@@ -31,11 +33,22 @@ async function loadEngineConfigs() {
       if (!select.value && select.querySelector('option[value="mineru"]')) {
         select.value = 'mineru';
       }
+      // 确保MinerU设置默认显示
+      if (select.value === 'mineru') {
+        updateEngineFields();
+      }
     }
 
     updateEngineFields();
     // Load MinerU API Key (masked display from sensitive configuration)
     await loadMineruApiKey();
+    
+    // 强制显示MinerU设置，确保用户能看到API Key配置
+    const mineruApiKeyRow = document.getElementById('mineruApiKeyRow');
+    if (mineruApiKeyRow) {
+      mineruApiKeyRow.style.display = 'block';
+    } else {
+    }
   } catch (e) { 
     console.error('Load engine configs error:', e); 
   }
@@ -43,22 +56,47 @@ async function loadEngineConfigs() {
 
 // Update engine fields
 function updateEngineFields() {
-  const key = document.getElementById('engineSelect').value || 'mineru';
+  const select = document.getElementById('engineSelect');
+  const key = select ? select.value || 'mineru' : 'mineru';
   const cfg = engineConfigs[key] || {};
-  document.getElementById('engineName').value = cfg.name || '';
-  document.getElementById('engineApiUrl').value = cfg.api_url || '';
+  
+  
+  const engineNameEl = document.getElementById('engineName');
+  if (engineNameEl) {
+    engineNameEl.value = cfg.name || '';
+  }
+  
+  const engineApiUrlEl = document.getElementById('engineApiUrl');
+  if (engineApiUrlEl) {
+    engineApiUrlEl.value = cfg.api_url || '';
+  }
 
   // MinerU specific fields
   const mineruVisible = key === 'mineru';
-  document.getElementById('mineruModelRow').style.display = mineruVisible ? 'block' : 'none';
-  document.getElementById('mineruApiKeyRow').style.display = mineruVisible ? 'block' : 'none';
+  const mineruModelRow = document.getElementById('mineruModelRow');
+  const mineruApiKeyRow = document.getElementById('mineruApiKeyRow');
+  
+  if (mineruModelRow) {
+    mineruModelRow.style.display = mineruVisible ? 'block' : 'none';
+  }
+  
+  if (mineruApiKeyRow) {
+    mineruApiKeyRow.style.display = mineruVisible ? 'block' : 'none';
+  }
+  
   if (mineruVisible) {
-    document.getElementById('mineruModelVersion').value = cfg.model_version || (window.appConfig?.translator_settings?.mineru_model_version) || '';
+    const modelVersionEl = document.getElementById('mineruModelVersion');
+    if (modelVersionEl) {
+      modelVersionEl.value = cfg.model_version || (window.appConfig?.translator_settings?.mineru_model_version) || '';
+    }
   }
 
   // Whether to show api_url row: MinerU or configuration already contains api_url
   const showApi = mineruVisible || !!cfg.api_url;
-  document.getElementById('engineApiUrlRow').style.display = showApi ? 'block' : 'none';
+  const apiUrlRow = document.getElementById('engineApiUrlRow');
+  if (apiUrlRow) {
+    apiUrlRow.style.display = showApi ? 'block' : 'none';
+  }
 }
 
 // Load MinerU API Key (masked display)
@@ -209,9 +247,8 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Initialize parsing engine module
-function initParsingEngineModule() {
-  console.log('Initializing parsing engine module...');
-  loadEngineConfigs();
+async function initParsingEngineModule() {
+  await loadEngineConfigs();
   
   // Setup event listeners
   const sel = document.getElementById('engineSelect');

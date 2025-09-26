@@ -18,6 +18,7 @@ from .ldap_client import LDAPClient, InvalidCredentials
 from .session_manager import AuthSessionManager
 from .models import LoginRequest, LoginResponse, LogoutResponse, UserInfo, User, UserRole
 from ..config import get_app_config, save_app_config
+from ..config.secrets_manager import get_secrets_manager
 
 # 创建认证专用的日志记录器
 logger = logging.getLogger(__name__)
@@ -2054,3 +2055,77 @@ async def test_ai_platform(
     except Exception as e:
         logger.error(f"AI platform test failed: {e}")
         return {"success": False, "error": f"Test failed: {str(e)}"}
+
+
+@auth_router.post("/mineru/test-connection")
+async def test_mineru_connection(request: Request):
+    """测试MinerU连接"""
+    try:
+        # 检查用户权限
+        if not _session_manager:
+            raise HTTPException(status_code=401, detail="会话管理器未初始化")
+        
+        user = await _session_manager.get_user(request)
+        if not user:
+            raise HTTPException(status_code=401, detail="未登录或会话已过期")
+        
+        # 获取MinerU token
+        try:
+            sm = get_secrets_manager()
+            mineru_token = sm.get_mineru_token()
+            
+            if not mineru_token:
+                return {"success": False, "message": "MinerU API Key未配置"}
+            
+            # 测试MinerU API连接
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {mineru_token}'
+            }
+            
+            # 使用一个简单的测试请求 - 使用PDF文件类型
+            test_data = {
+                "files": [
+                    {"name": "test.pdf", "is_ocr": True}
+                ]
+            }
+            
+            logger.info("MinerU连接测试: 开始测试API连接")
+            
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    'https://mineru.net/api/v4/file-urls/batch',
+                    headers=headers,
+                    json=test_data
+                )
+                
+                logger.info(f"MinerU连接测试: API响应状态 {response.status_code}")
+                if response.status_code != 200:
+                    logger.warning(f"MinerU连接测试: API请求失败，状态码 {response.status_code}")
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if result.get("code") == 0:
+                        return {"success": True, "message": "MinerU连接测试成功"}
+                    else:
+                        error_msg = result.get('message', '未知错误')
+                        error_code = result.get('code', 'N/A')
+                        return {"success": False, "message": f"MinerU API返回错误: {error_msg} (错误代码: {error_code})"}
+                elif response.status_code == 401:
+                    return {"success": False, "message": "MinerU API Key无效或已过期"}
+                else:
+                    try:
+                        error_detail = response.text
+                        return {"success": False, "message": f"MinerU API请求失败: {response.status_code} - {error_detail}"}
+                    except:
+                        return {"success": False, "message": f"MinerU API请求失败: {response.status_code}"}
+                    
+        except Exception as e:
+            logger.error(f"MinerU连接测试失败: {e}")
+            return {"success": False, "message": f"连接测试失败: {str(e)}"}
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"MinerU测试连接端点错误: {e}")
+        raise HTTPException(status_code=500, detail="服务器内部错误")

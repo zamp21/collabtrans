@@ -636,22 +636,18 @@ $.*"></textarea>
                                             如果上传的文件本身是.md格式，此项可不选。
                                         </div>
                                     </div>
+                                    <!-- MinerU Token 已移至后台管理，这里只显示测试连接按钮 -->
                                     <div class="mb-3" id="mineruTokenGroup">
-                                        <label for="mineru_token" class="form-label">
-                                            Mineru Token
-                                            <a href="https://mineru.net/apiManage/token" target="_blank" class="ms-1"
-                                               data-i18n-title="getMineruTokenTitle" title="获取Mineru Token"><i
-                                                    class="bi bi-box-arrow-up-right"></i></a>
+                                        <label class="form-label">
+                                            MinerU 连接状态
                                         </label>
-                                        <div class="input-group">
-                                            <input type="password" class="form-control" id="mineru_token"
-                                                   name="mineru_token" data-i18n-placeholder="mineruTokenPlaceholder"
-                                                   placeholder="使用Mineru引擎时需要">
-                                            <button class="btn btn-outline-secondary toggle-password" type="button"
-                                                    data-target="mineru_token">
-                                                <i class="bi bi-eye-slash"></i>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span id="mineruConnectionStatus" class="badge bg-secondary" data-i18n="mineruStatusUnknown">未测试</span>
+                                            <button type="button" class="btn btn-outline-info btn-sm" id="testMineruConnection" data-i18n="testMineruConnectionBtn">
+                                                <i class="bi bi-wifi me-1"></i>测试连接
                                             </button>
                                         </div>
+                                        <div class="form-text" data-i18n="mineruTokenHelp">MinerU API Key 已在后台配置，点击"测试连接"验证配置是否正确。</div>
                                     </div>
                                     <!-- NEW: Mineru Model Version -->
                                     <div class="mb-3" id="mineruModelVersionGroup">
@@ -1939,7 +1935,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Parsing elements
     const convertEnginSelect = document.getElementById('convert_engine');
     const mineruTokenGroup = document.getElementById('mineruTokenGroup');
-    const mineruTokenInput = document.getElementById('mineru_token');
+    // MinerU token 已移至后台管理，无需前端输入框
     const mineruModelVersionGroup = document.getElementById('mineruModelVersionGroup');
     const modelVersionSelect = document.getElementById('model_version');
     const formulaCheckbox = document.getElementById('formula_ocr');
@@ -2210,7 +2206,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 明确禁止LDAP用户访问的设置
         const ldapForbiddenSettings = [
-            'translator_mineru_token', 'translator_convert_engine',
+            'translator_convert_engine',
             'translator_platform_custom_base_url', 'glossary_agent_platform_custom_baseurl',
             'translator_platform_last_platform', 'glossary_agent_last_platform'
         ];
@@ -2885,13 +2881,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const isMineru = selectedEngin === 'mineru';
             mineruTokenGroup.style.display = isMineru ? 'block' : 'none';
             mineruModelVersionGroup.style.display = isMineru ? 'block' : 'none';
-            mineruTokenInput.required = isMineru;
+            // MinerU token 已移至后台管理，无需前端验证
 
             updateParsingOptionsVisibility(selectedEngin);
 
-            if (isMineru) {
-                mineruTokenInput.value = getFromConfig('translator_mineru_token');
-            }
+            // MinerU token 已移至后台管理，无需前端加载
             saveToConfig('translator_convert_engine', selectedEngin);
         } else {
             // Repopulate options with translated text
@@ -3257,15 +3251,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
         switch (workflowType) {
             case 'markdown_based':
-                if (convertEnginSelect.value === 'mineru' && !mineruTokenInput.value.trim()) {
-                    mineruTokenInput.classList.add('is-invalid');
-                    isValid = false;
-                } else {
-                    mineruTokenInput.classList.remove('is-invalid');
-                }
+                // MinerU token 已移至后台管理，无需前端验证
                 Object.assign(workflowPayload, {
                     convert_engine: convertEnginSelect.value || null,
-                    mineru_token: mineruTokenInput.value || null,
+                    // mineru_token 已移至后台管理，后端自动从secrets_manager获取
                     formula_ocr: formulaCheckbox.checked,
                     code_ocr: codeCheckbox.checked,
                     model_version: modelVersionSelect.value,
@@ -3828,7 +3817,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 icon.classList.add('bi-eye');
                 
                 // 如果是API key输入框且当前显示的是脱敏值，则获取完整值
-                if ((targetId === 'api_key' || targetId === 'mineru_token') && passwordInput.value && passwordInput.value.endsWith('***')) {
+                if (targetId === 'api_key' && passwordInput.value && passwordInput.value.endsWith('***')) {
                     try {
                         // 检查用户权限
                         if (window.userPermissions && window.userPermissions.is_admin) {
@@ -3840,11 +3829,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             if (response.ok) {
                                 const rawSecrets = await response.json();
                                 
-                                // 处理MinerU token
-                                if (targetId === 'mineru_token' && rawSecrets.translator_mineru_token) {
-                                    passwordInput.value = rawSecrets.translator_mineru_token;
-                                    console.log('MinerU token loaded from raw secrets');
-                                }
+                                // MinerU token 已移至后台管理
                                 // AI model settings moved to settings page - no platform selection needed
                             } else {
                                 console.warn('Failed to fetch raw secrets');
@@ -3861,11 +3846,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 icon.classList.add('bi-eye-slash');
                 
                 // 如果是API key输入框，恢复脱敏显示
-                if ((targetId === 'api_key' || targetId === 'mineru_token') && passwordInput.value && !passwordInput.value.endsWith('***')) {
+                if (targetId === 'api_key' && passwordInput.value && !passwordInput.value.endsWith('***')) {
                     // 恢复脱敏显示
-                    if (targetId === 'mineru_token') {
-                        passwordInput.value = passwordInput.value.substring(0, 8) + '***';
-                    }
                     // AI model settings moved to settings page - no platform selection needed
                 }
             }
@@ -4157,6 +4139,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Step 5: Initialize prompt manager
         initPromptManager();
+        
+        // 初始化MinerU连接测试
+        initMineruConnectionTest();
 
         // Step 3.5: Show masked API keys for admin after config is loaded
         console.log('[DEBUG] About to call showMaskedApiKeyForAdmin');
@@ -4360,7 +4345,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // AI model settings moved to settings page - no model input needed
             // AI model settings moved to settings page - no base URL input needed
             // AI model settings moved to settings page - no base URL input needed
-            {element: mineruTokenInput, event: 'input', saveKey: 'translator_mineru_token'},
+            // MinerU token 已移至后台管理，无需前端保存
             {element: modelVersionSelect, event: 'change', saveKey: 'translator_model_version'},
             {element: customLangInput, event: 'input', saveKey: 'translator_custom_language'},
             {element: formulaCheckbox, event: 'change', saveKey: 'translator_formula_ocr'},
@@ -4492,6 +4477,59 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => {
             notification.remove();
         }, 3000);
+    }
+    
+    // 初始化MinerU连接测试
+    function initMineruConnectionTest() {
+        const testBtn = document.getElementById('testMineruConnection');
+        if (testBtn) {
+            testBtn.addEventListener('click', testMineruConnection);
+        }
+    }
+    
+    // 测试MinerU连接
+    async function testMineruConnection() {
+        const testBtn = document.getElementById('testMineruConnection');
+        const statusBadge = document.getElementById('mineruConnectionStatus');
+        
+        if (!testBtn || !statusBadge) return;
+        
+        // 设置测试状态
+        testBtn.disabled = true;
+        testBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>测试中...';
+        statusBadge.className = 'badge bg-warning';
+        statusBadge.textContent = '测试中...';
+        
+        try {
+            const response = await fetch('/auth/mineru/test-connection', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include'
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                statusBadge.className = 'badge bg-success';
+                statusBadge.textContent = '连接正常';
+                showNotification('MinerU连接测试成功！', 'success');
+            } else {
+                statusBadge.className = 'badge bg-danger';
+                statusBadge.textContent = '连接失败';
+                showNotification(`MinerU连接测试失败: ${result.message || '未知错误'}`, 'error');
+            }
+        } catch (error) {
+            console.error('MinerU连接测试失败:', error);
+            statusBadge.className = 'badge bg-danger';
+            statusBadge.textContent = '连接失败';
+            showNotification('MinerU连接测试失败: 网络错误', 'error');
+        } finally {
+            // 恢复按钮状态
+            testBtn.disabled = false;
+            testBtn.innerHTML = '<i class="bi bi-wifi me-1"></i>测试连接';
+        }
     }
     
     // 提示词管理功能
