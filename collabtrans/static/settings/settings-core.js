@@ -124,7 +124,7 @@ async function initI18n() {
 async function loadI18nData() {
   try {
     // Change to load from settings directory
-    const response = await fetch('/static/settings/i18nSettings.json', { cache: 'no-store' });
+    const response = await fetch('/i18n/i18nSettings.json', { cache: 'no-store' });
     if (!response.ok) throw new Error('Failed to load i18n data');
     i18nData = await response.json();
     console.log('[I18N][settings] i18nSettings.json loaded. Languages:', Object.keys(i18nData));

@@ -451,7 +451,7 @@ class Agent:
         self.logger.info(
             f"base-url:{self.baseurl},model-id:{self.model_id},concurrent:{max_concurrent},temperature:{self.temperature}"
         )
-        self.logger.info(f"预计发送{total}个请求，并发请求数:{max_concurrent}")
+        self.logger.info(f"Planned to send {total} requests, concurrent requests: {max_concurrent}")
         self.total_error_counter.max_errors_count = (
                 len(prompts) // MAX_REQUESTS_PER_ERROR
         )
@@ -487,7 +487,7 @@ class Agent:
                     )
                     nonlocal count
                     count += 1
-                    self.logger.info(f"协程-已完成{count}/{total}")
+                    self.logger.info(f"Coroutine completed {count}/{total}")
                     return result
 
             for p_text in prompts:
@@ -498,15 +498,15 @@ class Agent:
 
             # 新增：在所有任务完成后打印未解决的错误总数
             self.logger.info(
-                f"所有请求处理完毕。未解决的错误总数: {self.unresolved_error_count}"
+                f"All requests processed. Total unresolved errors: {self.unresolved_error_count}"
             )
 
             # 新增：打印token使用统计
             token_stats = self.token_counter.get_stats()
             self.logger.info(
-                f"Token使用统计 - 输入: {token_stats['input_tokens'] / 1000:.2f}K(含cached: {token_stats['cached_tokens'] / 1000:.2f}K), "
-                f"输出: {token_stats['output_tokens'] / 1000:.2f}K(含reasoning: {token_stats['reasoning_tokens'] / 1000:.2f}K), "
-                f"总计: {token_stats['total_tokens'] / 1000:.2f}K"
+                f"Token usage statistics - Input: {token_stats['input_tokens'] / 1000:.2f}K(including cached: {token_stats['cached_tokens'] / 1000:.2f}K), "
+                f"Output: {token_stats['output_tokens'] / 1000:.2f}K(including reasoning: {token_stats['reasoning_tokens'] / 1000:.2f}K), "
+                f"Total: {token_stats['total_tokens'] / 1000:.2f}K"
             )
 
             return results
@@ -692,7 +692,7 @@ class Agent:
             f"base-url:{self.baseurl},model-id:{self.model_id},concurrent:{self.max_concurrent},temperature:{self.temperature}"
         )
         self.logger.info(
-            f"预计发送{len(prompts)}个请求，并发请求数:{self.max_concurrent}"
+            f"Planned to send {len(prompts)} requests, concurrent requests: {self.max_concurrent}"
         )
         self.total_error_counter.max_errors_count = (
                 len(prompts) // MAX_REQUESTS_PER_ERROR
@@ -734,15 +734,15 @@ class Agent:
 
         # 新增：在所有任务完成后打印未解决的错误总数
         self.logger.info(
-            f"所有请求处理完毕。未解决的错误总数: {self.unresolved_error_count}"
+            f"All requests processed. Total unresolved errors: {self.unresolved_error_count}"
         )
 
         # 新增：打印token使用统计
         token_stats = self.token_counter.get_stats()
         self.logger.info(
-            f"Token使用统计 - 输入: {token_stats['input_tokens'] / 1000:.2f}K(含cached: {token_stats['cached_tokens'] / 1000:.2f}K), "
-            f"输出: {token_stats['output_tokens'] / 1000:.2f}K(含reasoning: {token_stats['reasoning_tokens'] / 1000:.2f}K), "
-            f"总计: {token_stats['total_tokens'] / 1000:.2f}K"
+            f"Token usage statistics - Input: {token_stats['input_tokens'] / 1000:.2f}K(including cached: {token_stats['cached_tokens'] / 1000:.2f}K), "
+            f"Output: {token_stats['output_tokens'] / 1000:.2f}K(including reasoning: {token_stats['reasoning_tokens'] / 1000:.2f}K), "
+            f"Total: {token_stats['total_tokens'] / 1000:.2f}K"
         )
 
         return output_list

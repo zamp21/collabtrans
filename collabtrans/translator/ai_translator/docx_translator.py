@@ -39,7 +39,6 @@ def get_font_for_language(target_language: str) -> str:
         "繁体中文": "Microsoft JhengHei",  # Microsoft JhengHei
         
         # English
-        "英文": "Calibri",
         "English": "Calibri",
         
         # Japanese
@@ -301,7 +300,9 @@ class DocxTranslator(AiTranslator):
         """
         doc, elements_to_translate, original_texts = self._pre_translate(document)
         if not original_texts:
-            print("\nNo text content found in the file that needs translation.")
+            # Use i18n logger for translation messages
+            from collabtrans.logger.logger import i18n_logger
+            i18n_logger.info("backend.translation.task.no_text_found")
             output_stream = BytesIO()
             doc.save(output_stream)
             document.content = output_stream.getvalue()
@@ -328,7 +329,9 @@ class DocxTranslator(AiTranslator):
         """
         doc, elements_to_translate, original_texts = await asyncio.to_thread(self._pre_translate, document)
         if not original_texts:
-            print("\nNo text content found in the file that needs translation.")
+            # Use i18n logger for translation messages
+            from collabtrans.logger.logger import i18n_logger
+            i18n_logger.info("backend.translation.task.no_text_found")
             # Correctly save and return in async environment
             output_stream = BytesIO()
             doc.save(output_stream)

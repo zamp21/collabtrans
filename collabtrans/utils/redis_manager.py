@@ -32,7 +32,7 @@ class LocalRedisManager:
     
     def _signal_handler(self, signum, frame):
         """信号处理器"""
-        print(f"\n收到信号 {signum}，正在关闭Redis服务...")
+        print(f"\nReceived signal {signum}, shutting down Redis service...")
         self.cleanup()
         sys.exit(0)
     
@@ -74,17 +74,17 @@ class LocalRedisManager:
         """启动Redis服务"""
         # 如果Redis已经在运行，直接返回成功
         if self._is_redis_running():
-            print("✅ Redis服务已在运行")
+            print("✅ Redis service is already running")
             return True
         
         # 获取Redis可执行文件路径
         redis_server_path = self._get_redis_path()
         if not redis_server_path:
-            print("❌ 未找到Redis可执行文件")
+            print("❌ Redis executable file not found")
             return False
         
         try:
-            print(f"🚀 正在启动本地Redis服务: {redis_server_path}")
+            print(f"🚀 Starting local Redis service: {redis_server_path}")
             
             # 启动Redis服务
             if sys.platform == "win32":
@@ -116,15 +116,15 @@ class LocalRedisManager:
             for i in range(10):  # 最多等待10秒
                 time.sleep(1)
                 if self._is_redis_running():
-                    print("✅ Redis服务启动成功")
+                    print("✅ Redis service started successfully")
                     return True
-                print(f"⏳ 等待Redis启动... ({i+1}/10)")
+                print(f"⏳ Waiting for Redis to start... ({i+1}/10)")
             
-            print("❌ Redis服务启动超时")
+            print("❌ Redis service startup timeout")
             return False
             
         except Exception as e:
-            print(f"❌ 启动Redis服务失败: {e}")
+            print(f"❌ Failed to start Redis service: {e}")
             return False
     
     def get_redis_client(self) -> Optional[redis.Redis]:
@@ -145,7 +145,7 @@ class LocalRedisManager:
                 # 测试连接
                 self.redis_client.ping()
             except Exception as e:
-                print(f"❌ 连接Redis失败: {e}")
+                print(f"❌ Failed to connect to Redis: {e}")
                 return None
         
         return self.redis_client
@@ -153,7 +153,7 @@ class LocalRedisManager:
     def cleanup(self):
         """清理资源"""
         if self.redis_process and self.redis_process.poll() is None:
-            print("🛑 正在关闭Redis服务...")
+            print("🛑 Shutting down Redis service...")
             try:
                 if sys.platform == "win32":
                     # Windows: 发送终止信号
@@ -170,9 +170,9 @@ class LocalRedisManager:
                     self.redis_process.kill()
                     self.redis_process.wait()
                 
-                print("✅ Redis服务已关闭")
+                print("✅ Redis service has been shut down")
             except Exception as e:
-                print(f"⚠️  关闭Redis服务时出错: {e}")
+                print(f"⚠️  Error occurred while shutting down Redis service: {e}")
         
         self.redis_process = None
         self.redis_client = None

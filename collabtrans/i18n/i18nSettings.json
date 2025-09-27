@@ -195,7 +195,19 @@
     "maxLoginAttemptsLabel": "最大登录尝试次数",
     "maxLoginAttemptsHelp": "在锁定前允许的最大登录尝试次数",
     "loginAttemptWindowLabel": "登录尝试窗口（秒）",
-    "loginAttemptWindowHelp": "登录尝试计数的重置时间窗口"
+    "loginAttemptWindowHelp": "登录尝试计数的重置时间窗口",
+    "glossaryManagementTitle": "术语表管理",
+    "adminGlossaryTitle": "管理员操作",
+    "uploadGlobalGlossaryTitle": "上传全局术语表",
+    "glossaryNameLabel": "术语表名称",
+    "glossaryFileLabel": "CSV文件",
+    "glossaryDescriptionLabel": "描述",
+    "uploadGlossaryBtn": "上传术语表",
+    "globalGlossariesTitle": "全局术语表",
+    "loadingGlossaries": "加载中...",
+    "personalGlossaryManageInfo": "个人术语表请在外层的\"My Glossary\"中管理",
+    "saveGlossarySelectionBtn": "保存选择",
+    "noGlobalGlossariesAvailable": "暂无可用全局术语表"
   },
   "en": {
     "ldapEnabledLabel": "Enable LDAP Login",
@@ -401,6 +413,18 @@
     "maxLoginAttemptsLabel": "Max Login Attempts",
     "maxLoginAttemptsHelp": "Maximum number of login attempts before lockout",
     "loginAttemptWindowLabel": "Login Attempt Window (seconds)",
-    "loginAttemptWindowHelp": "Time window for resetting the login attempt counter"
+    "loginAttemptWindowHelp": "Time window for resetting the login attempt counter",
+    "glossaryManagementTitle": "Glossary Management",
+    "adminGlossaryTitle": "Admin Operations",
+    "uploadGlobalGlossaryTitle": "Upload Global Glossary",
+    "glossaryNameLabel": "Glossary Name",
+    "glossaryFileLabel": "CSV File",
+    "glossaryDescriptionLabel": "Description",
+    "uploadGlossaryBtn": "Upload Glossary",
+    "globalGlossariesTitle": "Global Glossaries",
+    "loadingGlossaries": "Loading...",
+    "personalGlossaryManageInfo": "Personal glossaries are managed in the outer \"My Glossary\" section",
+    "saveGlossarySelectionBtn": "Save Selection",
+    "noGlobalGlossariesAvailable": "No global glossaries available"
   }
 }

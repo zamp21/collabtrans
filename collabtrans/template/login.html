@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title data-i18n-title="loginPageTitle">登录 - DocuTranslate</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <title data-i18n-title="loginPageTitle">登录 - CollabTrans</title>
+    <link href="/static/bootstrap.css" rel="stylesheet">
+    <link href="/static/bootstrap-icons.css" rel="stylesheet">
     <style>
         body {
             background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
@@ -66,9 +66,9 @@
                 <div class="card login-card">
                     <div class="card-body p-5">
                         <div class="text-center mb-4">
+                            <img src="/static/favicon.ico" alt="CollabTrans Logo" style="width: 48px; height: 48px; margin-bottom: 16px;">
                             <h2 class="text-white mb-2">
-                                <i class="bi bi-translate"></i>
-                                DocuTranslate
+                                CollabTrans
                             </h2>
                             <p class="text-white-50"><span data-i18n="loginSubTitle">文档翻译系统</span></p>
                         </div>
@@ -146,7 +146,7 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/bootstrap.bundle.min.js"></script>
     <script>
         // i18n init for login page
         (async function initLoginI18n() {
@@ -168,7 +168,7 @@
                 }
 
                 // 2) 加载 i18nData.json
-                const res = await fetch('/static/i18nData.json', { cache: 'no-store' });
+                const res = await fetch('/i18n/i18nData.json', { cache: 'no-store' });
                 const all = await res.json();
                 const dict = all[lang] || all['en'];
 
@@ -225,7 +225,7 @@
                 } else {
                     // 登录失败，显示错误
                     try {
-                        const res = await fetch('/static/i18nData.json', { cache: 'no-store' });
+                        const res = await fetch('/i18n/i18nData.json', { cache: 'no-store' });
                         const dictAll = await res.json();
                         const lang = localStorage.getItem('ui_language') || 'en';
                         const dict = dictAll[lang] || dictAll['en'];
@@ -236,7 +236,7 @@
                 }
             } catch (error) {
                 try {
-                    const res = await fetch('/static/i18nData.json', { cache: 'no-store' });
+                    const res = await fetch('/i18n/i18nData.json', { cache: 'no-store' });
                     const dictAll = await res.json();
                     const lang = localStorage.getItem('ui_language') || 'en';
                     const dict = dictAll[lang] || dictAll['en'];

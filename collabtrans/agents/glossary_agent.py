@@ -75,7 +75,7 @@ The output format should be plain JSON text in a list format
             return [] # 如果原始prompt也无效，返回空列表
 
     def send_segments(self, segments: list[str], chunk_size: int):
-        self.logger.info(f"开始提取术语表,to_lang:{self.to_lang}")
+        self.logger.info(f"Starting glossary extraction, target language: {self.to_lang}")
         result = {}
         indexed_originals, chunks, merged_indices_list = segments2json_chunks(segments, chunk_size)
         prompts = [json.dumps(chunk, ensure_ascii=False) for chunk in chunks]
@@ -94,11 +94,11 @@ The output format should be plain JSON text in a list format
             except Exception as e:
                 self.logger.error(f"处理glossary chunk时发生未知错误: {e.__repr__()}")
 
-        self.logger.info("术语表提取完成")
+        self.logger.info("Glossary extraction completed")
         return result
 
     async def send_segments_async(self, segments: list[str], chunk_size: int):
-        self.logger.info(f"开始提取术语表,to_lang:{self.to_lang}")
+        self.logger.info(f"Starting glossary extraction, target language: {self.to_lang}")
         result = {}
         indexed_originals, chunks, merged_indices_list = await asyncio.to_thread(segments2json_chunks, segments,
                                                                                  chunk_size)
@@ -118,5 +118,5 @@ The output format should be plain JSON text in a list format
             except Exception as e:
                 self.logger.error(f"处理glossary chunk时发生未知错误: {e.__repr__()}")
 
-        self.logger.info("术语表提取完成")
+        self.logger.info("Glossary extraction completed")
         return result

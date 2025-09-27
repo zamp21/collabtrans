@@ -42,7 +42,7 @@ class UserProfile:
     
     # AI翻译设置（用户个性化部分）
     translator_thinking_mode: str = "disable"
-    translator_target_language: str = "英文"
+    translator_target_language: str = "English"
     translator_custom_language: str = ""
     translator_custom_prompt: str = ""
     translator_platform_type: str = "deepseek"
@@ -64,7 +64,7 @@ class UserProfile:
     glossary_agent_top_p: float = 1.0
     glossary_agent_frequency_penalty: float = 0.0
     glossary_agent_presence_penalty: float = 0.0
-    glossary_agent_to_lang: str = "英文"
+    glossary_agent_to_lang: str = "English"
     glossary_agent_chunk_size: int = 4000
     glossary_agent_concurrent: int = 3
     
@@ -89,13 +89,13 @@ class UserProfile:
             profile_file = os.path.join(profile_dir, f"{username}_profile.json")
             
             if os.path.exists(profile_file):
-                logger.info(f"正在从文件加载用户配置: {profile_file}")
+                logger.info(f"Loading user configuration from file: {profile_file}")
                 with open(profile_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     # 创建配置实例并更新字段
                     profile = cls()
                     profile.update_from_dict(data)
-                    logger.info(f"用户 {username} 配置加载成功")
+                    logger.info(f"User {username} configuration loaded successfully")
                     return profile
             else:
                 logger.info(f"用户配置文件 {profile_file} 不存在，创建默认配置")
@@ -119,7 +119,7 @@ class UserProfile:
             with open(profile_file, 'w', encoding='utf-8') as f:
                 json.dump(asdict(self), f, ensure_ascii=False, indent=2)
             
-            logger.info(f"用户 {username} 配置已保存到: {profile_file}")
+            logger.info(f"User {username} configuration saved to: {profile_file}")
             return True
         except Exception as e:
             logger.error(f"保存用户配置失败: {e}")

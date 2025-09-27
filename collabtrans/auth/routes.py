@@ -1840,7 +1840,7 @@ async def update_single_setting(
             
             # 保存全局配置
             if save_global_config():
-                logger.info(f"全局设置项 {key} 已由用户 {_mask_username(user.username)} 更新")
+                logger.info(f"Global setting {key} updated by user {_mask_username(user.username)}")
                 return {"success": True, "message": f"Global setting {key} updated successfully"}
             else:
                 raise HTTPException(status_code=500, detail="Failed to save global configuration")
@@ -1848,7 +1848,7 @@ async def update_single_setting(
         else:
             # 更新用户配置（包括按用户维度的模型键）
             if profile_manager.update_user_setting(user.username, key, value):
-                logger.info(f"用户设置项 {key} 已由用户 {_mask_username(user.username)} 更新")
+                logger.info(f"User setting {key} updated by user {_mask_username(user.username)}")
                 return {"success": True, "message": f"User setting {key} updated successfully"}
             else:
                 raise HTTPException(status_code=500, detail="Failed to save user configuration")

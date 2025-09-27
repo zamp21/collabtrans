@@ -23,6 +23,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             "/login",
             "/logout", 
             "/static",
+            "/i18n",
             "/docs",
             "/redoc",
             "/openapi.json",
@@ -53,7 +54,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return True
         
         # 静态文件路径匹配
-        if path.startswith("/static/"):
+        if path.startswith("/static/") or path.startswith("/i18n/"):
             return True
         
         # API文档路径匹配

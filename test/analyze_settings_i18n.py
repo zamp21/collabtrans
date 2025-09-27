@@ -11,7 +11,7 @@ def analyze_settings_keys():
     print("分析Settings相关的国际化键...")
     print("=" * 50)
     
-    i18n_file = "collabtrans/static/i18nData.json"
+    i18n_file = "collabtrans/i18n/i18nData.json"
     if not os.path.exists(i18n_file):
         print("❌ i18nData.json文件不存在")
         return
@@ -94,7 +94,7 @@ def analyze_settings_keys():
     }
     
     # 保存到文件
-    settings_i18n_file = "collabtrans/static/settings/i18nData.json"
+    settings_i18n_file = "collabtrans/i18n/i18nSettings.json"
     os.makedirs(os.path.dirname(settings_i18n_file), exist_ok=True)
     
     with open(settings_i18n_file, 'w', encoding='utf-8') as f:

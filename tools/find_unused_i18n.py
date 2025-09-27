@@ -18,7 +18,7 @@ from typing import Iterable, Set, Dict
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-I18N_FILE = REPO_ROOT / 'collabtrans' / 'static' / 'i18nData.json'
+I18N_FILE = REPO_ROOT / 'collabtrans' / 'i18n' / 'i18nData.json'
 OUTPUT_FILE = REPO_ROOT / 'i18nunused.txt'
 
 
@@ -45,9 +45,9 @@ def should_skip(file_path: Path) -> bool:
         return True
     if p.endswith('/collabtrans/static/settings.html'):
         return True
-    if p.endswith('/collabtrans/static/i18nData.json'):
+    if p.endswith('/collabtrans/i18n/i18nData.json'):
         return True
-    if p.endswith('/collabtrans/static/settings/i18nSettings.json'):
+    if p.endswith('/collabtrans/i18n/i18nSettings.json'):
         return True
     # Skip common binary/asset dirs
     if any(seg in p for seg in ['/node_modules/', '/.git/', '/dist/', '/build/']):

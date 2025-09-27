@@ -100,7 +100,7 @@ window.SettingsCore = {
 ```
 
 ### 跨页面语言同步实现
-- **数据源**: `/static/i18nData.json`（与主页共享）
+- **数据源**: `/i18n/i18nData.json`（与主页共享）
 - **语言检测优先级**: 
   1. localStorage中的`ui_language`设置
   2. 后端配置的`default_language`

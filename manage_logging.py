@@ -43,7 +43,9 @@ def set_log_level(level: str):
     config.logging.level = level.upper()
     
     if save_global_config():
-        print(f"✅ Log level set to: {level.upper()}")
+        # Use i18n for success messages
+        from collabtrans.logger.logger import i18n_logger
+        i18n_logger.info("backend.logging.config.level_changed", level=level.upper())
         print("💡 Restart service to take effect")
         return True
     else:

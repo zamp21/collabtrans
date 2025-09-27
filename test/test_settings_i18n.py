@@ -12,7 +12,7 @@ def test_i18n_data_completeness():
     print("检查i18nData.json的完整性...")
     print("=" * 50)
     
-    i18n_file = "collabtrans/static/i18nData.json"
+    i18n_file = "collabtrans/i18n/i18nData.json"
     if not os.path.exists(i18n_file):
         print("❌ i18nData.json文件不存在")
         return False

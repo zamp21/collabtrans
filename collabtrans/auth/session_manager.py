@@ -27,10 +27,10 @@ class AuthSessionManager:
             # 首先尝试使用本地Redis管理器
             self.redis_client = get_redis_client()
             if self.redis_client:
-                print("✅ 使用本地Redis服务进行会话管理")
+                print("✅ Using local Redis service for session management")
                 return
         except Exception as e:
-            print(f"⚠️  本地Redis启动失败: {e}")
+            print(f"⚠️  Local Redis startup failed: {e}")
         
         # 如果本地Redis不可用，尝试连接外部Redis
         try:
@@ -45,10 +45,10 @@ class AuthSessionManager:
             )
             # 测试连接
             self.redis_client.ping()
-            print("✅ 使用外部Redis服务进行会话管理")
+            print("✅ Using external Redis service for session management")
         except Exception as e:
-            print(f"❌ Redis连接失败: {e}")
-            print("📝 会话管理功能将不可用，请检查Redis服务")
+            print(f"❌ Redis connection failed: {e}")
+            print("📝 Session management will be unavailable, please check Redis service")
             self.redis_client = None
     
     def create_session_id(self) -> str:
@@ -100,7 +100,7 @@ class AuthSessionManager:
                     json.dumps(user_data)
                 )
             except Exception as e:
-                print(f"⚠️  存储会话到Redis失败: {e}")
+                print(f"⚠️  Failed to store session to Redis: {e}")
         
         # 设置Cookie
         self.set_session_cookie(response, session_id)
@@ -132,7 +132,7 @@ class AuthSessionManager:
                 role=UserRole(user_data.get("role", "ldap_user"))  # 恢复用户角色，默认为ldap_user
             )
         except (json.JSONDecodeError, KeyError, Exception) as e:
-            print(f"⚠️  获取用户会话失败: {e}")
+            print(f"⚠️  Failed to get user session: {e}")
             return None
     
     async def destroy_session(self, request: Request, response: Response) -> bool:
@@ -146,7 +146,7 @@ class AuthSessionManager:
             try:
                 self.redis_client.delete(f"session:{session_id}")
             except Exception as e:
-                print(f"⚠️  删除会话失败: {e}")
+                print(f"⚠️  Failed to delete session: {e}")
         
         # 清除Cookie
         self.clear_session_cookie(response)
@@ -168,7 +168,7 @@ class AuthSessionManager:
             attempts = self.redis_client.get(key)
             return int(attempts) if attempts else 0
         except Exception as e:
-            print(f"⚠️  获取登录尝试次数失败: {e}")
+            print(f"⚠️  Failed to get login attempt count: {e}")
             return 0
     
     def increment_login_attempts(self, ip_address: str) -> int:
@@ -182,7 +182,7 @@ class AuthSessionManager:
             self.redis_client.expire(key, self.config.login_attempt_window)
             return attempts
         except Exception as e:
-            print(f"⚠️  增加登录尝试次数失败: {e}")
+            print(f"⚠️  Failed to increment login attempt count: {e}")
             return 1
     
     def reset_login_attempts(self, ip_address: str):
@@ -194,4 +194,4 @@ class AuthSessionManager:
             key = f"login_attempts:{ip_address}"
             self.redis_client.delete(key)
         except Exception as e:
-            print(f"⚠️  重置登录尝试次数失败: {e}")
+            print(f"⚠️  Failed to reset login attempt count: {e}")

@@ -33,9 +33,9 @@ def _resolve_auth_config_path(config_file: str = "auth_config.json") -> Path:
 
     # 读取时：优先已存在的文件路径；保存时：优先项目根
     if cwd_candidate.exists() and not root_candidate.exists():
-        logger.info(f"[AuthConfig] 解析到工作目录配置: {cwd_candidate}")
+        logger.info(f"[AuthConfig] Resolved working directory config: {cwd_candidate}")
         return cwd_candidate
-    logger.info(f"[AuthConfig] 解析到项目根配置: {root_candidate}")
+    logger.debug(f"[AuthConfig] Resolved project root config: {root_candidate}")
     return root_candidate
 
 
@@ -123,9 +123,9 @@ class AuthConfig:
         """从配置文件加载配置，并从敏感配置文件加载敏感信息"""
         config_path = _resolve_auth_config_path(config_file)
         
-        logger.info(f"[AuthConfig] 尝试从: {config_path} 读取配置")
+        logger.debug(f"[AuthConfig] Attempting to read config from: {config_path}")
         if not config_path.exists():
-            logger.info(f"[AuthConfig] 配置文件 {config_path} 不存在，使用默认配置")
+            logger.info(f"[AuthConfig] Config file {config_path} does not exist, using default config")
             config = cls.from_env()
         else:
             try:
@@ -134,12 +134,12 @@ class AuthConfig:
                 
                 # 移除对旧键名的兼容映射，统一仅支持 glossary_group*
                 if 'ldap_user_group_enabled' in config_data or 'ldap_user_group' in config_data:
-                    logger.warning("[AuthConfig] 检测到已废弃的 ldap_user_group* 键，已忽略。请使用 ldap_glossary_group*")
+                    logger.warning("[AuthConfig] Detected deprecated ldap_user_group* keys, ignored. Please use ldap_glossary_group*")
 
-                logger.info(f"[AuthConfig] 从配置文件 {config_path} 加载配置")
+                logger.debug(f"[AuthConfig] Loaded config from file: {config_path}")
                 config = cls(**config_data)
             except Exception as e:
-                logger.error(f"[AuthConfig] 加载配置文件失败: {e}，使用默认配置")
+                logger.error(f"[AuthConfig] Failed to load config file: {e}, using default config")
                 config = cls.from_env()
         
         # 从敏感配置文件加载敏感信息

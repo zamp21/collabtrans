@@ -58,13 +58,13 @@ from collabtrans.exporter.txt.txt2html_exporter import TXT2HTMLExporterConfig
 try:
     from collabtrans.auth import AuthConfig, AuthMiddleware, auth_router, auth_compat_router, init_auth
     AUTH_AVAILABLE = True
-    print("认证模块导入成功")
+    print(f"Authentication module imported successfully")
 except ImportError as e:
     AUTH_AVAILABLE = False
-    print(f"警告: 认证模块不可用，将跳过认证功能。错误: {e}")
+    print(f"Warning: Authentication module unavailable, skipping auth features. Error: {e}")
 except Exception as e:
     AUTH_AVAILABLE = False
-    print(f"警告: 认证模块初始化失败，将跳过认证功能。错误: {e}")
+    print(f"Warning: Authentication module initialization failed, skipping auth features. Error: {e}")
 # --- 认证模块 Imports END ---
 from collabtrans.translator.ai_translator.md_translator import MDTranslatorConfig
 from collabtrans.translator.ai_translator.txt_translator import TXTTranslatorConfig
@@ -468,7 +468,7 @@ MEDIA_TYPES = {
 def _create_default_task_state() -> Dict[str, Any]:
     """创建新的默认任务状态，存储 workflow 实例而不是具体内容"""
     return {
-        "is_processing": False, "status_message": "空闲", "error_flag": False,
+        "is_processing": False, "status_message": "Idle", "error_flag": False,
         "download_ready": False,
         "workflow_instance": None,  # 仅在处理期间使用
         "original_filename_stem": None, "task_start_time": 0,
@@ -521,19 +521,37 @@ async def lifespan(app: FastAPI):
     # Get log level from configuration file
     from collabtrans.logger.logger import get_log_level_from_config
     global_logger.setLevel(get_log_level_from_config())
-    print("Application startup completed, multi-task state initialized.")
+    # Use i18n logger for startup messages
+    from collabtrans.logger.logger import i18n_logger
+    i18n_logger.info("backend.app.startup.completed")
 
     # Start conversion file cleanup task
     try:
         from collabtrans.converter.format_converter import cleanup_task
         asyncio.create_task(cleanup_task())
-        print("Conversion file cleanup task started.")
+        i18n_logger.info("backend.app.startup.cleanup_task_started")
     except Exception as e:
-        print(f"Failed to start conversion file cleanup task: {e}")
+        i18n_logger.error("backend.app.startup.cleanup_task_failed", error=str(e))
 
     # Authentication module has been initialized at application startup
-    print(f"Service API documentation: http://127.0.0.1:{app.state.port_to_use}/docs")
-    print(f"Please access http://127.0.0.1:{app.state.port_to_use} in your browser\n")
+    api_url = f"http://127.0.0.1:{app.state.port_to_use}/docs"
+    browser_url = f"http://127.0.0.1:{app.state.port_to_use}"
+    i18n_logger.info("backend.app.startup.api_docs", url=api_url)
+    i18n_logger.info("backend.app.startup.browser_access", url=browser_url)
+    
+    # Add API endpoints for frontend log i18n
+    @app.get("/api/log-messages")
+    async def get_log_messages():
+        """Get log messages for frontend internationalization"""
+        from collabtrans.logger.log_messages import get_frontend_log_messages
+        return get_frontend_log_messages()
+    
+    @app.post("/api/log-language")
+    async def set_log_language_endpoint(request: Request):
+        """Log language is always English (simplified)"""
+        # Logs are always in English, no need to change
+        return {"status": "success", "language": "en", "message": "Logs are always in English"}
+    
     yield
     # Clean up any remaining temporary directories
     for task_id, task_state in tasks_state.items():
@@ -541,11 +559,11 @@ async def lifespan(app: FastAPI):
         if temp_dir and os.path.isdir(temp_dir):
             try:
                 shutil.rmtree(temp_dir)
-                print(f"应用关闭，清理任务 '{task_id}' 的临时目录: {temp_dir}")
+                print(f"Application shutdown, cleaning up temp directory for task '{task_id}': {temp_dir}")
             except Exception as e:
-                print(f"清理任务 '{task_id}' 的临时目录 '{temp_dir}' 时出错: {e}")
+                print(f"Error cleaning up temp directory for task '{task_id}' '{temp_dir}': {e}")
     await httpx_client.aclose()
-    print("应用关闭，资源已清理。")
+    print("Application shutdown, resources cleaned up.")
 
 
 # --- FastAPI 应用和路由设置 ---
@@ -593,7 +611,9 @@ DocuTranslate 后端服务 API，提供文档翻译、状态查询、结果下�
 
 service_router = APIRouter(prefix="/service", tags=["Service API"])
 STATIC_DIR = resource_path("static")
+I18N_DIR = Path(__file__).parent / "i18n"
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/i18n", StaticFiles(directory=I18N_DIR), name="i18n")
 
 # 初始化认证模块并添加中间件和路由
 if AUTH_AVAILABLE:
@@ -601,7 +621,8 @@ if AUTH_AVAILABLE:
         # 初始化认证模块
         auth_config = AuthConfig.get_config()
         init_auth(auth_config)
-        print(f"认证模块已初始化 - LDAP: {"启用" if auth_config.ldap_enabled else "禁用"}")
+        ldap_status = "enabled" if auth_config.ldap_enabled else "disabled"
+        print(f"Authentication module initialized - LDAP: {ldap_status}")
         
         # 获取会话管理器和配置
         from collabtrans.auth import get_session_manager, get_auth_config
@@ -615,9 +636,9 @@ if AUTH_AVAILABLE:
         app.include_router(auth_router)
         app.include_router(auth_compat_router)
         
-        print("认证中间件和路由已添加")
+        print("Authentication middleware and routes added")
     except Exception as e:
-        print(f"认证模块初始化失败: {e}")
+        print(f"Authentication module initialization failed: {e}")
         AUTH_AVAILABLE = False
 
 
@@ -1006,15 +1027,15 @@ async def _perform_translation(
     task_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
     task_logger.addHandler(task_handler)
 
-    task_logger.info(f"后台翻译任务开始: 文件 '{original_filename}', 工作流: '{payload.workflow_type}'")
-    task_state["status_message"] = f"正在处理 '{original_filename}'..."
+    task_logger.info(f"Background translation task started: file '{original_filename}', workflow: '{payload.workflow_type}'")
+    task_state["status_message"] = f"Processing '{original_filename}'..."
     temp_dir = None
 
     try:
         # Handle convert_only tasks
         if task_state.get('convert_only', False):
             task_logger.info("转换专用任务，跳过翻译处理")
-            task_state["status_message"] = "转换任务准备完成"
+            task_state["status_message"] = "Conversion task ready"
             task_state["download_ready"] = True
             task_state["is_processing"] = False
             task_state["task_end_time"] = time.time()
@@ -1084,12 +1105,12 @@ async def _perform_translation(
                 manager = get_glossary_manager()
                 return manager.merge_user_glossaries(payload.username)
             except Exception as e:
-                logger.warning(f"获取用户术语表失败: {e}")
+                logger.warning(f"Failed to get user glossary: {e}")
                 return {}
 
         # 2. 根据 payload 的具体类型构建配置并实例化 workflow
         if isinstance(payload, MarkdownWorkflowParams):
-            task_logger.info("构建 MarkdownBasedWorkflow 配置。")
+            task_logger.info("Building MarkdownBasedWorkflow configuration")
             translator_args = payload.model_dump(include={
                 'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict', 'timeout', 'retry'
@@ -1148,7 +1169,7 @@ async def _perform_translation(
             workflow = MarkdownBasedWorkflow(config=workflow_config)
 
         elif isinstance(payload, TextWorkflowParams):
-            task_logger.info("构建 TXTWorkflow 配置。")
+            task_logger.info("Building TXTWorkflow configuration")
             translator_args = payload.model_dump(include={
                 'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict',
@@ -1177,7 +1198,7 @@ async def _perform_translation(
             workflow = TXTWorkflow(config=workflow_config)
 
         elif isinstance(payload, JsonWorkflowParams):
-            task_logger.info("构建 JsonWorkflow 配置。")
+            task_logger.info("Building JsonWorkflow configuration")
             translator_args = payload.model_dump(include={
                 'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict',
@@ -1206,7 +1227,7 @@ async def _perform_translation(
             workflow = JsonWorkflow(config=workflow_config)
 
         elif isinstance(payload, XlsxWorkflowParams):
-            task_logger.info("构建 XlsxWorkflow 配置。")
+            task_logger.info("Building XlsxWorkflow configuration")
             translator_args = payload.model_dump(include={
                 'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent',
@@ -1236,7 +1257,7 @@ async def _perform_translation(
             workflow = XlsxWorkflow(config=workflow_config)
 
         elif isinstance(payload, DocxWorkflowParams):
-            task_logger.info("构建 DocxWorkflow 配置。")
+            task_logger.info("Building DocxWorkflow configuration")
             translator_args = payload.model_dump(include={
                 'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent',
@@ -1266,7 +1287,7 @@ async def _perform_translation(
             workflow = DocxWorkflow(config=workflow_config)
 
         elif isinstance(payload, SrtWorkflowParams):
-            task_logger.info("构建 SrtWorkflow 配置。")
+            task_logger.info("Building SrtWorkflow configuration")
             translator_args = payload.model_dump(include={
                 'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent',
@@ -1296,7 +1317,7 @@ async def _perform_translation(
             workflow = SrtWorkflow(config=workflow_config)
 
         elif isinstance(payload, EpubWorkflowParams):
-            task_logger.info("构建 EpubWorkflow 配置。")
+            task_logger.info("Building EpubWorkflow configuration")
             translator_args = payload.model_dump(include={
                 'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent',
@@ -1327,7 +1348,7 @@ async def _perform_translation(
 
         # --- HTML WORKFLOW LOGIC START ---
         elif isinstance(payload, HtmlWorkflowParams):
-            task_logger.info("构建 HtmlWorkflow 配置。")
+            task_logger.info("Building HtmlWorkflow configuration")
             translator_args = payload.model_dump(include={
                 'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent',
@@ -1365,7 +1386,7 @@ async def _perform_translation(
         await workflow.translate_async()
 
         # 4. 任务成功，生成所有可下载文件并存储
-        task_logger.info("翻译完成，正在生成临时结果文件...")
+        task_logger.info("Translation completed, generating temporary result files...")
         temp_dir = tempfile.mkdtemp(prefix=f"collabtrans_{task_id}_")
         task_state["temp_dir"] = temp_dir
         downloadable_files = {}
@@ -1429,7 +1450,7 @@ async def _perform_translation(
                 with open(file_path, "wb") as f:
                     f.write(content_bytes)
                 downloadable_files[file_type] = {"path": file_path, "filename": filename}
-                task_logger.info(f"成功生成 {file_type} 文件")
+                task_logger.info(f"Successfully generated {file_type} file")
             except Exception as export_error:
                 task_logger.error(f"生成 {file_type} 文件时出错: {export_error}", exc_info=True)
 
@@ -1437,7 +1458,7 @@ async def _perform_translation(
         attachment_files = {}
         attachment_object = workflow.get_attachment()
         if attachment_object and attachment_object.attachment_dict:
-            task_logger.info(f"发现 {len(attachment_object.attachment_dict)} 个附件，正在处理...")
+            task_logger.info(f"Found {len(attachment_object.attachment_dict)} attachments, processing...")
             for identifier, doc in attachment_object.attachment_dict.items():
                 try:
                     # 'doc' is a Document object
@@ -1446,7 +1467,7 @@ async def _perform_translation(
                     with open(attachment_path, "wb") as f:
                         f.write(doc.content)
                     attachment_files[identifier] = {"path": attachment_path, "filename": attachment_filename}
-                    task_logger.info(f"成功生成附件 '{identifier}' 文件: {attachment_filename}")
+                    task_logger.info(f"Successfully generated attachment '{identifier}' file: {attachment_filename}")
                 except Exception as attachment_error:
                     task_logger.error(f"生成附件 '{identifier}' 文件时出错: {attachment_error}", exc_info=True)
 
@@ -1516,7 +1537,7 @@ async def _perform_translation(
                 task_logger.warning(f"[TokenStats] failed to extract from logs: {_e}")
 
         task_state.update({
-            "status_message": f"翻译成功！用时 {duration:.2f} 秒。",
+            "status_message": f"Translation completed successfully in {duration:.2f} seconds",
             "download_ready": True,
             "error_flag": False,
             "task_end_time": end_time,
@@ -1525,14 +1546,14 @@ async def _perform_translation(
             # attach token stats if the workflow exposes it via agent
             "token_stats": token_stats_obj,
         })
-        task_logger.info(f"翻译成功完成，用时 {duration:.2f} 秒。")
+        task_logger.info(f"Translation completed successfully, took {duration:.2f} seconds")
 
     except asyncio.CancelledError:
         end_time = time.time()
         duration = end_time - task_state["task_start_time"]
         task_logger.info(f"翻译任务 '{original_filename}' 已被取消 (用时 {duration:.2f} 秒).")
         task_state.update({
-            "status_message": f"翻译任务已取消 (用时 {duration:.2f} 秒).", "error_flag": False, "download_ready": False,
+            "status_message": f"Translation task cancelled (took {duration:.2f} seconds)", "error_flag": False, "download_ready": False,
             "task_end_time": end_time,
         })
     except Exception as e:
@@ -1541,7 +1562,7 @@ async def _perform_translation(
         error_message = f"翻译失败: {e}"
         task_logger.error(error_message, exc_info=True)
         task_state.update({
-            "status_message": f"翻译过程中发生错误 (用时 {duration:.2f} 秒): {e}", "error_flag": True,
+            "status_message": f"Translation failed (took {duration:.2f} seconds): {e}", "error_flag": True,
             "download_ready": False,
             "task_end_time": end_time,
         })
@@ -1556,7 +1577,7 @@ async def _perform_translation(
             task_logger.info(f"因任务失败，已清理临时目录")
             task_state["temp_dir"] = None
 
-        task_logger.info(f"后台翻译任务 '{original_filename}' 处理结束。")
+        task_logger.info(f"Background translation task '{original_filename}' processing completed")
         task_logger.removeHandler(task_handler)
 
 
@@ -1590,7 +1611,7 @@ async def _start_translation_task(
     
     task_state.update({
         "is_processing": True,
-        "status_message": "任务初始化中...", "error_flag": False, "download_ready": False,
+        "status_message": "Task initializing...", "error_flag": False, "download_ready": False,
         "workflow_instance": None,
         "original_filename_stem": Path(original_filename).stem,
         "original_filename": original_filename,
@@ -1609,7 +1630,7 @@ async def _start_translation_task(
         except asyncio.QueueEmpty:
             break
 
-    initial_log_msg = f"收到新的翻译请求: {original_filename}"
+    initial_log_msg = f"Received new translation request: {original_filename}"
     print(f"[{task_id}] {initial_log_msg}")
     log_history.append(initial_log_msg)
     await log_queue.put(initial_log_msg)
@@ -1620,7 +1641,7 @@ async def _start_translation_task(
         task_state["current_task_ref"] = task
         return {"task_started": True, "task_id": task_id, "message": "翻译任务已成功启动，请稍候..."}
     except Exception as e:
-        task_state.update({"is_processing": False, "status_message": f"启动任务失败: {e}", "error_flag": True,
+        task_state.update({"is_processing": False, "status_message": f"Failed to start task: {e}", "error_flag": True,
                            "current_task_ref": None})
         raise HTTPException(status_code=500, detail=f"启动翻译任务时出错: {e}")
 
@@ -1641,7 +1662,7 @@ def _cancel_translation_logic(task_id: str):
 
     print(f"[{task_id}] 收到取消翻译任务的请求。")
     task_to_cancel.cancel()
-    task_state["status_message"] = "正在取消任务..."
+    task_state["status_message"] = "Cancelling task..."
     return {"cancelled": True, "message": "取消请求已发送。请等待状态更新。"}
 
 
@@ -1755,7 +1776,7 @@ async def service_release_task(task_id: str):
                             "summary": "进行中",
                             "value": {
                                 "task_id": "a1b2c3d4", "is_processing": True,
-                                "status_message": "正在处理 'annual_report.pdf'...",
+                                "status_message": "Processing 'annual_report.pdf'...",
                                 "error_flag": False, "download_ready": False, "original_filename_stem": "annual_report",
                                 "original_filename": "annual_report.pdf", "task_start_time": 1678889400.0,
                                 "task_end_time": 0, "downloads": {}, "attachment": {}
@@ -1765,7 +1786,7 @@ async def service_release_task(task_id: str):
                             "summary": "已完成 (Markdown)",
                             "value": {
                                 "task_id": "b2865b93", "is_processing": False,
-                                "status_message": "翻译成功！用时 123.45 秒。",
+                                "status_message": "Translation completed successfully in 123.45 seconds",
                                 "error_flag": False, "download_ready": True, "original_filename_stem": "my_paper",
                                 "original_filename": "my_paper.pdf", "task_start_time": 1678889400.123,
                                 "task_end_time": 1678889523.573,
@@ -1781,7 +1802,7 @@ async def service_release_task(task_id: str):
                             "summary": "已完成 (带附件)",
                             "value": {
                                 "task_id": "g1h2i3j4", "is_processing": False,
-                                "status_message": "翻译成功！用时 125.00 秒。",
+                                "status_message": "Translation completed successfully in 125.00 seconds",
                                 "error_flag": False, "download_ready": True,
                                 "original_filename_stem": "complex_document",
                                 "original_filename": "complex_document.docx",
@@ -1801,7 +1822,7 @@ async def service_release_task(task_id: str):
                             "value": {
                                 "task_id": "d7e8f9a0",
                                 "is_processing": False,
-                                "status_message": "翻译成功！用时 18.99 秒。",
+                                "status_message": "Translation completed successfully in 18.99 seconds",
                                 "error_flag": False,
                                 "download_ready": True,
                                 "original_filename_stem": "sales_data",
@@ -1820,7 +1841,7 @@ async def service_release_task(task_id: str):
                             "summary": "已完成 (DOCX)",
                             "value": {
                                 "task_id": "f8a9c1b2", "is_processing": False,
-                                "status_message": "翻译成功！用时 25.10 秒。",
+                                "status_message": "Translation completed successfully in 25.10 seconds",
                                 "error_flag": False, "download_ready": True, "original_filename_stem": "contract",
                                 "original_filename": "contract.docx", "task_start_time": 1678889500.123,
                                 "task_end_time": 1678889525.223,
@@ -1835,7 +1856,7 @@ async def service_release_task(task_id: str):
                             "summary": "已完成 (EPUB)",
                             "value": {
                                 "task_id": "e9b8d7c6", "is_processing": False,
-                                "status_message": "翻译成功！用时 45.32 秒。",
+                                "status_message": "Translation completed successfully in 45.32 seconds",
                                 "error_flag": False, "download_ready": True, "original_filename_stem": "my_book",
                                 "original_filename": "my_book.epub", "task_start_time": 1678890000.0,
                                 "task_end_time": 1678890045.32,
@@ -1851,7 +1872,7 @@ async def service_release_task(task_id: str):
                             "summary": "已完成 (HTML)",
                             "value": {
                                 "task_id": "a1b2c3d4", "is_processing": False,
-                                "status_message": "翻译成功！用时 15.78 秒。",
+                                "status_message": "Translation completed successfully in 15.78 seconds",
                                 "error_flag": False, "download_ready": True, "original_filename_stem": "about_us",
                                 "original_filename": "about_us.html", "task_start_time": 1678890100.0,
                                 "task_end_time": 1678890115.78,
@@ -1866,7 +1887,7 @@ async def service_release_task(task_id: str):
                             "summary": "失败",
                             "value": {
                                 "task_id": "c3d4e5f6", "is_processing": False,
-                                "status_message": "翻译过程中发生错误: LLM API key is invalid",
+                                "status_message": "Translation failed: LLM API key is invalid",
                                 "error_flag": True, "download_ready": False, "original_filename_stem": "bad_config",
                                 "original_filename": "bad_config.json", "task_start_time": 1678889600.0,
                                 "task_end_time": 1678889610.0, "downloads": {}, "attachment": {}
@@ -2262,16 +2283,16 @@ def run_app(port: int | None = None):
         try:
             import shutil
             shutil.copy2(local_secrets_template_path, local_secrets_path)
-            print("首次部署：已自动创建 local_secrets.json 配置文件")
-            print("请编辑 local_secrets.json 文件，设置您的API密钥和管理员密码")
+            print("First deployment: Automatically created local_secrets.json configuration file")
+            print("Please edit local_secrets.json file to set your API keys and admin password")
         except Exception as e:
-            print(f"自动创建 local_secrets.json 失败: {e}")
+            print(f"Failed to automatically create local_secrets.json: {e}")
     
     initial_port = port or int(os.environ.get("DOCUTRANSLATE_PORT", 8010))
     try:
         port_to_use = find_free_port(initial_port)
-        if port_to_use != initial_port: print(f"端口 {initial_port} 被占用，将使用端口 {port_to_use} 代替")
-        print(f"正在启动 DocuTranslate WebUI 版本号：{__version__}")
+        if port_to_use != initial_port: print(f"Port {initial_port} is occupied, using port {port_to_use} instead")
+        print(f"Starting DocuTranslate WebUI version: {__version__}")
         app.state.port_to_use = port_to_use
 
         # 读取全局与敏感配置，按需启用内置 TLS
@@ -2331,9 +2352,9 @@ def run_app(port: int | None = None):
         except Exception as _e:
             print(f"读取HTTPS配置失败，将以HTTP方式启动: {_e}")
 
-        uvicorn.run(app, host="0.0.0.0", port=port_to_use, workers=1, **ssl_kwargs)
+        uvicorn.run(app, host="0.0.0.0", port=port_to_use, workers=1, log_level="debug", access_log=False, **ssl_kwargs)
     except Exception as e:
-        print(f"启动失败: {e}")
+        print(f"Startup failed: {e}")
 
 
 if __name__ == "__main__":

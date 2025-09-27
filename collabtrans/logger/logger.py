@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from logging.handlers import TimedRotatingFileHandler
 from collabtrans.config.global_config import get_global_config
+from collabtrans.logger.log_messages import get_log_message, initialize_log_language
 
 
 def get_log_level_from_config():
@@ -15,6 +16,9 @@ def get_log_level_from_config():
     except Exception:
         return logging.INFO
 
+
+# Initialize log language from config
+initialize_log_language()
 
 # Create logger object
 global_logger = logging.getLogger("TranslaterLogger")
@@ -67,3 +71,43 @@ if 'StreamHandler' not in root_existing:
     root_logger.addHandler(root_ch)
 if file_handler and 'TimedRotatingFileHandler' not in root_existing:
     root_logger.addHandler(file_handler)
+
+
+class I18nLogger:
+    """Logger wrapper that supports internationalized messages"""
+    
+    def __init__(self, logger_name: str = None):
+        self.logger = logging.getLogger(logger_name or "TranslaterLogger")
+    
+    def _log_with_i18n(self, level: int, message_key: str, **kwargs):
+        """Log message with internationalization"""
+        try:
+            message = get_log_message(message_key, **kwargs)
+            self.logger.log(level, message)
+        except Exception:
+            # Fallback to original message key if i18n fails
+            self.logger.log(level, message_key)
+    
+    def debug(self, message_key: str, **kwargs):
+        """Log debug message with i18n"""
+        self._log_with_i18n(logging.DEBUG, message_key, **kwargs)
+    
+    def info(self, message_key: str, **kwargs):
+        """Log info message with i18n"""
+        self._log_with_i18n(logging.INFO, message_key, **kwargs)
+    
+    def warning(self, message_key: str, **kwargs):
+        """Log warning message with i18n"""
+        self._log_with_i18n(logging.WARNING, message_key, **kwargs)
+    
+    def error(self, message_key: str, **kwargs):
+        """Log error message with i18n"""
+        self._log_with_i18n(logging.ERROR, message_key, **kwargs)
+    
+    def critical(self, message_key: str, **kwargs):
+        """Log critical message with i18n"""
+        self._log_with_i18n(logging.CRITICAL, message_key, **kwargs)
+
+
+# Create global i18n logger instance
+i18n_logger = I18nLogger()

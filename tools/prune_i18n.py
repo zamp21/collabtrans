@@ -25,7 +25,7 @@ from typing import Dict, Any, Set
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-I18N_FILE = REPO_ROOT / 'collabtrans' / 'static' / 'i18nData.json'
+I18N_FILE = REPO_ROOT / 'collabtrans' / 'i18n' / 'i18nData.json'
 UNUSED_FILE = REPO_ROOT / 'i18nunused.txt'
 
 

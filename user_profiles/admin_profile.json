@@ -1,6 +1,6 @@
 {
   "ui_language": "en",
-  "translator_last_workflow": "docx",
+  "translator_last_workflow": "markdown_based",
   "translator_auto_workflow_enabled": true,
   "translator_txt_insert_mode": "replace",
   "translator_txt_separator": "\\n",
@@ -17,7 +17,7 @@
   "translator_html_separator": " ",
   "translator_json_paths": "",
   "translator_thinking_mode": "disable",
-  "translator_target_language": "英文",
+  "translator_target_language": "English",
   "translator_custom_language": "",
   "translator_custom_prompt": "",
   "translator_platform_type": "deepseek",
@@ -37,7 +37,7 @@
   "glossary_agent_top_p": 1.0,
   "glossary_agent_frequency_penalty": 0.0,
   "glossary_agent_presence_penalty": 0.0,
-  "glossary_agent_to_lang": "英文",
+  "glossary_agent_to_lang": "English",
   "glossary_agent_chunk_size": "4000",
   "glossary_agent_concurrent": "3",
   "translator_platform_models": {
@@ -52,5 +52,5 @@
   },
   "theme": "auto",
   "created_at": "2025-09-09T12:09:38.381776",
-  "updated_at": "2025-09-24T08:31:29.121830"
+  "updated_at": "2025-09-28T00:03:56.343870"
 }

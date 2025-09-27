@@ -2,7 +2,7 @@ import json
 import os
 
 # 文件路径
-file_path = "d:/workspace/collabtrans/collabtrans/static/i18nData.json"
+file_path = "collabtrans/i18n/i18nData.json"
 
 # 读取JSON文件
 try:
