@@ -21,6 +21,116 @@ def is_image_run(run: Run) -> bool:
     return '<w:drawing' in run.element.xml or '<w:pict' in run.element.xml
 
 
+def get_font_for_language(target_language: str) -> str:
+    """
+    根据目标语言返回合适的字体
+    
+    Args:
+        target_language: 目标语言名称
+        
+    Returns:
+        推荐的字体名称
+    """
+    # 语言到字体的映射
+    language_font_map = {
+        # 中文
+        "中文": "Microsoft YaHei",  # 微软雅黑
+        "简体中文": "Microsoft YaHei",
+        "繁体中文": "Microsoft JhengHei",  # 微软正黑体
+        
+        # 英文
+        "英文": "Calibri",
+        "English": "Calibri",
+        
+        # 日文
+        "日文": "Yu Gothic",  # 游ゴシック
+        "日本語": "Yu Gothic",
+        "Japanese": "Yu Gothic",
+        
+        # 韩文
+        "韩文": "Malgun Gothic",  # 맑은 고딕
+        "한국어": "Malgun Gothic",
+        "Korean": "Malgun Gothic",
+        
+        # 俄文
+        "俄文": "Times New Roman",  # 俄文常用字体
+        "Русский": "Times New Roman",
+        "Russian": "Times New Roman",
+        
+        # 阿拉伯文
+        "阿拉伯文": "Arial Unicode MS",  # 支持阿拉伯文字符
+        "العَرَبِيَّة": "Arial Unicode MS",
+        "Arabic": "Arial Unicode MS",
+        
+        # 其他欧洲语言
+        "西班牙文": "Calibri",
+        "Español": "Calibri",
+        "Spanish": "Calibri",
+        
+        "法文": "Calibri",
+        "Français": "Calibri",
+        "French": "Calibri",
+        
+        "德文": "Calibri",
+        "Deutsch": "Calibri",
+        "German": "Calibri",
+        
+        "葡萄牙文": "Calibri",
+        "Português": "Calibri",
+        "Portuguese": "Calibri",
+        
+        # 越南文
+        "越南文": "Arial Unicode MS",  # 支持越南文字符
+        "tiếng Việt": "Arial Unicode MS",
+        "Vietnamese": "Arial Unicode MS",
+        
+        # 希伯来文
+        "希伯来文": "Arial Unicode MS",  # 支持希伯来文字符
+        "Hebrew": "Arial Unicode MS",
+        "עברית": "Arial Unicode MS",
+        
+        # 泰文
+        "泰文": "Arial Unicode MS",  # 支持泰文字符
+        "Thai": "Arial Unicode MS",
+        "ไทย": "Arial Unicode MS",
+        
+        # 印地文
+        "印地文": "Arial Unicode MS",  # 支持印地文字符
+        "Hindi": "Arial Unicode MS",
+        "हिन्दी": "Arial Unicode MS",
+    }
+    
+    # 查找匹配的字体
+    font = language_font_map.get(target_language)
+    
+    # 如果没有找到匹配的字体，返回默认字体
+    if not font:
+        # 根据语言特征进行智能选择
+        if any(char in target_language for char in ['中文', 'Chinese', '简体', '繁体']):
+            font = "Microsoft YaHei"
+        elif any(char in target_language for char in ['日文', 'Japanese', '日本語']):
+            font = "Yu Gothic"
+        elif any(char in target_language for char in ['韩文', 'Korean', '한국어']):
+            font = "Malgun Gothic"
+        elif any(char in target_language for char in ['俄文', 'Russian', 'Русский']):
+            font = "Times New Roman"
+        elif any(char in target_language for char in ['阿拉伯文', 'Arabic', 'العَرَبِيَّة']):
+            font = "Arial Unicode MS"
+        elif any(char in target_language for char in ['越南文', 'Vietnamese', 'tiếng Việt']):
+            font = "Arial Unicode MS"
+        elif any(char in target_language for char in ['希伯来文', 'Hebrew', 'עברית']):
+            font = "Arial Unicode MS"
+        elif any(char in target_language for char in ['泰文', 'Thai', 'ไทย']):
+            font = "Arial Unicode MS"
+        elif any(char in target_language for char in ['印地文', 'Hindi', 'हिन्दी']):
+            font = "Arial Unicode MS"
+        else:
+            # 默认使用Calibri（适用于大多数拉丁字母语言）
+            font = "Calibri"
+    
+    return font
+
+
 @dataclass
 class DocxTranslatorConfig(AiTranslatorConfig):
     """
@@ -139,8 +249,42 @@ class DocxTranslator(AiTranslator):
             # 1. 将完整的翻译文本写入第一个 run
             first_run = runs[0]
             first_run.text = final_text
+            
+            # 2. 根据目标语言设置合适的字体，避免字体兼容性问题
+            if first_run.font:
+                # 根据目标语言选择字体
+                target_font = get_font_for_language(self.config.to_lang)
+                first_run.font.name = target_font
+                
+                # 如果首选字体不可用，尝试备选字体
+                if not first_run.font.name:
+                    # 根据语言类型选择备选字体
+                    if any(char in self.config.to_lang for char in ['中文', 'Chinese', '简体', '繁体']):
+                        # 中文备选字体
+                        fallback_fonts = ['SimSun', 'SimHei', 'Arial Unicode MS', 'Times New Roman']
+                    elif any(char in self.config.to_lang for char in ['日文', 'Japanese', '日本語']):
+                        # 日文备选字体
+                        fallback_fonts = ['MS Gothic', 'Arial Unicode MS', 'Times New Roman']
+                    elif any(char in self.config.to_lang for char in ['韩文', 'Korean', '한국어']):
+                        # 韩文备选字体
+                        fallback_fonts = ['Gulim', 'Arial Unicode MS', 'Times New Roman']
+                    elif any(char in self.config.to_lang for char in ['俄文', 'Russian', 'Русский']):
+                        # 俄文备选字体
+                        fallback_fonts = ['Times New Roman', 'Arial', 'Calibri']
+                    elif any(char in self.config.to_lang for char in ['阿拉伯文', 'Arabic', 'العَرَبِيَّة']):
+                        # 阿拉伯文备选字体
+                        fallback_fonts = ['Arial Unicode MS', 'Times New Roman', 'Arial']
+                    else:
+                        # 其他语言的备选字体
+                        fallback_fonts = ['Calibri', 'Times New Roman', 'Arial']
+                    
+                    # 尝试备选字体
+                    for fallback_font in fallback_fonts:
+                        first_run.font.name = fallback_font
+                        if first_run.font.name:
+                            break
 
-            # 2. 清空该文本块中其余 run 的内容，但保留 run 本身及其格式
+            # 3. 清空该文本块中其余 run 的内容，但保留 run 本身及其格式
             #    这可以防止重复文本，同时保留文档结构
             for run in runs[1:]:
                 run.text = ""
