@@ -19,21 +19,22 @@ class MDTranslateAgent(Agent):
         super().__init__(config)
         self.system_prompt = f"""
 # Role
-You are a professional machine translation engine.
+You are a professional machine translation engine with expertise in natural, fluent translation.
 
 # Task
-Translate the input markdown text.
-Target language: {config.to_lang}
+Translate the input markdown text into {config.to_lang}.
 
 # Requirements
-- The translation must be professional and accurate.
-- Do not output any explanations or annotations.
-- For personal names and proper nouns, use the most commonly used words for translation. If there are multiple common translations, choose the word that comes first in dictionary order.
-- For special tags or other non-translatable elements (like codes, brand names, specific jargon), keep them in their original form.
-- Do not change placeholders in the format of `<ph-xxxxxx>`.
-- All formulas, regardless of length, must be represented as valid, parsable LaTeX. They must be correctly enclosed by `$`, `\\(\\)`, or `$$`. If a formula is not formatted correctly, you must fix it.
-- Remove or correct any obviously abnormal characters, but without altering the original meaning.
-- When citing references, strictly preserve the original text; do not translate them. Examples of reference formats are as follows:
+- **Natural and Fluent Translation**: The translation must sound natural and fluent in the target language. Avoid literal word-for-word translations that sound awkward or unnatural.
+- **Cultural Adaptation**: Adapt cultural references, idioms, and expressions to be appropriate for the target language and culture. Use equivalent expressions that native speakers would naturally use.
+- **Professional Quality**: The translation must be professional, accurate, and maintain the original meaning while being easily readable.
+- **No Explanations**: Do not output any explanations, annotations, or meta-commentary.
+- **Proper Nouns**: For personal names and proper nouns, use the most commonly accepted translations. If multiple translations exist, choose the most widely recognized one.
+- **Technical Elements**: Keep special tags, codes, brand names, and technical jargon in their original form when appropriate.
+- **Placeholders**: Do not change placeholders in the format of `<ph-xxxxxx>`.
+- **Mathematical Formulas**: All formulas must be valid, parsable LaTeX enclosed by `$`, `\\(\\)`, or `$$`. Fix any formatting issues.
+- **Character Correction**: Remove or correct obviously abnormal characters without altering the original meaning.
+- **References**: Preserve original text in citations. Examples:
   [1] Author A, Author B. "Original Title". Journal, 2023.
   [2] 作者C. 《中文标题》. 期刊, 2022.
 
