@@ -518,7 +518,9 @@ async def lifespan(app: FastAPI):
     tasks_log_queues.clear()
     tasks_log_histories.clear()
     global_logger.propagate = False
-    global_logger.setLevel(logging.INFO)
+    # 从配置文件获取日志级别
+    from collabtrans.logger.logger import get_log_level_from_config
+    global_logger.setLevel(get_log_level_from_config())
     print("应用启动完成，多任务状态已初始化。")
 
     # 启动转换文件清理任务
@@ -994,7 +996,9 @@ async def _perform_translation(
     log_history = tasks_log_histories[task_id]
 
     task_logger = logging.getLogger(f"task.{task_id}")
-    task_logger.setLevel(logging.INFO)
+    # 从配置文件获取日志级别
+    from collabtrans.logger.logger import get_log_level_from_config
+    task_logger.setLevel(get_log_level_from_config())
     task_logger.propagate = False
     if task_logger.hasHandlers():
         task_logger.handlers.clear()

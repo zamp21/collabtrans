@@ -1,5 +1,12 @@
 {
   "default_language": "en",
+  "logging": {
+    "level": "INFO",
+    "console_enabled": true,
+    "file_enabled": true,
+    "max_file_size_mb": 10,
+    "backup_count": 7
+  },
   "translator_settings": {
     "convert_engine": "mineru",
     "mineru_model_version": "vlm",

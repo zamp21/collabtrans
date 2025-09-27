@@ -42,11 +42,23 @@ class AIPlatformConfig:
     performance_note: Optional[str] = None
 
 @dataclass
+class LoggingConfig:
+    """Logging configuration"""
+    level: str = "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+    console_enabled: bool = True
+    file_enabled: bool = True
+    max_file_size_mb: int = 10
+    backup_count: int = 7
+
+@dataclass
 class GlobalConfig:
     """Global configuration class for system-level settings and sensitive information"""
     
     # General settings
     default_language: str = "en"
+    
+    # Logging settings
+    logging: LoggingConfig = field(default_factory=LoggingConfig)
     
     # Translator settings (grouped configuration)
     translator_settings: TranslatorSettings = field(default_factory=TranslatorSettings)
@@ -127,6 +139,11 @@ class GlobalConfig:
     
     def update_from_dict(self, data: Dict[str, Any]) -> None:
         """Update configuration from dictionary"""
+        # Handle logging settings
+        if 'logging' in data:
+            logging_data = data['logging']
+            self.logging = LoggingConfig(**logging_data)
+        
         # Handle translator settings
         if 'translator_settings' in data:
             translator_data = data['translator_settings']
@@ -141,7 +158,7 @@ class GlobalConfig:
         
         # Handle other fields
         for key, value in data.items():
-            if hasattr(self, key) and key not in ['translator_settings', 'ai_platforms']:
+            if hasattr(self, key) and key not in ['logging', 'translator_settings', 'ai_platforms']:
                 setattr(self, key, value)
     
     def get_config_dict(self, include_api_keys: bool = False, flatten: bool = True) -> Dict[str, Any]:
@@ -149,6 +166,7 @@ class GlobalConfig:
         # Manually construct the dictionary to avoid asdict() issues with nested dataclasses
         config_dict = {
             'default_language': self.default_language,
+            'logging': asdict(self.logging),
             'translator_settings': asdict(self.translator_settings),
             'ai_platforms': {},
             'active_task_ids': self.active_task_ids,

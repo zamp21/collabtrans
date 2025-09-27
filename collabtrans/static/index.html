@@ -3922,7 +3922,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Reset visibility of individual components first
         previewBtn.style.display = 'none';
         attachmentBtnGroup.style.display = 'none';
-        convertBtnGroup.style.display = 'none';
+        // Don't reset convert button visibility here - it should remain visible for PDF files
         let anyDownloadAvailable = false;
         let anyAttachmentAvailable = false;
         let anyPreviewAvailable = false;

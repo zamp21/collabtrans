@@ -16,8 +16,8 @@ from collabtrans.translator.ai_translator.base import AiTranslatorConfig, AiTran
 
 
 def is_image_run(run: Run) -> bool:
-    """检查一个 run 是否包含图片。"""
-    # w:drawing 是嵌入式图片的标志, w:pict 是 VML 图片的标志
+    """Check if a run contains an image."""
+    # w:drawing is the flag for embedded images, w:pict is the flag for VML images
     return '<w:drawing' in run.element.xml or '<w:pict' in run.element.xml
 
 

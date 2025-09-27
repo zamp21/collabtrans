@@ -295,11 +295,11 @@ class Agent:
             system_prompt, prompt = pre_send_handler(system_prompt, prompt)
         
         # 打印给agent的提示词日志
-        self.logger.info("=" * 80)
-        self.logger.info("🤖 发送给Agent的提示词:")
-        self.logger.info(f"📋 System Prompt:\n{system_prompt}")
-        self.logger.info(f"💬 User Prompt:\n{prompt}")
-        self.logger.info("=" * 80)
+        self.logger.debug("=" * 80)
+        self.logger.debug("🤖 发送给Agent的提示词:")
+        self.logger.debug(f"📋 System Prompt:\n{system_prompt}")
+        self.logger.debug(f"💬 User Prompt:\n{prompt}")
+        self.logger.debug("=" * 80)
 
         headers, data = self._prepare_request_data(prompt, system_prompt)
         should_retry = False
@@ -318,6 +318,12 @@ class Agent:
             response.raise_for_status()
             # print(f"【测试】resp:\n{response.json()}")
             result = response.json()["choices"][0]["message"]["content"]
+            
+            # 打印AI回复日志
+            self.logger.debug("=" * 80)
+            self.logger.debug("🤖 Agent回复:")
+            self.logger.debug(f"📄 Response Content:\n{result}")
+            self.logger.debug("=" * 80)
 
             # 获取token使用情况
             response_data = response.json()
@@ -539,6 +545,12 @@ class Agent:
             response.raise_for_status()
 
             result = response.json()["choices"][0]["message"]["content"]
+            
+            # 打印AI回复日志
+            self.logger.debug("=" * 80)
+            self.logger.debug("🤖 Agent回复:")
+            self.logger.debug(f"📄 Response Content:\n{result}")
+            self.logger.debug("=" * 80)
 
             # 获取token使用情况
             response_data = response.json()
