@@ -23,46 +23,46 @@ def is_image_run(run: Run) -> bool:
 
 def get_font_for_language(target_language: str) -> str:
     """
-    根据目标语言返回合适的字体
+    Return appropriate font based on target language.
     
     Args:
-        target_language: 目标语言名称
+        target_language: Target language name
         
     Returns:
-        推荐的字体名称
+        Recommended font name
     """
-    # 语言到字体的映射
+    # Language to font mapping
     language_font_map = {
-        # 中文
-        "中文": "Microsoft YaHei",  # 微软雅黑
+        # Chinese
+        "中文": "Microsoft YaHei",  # Microsoft YaHei
         "简体中文": "Microsoft YaHei",
-        "繁体中文": "Microsoft JhengHei",  # 微软正黑体
+        "繁体中文": "Microsoft JhengHei",  # Microsoft JhengHei
         
-        # 英文
+        # English
         "英文": "Calibri",
         "English": "Calibri",
         
-        # 日文
-        "日文": "Yu Gothic",  # 游ゴシック
+        # Japanese
+        "日文": "Yu Gothic",  # Yu Gothic
         "日本語": "Yu Gothic",
         "Japanese": "Yu Gothic",
         
-        # 韩文
-        "韩文": "Malgun Gothic",  # 맑은 고딕
+        # Korean
+        "韩文": "Malgun Gothic",  # Malgun Gothic
         "한국어": "Malgun Gothic",
         "Korean": "Malgun Gothic",
         
-        # 俄文
-        "俄文": "Times New Roman",  # 俄文常用字体
+        # Russian
+        "俄文": "Times New Roman",  # Common Russian font
         "Русский": "Times New Roman",
         "Russian": "Times New Roman",
         
-        # 阿拉伯文
-        "阿拉伯文": "Arial Unicode MS",  # 支持阿拉伯文字符
+        # Arabic
+        "阿拉伯文": "Arial Unicode MS",  # Supports Arabic characters
         "العَرَبِيَّة": "Arial Unicode MS",
         "Arabic": "Arial Unicode MS",
         
-        # 其他欧洲语言
+        # Other European languages
         "西班牙文": "Calibri",
         "Español": "Calibri",
         "Spanish": "Calibri",
@@ -79,33 +79,33 @@ def get_font_for_language(target_language: str) -> str:
         "Português": "Calibri",
         "Portuguese": "Calibri",
         
-        # 越南文
-        "越南文": "Arial Unicode MS",  # 支持越南文字符
+        # Vietnamese
+        "越南文": "Arial Unicode MS",  # Supports Vietnamese characters
         "tiếng Việt": "Arial Unicode MS",
         "Vietnamese": "Arial Unicode MS",
         
-        # 希伯来文
-        "希伯来文": "Arial Unicode MS",  # 支持希伯来文字符
+        # Hebrew
+        "希伯来文": "Arial Unicode MS",  # Supports Hebrew characters
         "Hebrew": "Arial Unicode MS",
         "עברית": "Arial Unicode MS",
         
-        # 泰文
-        "泰文": "Arial Unicode MS",  # 支持泰文字符
+        # Thai
+        "泰文": "Arial Unicode MS",  # Supports Thai characters
         "Thai": "Arial Unicode MS",
         "ไทย": "Arial Unicode MS",
         
-        # 印地文
-        "印地文": "Arial Unicode MS",  # 支持印地文字符
+        # Hindi
+        "印地文": "Arial Unicode MS",  # Supports Hindi characters
         "Hindi": "Arial Unicode MS",
         "हिन्दी": "Arial Unicode MS",
     }
     
-    # 查找匹配的字体
+    # Find matching font
     font = language_font_map.get(target_language)
     
-    # 如果没有找到匹配的字体，返回默认字体
+    # If no matching font found, return default font
     if not font:
-        # 根据语言特征进行智能选择
+        # Intelligent selection based on language characteristics
         if any(char in target_language for char in ['中文', 'Chinese', '简体', '繁体']):
             font = "Microsoft YaHei"
         elif any(char in target_language for char in ['日文', 'Japanese', '日本語']):
@@ -125,7 +125,7 @@ def get_font_for_language(target_language: str) -> str:
         elif any(char in target_language for char in ['印地文', 'Hindi', 'हिन्दी']):
             font = "Arial Unicode MS"
         else:
-            # 默认使用Calibri（适用于大多数拉丁字母语言）
+            # Default to Calibri (suitable for most Latin alphabet languages)
             font = "Calibri"
     
     return font
@@ -231,7 +231,7 @@ class DocxTranslator(AiTranslator):
             original_text = original_texts[i]
             translated_text = translated_texts[i]
 
-            # 根据插入模式确定最终文本
+            # Determine final text based on insert mode
             if self.insert_mode == "replace":
                 final_text = translated_text
             elif self.insert_mode == "append":
@@ -239,69 +239,69 @@ class DocxTranslator(AiTranslator):
             elif self.insert_mode == "prepend":
                 final_text = translated_text + self.separator + original_text
             else:
-                self.logger.error("不正确的DocxTranslatorConfig参数")
+                self.logger.error("Invalid DocxTranslatorConfig parameter")
                 final_text = translated_text
 
             if not runs:
                 continue
 
-            # --- 这是修改的核心部分 ---
-            # 1. 将完整的翻译文本写入第一个 run
+            # --- Core modification section ---
+            # 1. Write complete translated text to the first run
             first_run = runs[0]
             first_run.text = final_text
             
-            # 2. 根据目标语言设置合适的字体，避免字体兼容性问题
+            # 2. Set appropriate font based on target language to avoid font compatibility issues
             if first_run.font:
-                # 根据目标语言选择字体
+                # Select font based on target language
                 target_font = get_font_for_language(self.config.to_lang)
                 first_run.font.name = target_font
                 
-                # 如果首选字体不可用，尝试备选字体
+                # If primary font is not available, try fallback fonts
                 if not first_run.font.name:
-                    # 根据语言类型选择备选字体
+                    # Select fallback fonts based on language type
                     if any(char in self.config.to_lang for char in ['中文', 'Chinese', '简体', '繁体']):
-                        # 中文备选字体
+                        # Chinese fallback fonts
                         fallback_fonts = ['SimSun', 'SimHei', 'Arial Unicode MS', 'Times New Roman']
                     elif any(char in self.config.to_lang for char in ['日文', 'Japanese', '日本語']):
-                        # 日文备选字体
+                        # Japanese fallback fonts
                         fallback_fonts = ['MS Gothic', 'Arial Unicode MS', 'Times New Roman']
                     elif any(char in self.config.to_lang for char in ['韩文', 'Korean', '한국어']):
-                        # 韩文备选字体
+                        # Korean fallback fonts
                         fallback_fonts = ['Gulim', 'Arial Unicode MS', 'Times New Roman']
                     elif any(char in self.config.to_lang for char in ['俄文', 'Russian', 'Русский']):
-                        # 俄文备选字体
+                        # Russian fallback fonts
                         fallback_fonts = ['Times New Roman', 'Arial', 'Calibri']
                     elif any(char in self.config.to_lang for char in ['阿拉伯文', 'Arabic', 'العَرَبِيَّة']):
-                        # 阿拉伯文备选字体
+                        # Arabic fallback fonts
                         fallback_fonts = ['Arial Unicode MS', 'Times New Roman', 'Arial']
                     else:
-                        # 其他语言的备选字体
+                        # Fallback fonts for other languages
                         fallback_fonts = ['Calibri', 'Times New Roman', 'Arial']
                     
-                    # 尝试备选字体
+                    # Try fallback fonts
                     for fallback_font in fallback_fonts:
                         first_run.font.name = fallback_font
                         if first_run.font.name:
                             break
 
-            # 3. 清空该文本块中其余 run 的内容，但保留 run 本身及其格式
-            #    这可以防止重复文本，同时保留文档结构
+            # 3. Clear content of remaining runs in this text block while preserving run structure
+            #    This prevents duplicate text while maintaining document structure
             for run in runs[1:]:
                 run.text = ""
-            # --- 修改结束 ---
+            # --- End of modification ---
 
-        # 将修改后的文档保存到 BytesIO 流
+        # Save the modified document to BytesIO stream
         doc_output_stream = BytesIO()
         doc.save(doc_output_stream)
         return doc_output_stream.getvalue()
 
     def translate(self, document: Document) -> Self:
         """
-        同步翻译 .docx 文件。
+        Synchronously translate .docx file.
         """
         doc, elements_to_translate, original_texts = self._pre_translate(document)
         if not original_texts:
-            print("\n文件中没有找到需要翻译的文本内容。")
+            print("\nNo text content found in the file that needs translation.")
             output_stream = BytesIO()
             doc.save(output_stream)
             document.content = output_stream.getvalue()
@@ -312,24 +312,24 @@ class DocxTranslator(AiTranslator):
             if self.translate_agent:
                 self.translate_agent.update_glossary_dict(self.glossary_dict_gen)
 
-        # 调用翻译 agent
+        # Call translation agent
         if self.translate_agent:
             translated_texts = self.translate_agent.send_segments(original_texts, self.chunk_size)
         else:
             translated_texts = original_texts
 
-        # 将翻译结果写回文档
+        # Write translation results back to document
         document.content = self._after_translate(doc, elements_to_translate, translated_texts, original_texts)
         return self
 
     async def translate_async(self, document: Document) -> Self:
         """
-        异步翻译 .docx 文件。
+        Asynchronously translate .docx file.
         """
         doc, elements_to_translate, original_texts = await asyncio.to_thread(self._pre_translate, document)
         if not original_texts:
-            print("\n文件中没有找到需要翻译的文本内容。")
-            # 在异步环境中正确保存和返回
+            print("\nNo text content found in the file that needs translation.")
+            # Correctly save and return in async environment
             output_stream = BytesIO()
             doc.save(output_stream)
             document.content = output_stream.getvalue()
@@ -340,12 +340,12 @@ class DocxTranslator(AiTranslator):
             if self.translate_agent:
                 self.translate_agent.update_glossary_dict(self.glossary_dict_gen)
 
-        # 异步调用翻译 agent
+        # Asynchronously call translation agent
         if self.translate_agent:
             translated_texts = await self.translate_agent.send_segments_async(original_texts, self.chunk_size)
         else:
             translated_texts = original_texts
-        # 将翻译结果写回文档
+        # Write translation results back to document
         document.content = await asyncio.to_thread(self._after_translate, doc, elements_to_translate, translated_texts,
                                                    original_texts)
         return self

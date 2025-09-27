@@ -518,24 +518,24 @@ async def lifespan(app: FastAPI):
     tasks_log_queues.clear()
     tasks_log_histories.clear()
     global_logger.propagate = False
-    # 从配置文件获取日志级别
+    # Get log level from configuration file
     from collabtrans.logger.logger import get_log_level_from_config
     global_logger.setLevel(get_log_level_from_config())
-    print("应用启动完成，多任务状态已初始化。")
+    print("Application startup completed, multi-task state initialized.")
 
-    # 启动转换文件清理任务
+    # Start conversion file cleanup task
     try:
         from collabtrans.converter.format_converter import cleanup_task
         asyncio.create_task(cleanup_task())
-        print("转换文件清理任务已启动。")
+        print("Conversion file cleanup task started.")
     except Exception as e:
-        print(f"启动转换文件清理任务失败: {e}")
+        print(f"Failed to start conversion file cleanup task: {e}")
 
-    # 认证模块已在应用启动时初始化
-    print(f"服务接口文档: http://127.0.0.1:{app.state.port_to_use}/docs")
-    print(f"请用浏览器访问 http://127.0.0.1:{app.state.port_to_use}\n")
+    # Authentication module has been initialized at application startup
+    print(f"Service API documentation: http://127.0.0.1:{app.state.port_to_use}/docs")
+    print(f"Please access http://127.0.0.1:{app.state.port_to_use} in your browser\n")
     yield
-    # 清理任何可能残留的临时目录
+    # Clean up any remaining temporary directories
     for task_id, task_state in tasks_state.items():
         temp_dir = task_state.get("temp_dir")
         if temp_dir and os.path.isdir(temp_dir):
@@ -996,7 +996,7 @@ async def _perform_translation(
     log_history = tasks_log_histories[task_id]
 
     task_logger = logging.getLogger(f"task.{task_id}")
-    # 从配置文件获取日志级别
+    # Get log level from configuration file
     from collabtrans.logger.logger import get_log_level_from_config
     task_logger.setLevel(get_log_level_from_config())
     task_logger.propagate = False
