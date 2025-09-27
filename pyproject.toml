@@ -25,6 +25,7 @@ dependencies = [
     "ldap3>=2.9.1",
     "debugpy>=1.8.17",
     "playwright>=1.55.0",
+    "pdf2docx>=0.5.8",
 ]
 
 [project.optional-dependencies]

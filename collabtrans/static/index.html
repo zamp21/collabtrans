@@ -1253,9 +1253,21 @@ $.*"></textarea>
                     </ul>
                 </div>
             </div>
-            <button class="btn btn-outline-secondary start-translate-btn ms-auto"><i class="bi bi-play-fill me-1"></i><span
-                    data-i18n="taskCardStartBtn">开始翻译</span>
-            </button>
+            <!-- Convert Button Group and Start Translation Button -->
+            <div class="d-flex align-items-center ms-auto">
+                <div class="btn-group convert-btn-group me-2" style="display: none;">
+                    <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown"
+                            aria-expanded="false">
+                        <i class="bi bi-arrow-repeat me-1"></i><span data-i18n="taskCardConvertBtn">转换</span>
+                    </button>
+                    <ul class="dropdown-menu convert-menu-container">
+                        <!-- Populated by JavaScript -->
+                    </ul>
+                </div>
+                <button class="btn btn-outline-secondary start-translate-btn"><i class="bi bi-play-fill me-1"></i><span
+                        data-i18n="taskCardStartBtn">开始翻译</span>
+                </button>
+            </div>
         </div>
     </div>
 </template>
@@ -2996,6 +3008,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // [NEW] Attachment elements
             attachmentBtnGroup: cardElement.querySelector('.attachment-btn-group'),
             attachmentMenuContainer: cardElement.querySelector('.attachment-menu-container'),
+            // [NEW] Convert elements
+            convertBtnGroup: cardElement.querySelector('.convert-btn-group'),
+            convertMenuContainer: cardElement.querySelector('.convert-menu-container'),
         };
 
         if (restoreState && backendTaskId) {
@@ -3105,11 +3120,26 @@ document.addEventListener('DOMContentLoaded', function() {
         const file = elements.fileInput.files[0];
         if (file) {
             state.file = file;
+            state.original_filename = file.name; // Set original filename for convert functionality
+            
+            // Read file content for conversion
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                state.fileContent = e.target.result; // Store base64 content
+            };
+            reader.readAsDataURL(file);
+            
             elements.fileNameDisplay.textContent = file.name;
             elements.fileNameDisplayWrapper.style.display = 'block';
             elements.fileDropArea.classList.add('file-selected');
             elements.fileDropDefault.style.display = 'none';
             elements.fileDropSelected.style.display = 'block';
+            
+            // Show convert button if file is PDF
+            const fileExtension = file.name.split('.').pop()?.toLowerCase();
+            if (fileExtension === 'pdf') {
+                showConvertButton(cardId, file.name);
+            }
             elements.fileDropArea.classList.remove('input-error');
             elements.fileNameDisplay.classList.remove('input-error-text');
 
@@ -3191,6 +3221,250 @@ document.addEventListener('DOMContentLoaded', function() {
         return {config: agentConfig, isValid: true};
     }
 
+
+    // Simple log function for convert operations
+    function addConvertLog(cardId, message, type = 'info') {
+        const {elements} = tasks[cardId];
+        if (elements && elements.logArea) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] [转换] ${message}`;
+            elements.logArea.innerHTML += logEntry + '<br>';
+            elements.logArea.scrollTop = elements.logArea.scrollHeight;
+        }
+        
+        // Also add to task log history for consistency
+        const {state} = tasks[cardId];
+        if (state && state.backendTaskId) {
+            // Add to log queue for backend consistency
+            if (typeof tasks_log_queues !== 'undefined' && tasks_log_queues[state.backendTaskId]) {
+                const logQueue = tasks_log_queues[state.backendTaskId];
+                if (logQueue) {
+                    logQueue.put_nowait(logEntry);
+                }
+            }
+        }
+    }
+
+    // Show convert button for PDF files
+    function showConvertButton(cardId, fileName) {
+        const {elements} = tasks[cardId];
+        const {convertBtnGroup, convertMenuContainer} = elements;
+        
+        if (!convertBtnGroup) return;
+        
+        // Clear previous convert options
+        convertMenuContainer.innerHTML = '';
+        
+        // Add PDF to DOCX option
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.className = 'dropdown-item';
+        a.href = '#';
+        a.innerHTML = `<i class="bi bi-file-earmark-word me-2"></i>${getText('convertToDocx')}`;
+        a.onclick = (e) => {
+            e.preventDefault();
+            startConvert(cardId, 'docx');
+        };
+        li.appendChild(a);
+        convertMenuContainer.appendChild(li);
+        
+        // Show convert button
+        convertBtnGroup.style.display = 'inline-block';
+    }
+
+    // Convert function
+    async function startConvert(cardId, targetFormat) {
+        const {state} = tasks[cardId];
+        if (!state.original_filename) {
+            showNotification('没有找到原始文件', 'error');
+            return;
+        }
+
+        // Get taskId from state or cardId
+        let taskId = state.backendTaskId || state.taskId;
+        
+        // If no taskId exists, create a temporary task for conversion
+        if (!taskId) {
+            try {
+                // Wait for file content to be loaded
+                if (!state.fileContent) {
+                    showNotification('文件内容未加载完成，请稍后再试', 'error');
+                    return;
+                }
+                
+                // Extract base64 content (remove data:application/pdf;base64, prefix)
+                const base64Content = state.fileContent.split(',')[1];
+                
+                const response = await fetch('/service/translate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        file_name: state.original_filename,
+                        file_content: base64Content,
+                        payload: {
+                            workflow_type: 'markdown_based', // Use markdown_based workflow
+                            skip_translate: true, // Skip actual translation
+                            convert_engine: 'identity' // Use identity engine for conversion only
+                        }
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('创建转换任务失败');
+                }
+                
+                const result = await response.json();
+                taskId = result.task_id;
+                state.backendTaskId = taskId;
+                
+                // Update task ID display
+                const {elements} = tasks[cardId];
+                elements.taskIdDisplay.innerHTML = `<code>${taskId}</code>`;
+                elements.taskIdDisplay.classList.remove('task-id-placeholder');
+                
+            } catch (error) {
+                showNotification(`创建转换任务失败: ${error.message}`, 'error');
+                return;
+            }
+        }
+
+        // Update UI to show conversion status
+        updateConvertStatus(cardId, 'waiting');
+        addConvertLog(cardId, '开始转换任务...');
+        
+        try {
+            const response = await fetch(`/convert/${taskId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    target_format: targetFormat,
+                    options: {
+                        quality: 'optimized'
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || '转换请求失败');
+            }
+
+            const result = await response.json();
+            updateConvertStatus(cardId, 'processing');
+            addConvertLog(cardId, `转换任务已启动，ID: ${result.convert_id}`);
+            
+            // Start polling for conversion status
+            pollConvertStatus(cardId, result.convert_id);
+            
+        } catch (error) {
+            console.error('Convert failed:', error);
+            updateConvertStatus(cardId, 'failed', error.message);
+            addConvertLog(cardId, `转换启动失败: ${error.message}`, 'error');
+            showNotification(`转换失败: ${error.message}`, 'error');
+        }
+    }
+
+    // Update convert status in UI
+    function updateConvertStatus(cardId, status, message = '') {
+        const {elements, state} = tasks[cardId];
+        const {convertBtnGroup} = elements;
+        
+        if (!convertBtnGroup) return;
+        
+        const button = convertBtnGroup.querySelector('button');
+        const icon = button.querySelector('i');
+        const text = button.querySelector('span');
+        
+        switch (status) {
+            case 'waiting':
+                icon.className = 'bi bi-clock me-1';
+                text.textContent = getText('convertStatusWaiting');
+                button.disabled = true;
+                break;
+            case 'processing':
+                icon.className = 'bi bi-arrow-repeat me-1';
+                text.textContent = getText('convertStatusProcessing');
+                button.disabled = true;
+                break;
+            case 'completed':
+                icon.className = 'bi bi-check-circle me-1';
+                text.textContent = getText('convertStatusCompleted');
+                button.disabled = false;
+                break;
+            case 'failed':
+                icon.className = 'bi bi-x-circle me-1';
+                text.textContent = getText('convertStatusFailed');
+                button.disabled = false;
+                break;
+        }
+        
+        // Add status message to log if provided
+        if (message) {
+            addConvertLog(cardId, message, status === 'failed' ? 'error' : 'info');
+        }
+    }
+
+    // Poll conversion status
+    async function pollConvertStatus(cardId, convertId) {
+        const {state} = tasks[cardId];
+        const taskId = state.backendTaskId || state.taskId || cardId;
+        
+        const poll = async () => {
+            try {
+                const response = await fetch(`/convert/${taskId}/status/${convertId}`);
+                if (!response.ok) {
+                    throw new Error('获取转换状态失败');
+                }
+                
+                const status = await response.json();
+                
+                if (status.status === 'completed') {
+                    updateConvertStatus(cardId, 'completed');
+                    addConvertLog(cardId, '转换完成，文件已生成', 'success');
+                    
+                    // Add converted file to downloads
+                    const {state} = tasks[cardId];
+                    if (status.download_url && status.filename) {
+                        // Store converted file info in task state
+                        if (!state.converted_files) {
+                            state.converted_files = {};
+                        }
+                        state.converted_files[status.filename] = status.download_url;
+                        
+                        // Update task state to show download ready
+                        state.download_ready = true;
+                        state.downloads = state.downloads || {};
+                        state.downloads[status.filename] = status.download_url;
+                        
+                        // Update result buttons to show download options
+                        updateResultButtons(cardId, {
+                            download_ready: true,
+                            downloads: state.downloads
+                        });
+                    }
+                    return;
+                } else if (status.status === 'failed') {
+                    updateConvertStatus(cardId, 'failed', status.error || '转换失败');
+                    addConvertLog(cardId, `转换失败: ${status.error || '未知错误'}`, 'error');
+                    return;
+                } else if (status.status === 'processing') {
+                    addConvertLog(cardId, '转换进行中...', 'info');
+                    // Continue polling
+                    setTimeout(poll, 2000);
+                }
+            } catch (error) {
+                console.error('Poll convert status failed:', error);
+                updateConvertStatus(cardId, 'failed', error.message);
+                addConvertLog(cardId, `状态查询失败: ${error.message}`, 'error');
+            }
+        };
+        
+        poll();
+    }
 
     async function validateAndBuildPayload() {
         const skipTranslate = skipTranslationSwitch.checked;
@@ -3595,6 +3869,31 @@ document.addEventListener('DOMContentLoaded', function() {
             anyLinkAdded = true;
         }
 
+        // Add converted files
+        const {state} = tasks[cardId];
+        if (state.converted_files) {
+            Object.entries(state.converted_files).forEach(([filename, downloadUrl]) => {
+                const li = document.createElement('li');
+                const a = document.createElement('a');
+                a.className = 'dropdown-item';
+                a.href = downloadUrl;
+                
+                // Determine icon based on file extension
+                const extension = filename.split('.').pop()?.toLowerCase();
+                let icon = 'bi-file-earmark';
+                if (extension === 'docx') {
+                    icon = 'bi-file-earmark-word';
+                } else if (extension === 'pdf') {
+                    icon = 'bi-file-earmark-pdf';
+                }
+                
+                a.innerHTML = `<i class="bi ${icon} me-2"></i>${filename}`;
+                li.appendChild(a);
+                menuElement.appendChild(li);
+                anyLinkAdded = true;
+            });
+        }
+
         return anyLinkAdded;
     }
 
@@ -3604,21 +3903,30 @@ document.addEventListener('DOMContentLoaded', function() {
         const {downloads, attachment} = status;
         state.downloads = downloads;
         state.attachment = attachment;
-
+        
+        // Update original filename for convert functionality
+        if (status.original_filename) {
+            state.original_filename = status.original_filename;
+        }
+        
         const {
             previewBtn,
             downloadButtons,
             downloadMenuContainer,
             attachmentBtnGroup,
-            attachmentMenuContainer
+            attachmentMenuContainer,
+            convertBtnGroup,
+            convertMenuContainer
         } = elements;
 
         // Reset visibility of individual components first
         previewBtn.style.display = 'none';
         attachmentBtnGroup.style.display = 'none';
+        convertBtnGroup.style.display = 'none';
         let anyDownloadAvailable = false;
         let anyAttachmentAvailable = false;
         let anyPreviewAvailable = false;
+        let anyConvertAvailable = false;
 
         // Handle preview
         if (downloads && downloads.html) {
@@ -3651,9 +3959,33 @@ document.addEventListener('DOMContentLoaded', function() {
             anyAttachmentAvailable = true;
         }
 
+        // Handle convert options based on file type
+        const fileName = state.original_filename || '';
+        const fileExtension = fileName.split('.').pop()?.toLowerCase();
+        
+        if (fileExtension === 'pdf') {
+            // Clear previous convert options
+            convertMenuContainer.innerHTML = '';
+            
+            // Add PDF to DOCX option
+            const li = document.createElement('li');
+            const a = document.createElement('a');
+            a.className = 'dropdown-item';
+            a.href = '#';
+            a.innerHTML = `<i class="bi bi-file-earmark-word me-2"></i>${getText('convertToDocx')}`;
+            a.onclick = (e) => {
+                e.preventDefault();
+                startConvert(cardId, 'docx');
+            };
+            li.appendChild(a);
+            convertMenuContainer.appendChild(li);
+            
+            convertBtnGroup.style.display = 'inline-block';
+            anyConvertAvailable = true;
+        }
 
         // Set visibility of the main container
-        if (anyPreviewAvailable || anyDownloadAvailable || anyAttachmentAvailable) {
+        if (anyPreviewAvailable || anyDownloadAvailable || anyAttachmentAvailable || anyConvertAvailable) {
             downloadButtons.style.display = 'flex'; // Use flex for proper alignment
         } else {
             downloadButtons.style.display = 'none';
@@ -3732,13 +4064,17 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!htmlResp.ok) throw new Error('获取翻译后的HTML失败');
             const htmlText = await htmlResp.text();
 
+            // 构建正确的base_url，确保图片和资源路径正确
             const origin = location.origin;
+            const htmlUrlPath = new URL(state.htmlUrl, origin).pathname;
+            const baseUrl = origin + htmlUrlPath.substring(0, htmlUrlPath.lastIndexOf('/'));
+            
             const resp = await fetch('/export/pdf/from-html', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     html: htmlText,
-                    base_url: origin,
+                    base_url: baseUrl,
                     file_name: (state.original_filename_stem || 'document') + '_translated',
                     format: 'A4',
                     margin_top: '10mm',

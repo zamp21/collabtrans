@@ -216,14 +216,69 @@ async def export_pdf_from_html(req: PdfExportHtmlRequest):
 
             html_text = req.html
             base_href = (req.base_url or '').rstrip('/') + '/'
-            if base_href and "<head" in html_text:
-                html_with_base = html_text.replace("<head>", f"<head><base href=\"{base_href}\">", 1)
+            
+            # 增强HTML内容，确保图片和表格正确显示
+            enhanced_html = html_text
+            
+            # 添加base标签确保相对路径正确解析
+            if base_href and "<head" in enhanced_html:
+                enhanced_html = enhanced_html.replace("<head>", f"<head><base href=\"{base_href}\">", 1)
             elif base_href:
-                html_with_base = f"<head><base href=\"{base_href}\"></head>" + html_text
+                enhanced_html = f"<head><base href=\"{base_href}\"></head>" + enhanced_html
+            
+            # 添加CSS确保图片和表格在PDF中正确显示
+            css_enhancement = """
+            <style>
+                /* 确保图片在PDF中正确显示 */
+                img {
+                    max-width: 100% !important;
+                    height: auto !important;
+                    page-break-inside: avoid;
+                }
+                
+                /* 确保表格在PDF中正确显示 */
+                table {
+                    width: 100% !important;
+                    border-collapse: collapse !important;
+                    page-break-inside: avoid;
+                }
+                
+                table, th, td {
+                    border: 1px solid #ccc !important;
+                }
+                
+                /* 确保数学公式正确显示 */
+                .katex, .katex-display {
+                    page-break-inside: avoid;
+                }
+                
+                /* 确保代码块正确显示 */
+                pre, code {
+                    page-break-inside: avoid;
+                    white-space: pre-wrap !important;
+                }
+                
+                /* 确保分页合理 */
+                h1, h2, h3, h4, h5, h6 {
+                    page-break-after: avoid;
+                }
+                
+                p {
+                    page-break-inside: avoid;
+                }
+            </style>
+            """
+            
+            if "<head>" in enhanced_html:
+                enhanced_html = enhanced_html.replace("<head>", f"<head>{css_enhancement}", 1)
             else:
-                html_with_base = html_text
+                enhanced_html = f"<head>{css_enhancement}</head>" + enhanced_html
 
-            await page.set_content(html_with_base, wait_until="networkidle")
+            await page.set_content(enhanced_html, wait_until="networkidle")
+            
+            # 额外等待确保所有资源加载完成
+            await page.wait_for_timeout(2000)
+            
             pdf_bytes = await page.pdf(
                 format=req.format or "A4",
                 print_background=True,
@@ -245,6 +300,135 @@ async def export_pdf_from_html(req: PdfExportHtmlRequest):
     except Exception as e:
         logger.error(f"导出PDF失败: {e}")
         raise HTTPException(status_code=500, detail=f"导出PDF失败: {e}")
+
+
+# --- Document Format Conversion ---
+class ConvertRequest(BaseModel):
+    target_format: str
+    options: Dict[str, Any] = {}
+
+
+class ConvertResponse(BaseModel):
+    convert_id: str
+    status: str
+    message: str
+
+
+@pdf_router.post("/convert/{task_id}")
+async def start_convert(task_id: str, req: ConvertRequest, request: Request):
+    """Start document format conversion"""
+    try:
+        # Get task info
+        if task_id not in tasks_state:
+            raise HTTPException(status_code=404, detail="Task not found")
+        
+        task_info = tasks_state[task_id]
+        
+        # Get original file path from task state
+        original_file_path = task_info.get('original_file_path')
+        
+        # If not found, try to get from downloadable_files
+        if not original_file_path and 'downloadable_files' in task_info and task_info['downloadable_files']:
+            # Get the first file from downloadable_files
+            first_file = next(iter(task_info['downloadable_files'].values()))
+            if isinstance(first_file, dict) and 'path' in first_file:
+                original_file_path = first_file['path']
+            elif isinstance(first_file, str):
+                original_file_path = first_file
+        
+        
+        if not original_file_path or not os.path.exists(original_file_path):
+            raise HTTPException(status_code=404, detail="Original file not found")
+        
+        # Import converter
+        from collabtrans.converter.format_converter import converter
+        
+        # Get log queue for this task
+        log_queue = tasks_log_queues.get(task_id)
+        
+        # Start conversion
+        convert_id = await converter.convert(
+            source_path=original_file_path,
+            target_format=req.target_format,
+            quality=req.options.get('quality', 'high'),
+            task_id=task_id,
+            log_queue=log_queue
+        )
+        
+        return ConvertResponse(
+            convert_id=convert_id,
+            status="processing",
+            message="Conversion started"
+        )
+        
+    except Exception as e:
+        logger.error(f"Start conversion failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Start conversion failed: {e}")
+
+
+@pdf_router.get("/convert/{task_id}/status/{convert_id}")
+async def get_convert_status(task_id: str, convert_id: str):
+    """Get conversion status"""
+    try:
+        from collabtrans.converter.format_converter import converter
+        
+        status = converter.get_conversion_status(convert_id)
+        
+        # If conversion is completed, add download URL
+        if status['status'] == 'completed':
+            status['download_url'] = f"/convert/{task_id}/download/{convert_id}"
+            status['filename'] = f"{Path(tasks_state.get(task_id, {}).get('original_filename', 'document')).stem}.{status.get('target_format', 'docx')}"
+            
+            # Log completion message
+            log_queue = tasks_log_queues.get(task_id)
+            if log_queue:
+                try:
+                    await log_queue.put("转换完成！文件已生成，可以下载。")
+                except Exception as e:
+                    logger.warning(f"Failed to send completion log: {e}")
+        
+        return status
+        
+    except Exception as e:
+        logger.error(f"Get conversion status failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Get conversion status failed: {e}")
+
+
+@pdf_router.get("/convert/{task_id}/download/{convert_id}")
+async def download_converted_file(task_id: str, convert_id: str):
+    """Download converted file"""
+    try:
+        from collabtrans.converter.format_converter import converter
+        
+        # Get converted file path
+        file_path = converter.get_conversion_file(convert_id)
+        if not file_path:
+            raise HTTPException(status_code=404, detail="Converted file not found or conversion not completed")
+        
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="Converted file no longer exists")
+        
+        # Get file info
+        file_stat = os.stat(file_path)
+        file_size = file_stat.st_size
+        
+        # Generate filename
+        original_filename = tasks_state.get(task_id, {}).get('original_filename', 'document')
+        file_stem = Path(original_filename).stem
+        target_format = converter.get_conversion_status(convert_id).get('target_format', 'docx')
+        download_filename = f"{file_stem}.{target_format}"
+        
+        # Return file
+        return FileResponse(
+            path=file_path,
+            filename=download_filename,
+            media_type='application/octet-stream'
+        )
+        
+    except Exception as e:
+        logger.error(f"Download converted file failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Download converted file failed: {e}")
+
 
 # --- 全局配置 ---
 tasks_state: Dict[str, Dict[str, Any]] = {}
@@ -336,6 +520,14 @@ async def lifespan(app: FastAPI):
     global_logger.propagate = False
     global_logger.setLevel(logging.INFO)
     print("应用启动完成，多任务状态已初始化。")
+
+    # 启动转换文件清理任务
+    try:
+        from collabtrans.converter.format_converter import cleanup_task
+        asyncio.create_task(cleanup_task())
+        print("转换文件清理任务已启动。")
+    except Exception as e:
+        print(f"启动转换文件清理任务失败: {e}")
 
     # 认证模块已在应用启动时初始化
     print(f"服务接口文档: http://127.0.0.1:{app.state.port_to_use}/docs")
@@ -815,6 +1007,14 @@ async def _perform_translation(
     temp_dir = None
 
     try:
+        # Handle convert_only tasks
+        if task_state.get('convert_only', False):
+            task_logger.info("转换专用任务，跳过翻译处理")
+            task_state["status_message"] = "转换任务准备完成"
+            task_state["download_ready"] = True
+            task_state["is_processing"] = False
+            task_state["task_end_time"] = time.time()
+            return
         # 1. 根据工作流类型选择合适的 Workflow Class
         workflow_class = WORKFLOW_DICT.get(payload.workflow_type)
         if not workflow_class:
@@ -1376,6 +1576,14 @@ async def _start_translation_task(
     if task_state.get("temp_dir") and os.path.isdir(task_state["temp_dir"]):
         shutil.rmtree(task_state["temp_dir"])
 
+    # Create temp directory and store file
+    temp_dir = tempfile.mkdtemp()
+    original_file_path = os.path.join(temp_dir, original_filename)
+    
+    # Write file content to temp directory
+    with open(original_file_path, 'wb') as f:
+        f.write(file_contents)
+    
     task_state.update({
         "is_processing": True,
         "status_message": "任务初始化中...", "error_flag": False, "download_ready": False,
@@ -1383,7 +1591,9 @@ async def _start_translation_task(
         "original_filename_stem": Path(original_filename).stem,
         "original_filename": original_filename,
         "task_start_time": time.time(), "task_end_time": 0, "current_task_ref": None,
-        "temp_dir": None, "downloadable_files": {}, "attachment_files": {},
+        "temp_dir": temp_dir, "downloadable_files": {}, "attachment_files": {},
+        "convert_only": payload.skip_translate,  # Use skip_translate as convert_only flag
+        "original_file_path": original_file_path,  # Store original file path
     })
 
     log_history = tasks_log_histories[task_id]
