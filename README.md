@@ -1,6 +1,6 @@
 # CollabTrans
 
-**Project Description**: This project is a fork of [DocuTranslate](https://github.com/xunbu/DocuTranslate), enhanced with collaborative translation features including multi-user support:
+**Project Description**: This project is a fork of [CollabTrans](https://github.com/zamp21/CollabTrans), enhanced with collaborative translation features including multi-user support:
 - 1, Authentication by using LDAP/LDAPS (user managed via LDAP server)
 - 2, Support HTTPS
 - 3, Glossary shared and management
@@ -11,7 +11,7 @@ TODO:
 - 2, Enhance the workflow to redact the document and replace the sensitive words with mask word in local inference server, and then recover the sensitive word after it's translated.
 
 
-If you are a desktop user, you can also download and try docutranslate instead.
+If you are a desktop user, you can also download and try collabtrans instead.
 
 
 
@@ -19,15 +19,15 @@ If you are a desktop user, you can also download and try docutranslate instead.
 
 
 <p align="center">
-  <img src="./DocuTranslate.png" alt="Project Logo" style="width: 150px">
+  <img src="./collabtrans.png" alt="Project Logo" style="width: 150px">
 </p>
 
 <h1 align="center">CollabTrans</h1>
 
 <p align="center">
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white&style=flat-square" alt="Python Version"></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/github/license/xunbu/docutranslate?style=flat-square" alt="License"></a>
-  <a href="https://github.com/opendatalab/DocuTranslate"><img src="https://img.shields.io/badge/Forked%20from-DocuTranslate-blue?style=flat-square" alt="Forked from DocuTranslate"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/github/license/zamp21/collabtrans?style=flat-square" alt="License"></a>
+  <a href="https://github.com/opendatalab/CollabTrans"><img src="https://img.shields.io/badge/Forked%20from-CollabTrans-blue?style=flat-square" alt="Forked from CollabTrans"></a>
 </p>
 
 <p align="center">
@@ -72,12 +72,12 @@ If you are a desktop user, you can also download and try docutranslate instead.
 ## All-in-One Packages
 
 For users who want to get started quickly, we provide all-in-one packages
-on [GitHub Releases](https://github.com/xunbu/docutranslate/releases). Simply download, unzip, and enter your AI
+on [GitHub Releases](https://github.com/zamp21/collabtrans/releases). Simply download, unzip, and enter your AI
 platform API-Key to start using.
 
-- **DocuTranslate**: Standard version, uses the online `minerU` engine to parse PDF documents. Choose this version if
+- **CollabTrans**: Standard version, uses the online `minerU` engine to parse PDF documents. Choose this version if
   you don't need local PDF parsing (recommended).
-- **DocuTranslate_full**: Full version, includes the built-in `docling` local PDF parsing engine. Choose this version if
+- **CollabTrans_full**: Full version, includes the built-in `docling` local PDF parsing engine. Choose this version if
   you need local PDF parsing.
 
 ## Installation
@@ -86,10 +86,10 @@ platform API-Key to start using.
 
 ```bash
 # Basic installation
-pip install docutranslate
+pip install collabtrans
 
 # To use docling for local PDF parsing
-pip install docutranslate[docling]
+pip install collabtrans[docling]
 ```
 
 ### Using uv
@@ -99,19 +99,19 @@ pip install docutranslate[docling]
 uv init
 
 # Basic installation
-uv add docutranslate
+uv add collabtrans
 
 # Install docling extension
-uv add docutranslate[docling]
+uv add collabtrans[docling]
 ```
 
 ### Using git
 
 ```bash
 # Initialize environment
-git clone https://github.com/xunbu/docutranslate.git
+git clone https://github.com/zamp21/collabtrans.git
 
-cd docutranslate
+cd collabtrans
 
 uv sync
 
@@ -219,7 +219,7 @@ python setup_first_deploy.py
 
 ## Core Concept: Workflow
 
-The core of the new DocuTranslate is the **Workflow**. Each workflow is a complete, end-to-end translation pipeline
+The core of the new CollabTrans is the **Workflow**. Each workflow is a complete, end-to-end translation pipeline
 designed specifically for a particular file type. You no longer interact with a monolithic class; instead, you select
 and configure a suitable workflow based on your file type.
 
@@ -254,20 +254,20 @@ and configure a suitable workflow based on your file type.
 
 ## Starting the Web UI and API Service
 
-For ease of use, DocuTranslate provides a full-featured Web interface and RESTful API.
+For ease of use, CollabTrans provides a full-featured Web interface and RESTful API.
 
 **Starting the Service:**
 
 ```bash
 # Start the service, listening on port 8010 by default
-docutranslate -i
+collabtrans -i
 
 # Start on a specific port
-docutranslate -i -p 8011
+collabtrans -i -p 8011
 
 # You can also specify the port via an environment variable
-export DOCUTRANSLATE_PORT=8011
-docutranslate -i
+export COLLABTRANS_PORT=8011
+collabtrans -i
 ```
 
 - **Interactive Interface**: After starting the service, please visit `http://127.0.0.1:8010` (or your specified port)
@@ -305,10 +305,10 @@ for translation. Here is an example using the asynchronous approach.
 
 ```python
 import asyncio
-from docutranslate.workflow.md_based_workflow import MarkdownBasedWorkflow, MarkdownBasedWorkflowConfig
-from docutranslate.converter.x2md.converter_mineru import ConverterMineruConfig
-from docutranslate.translator.ai_translator.md_translator import MDTranslatorConfig
-from docutranslate.exporter.md.md2html_exporter import MD2HTMLExporterConfig
+from collabtrans.workflow.md_based_workflow import MarkdownBasedWorkflow, MarkdownBasedWorkflowConfig
+from collabtrans.converter.x2md.converter_mineru import ConverterMineruConfig
+from collabtrans.translator.ai_translator.md_translator import MDTranslatorConfig
+from collabtrans.exporter.md.md2html_exporter import MD2HTMLExporterConfig
 
 
 async def main():
@@ -372,9 +372,9 @@ example using the asynchronous approach.
 
 ```python
 import asyncio
-from docutranslate.workflow.txt_workflow import TXTWorkflow, TXTWorkflowConfig
-from docutranslate.translator.ai_translator.txt_translator import TXTTranslatorConfig
-from docutranslate.exporter.txt.txt2html_exporter import TXT2HTMLExporterConfig
+from collabtrans.workflow.txt_workflow import TXTWorkflow, TXTWorkflowConfig
+from collabtrans.translator.ai_translator.txt_translator import TXTTranslatorConfig
+from collabtrans.exporter.txt.txt2html_exporter import TXT2HTMLExporterConfig
 
 
 async def main():
@@ -422,9 +422,9 @@ translated.
 ```python
 import asyncio
 
-from docutranslate.exporter.js.json2html_exporter import Json2HTMLExporterConfig
-from docutranslate.translator.ai_translator.json_translator import JsonTranslatorConfig
-from docutranslate.workflow.json_workflow import JsonWorkflowConfig, JsonWorkflow
+from collabtrans.exporter.js.json2html_exporter import Json2HTMLExporterConfig
+from collabtrans.translator.ai_translator.json_translator import JsonTranslatorConfig
+from collabtrans.workflow.json_workflow import JsonWorkflowConfig, JsonWorkflow
 
 
 async def main():
@@ -471,9 +471,9 @@ Here is an example using the asynchronous approach.
 ```python
 import asyncio
 
-from docutranslate.exporter.docx.docx2html_exporter import Docx2HTMLExporterConfig
-from docutranslate.translator.ai_translator.docx_translator import DocxTranslatorConfig
-from docutranslate.workflow.docx_workflow import DocxWorkflowConfig, DocxWorkflow
+from collabtrans.exporter.docx.docx2html_exporter import Docx2HTMLExporterConfig
+from collabtrans.translator.ai_translator.docx_translator import DocxTranslatorConfig
+from collabtrans.workflow.docx_workflow import DocxWorkflowConfig, DocxWorkflow
 
 
 async def main():
@@ -521,9 +521,9 @@ Here is an example using the asynchronous approach.
 ```python
 import asyncio
 
-from docutranslate.exporter.xlsx.xlsx2html_exporter import Xlsx2HTMLExporterConfig
-from docutranslate.translator.ai_translator.xlsx_translator import XlsxTranslatorConfig
-from docutranslate.workflow.xlsx_workflow import XlsxWorkflowConfig, XlsxWorkflow
+from collabtrans.exporter.xlsx.xlsx2html_exporter import Xlsx2HTMLExporterConfig
+from collabtrans.translator.ai_translator.xlsx_translator import XlsxTranslatorConfig
+from collabtrans.workflow.xlsx_workflow import XlsxWorkflowConfig, XlsxWorkflow
 
 
 async def main():
@@ -606,7 +606,7 @@ If you choose `docling` as the document parsing engine (`convert_engine="docling
 models from Hugging Face on first use.
 
 > A better option is to download `docling_artifact.zip`
-> from [GitHub releases](https://github.com/xunbu/docutranslate/releases) and unzip it to your working directory.
+> from [GitHub releases](https://github.com/zamp21/collabtrans/releases) and unzip it to your working directory.
 
 **Solution for network issues when downloading `docling` models:**
 
@@ -627,12 +627,12 @@ os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 
 2. **Offline use (download the model package in advance)**:
 
-* Download `docling_artifact.zip` from [GitHub Releases](https://github.com/xunbu/docutranslate/releases).
+* Download `docling_artifact.zip` from [GitHub Releases](https://github.com/zamp21/collabtrans/releases).
 * Unzip it to your project directory.
 * Specify the model path in the configuration (if the model is not in the same directory as the script):
 
 ```python
-from docutranslate.converter.x2md.converter_docling import ConverterDoclingConfig
+from collabtrans.converter.x2md.converter_docling import ConverterDoclingConfig
 
 converter_config = ConverterDoclingConfig(
     artifact="./docling_artifact",  # Point to the unzipped folder
@@ -644,7 +644,7 @@ converter_config = ConverterDoclingConfig(
 ## FAQ
 
 **Q: What if port 8010 is occupied?**
-A: Use the `-p` parameter to specify a new port, or set the `DOCUTRANSLATE_PORT` environment variable.
+A: Use the `-p` parameter to specify a new port, or set the `COLLABTRANS_PORT` environment variable.
 
 **Q: Does it support translation of scanned PDFs?**
 A: Yes. Please use the `mineru` parsing engine, which has powerful OCR capabilities.
@@ -664,19 +664,19 @@ A: It is entirely possible. You need to meet the following conditions:
 **Q: How does the PDF parsing cache mechanism work?**
 A: `MarkdownBasedWorkflow` automatically caches the results of document parsing (file to Markdown conversion) to avoid
 repeated parsing that consumes time and resources. The cache is stored in memory by default and records the last 10
-parses. You can modify the cache size using the `DOCUTRANSLATE_CACHE_NUM` environment variable.
+parses. You can modify the cache size using the `COLLABTRANS_CACHE_NUM` environment variable.
 
 **Q: How to make the software go through a proxy?**
 A: The software does not use a proxy by default. You can enable it by setting the environment variable
-`DOCUTRANSLATE_PROXY_ENABLED` to `true`.
+`COLLABTRANS_PROXY_ENABLED` to `true`.
 
 ## Star History
 
-<a href="https://www.star-history.com/#xunbu/docutranslate&Date">
+<a href="https://www.star-history.com/#zamp21/collabtrans&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=xunbu/docutranslate&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=xunbu/docutranslate&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=xunbu/docutranslate&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=zamp21/collabtrans&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=zamp21/collabtrans&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=zamp21/collabtrans&type=Date" />
  </picture>
 </a>
 

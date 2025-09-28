@@ -1,15 +1,15 @@
 <p align="center">
-  <img src="./DocuTranslate.png" alt="プロジェクトロゴ" style="width: 150px">
+  <img src="./collabtrans.png" alt="プロジェクトロゴ" style="width: 150px">
 </p>
 
-<h1 align="center">DocuTranslate</h1>
+<h1 align="center">CollabTrans</h1>
 
 <p align="center">
-  <a href="https://github.com/xunbu/docutranslate/stargazers"><img src="https://img.shields.io/github/stars/xunbu/docutranslate?style=flat-square&logo=github&color=blue" alt="GitHubスター"></a>
-  <a href="https://github.com/xunbu/docutranslate/releases"><img src="https://img.shields.io/github/downloads/xunbu/docutranslate/total?logo=github&style=flat-square" alt="GitHubダウンロード数"></a>
-  <a href="https://pypi.org/project/docutranslate/"><img src="https://img.shields.io/pypi/v/docutranslate?style=flat-square" alt="PyPIバージョン"></a>
+  <a href="https://github.com/zamp21/collabtrans/stargazers"><img src="https://img.shields.io/github/stars/zamp21/collabtrans?style=flat-square&logo=github&color=blue" alt="GitHubスター"></a>
+  <a href="https://github.com/zamp21/collabtrans/releases"><img src="https://img.shields.io/github/downloads/zamp21/collabtrans/total?logo=github&style=flat-square" alt="GitHubダウンロード数"></a>
+  <a href="https://pypi.org/project/collabtrans/"><img src="https://img.shields.io/pypi/v/collabtrans?style=flat-square" alt="PyPIバージョン"></a>
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white&style=flat-square" alt="Pythonバージョン"></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/github/license/xunbu/docutranslate?style=flat-square" alt="ライセンス"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/github/license/zamp21/collabtrans?style=flat-square" alt="ライセンス"></a>
 </p>
 
 <p align="center">
@@ -48,11 +48,11 @@
 
 ## 統合パッケージ
 
-すぐに使い始めたいユーザーのために、[GitHub Releases](https://github.com/xunbu/docutranslate/releases)
+すぐに使い始めたいユーザーのために、[GitHub Releases](https://github.com/zamp21/collabtrans/releases)
 で統合パッケージを提供しています。ダウンロードして解凍し、お使いのAIプラットフォームのAPIキーを入力するだけで使用を開始できます。
 
-- **DocuTranslate**: 標準版。オンラインの`minerU`エンジンを使用してPDFドキュメントを解析します。ローカルでのPDF解析が不要な場合はこちらを選択してください（推奨）。
-- **DocuTranslate_full**: 完全版。`docling`ローカルPDF解析エンジンを内蔵しています。ローカルでのPDF解析が必要な場合はこちらを選択してください。
+- **CollabTrans**: 標準版。オンラインの`minerU`エンジンを使用してPDFドキュメントを解析します。ローカルでのPDF解析が不要な場合はこちらを選択してください（推奨）。
+- **CollabTrans_full**: 完全版。`docling`ローカルPDF解析エンジンを内蔵しています。ローカルでのPDF解析が必要な場合はこちらを選択してください。
 
 ## インストール
 
@@ -60,10 +60,10 @@
 
 ```bash
 # 基本インストール
-pip install docutranslate
+pip install collabtrans
 
 # doclingでローカルPDF解析を使用する場合
-pip install docutranslate[docling]
+pip install collabtrans[docling]
 ```
 
 ### uvを使用
@@ -73,19 +73,19 @@ pip install docutranslate[docling]
 uv init
 
 # 基本インストール
-uv add docutranslate
+uv add collabtrans
 
 # docling拡張機能のインストール
-uv add docutranslate[docling]
+uv add collabtrans[docling]
 ```
 
 ### gitを使用
 
 ```bash
 # 環境の初期化
-git clone https://github.com/xunbu/docutranslate.git
+git clone https://github.com/zamp21/collabtrans.git
 
-cd docutranslate
+cd collabtrans
 
 uv sync
 
@@ -93,7 +93,7 @@ uv sync
 
 ## 中心的な概念：ワークフロー (Workflow)
 
-新バージョンのDocuTranslateの核心は**ワークフロー (Workflow)**
+新バージョンのCollabTransの核心は**ワークフロー (Workflow)**
 です。各ワークフローは、特定のファイルタイプ専用に設計された、完全なエンドツーエンドの翻訳パイプラインです。もはや巨大なクラスと対話するのではなく、ファイルタイプに応じて適切なワークフローを選択し、設定します。
 
 **基本的な使用手順は以下の通りです：**
@@ -126,20 +126,20 @@ uv sync
 
 ## Web UIとAPIサービスの起動
 
-DocuTranslateは、使いやすさを考慮して、フル機能のWebインターフェースとRESTful APIを提供しています。
+CollabTransは、使いやすさを考慮して、フル機能のWebインターフェースとRESTful APIを提供しています。
 
 **サービスの起動:**
 
 ```bash
 # サービスを起動、デフォルトはポート8010でリッスンします
-docutranslate -i
+collabtrans -i
 
 # ポートを指定して起動
-docutranslate -i -p 8011
+collabtrans -i -p 8011
 
 # 環境変数でポートを指定することも可能です
-export DOCUTRANSLATE_PORT=8011
-docutranslate -i
+export CollabTrans_PORT=8011
+collabtrans -i
 ```
 
 - **インタラクティブUI**: サービス起動後、ブラウザで `http://127.0.0.1:8010` (または指定したポート) にアクセスしてください。
@@ -153,10 +153,10 @@ docutranslate -i
 
 ```python
 import asyncio
-from docutranslate.workflow.md_based_workflow import MarkdownBasedWorkflow, MarkdownBasedWorkflowConfig
-from docutranslate.converter.x2md.converter_mineru import ConverterMineruConfig
-from docutranslate.translator.ai_translator.md_translator import MDTranslatorConfig
-from docutranslate.exporter.md.md2html_exporter import MD2HTMLExporterConfig
+from collabtrans.workflow.md_based_workflow import MarkdownBasedWorkflow, MarkdownBasedWorkflowConfig
+from collabtrans.converter.x2md.converter_mineru import ConverterMineruConfig
+from collabtrans.translator.ai_translator.md_translator import MDTranslatorConfig
+from collabtrans.exporter.md.md2html_exporter import MD2HTMLExporterConfig
 
 
 async def main():
@@ -219,9 +219,9 @@ if __name__ == "__main__":
 
 ```python
 import asyncio
-from docutranslate.workflow.txt_workflow import TXTWorkflow, TXTWorkflowConfig
-from docutranslate.translator.ai_translator.txt_translator import TXTTranslatorConfig
-from docutranslate.exporter.txt.txt2html_exporter import TXT2HTMLExporterConfig
+from collabtrans.workflow.txt_workflow import TXTWorkflow, TXTWorkflowConfig
+from collabtrans.translator.ai_translator.txt_translator import TXTTranslatorConfig
+from collabtrans.exporter.txt.txt2html_exporter import TXT2HTMLExporterConfig
 
 
 async def main():
@@ -268,9 +268,9 @@ if __name__ == "__main__":
 ```python
 import asyncio
 
-from docutranslate.exporter.js.json2html_exporter import Json2HTMLExporterConfig
-from docutranslate.translator.ai_translator.json_translator import JsonTranslatorConfig
-from docutranslate.workflow.json_workflow import JsonWorkflowConfig, JsonWorkflow
+from collabtrans.exporter.js.json2html_exporter import Json2HTMLExporterConfig
+from collabtrans.translator.ai_translator.json_translator import JsonTranslatorConfig
+from collabtrans.workflow.json_workflow import JsonWorkflowConfig, JsonWorkflow
 
 
 async def main():
@@ -317,9 +317,9 @@ if __name__ == "__main__":
 ```python
 import asyncio
 
-from docutranslate.exporter.docx.docx2html_exporter import Docx2HTMLExporterConfig
-from docutranslate.translator.ai_translator.docx_translator import DocxTranslatorConfig
-from docutranslate.workflow.docx_workflow import DocxWorkflowConfig, DocxWorkflow
+from collabtrans.exporter.docx.docx2html_exporter import Docx2HTMLExporterConfig
+from collabtrans.translator.ai_translator.docx_translator import DocxTranslatorConfig
+from collabtrans.workflow.docx_workflow import DocxWorkflowConfig, DocxWorkflow
 
 
 async def main():
@@ -367,9 +367,9 @@ if __name__ == "__main__":
 ```python
 import asyncio
 
-from docutranslate.exporter.xlsx.xlsx2html_exporter import Xlsx2HTMLExporterConfig
-from docutranslate.translator.ai_translator.xlsx_translator import XlsxTranslatorConfig
-from docutranslate.workflow.xlsx_workflow import XlsxWorkflowConfig, XlsxWorkflow
+from collabtrans.exporter.xlsx.xlsx2html_exporter import Xlsx2HTMLExporterConfig
+from collabtrans.translator.ai_translator.xlsx_translator import XlsxTranslatorConfig
+from collabtrans.workflow.xlsx_workflow import XlsxWorkflowConfig, XlsxWorkflow
 
 
 async def main():
@@ -451,7 +451,7 @@ if __name__ == "__main__":
 ドキュメント解析エンジンとして`docling`を選択した場合（`convert_engine="docling"`）、初回使用時にHugging
 Faceから必要なモデルがダウンロードされます。
 
-> より良い選択肢は、[github releases](https://github.com/xunbu/docutranslate/releases)から`docling_artifact.zip`
+> より良い選択肢は、[github releases](https://github.com/zamp21/collabtrans/releases)から`docling_artifact.zip`
 > をダウンロードし、作業ディレクトリに展開することです。
 
 **`docling`モデルのダウンロードに関するネットワーク問題の解決策:**
@@ -472,12 +472,12 @@ os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 
 2. **オフラインでの使用 (事前にモデルパッケージをダウンロード)**:
 
-* [GitHub Releases](https://github.com/xunbu/docutranslate/releases) から `docling_artifact.zip` をダウンロードします。
+* [GitHub Releases](https://github.com/zamp21/collabtrans/releases) から `docling_artifact.zip` をダウンロードします。
 * プロジェクトディレクトリに展開します。
 * 設定でモデルのパスを指定します（モデルがスクリプトと同じディレクトリにない場合）：
 
 ```python
-from docutranslate.converter.x2md.converter_docling import ConverterDoclingConfig
+from collabtrans.converter.x2md.converter_docling import ConverterDoclingConfig
 
 converter_config = ConverterDoclingConfig(
     artifact="./docling_artifact",  # 展開後のフォルダを指す
@@ -489,7 +489,7 @@ converter_config = ConverterDoclingConfig(
 ## FAQ
 
 **Q: ポート8010が使用中の場合はどうすればよいですか？**
-A: `-p` パラメータを使用して新しいポートを指定するか、`DOCUTRANSLATE_PORT` 環境変数を設定してください。
+A: `-p` パラメータを使用して新しいポートを指定するか、`CollabTrans_PORT` 環境変数を設定してください。
 
 **Q: スキャンされたPDFの翻訳はサポートしていますか？**
 A: はい、サポートしています。強力なOCR機能を持つ`mineru`解析エンジンを使用してください。
@@ -508,18 +508,18 @@ A: 完全に可能です。以下の条件を満たす必要があります：
 **Q: PDF解析のキャッシュメカニズムはどのように機能しますか？**
 A: `MarkdownBasedWorkflow`
 は、ドキュメント解析（ファイルからMarkdownへの変換）の結果を自動的にキャッシュし、時間とリソースの重複消費を防ぎます。キャッシュはデフォルトでメモリに保存され、直近10回の解析結果が記録されます。キャッシュ数は
-`DOCUTRANSLATE_CACHE_NUM`環境変数で変更できます。
+`COLLABTRANS_CACHE_NUM`環境変数で変更できます。
 
 **Q: ソフトウェアがプロキシ経由で通信するようにするにはどうすればよいですか？**
-A: デフォルトではプロキシを使用しません。環境変数`DOCUTRANSLATE_PROXY_ENABLED`を`true`に設定することで、プロキシ経由での通信が可能になります。
+A: デフォルトではプロキシを使用しません。環境変数`COLLABTRANS_PROXY_ENABLED`を`true`に設定することで、プロキシ経由での通信が可能になります。
 
 ## Star History
 
-<a href="https://www.star-history.com/#xunbu/docutranslate&Date">
+<a href="https://www.star-history.com/#zamp21/collabtrans&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=xunbu/docutranslate&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=xunbu/docutranslate&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=xunbu/docutranslate&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=zamp21/collabtrans&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=zamp21/collabtrans&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=zamp21/collabtrans&type=Date" />
  </picture>
 </a>
 
