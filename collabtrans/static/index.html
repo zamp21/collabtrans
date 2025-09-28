@@ -2118,39 +2118,58 @@ document.addEventListener('DOMContentLoaded', function() {
     const generateCardId = () => `card_${Math.random().toString(36).substring(2, 10)}`;
     
     // 新的配置保存函数（支持权限检查）
-    const saveToConfig = async (key, value) => {
-        try {
-            // 检查用户权限
-            if (!userPermissions || !canAccessSetting(key)) {
-                console.warn(`Access denied for setting: ${key}`);
-                showAccessDeniedMessage();
-                return false;
-            }
-            
-            const response = await fetch('/auth/app-config/setting', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                credentials: 'include',
-                body: JSON.stringify({ key, value })
-            });
-            
-            if (response.ok) {
-                // 更新本地缓存
-                if (appConfig) {
-                    appConfig[key] = value;
+    const saveToConfig = async (key, value, retries = 3) => {
+        for (let attempt = 1; attempt <= retries; attempt++) {
+            try {
+                // 检查用户权限
+                if (!userPermissions || !canAccessSetting(key)) {
+                    console.warn(`Access denied for setting: ${key}`);
+                    showAccessDeniedMessage();
+                    return false;
                 }
-                return true;
-            } else {
-                const error = await response.text();
-                console.error('Failed to save setting:', error);
-                return false;
+                
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
+                
+                const response = await fetch('/auth/app-config/setting', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                    signal: controller.signal,
+                    body: JSON.stringify({ key, value })
+                });
+                
+                clearTimeout(timeoutId);
+                
+                if (response.ok) {
+                    // 更新本地缓存
+                    if (appConfig) {
+                        appConfig[key] = value;
+                    }
+                    return true;
+                } else {
+                    const error = await response.text();
+                    console.error(`Failed to save setting (attempt ${attempt}):`, error);
+                    if (attempt === retries) return false;
+                }
+            } catch (e) {
+                console.error(`Save setting failed (attempt ${attempt}):`, e);
+                if (attempt === retries) {
+                    // 显示用户友好的错误信息
+                    if (e.name === 'AbortError') {
+                        console.error('Save setting timeout - please check your network connection');
+                    } else if (e.name === 'TypeError' && e.message.includes('NetworkError')) {
+                        console.error('Network error - please check if the server is running');
+                    }
+                    return false;
+                }
+                // 等待后重试
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
             }
-        } catch (e) {
-            console.error('Save setting failed:', e);
-            return false;
         }
+        return false;
     };
     
     // 从配置获取值
@@ -4070,7 +4089,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
-    async function downloadPdf(cardId) {
+    async function downloadPdf(cardId, retries = 2) {
         const { state } = tasks[cardId];
         if (!state.htmlUrl) return;
 
@@ -4080,49 +4099,97 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.appendChild(toast._element);
         toast.show();
 
-        try {
-            // 直接获取翻译后的 HTML 文本，避免服务端误拿到原文或下载触发
-            const htmlResp = await fetch(state.htmlUrl);
-            if (!htmlResp.ok) throw new Error('获取翻译后的HTML失败');
-            const htmlText = await htmlResp.text();
+        for (let attempt = 1; attempt <= retries; attempt++) {
+            try {
+                // 直接获取翻译后的 HTML 文本，避免服务端误拿到原文或下载触发
+                const htmlController = new AbortController();
+                const htmlTimeoutId = setTimeout(() => htmlController.abort(), 15000); // 15秒超时
+                
+                const htmlResp = await fetch(state.htmlUrl, { signal: htmlController.signal });
+                clearTimeout(htmlTimeoutId);
+                
+                if (!htmlResp.ok) throw new Error(`Failed to fetch HTML: ${htmlResp.status}`);
+                const htmlText = await htmlResp.text();
 
-            // 构建正确的base_url，确保图片和资源路径正确
-            const origin = location.origin;
-            const htmlUrlPath = new URL(state.htmlUrl, origin).pathname;
-            const baseUrl = origin + htmlUrlPath.substring(0, htmlUrlPath.lastIndexOf('/'));
-            
-            const resp = await fetch('/export/pdf/from-html', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    html: htmlText,
-                    base_url: baseUrl,
-                    file_name: (state.original_filename_stem || 'document') + '_translated',
-                    format: 'A4',
-                    margin_top: '10mm',
-                    margin_right: '10mm',
-                    margin_bottom: '10mm',
-                    margin_left: '10mm'
-                })
-            });
-            if (!resp.ok) throw new Error(await resp.text());
-            const blob = await resp.blob();
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${(state.original_filename_stem || 'document')}_translated.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            URL.revokeObjectURL(url);
-            a.remove();
-            toast._element.innerHTML = `<div class=\"toast-body\">PDF生成完成！</div>`;
-            setTimeout(() => toast.hide(), 2000);
-        } catch (err) {
-            console.error('PDF export failed:', err);
-            toast._element.innerHTML = `<div class=\"toast-body\">PDF生成失败: ${err.message}</div>`;
-            toast._element.classList.remove('bg-info');
-            toast._element.classList.add('bg-danger');
-            setTimeout(() => toast.hide(), 3000);
+                // 构建正确的base_url，确保图片和资源路径正确
+                const origin = location.origin;
+                const htmlUrlPath = new URL(state.htmlUrl, origin).pathname;
+                const baseUrl = origin + htmlUrlPath.substring(0, htmlUrlPath.lastIndexOf('/'));
+                
+                // 检查HTML内容大小，如果过大则截断
+                const maxHtmlSize = 5 * 1024 * 1024; // 5MB
+                let processedHtml = htmlText;
+                if (htmlText.length > maxHtmlSize) {
+                    console.warn(`HTML content too large (${htmlText.length} bytes), truncating...`);
+                    processedHtml = htmlText.substring(0, maxHtmlSize) + '<!-- Content truncated due to size -->';
+                }
+                
+                const pdfController = new AbortController();
+                const pdfTimeoutId = setTimeout(() => pdfController.abort(), 60000); // 60秒超时
+                
+                const resp = await fetch('/export/pdf/from-html', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    signal: pdfController.signal,
+                    body: JSON.stringify({
+                        html: processedHtml,
+                        base_url: baseUrl,
+                        file_name: (state.original_filename_stem || 'document') + '_translated',
+                        format: 'A4',
+                        margin_top: '10mm',
+                        margin_right: '10mm',
+                        margin_bottom: '10mm',
+                        margin_left: '10mm'
+                    })
+                });
+                
+                clearTimeout(pdfTimeoutId);
+                
+                if (!resp.ok) {
+                    const errorText = await resp.text();
+                    throw new Error(`PDF export failed: ${errorText}`);
+                }
+                
+                const blob = await resp.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${(state.original_filename_stem || 'document')}_translated.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                URL.revokeObjectURL(url);
+                a.remove();
+                
+                toast._element.innerHTML = `<div class=\"toast-body\">PDF生成完成！</div>`;
+                setTimeout(() => toast.hide(), 2000);
+                return; // 成功，退出重试循环
+                
+            } catch (err) {
+                console.error(`PDF export failed (attempt ${attempt}):`, err);
+                
+                if (attempt === retries) {
+                    // 最后一次尝试失败，显示错误
+                    let errorMessage = 'PDF生成失败';
+                    if (err.name === 'AbortError') {
+                        errorMessage = 'PDF生成超时，请检查网络连接或文档大小';
+                    } else if (err.name === 'TypeError' && err.message.includes('NetworkError')) {
+                        errorMessage = '网络错误，请检查服务器连接';
+                    } else if (err.message.includes('503')) {
+                        errorMessage = 'PDF导出服务不可用，请检查Playwright安装';
+                    } else {
+                        errorMessage = `PDF生成失败: ${err.message}`;
+                    }
+                    
+                    toast._element.innerHTML = `<div class=\"toast-body\">${errorMessage}</div>`;
+                    toast._element.classList.remove('bg-info');
+                    toast._element.classList.add('bg-danger');
+                    setTimeout(() => toast.hide(), 5000);
+                } else {
+                    // 重试前等待
+                    toast._element.innerHTML = `<div class=\"toast-body\">PDF生成失败，正在重试 (${attempt}/${retries})...</div>`;
+                    await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+                }
+            }
         }
     }
 
