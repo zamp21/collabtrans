@@ -207,7 +207,16 @@
     "loadingGlossaries": "加载中...",
     "personalGlossaryManageInfo": "个人术语表请在外层的\"My Glossary\"中管理",
     "saveGlossarySelectionBtn": "保存选择",
-    "noGlobalGlossariesAvailable": "暂无可用全局术语表"
+    "noGlobalGlossariesAvailable": "暂无可用全局术语表",
+    "promptsTitle": "提示词",
+    "glossaryTitle": "术语表",
+    "promptsDescription": "管理翻译提示词和自定义提示",
+    "glossaryDescription": "管理翻译术语表和词汇",
+    "addNewPromptTitle": "添加新提示词",
+    "promptDescriptionLabel": "提示词描述",
+    "promptTextLabel": "提示词文本",
+    "addPromptBtn": "添加提示词",
+    "promptListTitle": "提示词列表"
   },
   "en": {
     "ldapEnabledLabel": "Enable LDAP Login",
@@ -425,6 +434,15 @@
     "loadingGlossaries": "Loading...",
     "personalGlossaryManageInfo": "Personal glossaries are managed in the outer \"My Glossary\" section",
     "saveGlossarySelectionBtn": "Save Selection",
-    "noGlobalGlossariesAvailable": "No global glossaries available"
+    "noGlobalGlossariesAvailable": "No global glossaries available",
+    "promptsTitle": "Prompts",
+    "glossaryTitle": "Glossary",
+    "promptsDescription": "Manage translation prompts and custom prompts",
+    "glossaryDescription": "Manage translation glossaries and vocabulary",
+    "addNewPromptTitle": "Add New Prompt",
+    "promptDescriptionLabel": "Prompt Description",
+    "promptTextLabel": "Prompt Text",
+    "addPromptBtn": "Add Prompt",
+    "promptListTitle": "Prompt List"
   }
 }

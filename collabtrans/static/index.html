@@ -1087,7 +1087,7 @@ $.*"></textarea>
                                         data-bs-target="#collapsePrompt" aria-expanded="false"
                                         aria-controls="collapsePrompt">
                                     <strong id="promptSettingsTitle"><i
-                                            class="bi bi-chat-text me-2"></i><span data-i18n="promptSettingsTitle">6. Prompt</span></strong>
+                                            class="bi bi-chat-text me-2"></i><span data-i18n="promptSettingsTitle">6. Prompts</span></strong>
                                 </button>
                             </h2>
                             <div id="collapsePrompt" class="accordion-collapse collapse"
@@ -1133,14 +1133,6 @@ $.*"></textarea>
                                         </div>
                                     </div>
 
-                                    <!-- 预览区域 -->
-                                    <div class="mb-3 border-top pt-3">
-                                        <h6 class="mb-3" data-i18n="promptPreviewTitle">Prompt Preview</h6>
-                                        <div id="promptPreviewArea" class="border rounded p-3 bg-light" style="min-height: 100px;">
-                                            <p class="text-muted mb-0" data-i18n="promptPreviewPlaceholder">Select prompts and add custom prompt to see preview</p>
-                                        </div>
-                                        <div class="form-text mt-2" data-i18n="promptPreviewHelp">This shows how your prompts will be combined for translation</div>
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1736,8 +1728,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
-        // Save preference
+        // Save preference to both localStorage and backend
+        localStorage.setItem('ui_language', lang);
         saveToConfig('ui_language', lang);
+        
+        // Dispatch language change event for Settings page synchronization
+        window.dispatchEvent(new CustomEvent('languageChanged', {
+            detail: { language: lang }
+        }));
     }
 
     // 加载并渲染当前用户信息
@@ -5373,76 +5371,12 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Prompt manager initialized');
             // 加载提示词选择列表
             loadPromptSelectionList();
-            // 设置提示词预览更新
-            setupPromptPreviewUpdates();
         } else {
             console.error('PromptManager class not defined');
         }
     }
     
-    // 设置提示词预览更新
-    function setupPromptPreviewUpdates() {
-        // 监听自定义提示词输入框的变化
-        const customPromptTextarea = document.getElementById('custom_prompt');
-        if (customPromptTextarea) {
-            customPromptTextarea.addEventListener('input', updatePromptPreview);
-        }
-        
-        // 监听提示词选择的变化
-        const promptSelectionList = document.getElementById('promptSelectionList');
-        if (promptSelectionList) {
-            promptSelectionList.addEventListener('change', updatePromptPreview);
-        }
-    }
     
-    // 更新提示词预览
-    async function updatePromptPreview() {
-        const previewArea = document.getElementById('promptPreviewArea');
-        if (!previewArea) return;
-        
-        try {
-            // 获取选中的提示词集合
-            const response = await fetch('/auth/prompts/merged', {
-                method: 'GET',
-                credentials: 'include'
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                const selectedPrompts = data.prompts || {};
-                
-                // 获取用户自定义提示词
-                const customPrompt = document.getElementById('custom_prompt')?.value?.trim() || '';
-                
-                // 合并提示词
-                let mergedContent = '';
-                
-                // 添加选中的提示词内容
-                Object.values(selectedPrompts).forEach(prompt => {
-                    if (prompt && prompt.trim()) {
-                        mergedContent += prompt.trim() + '\n\n';
-                    }
-                });
-                
-                // 添加自定义提示词
-                if (customPrompt) {
-                    mergedContent += customPrompt.trim();
-                }
-                
-                // 显示预览
-                if (mergedContent.trim()) {
-                    previewArea.innerHTML = `<pre class="mb-0" style="white-space: pre-wrap; font-size: 0.9em;">${mergedContent.trim()}</pre>`;
-                } else {
-                    previewArea.innerHTML = '<p class="text-muted mb-0" data-i18n="promptPreviewEmpty">No prompts selected or custom prompt provided</p>';
-                }
-            } else {
-                previewArea.innerHTML = '<p class="text-muted mb-0" data-i18n="failedToLoadPrompts">Failed to load prompts</p>';
-            }
-        } catch (error) {
-            console.error('Failed to update prompt preview:', error);
-            previewArea.innerHTML = '<p class="text-muted mb-0" data-i18n="failedToLoadPrompts">Failed to load prompts</p>';
-        }
-    }
     
     // 加载提示词选择列表
     async function loadPromptSelectionList() {
