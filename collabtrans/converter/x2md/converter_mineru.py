@@ -52,17 +52,19 @@ client_async = httpx.AsyncClient(limits=limits, trust_env=False, timeout=timeout
 class ConverterMineru(X2MarkdownConverter):
     def __init__(self, config: ConverterMineruConfig):
         super().__init__(config=config)
-        self.mineru_token = config.mineru_token.strip()
+        self.mineru_token = (config.mineru_token or "").strip()
         self.formula = config.formula_ocr
         self.model_version = config.model_version
         self.attachments: list[AttachMent] = []
         
 
     def _get_header(self):
-        return {
-            'Content-Type': 'application/json',
-            "Authorization": f"Bearer {self.mineru_token}"
+        headers = {
+            'Content-Type': 'application/json'
         }
+        if self.mineru_token:
+            headers["Authorization"] = f"Bearer {self.mineru_token}"
+        return headers
 
     def _get_upload_data(self, document: Document):
         return {

@@ -136,10 +136,34 @@ async function generateLdapTestCmd() {
   const cacertPart = (protocol === 'ldaps' && tlsVerify && cacert) ? ` LDAPTLS_CACERT=${cacert}` : '';
   const finalCmd = `${cacertPart ? cacertPart + ' ' : ''}${baseCmd}${tlsPart} ${filter}`;
   
+  // 展示弹窗，供用户复制
   try {
-    await navigator.clipboard.writeText(finalCmd);
-    if (window.SettingsCore) {
-      window.SettingsCore.showNotification(window.SettingsCore.getText('ldapTestCmdCopied'), 'success');
+    const modalEl = document.getElementById('ldapCmdModal');
+    const output = document.getElementById('ldapCmdOutput');
+    const copyBtn = document.getElementById('copyLdapCmdBtn');
+    if (modalEl && output && copyBtn) {
+      output.value = finalCmd;
+      const modal = new bootstrap.Modal(modalEl);
+      modal.show();
+      const handler = async () => {
+        try {
+          await navigator.clipboard.writeText(output.value);
+          if (window.SettingsCore) {
+            window.SettingsCore.showNotification(window.SettingsCore.getText('ldapTestCmdCopied'), 'success');
+          }
+        } catch (e) {
+          if (window.SettingsCore) {
+            window.SettingsCore.showNotification(window.SettingsCore.getText('copyFailed'), 'error');
+          }
+        }
+      };
+      copyBtn.onclick = handler;
+    } else {
+      // 兜底：直接尝试复制
+      await navigator.clipboard.writeText(finalCmd);
+      if (window.SettingsCore) {
+        window.SettingsCore.showNotification(window.SettingsCore.getText('ldapTestCmdCopied'), 'success');
+      }
     }
   } catch (err) {
     if (window.SettingsCore) {
@@ -188,6 +212,8 @@ async function testLdapConnectivity() {
         ldap_tls_cacertfile: document.getElementById('ldapTlsCacertfile').value
       };
       
+      console.log('发送 LDAP 测试请求:', payload);
+      
       const resp = await fetch('/auth/test-ldap', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -195,7 +221,10 @@ async function testLdapConnectivity() {
         body: JSON.stringify(payload)
       });
       
+      console.log('LDAP 测试响应状态:', resp.status);
       const text = await resp.text();
+      console.log('LDAP 测试响应内容:', text);
+      
       modal.hide();
       
       if (window.SettingsCore) {
@@ -269,5 +298,63 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// Initialize login settings module (called by settings-core.js)
+function initLoginSettingsModule() {
+  console.log('Initializing login settings module');
+  
+  // Load LDAP configuration
+  loadLdapConfig();
+  
+  // Load session and security configuration
+  loadSessionSecurityConfig();
+  
+  // Setup event listeners
+  const ldapProtocol = document.getElementById('ldapProtocol');
+  if (ldapProtocol) {
+    ldapProtocol.addEventListener('change', updateLdapsUi);
+  }
+  
+  const saveLoginBtn = document.getElementById('saveLoginBtn');
+  if (saveLoginBtn) {
+    saveLoginBtn.addEventListener('click', () => saveLoginSettings(false));
+  }
+  
+  const genTestCmdBtn = document.getElementById('genLdapTestCmdBtn');
+  if (genTestCmdBtn) {
+    genTestCmdBtn.addEventListener('click', generateLdapTestCmd);
+  }
+  
+  const testConnectivityBtn = document.getElementById('runLdapConnectivityBtn');
+  if (testConnectivityBtn) {
+    testConnectivityBtn.addEventListener('click', testLdapConnectivity);
+    console.log('LDAP test button event listener added');
+  } else {
+    console.error('LDAP test button not found!');
+  }
+  
+  // Initialize password toggle buttons and set internationalized placeholders
+  if (window.SettingsCore) {
+    window.SettingsCore.initTogglePasswordButtons();
+    // Set internationalized placeholders
+    const elements = [
+      { id: 'ldapBindDnTemplate', attr: 'data-i18n-placeholder' },
+      { id: 'ldapUserFilter', attr: 'data-i18n-placeholder' },
+      { id: 'ldapTestPasswordInput', attr: 'data-i18n-placeholder' },
+      { id: 'ldapTestUsernameInput', attr: 'data-i18n-placeholder' },
+      { id: 'sessionMaxAgeInput', attr: 'data-i18n-placeholder' },
+      { id: 'maxLoginAttemptsInput', attr: 'data-i18n-placeholder' },
+      { id: 'loginAttemptWindowInput', attr: 'data-i18n-placeholder' }
+    ];
+    
+    elements.forEach(({ id, attr }) => {
+      const el = document.getElementById(id);
+      if (el && el.getAttribute(attr)) {
+        el.placeholder = window.SettingsCore.getText(el.getAttribute(attr)) || el.placeholder;
+      }
+    });
+  }
+}
+
 // Export functions for global access
 window.saveLoginSettings = saveLoginSettings;
+window.initLoginSettingsModule = initLoginSettingsModule;

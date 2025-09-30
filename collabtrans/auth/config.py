@@ -7,6 +7,7 @@ import logging
 from dataclasses import dataclass, asdict
 from typing import Optional
 from pathlib import Path
+import sys
 from ..config.secrets_manager import get_secrets_manager
 
 # 创建日志记录器
@@ -16,27 +17,43 @@ _AUTH_CONFIG_SINGLETON: Optional["AuthConfig"] = None
 
 
 def _resolve_auth_config_path(config_file: str = "auth_config.json") -> Path:
-    """解析并返回统一的 auth_config.json 绝对路径。
-    优先项目根目录（包目录上两级），确保读写同一文件。
+    """Resolve absolute path for auth_config.json with deployment-aware priority.
+
+    Priority:
+      1) /etc/collabtrans/auth_config.json (system)
+      2) Executable directory (PyInstaller) / same-dir as binary
+      3) Project root (development) fallback
     """
-    # 传入绝对路径则直接使用
+    # Absolute path: use directly
     p = Path(config_file)
     if p.is_absolute():
-        logger.info(f"[AuthConfig] 使用绝对路径: {p}")
+        logger.info(f"[AuthConfig] Using absolute path: {p}")
         return p
 
-    # 候选1：当前工作目录下
-    cwd_candidate = Path.cwd() / config_file
-    # 候选2：项目根目录（当前文件上两级：.../collabtrans/ -> 项目根）
-    project_root = Path(__file__).resolve().parents[2]
-    root_candidate = project_root / config_file
+    system_dir = Path("/etc/collabtrans")
+    system_cfg = system_dir / "auth_config.json"
+    if system_dir.exists() and system_cfg.exists():
+        logger.info(f"[AuthConfig] Using system config: {system_cfg}")
+        return system_cfg
 
-    # 读取时：优先已存在的文件路径；保存时：优先项目根
-    if cwd_candidate.exists() and not root_candidate.exists():
-        logger.info(f"[AuthConfig] Resolved working directory config: {cwd_candidate}")
-        return cwd_candidate
-    logger.debug(f"[AuthConfig] Resolved project root config: {root_candidate}")
-    return root_candidate
+    # Executable directory (PyInstaller)
+    if getattr(sys, 'frozen', False):
+        exe_dir = Path(os.path.dirname(sys.executable))
+        exe_cfg = exe_dir / "auth_config.json"
+        if exe_cfg.exists():
+            logger.info(f"[AuthConfig] Using executable directory config: {exe_cfg}")
+            return exe_cfg
+        # fallback to cwd if exists
+        cwd_cfg = Path.cwd() / "auth_config.json"
+        if cwd_cfg.exists():
+            logger.info(f"[AuthConfig] Using working directory config: {cwd_cfg}")
+            return cwd_cfg
+        # default to executable dir path
+        return exe_cfg
+
+    # Development: project root (two levels up from this file)
+    project_root = Path(__file__).resolve().parents[2]
+    return project_root / "auth_config.json"
 
 
 @dataclass
@@ -125,8 +142,45 @@ class AuthConfig:
         
         logger.debug(f"[AuthConfig] Attempting to read config from: {config_path}")
         if not config_path.exists():
-            logger.info(f"[AuthConfig] Config file {config_path} does not exist, using default config")
-            config = cls.from_env()
+            # Auto-create from template if available (system first)
+            system_dir = Path("/etc/collabtrans")
+            system_tpl = system_dir / "auth_config.json.template"
+            try:
+                if system_dir.exists() and system_tpl.exists():
+                    import shutil
+                    shutil.copy2(system_tpl, config_path)
+                    try:
+                        os.chmod(config_path, 0o640)
+                    except Exception:
+                        pass
+                    logger.info(f"[AuthConfig] First deployment: created {config_path} from template {system_tpl}")
+                else:
+                    # Try executable dir template in frozen mode
+                    if getattr(sys, 'frozen', False):
+                        exe_dir = Path(os.path.dirname(sys.executable))
+                        exe_tpl = exe_dir / "auth_config.json.template"
+                        if exe_tpl.exists():
+                            import shutil
+                            shutil.copy2(exe_tpl, config_path)
+                            try:
+                                os.chmod(config_path, 0o640)
+                            except Exception:
+                                pass
+                            logger.info(f"[AuthConfig] Created {config_path} from executable template {exe_tpl}")
+            except Exception as e:
+                logger.warning(f"[AuthConfig] Failed to create config from template: {e}")
+
+            if not config_path.exists():
+                logger.info(f"[AuthConfig] Config file {config_path} does not exist, using default config")
+                config = cls.from_env()
+            else:
+                try:
+                    with open(config_path, 'r', encoding='utf-8') as f:
+                        config_data = json.load(f)
+                    config = cls(**config_data)
+                except Exception as e:
+                    logger.error(f"[AuthConfig] Failed to load config file after creation: {e}, using default config")
+                    config = cls.from_env()
         else:
             try:
                 with open(config_path, 'r', encoding='utf-8') as f:
@@ -171,25 +225,39 @@ class AuthConfig:
             logger.warning(f"加载认证敏感配置失败: {e}")
     
     def save_to_file(self, config_file: str = "auth_config.json") -> bool:
-        """保存配置到文件（不包含敏感信息）"""
-        config_path = _resolve_auth_config_path(config_file)
-        logger.info(f"[AuthConfig] 准备写入配置到: {config_path}")
-        
+        """保存配置到文件（不包含敏感信息）
+
+        始终优先写入 /etc/collabtrans/auth_config.json（若系统目录存在），否则回落到传入路径。
+        """
         try:
+            system_dir = Path("/etc/collabtrans")
+            if system_dir.exists():
+                config_path = system_dir / "auth_config.json"
+            else:
+                config_path = _resolve_auth_config_path(config_file)
+
+            logger.info(f"[AuthConfig] 准备写入配置到: {config_path}")
+
             # 确保目录存在
             config_path.parent.mkdir(parents=True, exist_ok=True)
-            
+
             # 创建不包含敏感信息的配置副本（只写入新键名）
             config_dict = asdict(self)
-            
             # 移除敏感信息，这些信息保存在local_secrets.json中
             config_dict.pop("default_password", None)
             config_dict.pop("session_secret_key", None)
             config_dict.pop("redis_password", None)
-            
+
             with open(config_path, 'w', encoding='utf-8') as f:
                 json.dump(config_dict, f, indent=2, ensure_ascii=False)
-            
+
+            # 系统目录下设置保守权限
+            try:
+                if str(config_path).startswith(str(system_dir)):
+                    os.chmod(config_path, 0o640)
+            except Exception:
+                pass
+
             logger.info(f"[AuthConfig] 配置已保存到 {config_path}（不包含敏感信息）")
             return True
         except Exception as e:

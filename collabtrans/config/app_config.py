@@ -85,20 +85,62 @@ class AppConfig:
     theme: str = "auto"
     
     @classmethod
-    def load_from_file(cls, config_file: str = "app_config.json") -> "AppConfig":
-        """从文件加载配置"""
+    def _resolve_app_config_path(cls, config_file: str = "app_config.json") -> Path:
+        """解析 app_config.json 的实际读取路径，按优先级：
+        1) /etc/collabtrans/app_config.json
+        2) 可执行目录（PyInstaller）或当前工作目录
+        3) 项目根目录（开发环境）
+        如果传入的是绝对路径，直接返回。
+        """
+        p = Path(config_file)
+        if p.is_absolute():
+            logger.info(f"[AppConfig] Using absolute path: {p}")
+            return p
+
+        # 1) 系统目录优先
+        system_dir = Path("/etc/collabtrans")
+        system_cfg = system_dir / "app_config.json"
+        if system_dir.exists() and system_cfg.exists():
+            logger.info(f"[AppConfig] Using system config: {system_cfg}")
+            return system_cfg
+
+        # 2) 可执行目录（PyInstaller）或当前工作目录
         try:
-            if os.path.exists(config_file):
-                logger.info(f"正在从文件加载应用配置: {config_file}")
-                with open(config_file, 'r', encoding='utf-8') as f:
+            if getattr(__import__('sys'), 'frozen', False):
+                import sys as _sys
+                exe_dir = Path(os.path.dirname(_sys.executable))
+                exe_cfg = exe_dir / "app_config.json"
+                if exe_cfg.exists():
+                    logger.info(f"[AppConfig] Using executable directory config: {exe_cfg}")
+                    return exe_cfg
+                cwd_cfg = Path.cwd() / "app_config.json"
+                if cwd_cfg.exists():
+                    logger.info(f"[AppConfig] Using working directory config: {cwd_cfg}")
+                    return cwd_cfg
+                # 默认返回可执行目录的预期路径（可能用于后续写入）
+                return exe_cfg
+        except Exception:
+            pass
+
+        # 3) 项目根目录（开发环境）
+        project_root = Path(__file__).resolve().parents[2]
+        return project_root / "app_config.json"
+
+    @classmethod
+    def load_from_file(cls, config_file: str = "app_config.json") -> "AppConfig":
+        """从文件加载配置，遵循系统优先路径解析"""
+        try:
+            cfg_path = cls._resolve_app_config_path(config_file)
+            if cfg_path.exists():
+                logger.info(f"正在从文件加载应用配置: {cfg_path}")
+                with open(cfg_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                    # 创建配置实例并更新字段
                     config = cls()
                     config.update_from_dict(data)
                     logger.info("应用配置加载成功")
                     return config
             else:
-                logger.info(f"配置文件 {config_file} 不存在，使用默认配置")
+                logger.info(f"配置文件 {cfg_path} 不存在，使用默认配置")
                 return cls()
         except Exception as e:
             logger.error(f"加载应用配置失败: {e}")
@@ -171,7 +213,7 @@ class AppConfig:
 
     @classmethod
     def get_config(cls, config_file: str = "app_config.json") -> "AppConfig":
-        """获取配置，优先从文件加载"""
+        """获取配置，按优先级解析路径并加载"""
         return cls.load_from_file(config_file)
 
 

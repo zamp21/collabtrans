@@ -84,17 +84,57 @@ class GlobalConfig:
     def load_from_file(cls, config_file: str = "global_config.json") -> "GlobalConfig":
         """Load global configuration from JSON file and API keys from secrets file"""
         try:
-            if os.path.exists(config_file):
-                logger.info(f"Loading global configuration from: {config_file}")
-                with open(config_file, 'r', encoding='utf-8') as f:
+            # 配置文件优先级：
+            # 1. /etc/collabtrans/global_config.json (系统配置)
+            # 2. 可执行程序目录下的 global_config.json (打包的配置)
+            # 3. 当前目录下的 global_config.json (开发环境)
+            
+            system_config_file = "/etc/collabtrans/global_config.json"
+            system_dir_exists = os.path.exists("/etc/collabtrans")
+            
+            if system_dir_exists and os.path.exists(system_config_file):
+                logger.info(f"Loading global configuration from system config: {system_config_file}")
+                with open(system_config_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                    # Create config instance and update fields
                     config = cls()
                     config.update_from_dict(data)
-                    logger.info("Global configuration loaded successfully")
+                    logger.info("Global configuration loaded successfully from system config")
             else:
-                logger.warning(f"Global config file {config_file} not found, using empty configuration")
-                config = cls()
+                # 尝试从可执行程序目录加载配置文件
+                import sys
+                if getattr(sys, 'frozen', False):
+                    # PyInstaller打包环境
+                    exe_dir = os.path.dirname(sys.executable)
+                    exe_config_file = os.path.join(exe_dir, "global_config.json")
+                    if os.path.exists(exe_config_file):
+                        logger.info(f"Loading global configuration from executable directory: {exe_config_file}")
+                        with open(exe_config_file, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                            config = cls()
+                            config.update_from_dict(data)
+                            logger.info("Global configuration loaded successfully from executable directory")
+                    elif os.path.exists(config_file):
+                        logger.info(f"Loading global configuration from: {config_file}")
+                        with open(config_file, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                            config = cls()
+                            config.update_from_dict(data)
+                            logger.info("Global configuration loaded successfully")
+                    else:
+                        logger.warning(f"Global config file not found in {exe_config_file} or {config_file}, using empty configuration")
+                        config = cls()
+                else:
+                    # 开发环境
+                    if os.path.exists(config_file):
+                        logger.info(f"Loading global configuration from: {config_file}")
+                        with open(config_file, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                            config = cls()
+                            config.update_from_dict(data)
+                            logger.info("Global configuration loaded successfully")
+                    else:
+                        logger.warning(f"Global config file not found in {config_file}, using empty configuration")
+                        config = cls()
             
             # Load API keys and other sensitive information from secrets file
             config._load_secrets()
@@ -121,17 +161,40 @@ class GlobalConfig:
             logger.warning(f"Failed to load secrets config: {e}")
     
     def save_to_file(self, config_file: str = "global_config.json") -> bool:
-        """Save global configuration to file (excluding sensitive information)"""
+        """Save global configuration to file (excluding sensitive information)
+
+        Always writes to system config if available: /etc/collabtrans/global_config.json
+        """
         try:
-            # Get configuration dictionary in new format (API keys are not included)
+            # Determine target path with system-first policy
+            system_dir = "/etc/collabtrans"
+            target_path = None
+            try:
+                if os.path.exists(system_dir):
+                    target_path = os.path.join(system_dir, "global_config.json")
+            except Exception:
+                target_path = None
+            if target_path is None:
+                target_path = config_file
+
+            # Prepare dictionary without sensitive info
             config_dict = self.get_config_dict(include_api_keys=False)
-            
-            # Remove other sensitive information
             config_dict.pop("translator_mineru_token", None)
-            
-            with open(config_file, 'w', encoding='utf-8') as f:
+
+            # Ensure directory exists
+            Path(os.path.dirname(target_path)).mkdir(parents=True, exist_ok=True)
+
+            with open(target_path, 'w', encoding='utf-8') as f:
                 json.dump(config_dict, f, ensure_ascii=False, indent=2)
-            logger.info(f"Global configuration saved to: {config_file} (excluding sensitive information)")
+
+            # Set conservative permissions if writing to system dir
+            try:
+                if target_path.startswith(system_dir):
+                    os.chmod(target_path, 0o640)
+            except Exception:
+                pass
+
+            logger.info(f"Global configuration saved to: {target_path} (excluding sensitive information)")
             return True
         except Exception as e:
             logger.error(f"Failed to save global configuration: {e}")

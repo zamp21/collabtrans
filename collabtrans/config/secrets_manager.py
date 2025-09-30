@@ -3,6 +3,7 @@
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Dict, Any, Optional
 
@@ -20,12 +21,61 @@ class SecretsManager:
         Args:
             secrets_file: 敏感配置文件路径
         """
-        # 将相对路径固定到仓库根目录，避免工作目录变化导致写入到错误位置
-        # 目录层级：.../collabtrans/collabtrans/config/secrets_manager.py
-        # parents[0]=config, [1]=collabtrans(包), [2]=collabtrans(仓库根)
-        proj_root = Path(__file__).resolve().parents[2]
-        sf = Path(secrets_file)
-        self.secrets_file = sf if sf.is_absolute() else (proj_root / sf)
+        # 配置文件优先级：
+        # 1. /etc/collabtrans/local_secrets.json (系统配置)
+        # 2. 可执行程序目录下的 local_secrets.json (打包的配置)
+        # 3. 当前目录下的 local_secrets.json (开发环境)
+        
+        system_secrets_file = "/etc/collabtrans/local_secrets.json"
+        system_secrets_template = "/etc/collabtrans/local_secrets.json.template"
+        system_dir_exists = os.path.exists("/etc/collabtrans")
+        
+        if system_dir_exists:
+            if os.path.exists(system_secrets_file):
+                self.secrets_file = Path(system_secrets_file)
+                logger.info(f"Using system secrets config: {system_secrets_file}")
+            else:
+                # Auto-create from template if available
+                if os.path.exists(system_secrets_template):
+                    try:
+                        import shutil
+                        shutil.copy2(system_secrets_template, system_secrets_file)
+                        # Set conservative permissions: rw-r----- (0640)
+                        try:
+                            os.chmod(system_secrets_file, 0o640)
+                        except Exception:
+                            pass
+                        self.secrets_file = Path(system_secrets_file)
+                        logger.info(
+                            f"First deployment: created {system_secrets_file} from template {system_secrets_template}"
+                        )
+                    except Exception as copy_err:
+                        logger.warning(
+                            f"Failed to create system secrets from template: {copy_err}. Will try other locations."
+                        )
+                # If still not set, fall through to other locations
+        else:
+            # 尝试从可执行程序目录加载配置文件
+            import sys
+            if getattr(sys, 'frozen', False):
+                # PyInstaller打包环境
+                exe_dir = os.path.dirname(sys.executable)
+                exe_secrets_file = os.path.join(exe_dir, "local_secrets.json")
+                if os.path.exists(exe_secrets_file):
+                    self.secrets_file = Path(exe_secrets_file)
+                    logger.info(f"Using executable directory secrets config: {exe_secrets_file}")
+                else:
+                    # 将相对路径固定到仓库根目录，避免工作目录变化导致写入到错误位置
+                    proj_root = Path(__file__).resolve().parents[2]
+                    sf = Path(secrets_file)
+                    self.secrets_file = sf if sf.is_absolute() else (proj_root / sf)
+                    logger.info(f"Using local secrets config: {self.secrets_file}")
+            else:
+                # 开发环境
+                proj_root = Path(__file__).resolve().parents[2]
+                sf = Path(secrets_file)
+                self.secrets_file = sf if sf.is_absolute() else (proj_root / sf)
+                logger.info(f"Using local secrets config: {self.secrets_file}")
         self._secrets_cache: Optional[Dict[str, Any]] = None
         
     def load_secrets(self) -> Dict[str, Any]:
@@ -39,7 +89,21 @@ class SecretsManager:
             return self._secrets_cache
             
         if not self.secrets_file.exists():
-            logger.warning(f"敏感配置文件 {self.secrets_file} 不存在，使用空配置")
+            # 在PyInstaller环境中，避免指向 /tmp/_MEI* 目录
+            try:
+                import sys as _sm_sys
+                if getattr(_sm_sys, 'frozen', False):
+                    exe_dir = Path(os.path.dirname(_sm_sys.executable))
+                    fallback = exe_dir / self.secrets_file.name
+                    if fallback != self.secrets_file:
+                        logger.debug(f"Secrets file not found at {self.secrets_file}, trying executable dir: {fallback}")
+                        if fallback.exists():
+                            self.secrets_file = fallback
+            except Exception:
+                pass
+
+        if not self.secrets_file.exists():
+            logger.warning(f"Secrets file {self.secrets_file} not found, using empty configuration")
             self._secrets_cache = {}
             return self._secrets_cache
             

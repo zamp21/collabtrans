@@ -40,8 +40,9 @@ auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
 # 创建不带前缀的兼容性路由器
 auth_compat_router = APIRouter(tags=["Authentication"])
 
-# 模板目录
-templates = Jinja2Templates(directory="collabtrans/template")
+# 模板目录：使用资源路径解析，兼容开发与PyInstaller
+from ..utils.resource_utils import resource_path
+templates = Jinja2Templates(directory=str(resource_path("template")))
 
 # 全局变量（在实际应用中应该通过依赖注入）
 _auth_config: Optional[AuthConfig] = None
@@ -388,36 +389,36 @@ async def test_ldap_connection(request: Request, payload: dict):
         # 检查组查询状态
         if groups_enabled:
             
-            # 获取用户的组成员信息
+            # 获取用户的组成员信息（统一使用 ldap3，避免与 python-ldap API 混用）
             try:
-                import ldap
+                from ldap3 import SUBTREE as _LDAP3_SUBTREE
                 conn = client._get_connection()
                 user_filter = temp_config.ldap_user_filter.format(username=username)
-                result = conn.search_s(
-                    temp_config.ldap_base_dn,
-                    ldap.SCOPE_SUBTREE,
-                    user_filter,
-                    ['sAMAccountName', 'displayName', 'mail', 'cn', 'memberOf']
+                conn.search(
+                    search_base=temp_config.ldap_base_dn,
+                    search_filter=user_filter,
+                    search_scope=_LDAP3_SUBTREE,
+                    attributes=['sAMAccountName', 'displayName', 'mail', 'cn', 'memberOf']
                 )
-                
-                if result:
-                    dn, attrs = result[0]
+
+                if conn.entries:
+                    user_entry = conn.entries[0]
                     is_admin_member = False
                     is_glossary_member = False
-                    
+
                     # 检查管理员组
                     if temp_config.ldap_admin_group_enabled:
-                        is_admin_member = client._check_admin_group_membership(conn, dn, attrs)
-                    
+                        is_admin_member = client._check_admin_group_membership(conn, user_entry)
+
                     # 检查术语表组
                     if temp_config.ldap_glossary_group_enabled:
-                        is_glossary_member = client._check_user_group_membership(conn, dn, attrs)
-                    
+                        is_glossary_member = client._check_user_group_membership(conn, user_entry)
+
                     if is_admin_member:
                         groups_codes.append('admin')
                     if is_glossary_member:
                         groups_codes.append('glossary')
-                        
+
             except Exception as e:
                 logger.warning(f"获取组成员信息时发生错误: {e}")
         

@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2025 QinHan
 # SPDX-License-Identifier: MPL-2.0
 import asyncio
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Self, Tuple, Type
@@ -12,9 +13,11 @@ from collabtrans.glossary.glossary import Glossary
 from collabtrans.ir.document import Document
 from collabtrans.ir.markdown_document import MarkdownDocument
 
+# 在lite版本中禁用docling导入，但balance版本需要
 if DOCLING_EXIST:
     from collabtrans.converter.x2md.converter_docling import ConverterDoclingConfig, ConverterDocling
 from collabtrans.converter.converter_identity import ConverterIdentity
+# 在lite版本中禁用MinerU导入，但balance版本需要
 from collabtrans.converter.x2md.converter_mineru import ConverterMineruConfig, ConverterMineru
 from collabtrans.converter.x2md.base import X2MarkdownConverterConfig, X2MarkdownConverter
 from collabtrans.exporter.md.md2html_exporter import MD2HTMLExporterConfig, MD2HTMLExporter
@@ -39,11 +42,13 @@ class MarkdownBasedWorkflow(Workflow[MarkdownBasedWorkflowConfig, Document, Mark
                             MDFormatsExportable[ExporterConfig]):
     _converter_factory: dict[
         ConvertEngineType, Tuple[Type[X2MarkdownConverter|ConverterIdentity], Type[X2MarkdownConverterConfig]] | None] = {
-        "mineru": (ConverterMineru, ConverterMineruConfig),
         "identity": (ConverterIdentity, None)
     }
+    
+    # 添加可选转换器（balance版本需要）
     if DOCLING_EXIST:
         _converter_factory["docling"] = (ConverterDocling, ConverterDoclingConfig)
+    _converter_factory["mineru"] = (ConverterMineru, ConverterMineruConfig)
 
     def __init__(self, config: MarkdownBasedWorkflowConfig):
         super().__init__(config=config)

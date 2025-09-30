@@ -611,7 +611,8 @@ DocuTranslate 后端服务 API，提供文档翻译、状态查询、结果下�
 
 service_router = APIRouter(prefix="/service", tags=["Service API"])
 STATIC_DIR = resource_path("static")
-I18N_DIR = Path(__file__).parent / "i18n"
+# Use resource_path to resolve i18n directory in both dev and PyInstaller
+I18N_DIR = resource_path("i18n")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/i18n", StaticFiles(directory=I18N_DIR), name="i18n")
 
@@ -1055,12 +1056,15 @@ async def _perform_translation(
                 if args.get('api_key'):
                     return args
 
-                from .config.secrets_manager import get_secrets_manager
-                from .config.global_config import get_global_config
+                from collabtrans.config.secrets_manager import get_secrets_manager
+                from collabtrans.config.global_config import get_global_config
                 secrets = get_secrets_manager()
                 global_conf = get_global_config()
 
                 base_url = (args.get('base_url') or '').lower()
+                logger.info(f"[DEBUG] inject_global_api_key - base_url: {base_url}")
+                logger.info(f"[DEBUG] inject_global_api_key - args: {args}")
+                
                 platform_key = None
                 # 基于base_url的粗略平台识别
                 if 'deepseek' in base_url:
@@ -1076,15 +1080,18 @@ async def _perform_translation(
                 elif 'ark.' in base_url or 'volcengine' in base_url:
                     platform_key = 'volcengine_ark'
 
+                logger.info(f"[DEBUG] inject_global_api_key - detected platform_key: {platform_key}")
+
                 # 仅从敏感配置读取 API Key
                 api_keys = secrets.get_api_keys() or {}
                 key = api_keys.get(platform_key) if platform_key else None
                 if key:
                     args['api_key'] = key
+                    logger.info(f"[DEBUG] inject_global_api_key - injected API key for platform: {platform_key}")
                 else:
                     logger.warning(f"未找到平台 {platform_key or 'unknown'} 的API Key，请在管理员界面保存对应平台的Key")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"[DEBUG] inject_global_api_key - error: {e}")
             return args
 
         # 辅助函数：构建术语表生成配置
@@ -1139,7 +1146,7 @@ async def _perform_translation(
                 # 检查token是否为空或长度不足（正常的JWT token应该有400+字符）
                 if not mineru_token or len(mineru_token) < 100:
                     try:
-                        from .config.secrets_manager import get_secrets_manager
+                        from collabtrans.config.secrets_manager import get_secrets_manager
                         sm = get_secrets_manager()
                         mineru_token = sm.get_mineru_token() or ""
                     except Exception as e:
@@ -2276,17 +2283,62 @@ def find_free_port(start_port):
 
 def run_app(port: int | None = None):
     # 首次部署时自动创建local_secrets.json文件
-    local_secrets_path = os.path.join(os.getcwd(), "local_secrets.json")
-    local_secrets_template_path = os.path.join(os.getcwd(), "local_secrets.json.template")
+    # 配置文件优先级：
+    # 1. /etc/collabtrans/local_secrets.json (系统配置)
+    # 2. 可执行程序目录下的 local_secrets.json (打包的配置)
+    # 3. 当前目录下的 local_secrets.json (开发环境)
     
-    if not os.path.exists(local_secrets_path) and os.path.exists(local_secrets_template_path):
-        try:
-            import shutil
-            shutil.copy2(local_secrets_template_path, local_secrets_path)
-            print("First deployment: Automatically created local_secrets.json configuration file")
-            print("Please edit local_secrets.json file to set your API keys and admin password")
-        except Exception as e:
-            print(f"Failed to automatically create local_secrets.json: {e}")
+    system_secrets_path = "/etc/collabtrans/local_secrets.json"
+    system_dir_exists = os.path.exists("/etc/collabtrans")
+    
+    # 确定配置文件路径
+    if system_dir_exists and os.path.exists(system_secrets_path):
+        secrets_path = system_secrets_path
+        print(f"Using system secrets config: {secrets_path}")
+    else:
+        # 尝试从可执行程序目录加载配置文件
+        import sys
+        if getattr(sys, 'frozen', False):
+            # PyInstaller打包环境
+            exe_dir = os.path.dirname(sys.executable)
+            exe_secrets_path = os.path.join(exe_dir, "local_secrets.json")
+            if os.path.exists(exe_secrets_path):
+                secrets_path = exe_secrets_path
+                print(f"Using executable directory secrets config: {secrets_path}")
+            else:
+                secrets_path = os.path.join(os.getcwd(), "local_secrets.json")
+                print(f"Using local secrets config: {secrets_path}")
+        else:
+            # 开发环境
+            secrets_path = os.path.join(os.getcwd(), "local_secrets.json")
+            print(f"Using local secrets config: {secrets_path}")
+    
+    # 检查是否需要创建配置文件
+    if not os.path.exists(secrets_path):
+        # 确定模板文件路径
+        system_template_path = "/etc/collabtrans/local_secrets.json.template"
+        exe_template_path = os.path.join(os.path.dirname(sys.executable), "local_secrets.json.template") if getattr(sys, 'frozen', False) else None
+        local_template_path = os.path.join(os.getcwd(), "local_secrets.json.template")
+        
+        # 按优先级选择模板文件
+        template_path = None
+        if system_dir_exists and os.path.exists(system_template_path):
+            template_path = system_template_path
+        elif exe_template_path and os.path.exists(exe_template_path):
+            template_path = exe_template_path
+        elif os.path.exists(local_template_path):
+            template_path = local_template_path
+        
+        if template_path:
+            try:
+                import shutil
+                shutil.copy2(template_path, secrets_path)
+                print(f"First deployment: Automatically created {secrets_path} from template")
+                print("Please edit this file to set your API keys and admin password")
+            except Exception as e:
+                print(f"Failed to automatically create {secrets_path}: {e}")
+        else:
+            print("Warning: No local_secrets.json.template found for first deployment setup")
     
     initial_port = port or int(os.environ.get("DOCUTRANSLATE_PORT", 8010))
     try:

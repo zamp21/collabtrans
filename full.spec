@@ -39,7 +39,14 @@ except Exception as _e:
 # 然后添加您的自定义资源（避免重复）
 custom_datas = [
     ('./collabtrans/static', 'collabtrans/static'),
-    ('./collabtrans/template', 'collabtrans/template')
+    ('./collabtrans/template', 'collabtrans/template'),
+    ('./collabtrans/i18n', 'collabtrans/i18n'),  # 添加i18n目录
+    ('./collabtrans/static/favicon.ico', 'collabtrans/favicon.ico'),
+    ('./global_config.json', '.'),  # 全局配置文件
+    ('./app_config.json', '.'),  # 应用配置文件（默认，运行时优先 /etc）
+    ('./local_secrets.json.template', '.'),  # 本地密钥模板文件
+    ('./setup_secrets.py', '.'),  # 敏感配置初始化脚本
+    ('./setup_first_deploy.py', '.')  # 首次部署设置脚本
 ]
 
 # 避免添加重复的数据
@@ -55,7 +62,7 @@ a = Analysis(
     hiddenimports=list(set(hiddenimports)),  # 去重
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=['hook-numpy-fix.py'],
     excludes=[],
     noarchive=False,
     optimize=0,

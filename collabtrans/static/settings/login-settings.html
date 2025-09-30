@@ -143,3 +143,23 @@
     </div>
   </div>
 </div>
+
+<!-- LDAP command modal for copy -->
+<div class="modal fade" id="ldapCmdModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">LDAP 测试命令</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">请复制并在终端执行：</div>
+        <textarea id="ldapCmdOutput" class="form-control" rows="5" readonly></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">关闭</button>
+        <button type="button" class="btn btn-primary" id="copyLdapCmdBtn">复制命令</button>
+      </div>
+    </div>
+  </div>
+  </div>

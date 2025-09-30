@@ -8,13 +8,7 @@ from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 
-from docling.datamodel.base_models import InputFormat
-from docling.datamodel.document import DocumentStream
-from docling.datamodel.pipeline_options import PdfPipelineOptions
-from docling.datamodel.settings import settings
-from docling.document_converter import DocumentConverter, PdfFormatOption
-from docling_core.types.doc import ImageRefMode
-from huggingface_hub.errors import LocalEntryNotFoundError
+from typing import Any
 
 from collabtrans.converter.x2md.base import X2MarkdownConverter, X2MarkdownConverterConfig
 from collabtrans.ir.attachment_manager import AttachMent
@@ -51,6 +45,8 @@ class ConverterDocling(X2MarkdownConverter):
         assert isinstance(document.name, str)
         self.logger.info(f"Converting document to markdown")
         time1 = time.time()
+        # Lazy import to avoid triggering heavy third-party imports at module import time
+        from docling.datamodel.document import DocumentStream
         document_stream = DocumentStream(name=document.name, stream=BytesIO(document.content))
         content = self.file2markdown_embed_images(document_stream)
         self.logger.info(f"Document converted to markdown, time taken: {time.time() - time1} seconds")
@@ -68,7 +64,21 @@ class ConverterDocling(X2MarkdownConverter):
         return [".pdf", ".docx", ".pptx", ".xlsx", ".md", "html", "xhtml", "csv", ".png", ".jpg", ".jpeg", ".tiff",
                 ".bmp", ".webp"]
 
-    def file2markdown_embed_images(self, file_path: Path | str | DocumentStream) -> str:
+    def file2markdown_embed_images(self, file_path: Path | str | Any) -> str:
+        # Lazy imports here to avoid early NumPy/docling initialization in frozen apps
+        import numpy as _np
+        from docling.datamodel.base_models import InputFormat
+        from docling.datamodel.pipeline_options import PdfPipelineOptions
+        from docling.datamodel.settings import settings
+        from docling.document_converter import DocumentConverter, PdfFormatOption
+        from docling_core.types.doc import ImageRefMode
+        from huggingface_hub.errors import LocalEntryNotFoundError
+
+        try:
+            self.logger.info(f"NumPy runtime: version={_np.__version__}, path={getattr(_np, '__file__', 'builtin')}")
+        except Exception:
+            pass
+
         pipeline_options = PdfPipelineOptions(artifacts_path=self.artifact)
         pipeline_options.do_ocr = False
         pipeline_options.images_scale = IMAGE_RESOLUTION_SCALE
