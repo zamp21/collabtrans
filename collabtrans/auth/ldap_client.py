@@ -115,9 +115,9 @@ class LDAPClient:
             bind_dn = self.config.ldap_bind_dn_template.format(username=username)
             logger.info(f"构建的绑定DN: {_mask_username(bind_dn)}")
             
-            # 尝试绑定
+            # 尝试绑定（注意：ldap3 的 bind() 不接收用户名/密码，应使用 rebind()）
             logger.info("正在尝试LDAP绑定...")
-            if not conn.bind(bind_dn, password):
+            if not conn.rebind(user=bind_dn, password=password):
                 logger.warning(f"LDAP绑定失败: {conn.last_error}")
                 raise InvalidCredentials("Invalid username or password")
             logger.info("LDAP绑定成功")
@@ -138,7 +138,12 @@ class LDAPClient:
             logger.info(f"搜索返回结果数量: {len(conn.entries)}")
             if conn.entries:
                 logger.info(f"找到用户，DN: {conn.entries[0].entry_dn}")
-                logger.info(f"用户属性: {list(conn.entries[0].entry_attributes.keys())}")
+                try:
+                    attrs_keys = list(conn.entries[0].entry_attributes_as_dict.keys())
+                except Exception:
+                    # 兼容性兜底
+                    attrs_keys = []
+                logger.info(f"用户属性: {attrs_keys}")
             
             if not conn.entries:
                 logger.warning("未找到匹配的用户")
