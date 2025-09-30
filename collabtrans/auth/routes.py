@@ -136,13 +136,12 @@ async def login(
     """处理登录请求"""
     config = get_auth_config()
     session_manager = get_session_manager()
-    ldap_client = get_ldap_client()
     
     # 获取客户端IP
     client_ip = request.client.host if request.client else "unknown"
     
     logger.info(f"收到登录请求 - 用户: {_mask_username(username)}, IP: {client_ip}")
-    logger.info(f"认证配置 - LDAP启用: {config.ldap_enabled}, LDAP客户端: {ldap_client is not None}")
+    logger.info(f"认证配置 - LDAP启用: {config.ldap_enabled}")
     
     # 检查登录尝试次数
     attempts = session_manager.get_login_attempts(client_ip)
@@ -178,10 +177,18 @@ async def login(
             else:
                 logger.warning(f"admin用户认证失败: {_mask_username(username)}")
                 raise InvalidCredentials("Invalid username or password")
-        elif config.ldap_enabled and ldap_client:
-            # 非admin用户使用LDAP认证
+        elif config.ldap_enabled:
+            # 非admin用户使用LDAP认证（统一使用 ldap3 客户端，避免可用性标志差异）
             logger.info(f"使用LDAP认证用户: {_mask_username(username)}")
-            user = ldap_client.authenticate(username, password)
+            try:
+                from .ldap_client import LDAPClient
+                ldap3_client = LDAPClient(config)
+                user = ldap3_client.authenticate(username, password)
+            finally:
+                try:
+                    ldap3_client.close()
+                except Exception:
+                    pass
             logger.info(f"LDAP认证成功，用户: {_mask_username(username)}")
         else:
             # LDAP禁用且不是admin用户

@@ -147,12 +147,32 @@ class AppConfig:
             return cls()
     
     def save_to_file(self, config_file: str = "app_config.json") -> bool:
-        """保存配置到文件"""
+        """保存配置到文件
+
+        优先写入 /etc/collabtrans/app_config.json（若系统目录存在），否则回落到传入路径。
+        """
         try:
+            system_dir = Path("/etc/collabtrans")
+            if system_dir.exists():
+                cfg_path = system_dir / "app_config.json"
+            else:
+                # 使用与读取相同的解析逻辑，尽量与运行环境一致
+                cfg_path = self._resolve_app_config_path(config_file)
+
+            logger.info(f"[AppConfig] 正在保存应用配置到文件: {cfg_path}")
+
+            cfg_path.parent.mkdir(parents=True, exist_ok=True)
             config_data = asdict(self)
-            logger.info(f"正在保存应用配置到文件: {config_file}")
-            with open(config_file, 'w', encoding='utf-8') as f:
+            with open(cfg_path, 'w', encoding='utf-8') as f:
                 json.dump(config_data, f, indent=4, ensure_ascii=False)
+
+            # 系统目录下设置保守权限
+            try:
+                if str(cfg_path).startswith(str(system_dir)):
+                    os.chmod(cfg_path, 0o660)
+            except Exception:
+                pass
+
             logger.info("应用配置保存成功")
             return True
         except Exception as e:

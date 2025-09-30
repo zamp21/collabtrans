@@ -47,7 +47,6 @@ a = Analysis(
         "celery", "sqlalchemy",
         # 可选功能模块
         "collabtrans.converter.x2md.converter_docling",
-        "collabtrans.converter.x2md.converter_mineru",  # 排除MinerU以减少大小
         # 测试和开发工具
         "pytest", "pytest-asyncio", "pytest-cov",
         "black", "flake8", "mypy",

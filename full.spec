@@ -54,6 +54,23 @@ for data in custom_datas:
     if data not in datas:
         datas.append(data)
 
+# —— 同步 balance 版的 NumPy 兼容处理 ——
+try:
+    # 为确保冻结环境兼容性，补充 numpy 关键模块为隐藏导入
+    numpy_essential = [
+        'numpy._core.multiarray',
+        'numpy._core.umath',
+        'numpy._core._multiarray_umath',
+        'numpy._core.overrides',
+        'numpy.core.multiarray',
+        'numpy.core.umath',
+        'numpy.core._multiarray_umath',
+        'numpy.core.overrides',
+    ]
+    hiddenimports = list(set(hiddenimports + numpy_essential))
+except Exception as _e:
+    print(f"Warning: failed to add numpy essential hiddenimports: {_e}")
+
 a = Analysis(
     ['collabtrans/app.py'],  # 使用正斜杠
     pathex=[os.getcwd()],  # 添加当前工作目录到 pathex，提高资源发现成功率
@@ -63,7 +80,18 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=['hook-numpy-fix.py'],
-    excludes=[],
+    # 同步 balance 的 numpy 排除策略，避免已知崩溃点
+    excludes=[
+        # numpy 测试/打包辅助
+        'numpy.tests','numpy.testing','numpy._pyinstaller','numpy.f2py.tests',
+        'numpy.ma.tests','numpy.lib.tests','numpy.core.tests','numpy.random.tests',
+        'numpy.linalg.tests','numpy.fft.tests','numpy.polynomial.tests',
+        'numpy.matrixlib.tests','numpy.typing.tests','numpy.compat.tests',
+        'numpy._core.tests','numpy._typing.tests',
+        # 有问题的 numpy 核心模块
+        'numpy.core._add_newdocs','numpy.core.machar','numpy.core.umath_tests',
+        'numpy._core._add_newdocs','numpy.core._multiarray_umath','numpy.core._multiarray_tests',
+    ],
     noarchive=False,
     optimize=0,
 )
