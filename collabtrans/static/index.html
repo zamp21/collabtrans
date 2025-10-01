@@ -251,51 +251,9 @@
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <div class="d-flex align-items-center">
                         <h4 class="mb-0 me-3 fw-bold">CollabTrans</h4>
-                        <div class="w-100">
-                            <!-- 上排：超链接/文本类入口 -->
-                            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                                <a href="#tutorialModal" class="link-secondary small" data-bs-toggle="modal">
-                                    <i class="bi bi-question-circle-fill me-1"></i><span data-i18n="tutorialBtn">教程</span>
-                                </a>
-                                <!-- <a href="#contributorsModal" class="link-secondary small" data-bs-toggle="modal">
-                                    <i class="bi bi-people-fill me-1"></i><span data-i18n="projectContributeBtn">项目协作</span>
-                                </a> -->
-                                <span id="topLanguageDropdownBtn" class="ms-1" data-i18n-title="languageSwitcherTitle" title="切换语言 / Switch Language" style="cursor: pointer;">
-                                    <i class="bi bi-translate me-1"></i><span data-i18n="languageBtn"></span>
-                                    <span class="text-muted ms-1" id="currentLangText" data-i18n="languageCurrentSuffix">(English)</span>
-                                </span>
-                                <ul class="dropdown-menu" id="topLanguageMenu" style="display:none; position:absolute; z-index: 1030;">
-                                    <li><a class="dropdown-item" href="#" data-lang="zh" data-i18n="languageChinese">中文</a></li>
-                                    <li><a class="dropdown-item" href="#" data-lang="en" data-i18n="languageEnglish">English</a></li>
-                                </ul>
-                                
-
-                                <!-- Theme Switcher -->
-                                <span id="topThemeDropdownBtn" class="ms-2" title="切换主题 / Switch Theme" style="cursor: pointer;">
-                                    <i class="bi bi-circle-half me-1"></i><span data-i18n="themeBtn">Theme</span>
-                                    <span class="text-muted ms-1" id="currentThemeText">(Auto)</span>
-                                </span>
-                                <ul class="dropdown-menu" id="topThemeMenu" style="display:none; position:absolute; z-index: 1030;">
-                                    <li><a class="dropdown-item" href="#" data-theme="light"><i class="bi bi-sun-fill me-2"></i><span data-i18n="themeLight">Light</span></a></li>
-                                    <li><a class="dropdown-item" href="#" data-theme="dark"><i class="bi bi-moon-fill me-2"></i><span data-i18n="themeDark">Dark</span></a></li>
-                                    <li><a class="dropdown-item" href="#" data-theme="auto"><i class="bi bi-circle-half me-2"></i><span data-i18n="themeAuto">Auto</span></a></li>
-                                </ul>
-                                <span id="currentUserBadge" class="badge rounded-pill text-bg-light ms-2" data-i18n-title="currentUserTitle" title="当前用户">
-                                    <i class="bi bi-person-circle me-1"></i><span id="currentUserName">--</span>
-                                </span>
-                            </div>
-                            <!-- 下排：操作按钮 -->
-                            <div class="d-flex flex-wrap align-items-center gap-2">
-                                <a href="/settings" class="btn btn-outline-secondary" id="settingsBtn">
-                                    <i class="bi bi-gear me-1"></i><span data-i18n="settingsTitle">Settings</span>
-                                </a>
-                                <button type="button" class="btn btn-outline-danger" id="logoutBtn">
-                                    <i class="bi bi-box-arrow-right me-1"></i><span data-i18n="logoutBtn">退出登录</span>
-                                </button>
-                            </div>
-                        </div>
                     </div>
                 </div>
+                
 
                 <form id="translateForm">
                     <div class="accordion" id="settingsAccordion">
@@ -1160,12 +1118,73 @@ $.*"></textarea>
         <div class="col-lg-8">
             <div class="task-area" id="task-area-container">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h4 class="mb-0"><i class="bi bi-list-task me-2"></i><span data-i18n="taskListTitle">任务列表</span>
-                    </h4>
-                    <button class="btn btn-outline-secondary" id="addNewTaskBtn"><i class="bi bi-plus-circle-fill me-2"></i><span
-                            data-i18n="newTaskBtn">新建任务</span>
-                    </button>
+                    <h4 class="mb-0"><i class="bi bi-list-task me-2"></i><span data-i18n="taskListTitle">任务列表</span></h4>
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-outline-secondary" id="addNewTaskBtn"><i class="bi bi-plus-circle-fill me-2"></i><span data-i18n="newTaskBtn">新建任务</span></button>
+                        <a href="/settings" class="btn btn-outline-secondary" id="settingsBtn">
+                            <i class="bi bi-gear me-1"></i><span data-i18n="settingsTitle">Settings</span>
+                        </a>
+                        
+                        <!-- User Dropdown Menu -->
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary dropdown-toggle d-flex align-items-center" type="button" id="userDropdownMenu" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-person-circle me-2"></i>
+                                <span id="currentUserName">--</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdownMenu">
+                                <!-- Theme -->
+                                <li>
+                                    <span class="dropdown-item-text d-flex align-items-center" style="cursor: pointer;" id="userThemeBtn">
+                                        <i class="bi bi-circle-half me-2"></i>
+                                        <span data-i18n="themeBtn">Theme</span>
+                                        <span class="text-muted ms-auto" id="userCurrentThemeText">(Auto)</span>
+                                    </span>
+                                </li>
+                                
+                                <!-- Language -->
+                                <li>
+                                    <span class="dropdown-item-text d-flex align-items-center" style="cursor: pointer;" id="userLanguageBtn">
+                                        <i class="bi bi-translate me-2"></i>
+                                        <span data-i18n="languageBtn">Language</span>
+                                        <span class="text-muted ms-auto" id="userCurrentLangText">(English)</span>
+                                    </span>
+                                </li>
+                                
+                                <!-- Divider -->
+                                <li><hr class="dropdown-divider"></li>
+                                
+                                <!-- Help (Tutorial) -->
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center" href="#tutorialModal" data-bs-toggle="modal">
+                                        <i class="bi bi-question-circle me-2"></i>
+                                        <span data-i18n="tutorialBtn">Help</span>
+                                    </a>
+                                </li>
+                                
+                                <!-- About -->
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center" href="#" id="aboutBtn">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        <span data-i18n="aboutBtn">About</span>
+                                    </a>
+                                </li>
+                                
+                                <!-- Divider -->
+                                <li><hr class="dropdown-divider"></li>
+                                
+                                <!-- Logout -->
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center text-danger" href="#" id="logoutBtn">
+                                        <i class="bi bi-box-arrow-right me-2"></i>
+                                        <span data-i18n="logoutBtn">Logout</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
+                
+                
                 <div id="task-container">
                     <!-- Task cards will be injected here -->
                 </div>
@@ -1257,8 +1276,8 @@ $.*"></textarea>
                     </ul>
                 </div>
                 <button class="btn btn-outline-secondary start-translate-btn"><i class="bi bi-play-fill me-1"></i><span
-                        data-i18n="taskCardStartBtn">开始翻译</span>
-                </button>
+                    data-i18n="taskCardStartBtn">开始翻译</span>
+            </button>
             </div>
         </div>
     </div>
@@ -1646,12 +1665,12 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
         
-        // Force update theme-related elements (additional safety)
+        // Force update theme-related elements in user dropdown (additional safety)
         const themeElements = [
-            { selector: '#topThemeDropdownBtn span[data-i18n=\"themeBtn\"]', key: 'themeBtn' },
-            { selector: '#topThemeMenu [data-theme=\"light\"] span[data-i18n=\"themeLight\"]', key: 'themeLight' },
-            { selector: '#topThemeMenu [data-theme=\"dark\"] span[data-i18n=\"themeDark\"]', key: 'themeDark' },
-            { selector: '#topThemeMenu [data-theme=\"auto\"] span[data-i18n=\"themeAuto\"]', key: 'themeAuto' }
+            { selector: '#userThemeBtn span[data-i18n=\"themeBtn\"]', key: 'themeBtn' },
+            { selector: '#userThemeMenu [data-theme=\"light\"] span[data-i18n=\"themeLight\"]', key: 'themeLight' },
+            { selector: '#userThemeMenu [data-theme=\"dark\"] span[data-i18n=\"themeDark\"]', key: 'themeDark' },
+            { selector: '#userThemeMenu [data-theme=\"auto\"] span[data-i18n=\"themeAuto\"]', key: 'themeAuto' }
         ];
         
         themeElements.forEach(({ selector, key }) => {
@@ -1673,26 +1692,26 @@ document.addEventListener('DOMContentLoaded', function() {
             if (activeLink) activeLink.classList.add('active');
         }
 
-        // Update language switcher active state (top)
-        const topLangMenu = document.getElementById('topLanguageMenu');
-        if (topLangMenu) {
-            topLangMenu.querySelectorAll('a.active').forEach(a => a.classList.remove('active'));
-            const activeLink = topLangMenu.querySelector(`a[data-lang="${lang}"]`);
+        // Update language switcher active state (user dropdown)
+        const userLangMenu = document.getElementById('userLanguageMenu');
+        if (userLangMenu) {
+            userLangMenu.querySelectorAll('a.active').forEach(a => a.classList.remove('active'));
+            const activeLink = userLangMenu.querySelector(`a[data-lang="${lang}"]`);
             if (activeLink) activeLink.classList.add('active');
         }
 
-        // Update current language text next to the top language link
-        const currentLangTextEl = document.getElementById('currentLangText');
-        if (currentLangTextEl) {
+        // Update current language text in user dropdown
+        const userCurrentLangTextEl = document.getElementById('userCurrentLangText');
+        if (userCurrentLangTextEl) {
             const nameKey = lang === 'zh' ? 'languageChinese' : 'languageEnglish';
             const nameText = translations[nameKey] || (lang === 'zh' ? '中文' : 'English');
-            currentLangTextEl.textContent = `(${nameText})`;
+            userCurrentLangTextEl.textContent = `(${nameText})`;
         }
 
-        // Update current theme text to reflect language change
+        // Update current theme text in user dropdown to reflect language change
         const currentTheme = localStorage.getItem('theme') || 'auto';
-        const currentThemeTextEl = document.getElementById('currentThemeText');
-        if (currentThemeTextEl) {
+        const userCurrentThemeTextEl = document.getElementById('userCurrentThemeText');
+        if (userCurrentThemeTextEl) {
             const themeKeys = {
                 'light': 'themeLight',
                 'dark': 'themeDark', 
@@ -1701,21 +1720,21 @@ document.addEventListener('DOMContentLoaded', function() {
             const themeKey = themeKeys[currentTheme] || 'themeAuto';
             const themeText = translations[themeKey] || (themeKey === 'themeLight' ? 'Light' : 
                                                        themeKey === 'themeDark' ? 'Dark' : 'Auto');
-            currentThemeTextEl.textContent = `(${themeText})`;
+            userCurrentThemeTextEl.textContent = `(${themeText})`;
         }
         
-        // Force update all theme-related i18n elements
-        const themeBtnEl = document.querySelector('#topThemeDropdownBtn span[data-i18n=\"themeBtn\"]');
-        if (themeBtnEl) {
-            themeBtnEl.textContent = translations['themeBtn'] || 'Theme';
+        // Force update all theme-related i18n elements in user dropdown
+        const userThemeBtnEl = document.querySelector('#userThemeBtn span[data-i18n=\"themeBtn\"]');
+        if (userThemeBtnEl) {
+            userThemeBtnEl.textContent = translations['themeBtn'] || 'Theme';
         }
         
-        // Manually update theme menu text as fallback
-        const themeMenu = document.getElementById('topThemeMenu');
-        if (themeMenu) {
-            const themeLightEl = themeMenu.querySelector('[data-theme=\"light\"] span[data-i18n=\"themeLight\"]');
-            const themeDarkEl = themeMenu.querySelector('[data-theme=\"dark\"] span[data-i18n=\"themeDark\"]');
-            const themeAutoEl = themeMenu.querySelector('[data-theme=\"auto\"] span[data-i18n=\"themeAuto\"]');
+        // Manually update theme menu text as fallback in user dropdown
+        const userThemeMenu = document.getElementById('userThemeMenu');
+        if (userThemeMenu) {
+            const themeLightEl = userThemeMenu.querySelector('[data-theme=\"light\"] span[data-i18n=\"themeLight\"]');
+            const themeDarkEl = userThemeMenu.querySelector('[data-theme=\"dark\"] span[data-i18n=\"themeDark\"]');
+            const themeAutoEl = userThemeMenu.querySelector('[data-theme=\"auto\"] span[data-i18n=\"themeAuto\"]');
             
             if (themeLightEl) {
                 themeLightEl.textContent = translations['themeLight'] || 'Light';
@@ -1745,10 +1764,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!resp.ok) return;
             const user = await resp.json();
             const name = user.display_name || user.username || '--';
-            const badge = document.getElementById('currentUserBadge');
             const el = document.getElementById('currentUserName');
             if (el) el.textContent = name;
-            if (badge) badge.title = `当前用户: ${name}`;
         } catch (e) {
             // 静默失败
         }
@@ -1767,69 +1784,113 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        // Initialize language menu (top): hover to show list
-        const topLangBtn = document.getElementById('topLanguageDropdownBtn');
-        const topLangMenu = document.getElementById('topLanguageMenu');
-        if (topLangBtn && topLangMenu) {
+        // Initialize user dropdown menu
+        const userThemeBtn = document.getElementById('userThemeBtn');
+        const userLanguageBtn = document.getElementById('userLanguageBtn');
+        const userThemeMenu = document.getElementById('userThemeMenu');
+        const userLanguageMenu = document.getElementById('userLanguageMenu');
+        const aboutBtn = document.getElementById('aboutBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        
+
+        // Theme submenu
+        if (userThemeBtn && userThemeMenu) {
             let hoverTimer = null;
-            const showMenu = () => {
-                const rect = topLangBtn.getBoundingClientRect();
-                topLangMenu.style.left = rect.left + 'px';
-                topLangMenu.style.top = (rect.bottom + window.scrollY) + 'px';
-                topLangMenu.style.display = 'block';
+            const showThemeMenu = () => {
+                const rect = userThemeBtn.getBoundingClientRect();
+                userThemeMenu.style.position = 'fixed';
+                userThemeMenu.style.left = (rect.left - 200) + 'px'; // 显示在左侧，避免重叠
+                userThemeMenu.style.top = rect.top + 'px'; // 与按钮顶部对齐
+                userThemeMenu.style.display = 'block';
+                userThemeMenu.style.zIndex = '1050';
             };
-            const hideMenu = () => {
-                topLangMenu.style.display = 'none';
+            const hideThemeMenu = () => {
+                userThemeMenu.style.display = 'none';
             };
             const scheduleHide = () => {
-                hoverTimer = setTimeout(hideMenu, 150);
+                hoverTimer = setTimeout(hideThemeMenu, 150);
             };
             const cancelHide = () => {
                 if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
             };
-            topLangBtn.addEventListener('mouseenter', () => { cancelHide(); showMenu(); });
-            topLangBtn.addEventListener('mouseleave', scheduleHide);
-            topLangMenu.addEventListener('mouseenter', cancelHide);
-            topLangMenu.addEventListener('mouseleave', scheduleHide);
-            topLangMenu.querySelectorAll('a[data-lang]').forEach(a => {
+            userThemeBtn.addEventListener('mouseenter', () => { 
+                cancelHide(); 
+                showThemeMenu(); 
+            });
+            userThemeBtn.addEventListener('mouseleave', scheduleHide);
+            userThemeMenu.addEventListener('mouseenter', cancelHide);
+            userThemeMenu.addEventListener('mouseleave', scheduleHide);
+            userThemeMenu.querySelectorAll('a[data-theme]').forEach(a => {
                 a.addEventListener('click', (e) => {
                     e.preventDefault();
-                    setLanguage(a.dataset.lang);
-                    hideMenu();
+                    setTheme(a.dataset.theme);
+                    hideThemeMenu();
                 });
             });
         }
 
-        // Initialize theme menu (top): hover to show list
-        const topThemeBtn = document.getElementById('topThemeDropdownBtn');
-        const topThemeMenu = document.getElementById('topThemeMenu');
-        if (topThemeBtn && topThemeMenu) {
+        // Language submenu
+        if (userLanguageBtn && userLanguageMenu) {
             let hoverTimer = null;
-            const showMenu = () => {
-                const rect = topThemeBtn.getBoundingClientRect();
-                topThemeMenu.style.left = rect.left + 'px';
-                topThemeMenu.style.top = (rect.bottom + window.scrollY) + 'px';
-                topThemeMenu.style.display = 'block';
+            const showLanguageMenu = () => {
+                const rect = userLanguageBtn.getBoundingClientRect();
+                userLanguageMenu.style.position = 'fixed';
+                userLanguageMenu.style.left = (rect.left - 200) + 'px'; // 显示在左侧，避免重叠
+                userLanguageMenu.style.top = rect.top + 'px'; // 与按钮顶部对齐
+                userLanguageMenu.style.display = 'block';
+                userLanguageMenu.style.zIndex = '1050';
             };
-            const hideMenu = () => {
-                topThemeMenu.style.display = 'none';
+            const hideLanguageMenu = () => {
+                userLanguageMenu.style.display = 'none';
             };
             const scheduleHide = () => {
-                hoverTimer = setTimeout(hideMenu, 150);
+                hoverTimer = setTimeout(hideLanguageMenu, 150);
             };
             const cancelHide = () => {
                 if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
             };
-            topThemeBtn.addEventListener('mouseenter', () => { cancelHide(); showMenu(); });
-            topThemeBtn.addEventListener('mouseleave', scheduleHide);
-            topThemeMenu.addEventListener('mouseenter', cancelHide);
-            topThemeMenu.addEventListener('mouseleave', scheduleHide);
-            topThemeMenu.querySelectorAll('a[data-theme]').forEach(a => {
+            userLanguageBtn.addEventListener('mouseenter', () => { 
+                cancelHide(); 
+                showLanguageMenu(); 
+            });
+            userLanguageBtn.addEventListener('mouseleave', scheduleHide);
+            userLanguageMenu.addEventListener('mouseenter', cancelHide);
+            userLanguageMenu.addEventListener('mouseleave', scheduleHide);
+            userLanguageMenu.querySelectorAll('a[data-lang]').forEach(a => {
                 a.addEventListener('click', (e) => {
                     e.preventDefault();
-                    setTheme(a.dataset.theme);
-                    hideMenu();
+                    setLanguage(a.dataset.lang);
+                    hideLanguageMenu();
                 });
+            });
+        }
+
+        // About button
+        if (aboutBtn) {
+            aboutBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                // TODO: Implement About functionality
+                alert('About functionality will be implemented soon.');
+            });
+        }
+
+        // Logout button
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                if (confirm('Are you sure you want to logout?')) {
+                    try {
+                        const response = await fetch('/auth/logout', {
+                            method: 'POST',
+                            credentials: 'include'
+                        });
+                        if (response.ok) {
+                            window.location.href = '/';
+                        }
+                    } catch (error) {
+                        console.error('Logout failed:', error);
+                    }
+                }
             });
         }
 
@@ -1865,9 +1926,9 @@ document.addEventListener('DOMContentLoaded', function() {
             document.documentElement.setAttribute('data-bs-theme', theme);
         }
         
-        // Update current theme text
-        const currentThemeTextEl = document.getElementById('currentThemeText');
-        if (currentThemeTextEl) {
+        // Update current theme text in user dropdown
+        const userCurrentThemeTextEl = document.getElementById('userCurrentThemeText');
+        if (userCurrentThemeTextEl) {
             const themeKeys = {
                 'light': 'themeLight',
                 'dark': 'themeDark', 
@@ -1878,14 +1939,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const translations = i18nData && i18nData[currentLang] ? i18nData[currentLang] : {};
             const themeText = translations[themeKey] || (themeKey === 'themeLight' ? 'Light' : 
                                                        themeKey === 'themeDark' ? 'Dark' : 'Auto');
-            currentThemeTextEl.textContent = `(${themeText})`;
+            userCurrentThemeTextEl.textContent = `(${themeText})`;
         }
         
-        // Update active state in dropdown
-        const topThemeMenu = document.getElementById('topThemeMenu');
-        if (topThemeMenu) {
-            topThemeMenu.querySelectorAll('a.active').forEach(a => a.classList.remove('active'));
-            const activeLink = topThemeMenu.querySelector(`a[data-theme="${theme}"]`);
+        // Update active state in user dropdown
+        const userThemeMenu = document.getElementById('userThemeMenu');
+        if (userThemeMenu) {
+            userThemeMenu.querySelectorAll('a.active').forEach(a => a.classList.remove('active'));
+            const activeLink = userThemeMenu.querySelector(`a[data-theme="${theme}"]`);
             if (activeLink) activeLink.classList.add('active');
         }
     }
@@ -2120,41 +2181,41 @@ document.addEventListener('DOMContentLoaded', function() {
     // 新的配置保存函数（支持权限检查）
     const saveToConfig = async (key, value, retries = 3) => {
         for (let attempt = 1; attempt <= retries; attempt++) {
-            try {
-                // 检查用户权限
-                if (!userPermissions || !canAccessSetting(key)) {
-                    console.warn(`Access denied for setting: ${key}`);
-                    showAccessDeniedMessage();
-                    return false;
-                }
+        try {
+            // 检查用户权限
+            if (!userPermissions || !canAccessSetting(key)) {
+                console.warn(`Access denied for setting: ${key}`);
+                showAccessDeniedMessage();
+                return false;
+            }
                 
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
-                
-                const response = await fetch('/auth/app-config/setting', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    credentials: 'include',
+            
+            const response = await fetch('/auth/app-config/setting', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include',
                     signal: controller.signal,
-                    body: JSON.stringify({ key, value })
-                });
+                body: JSON.stringify({ key, value })
+            });
                 
                 clearTimeout(timeoutId);
-                
-                if (response.ok) {
-                    // 更新本地缓存
-                    if (appConfig) {
-                        appConfig[key] = value;
-                    }
-                    return true;
-                } else {
-                    const error = await response.text();
+            
+            if (response.ok) {
+                // 更新本地缓存
+                if (appConfig) {
+                    appConfig[key] = value;
+                }
+                return true;
+            } else {
+                const error = await response.text();
                     console.error(`Failed to save setting (attempt ${attempt}):`, error);
                     if (attempt === retries) return false;
-                }
-            } catch (e) {
+            }
+        } catch (e) {
                 console.error(`Save setting failed (attempt ${attempt}):`, e);
                 if (attempt === retries) {
                     // 显示用户友好的错误信息
@@ -2163,8 +2224,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     } else if (e.name === 'TypeError' && e.message.includes('NetworkError')) {
                         console.error('Network error - please check if the server is running');
                     }
-                    return false;
-                }
+            return false;
+        }
                 // 等待后重试
                 await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
             }
@@ -3949,7 +4010,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (status.original_filename) {
             state.original_filename = status.original_filename;
         }
-        
+
         const {
             previewBtn,
             downloadButtons,
@@ -4094,7 +4155,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!state.htmlUrl) return;
 
         const toast = new bootstrap.Toast(document.createElement('div'), { autohide: true, delay: 5000 });
-        toast._element.classList.add('toast', 'position-fixed', 'top-0', 'end-0', 'p-3', 'bg-info', 'text-white');
+        toast._element.classList.add('toast', 'position-fixed', 'top-0', 'start-50', 'translate-middle-x', 'p-3', 'bg-info', 'text-white');
         toast._element.innerHTML = `<div class=\"toast-body\">${getText('pdf_preparing')}</div>`;
         document.body.appendChild(toast._element);
         toast.show();
@@ -4846,7 +4907,7 @@ document.addEventListener('DOMContentLoaded', function() {
             {element: addNewTaskBtn, event: 'click', handler: () => createTaskCard()},
             {element: setBilingualViewBtn, event: 'click', handler: () => setPreviewDisplayMode('bilingual')},
             {element: setTranslatedOnlyViewBtn, event: 'click', handler: () => setPreviewDisplayMode('translatedOnly')},
-            {element: document.getElementById('logoutBtn'), event: 'click', handler: handleLogout},
+            // Logout button moved to user dropdown menu
             // AUTH 配置相关事件监听器已迁移到 /settings 页面
             // 注意：genLdapTestCmdBtn 和 runLdapConnectivityBtn 等元素已迁移到 settings 页面
             // 这些事件监听器现在在 settings/login-settings.js 中处理
@@ -4908,7 +4969,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const notification = document.createElement('div');
         notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
-        notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999;';
+        notification.style.cssText = 'top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999;';
         notification.innerHTML = `
             ${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
@@ -5413,7 +5474,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const notification = document.createElement('div');
             notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
-            notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999;';
+            notification.style.cssText = 'top: 20px; left: 50%; transform: translateX(-50%); z-index: 9999;';
             notification.innerHTML = `
                 ${message}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
@@ -6247,4 +6308,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- Log i18n support -->
 <script src="/static/log/log-i18n.js"></script>
+
+<!-- Hidden Theme and Language Submenus -->
+<ul class="dropdown-menu" id="userThemeMenu" style="display: none;">
+    <li><a class="dropdown-item" href="#" data-theme="light"><i class="bi bi-sun-fill me-2"></i><span data-i18n="themeLight">Light</span></a></li>
+    <li><a class="dropdown-item" href="#" data-theme="dark"><i class="bi bi-moon-fill me-2"></i><span data-i18n="themeDark">Dark</span></a></li>
+    <li><a class="dropdown-item" href="#" data-theme="auto"><i class="bi bi-circle-half me-2"></i><span data-i18n="themeAuto">Auto</span></a></li>
+</ul>
+
+<ul class="dropdown-menu" id="userLanguageMenu" style="display: none;">
+    <li><a class="dropdown-item" href="#" data-lang="zh" data-i18n="languageChinese">中文</a></li>
+    <li><a class="dropdown-item" href="#" data-lang="en" data-i18n="languageEnglish">English</a></li>
+</ul>
+
 </html>
