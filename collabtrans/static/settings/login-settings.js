@@ -3,6 +3,7 @@
 
 // Global variable to track LDAP test validation status
 let ldapTestValidated = false;
+let ldapInitiallyEnabled = false;
 
 // Load LDAP configuration
 async function loadLdapConfig() {
@@ -10,7 +11,9 @@ async function loadLdapConfig() {
     const resp = await fetch('/auth/ldap-config');
     if (!resp.ok) return false;
     const cfg = await resp.json();
-    document.getElementById('ldapEnabled').checked = !!cfg.ldap_enabled;
+    const ldapEnabledEl = document.getElementById('ldapEnabled');
+    ldapInitiallyEnabled = !!cfg.ldap_enabled;
+    ldapEnabledEl.checked = ldapInitiallyEnabled;
     document.getElementById('ldapProtocol').value = cfg.ldap_protocol || 'ldap';
     document.getElementById('ldapHost').value = cfg.ldap_host || '';
     document.getElementById('ldapPort').value = cfg.ldap_port || 389;
@@ -25,6 +28,18 @@ async function loadLdapConfig() {
     document.getElementById('ldapGroupBaseDn').value = cfg.ldap_group_base_dn || '';
     document.getElementById('ldapTlsVerify').checked = cfg.ldap_tls_verify !== false;
     document.getElementById('ldapTlsCacertfile').value = cfg.ldap_tls_cacertfile || '';
+
+    // Enable/disable toggle based on initial state and test status
+    try {
+      const hintEl = document.getElementById('ldapEnableHint');
+      if (ldapInitiallyEnabled) {
+        ldapEnabledEl.disabled = false; // allow disabling any time when already enabled
+        if (hintEl) hintEl.style.display = 'none';
+      } else {
+        ldapEnabledEl.disabled = !ldapTestValidated;
+        if (hintEl) hintEl.style.display = ldapTestValidated ? 'none' : '';
+      }
+    } catch (_) {}
 
     updateLdapsUi();
     return true;
@@ -73,7 +88,8 @@ function updateLdapsUi() {
 async function saveLoginSettings(silent = false) {
   // Check if trying to enable LDAP without test validation
   const ldapEnabled = document.getElementById('ldapEnabled').checked;
-  if (ldapEnabled && !ldapTestValidated) {
+  // Only block enabling LDAP without test, allow disabling anytime
+  if (ldapEnabled && !ldapTestValidated && !ldapInitiallyEnabled) {
     if (window.SettingsCore) {
       window.SettingsCore.showNotification('LDAP test must be performed and passed before enabling LDAP. Please test the connection first.', 'warning');
     }
@@ -269,9 +285,24 @@ async function testLdapConnectivity() {
           const result = JSON.parse(text);
           if (result.test_validated) {
             ldapTestValidated = true;
-            window.SettingsCore.showNotification(window.SettingsCore.getText('ldapConnectionTestSuccess') + ' - LDAP can now be enabled', 'success');
+            // 自动勾选"启用LDAP"并启用开关，避免后续保存时误传 false 覆盖
+            try {
+              const ldapEnabledEl = document.getElementById('ldapEnabled');
+              const hintEl = document.getElementById('ldapEnableHint');
+              if (ldapEnabledEl) {
+                ldapEnabledEl.checked = true;
+                ldapEnabledEl.disabled = false; // 启用开关
+              }
+              if (hintEl) {
+                hintEl.style.display = 'none'; // 隐藏提示
+              }
+            } catch (_) {}
+            window.SettingsCore && window.SettingsCore.showNotification(
+              window.SettingsCore.getText('ldapConnectionTestSuccess') + ' - LDAP can now be enabled',
+              'success'
+            );
           } else {
-            window.SettingsCore.showNotification(window.SettingsCore.getText('ldapConnectionTestSuccess'), 'success');
+            window.SettingsCore && window.SettingsCore.showNotification(window.SettingsCore.getText('ldapConnectionTestSuccess'), 'success');
           }
         } else {
           ldapTestValidated = false;
@@ -292,12 +323,12 @@ async function testLdapConnectivity() {
 }
 
 // Initialize login settings module
-document.addEventListener('DOMContentLoaded', () => {
-  // Load LDAP configuration
-  loadLdapConfig();
+document.addEventListener('DOMContentLoaded', async () => {
+  // Load LDAP configuration first to know initial state
+  try { await loadLdapConfig(); } catch(_) {}
   
   // Load session and security configuration
-  loadSessionSecurityConfig();
+  try { await loadSessionSecurityConfig(); } catch(_) {}
   
   // Setup event listeners
   const ldapProtocol = document.getElementById('ldapProtocol');
@@ -344,14 +375,18 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Initialize login settings module (called by settings-core.js)
-function initLoginSettingsModule() {
+async function initLoginSettingsModule() {
   console.log('Initializing login settings module');
   
-  // Load LDAP configuration
-  loadLdapConfig();
+  // Load LDAP configuration first to know initial state
+  try { 
+    await loadLdapConfig(); 
+  } catch(_) {}
   
   // Load session and security configuration
-  loadSessionSecurityConfig();
+  try { 
+    await loadSessionSecurityConfig(); 
+  } catch(_) {}
   
   // Setup event listeners
   const ldapProtocol = document.getElementById('ldapProtocol');
@@ -377,18 +412,24 @@ function initLoginSettingsModule() {
     console.error('LDAP test button not found!');
   }
   
-  // Add event listener for LDAP enabled checkbox
+  // LDAP enable/disable rule:
+  // - If initially enabled -> allow disabling anytime
+  // - If initially disabled -> require test to enable
   const ldapEnabledCheckbox = document.getElementById('ldapEnabled');
   if (ldapEnabledCheckbox) {
-    ldapEnabledCheckbox.addEventListener('change', function() {
-      if (this.checked && !ldapTestValidated) {
-        if (window.SettingsCore) {
-          window.SettingsCore.showNotification('Please test LDAP connection first before enabling LDAP.', 'warning');
+    if (ldapInitiallyEnabled) {
+      ldapEnabledCheckbox.disabled = false; // allow disabling immediately
+      console.log('LDAP initially enabled, allowing immediate disable');
+    } else {
+      ldapEnabledCheckbox.disabled = !ldapTestValidated;
+      console.log('LDAP initially disabled, test validated:', ldapTestValidated);
+      ldapEnabledCheckbox.addEventListener('click', function(e) {
+        if (!ldapTestValidated) {
+          e.preventDefault();
+          console.log('Prevented LDAP enable without test validation');
         }
-        // Uncheck the checkbox if test is not validated
-        this.checked = false;
-      }
-    });
+      });
+    }
   }
   
   // Initialize password toggle buttons and set internationalized placeholders

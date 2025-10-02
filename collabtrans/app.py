@@ -2166,6 +2166,13 @@ async def settings_page(request: Request):
         session_manager = get_session_manager()
         if not await session_manager.is_authenticated(request):
             return RedirectResponse(url="/login?next=/settings", status_code=302)
+        # 仅允许超级管理员或管理员组成员访问
+        try:
+            user = await session_manager.get_user(request)
+            if not user or not (user.is_super_admin() or user.is_admin()):
+                return RedirectResponse(url="/", status_code=302)
+        except Exception:
+            return RedirectResponse(url="/", status_code=302)
     except Exception:
         # 认证模块不可用时，直接继续
         pass

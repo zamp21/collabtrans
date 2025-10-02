@@ -1121,7 +1121,7 @@ $.*"></textarea>
                     <h4 class="mb-0"><i class="bi bi-list-task me-2"></i><span data-i18n="taskListTitle">任务列表</span></h4>
                     <div class="d-flex align-items-center gap-2">
                         <button class="btn btn-outline-secondary" id="addNewTaskBtn"><i class="bi bi-plus-circle-fill me-2"></i><span data-i18n="newTaskBtn">新建任务</span></button>
-                        <a href="/settings" class="btn btn-outline-secondary" id="settingsBtn">
+                        <a href="/settings" class="btn btn-outline-secondary" id="settingsBtn" style="display:none;">
                             <i class="bi bi-gear me-1"></i><span data-i18n="settingsTitle">Settings</span>
                         </a>
                         
@@ -2899,7 +2899,13 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Update API Key status (fetch raw secrets meta for accurate configured flag)
             try {
-                const rsec = await fetch('/auth/app-config/raw-secrets', { credentials: 'include' });
+                // Admin-only: fetch raw secrets for masked key reveal
+                let rsec = { ok: false };
+                try {
+                    if (window.userPermissions && window.userPermissions.is_admin) {
+                        rsec = await fetch('/auth/app-config/raw-secrets', { credentials: 'include' });
+                    }
+                } catch (_) {}
                 if (rsec.ok) {
                     const sec = await rsec.json();
                     const meta = (sec.platform_api_keys_meta && sec.platform_api_keys_meta[selectedPlatform]) || null;
@@ -4356,6 +4362,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             } else {
                                 console.warn('Failed to fetch raw secrets');
                             }
+                        } else {
+                            console.warn('Skip fetching raw secrets: not admin');
                         }
                     } catch (error) {
                         console.error('Error fetching raw API key:', error);
@@ -4394,6 +4402,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 // 同步到全局，避免 window.userPermissions 未定义导致管理员分支判断失败
                 window.userPermissions = userPermissions;
                 console.log('User permissions loaded:', userPermissions);
+                try {
+                    const settingsBtn = document.getElementById('settingsBtn');
+                    if (settingsBtn) {
+                        if (userPermissions && (userPermissions.is_super_admin || userPermissions.is_admin)) {
+                            settingsBtn.style.display = '';
+                        } else {
+                            settingsBtn.style.display = 'none';
+                        }
+                    }
+                } catch (_) {}
                 return true;
             } else {
                 console.error('Failed to load user permissions');

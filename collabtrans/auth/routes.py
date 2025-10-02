@@ -96,12 +96,12 @@ def _refresh_ldap_client_if_endpoint_changed(old_cfg: "AuthConfig", new_cfg: "Au
             # 仅当启用了LDAP时才重建
             if new_cfg.ldap_enabled:
                 _ldap_client = LDAPClient(new_cfg)
-                logger.info("[LDAP] 端点配置变化，LDAP客户端已重建")
+                logger.info("[LDAP] Endpoint changed, LDAP client rebuilt")
             else:
                 _ldap_client = None
-                logger.info("[LDAP] 已禁用LDAP，客户端已释放")
+                logger.info("[LDAP] LDAP disabled, client released")
     except Exception as e:
-        logger.warning(f"[LDAP] 检查/重建客户端时发生异常: {e}")
+        logger.warning(f"[LDAP] Exception while checking/rebuilding client: {e}")
 
 
 async def get_current_user(request: Request) -> Optional[User]:
@@ -116,7 +116,7 @@ async def login_page(
     next_url: Optional[str] = None,
     error: Optional[str] = None
 ):
-    """登录页面"""
+    """Login page"""
     from .config import AuthConfig
     config = AuthConfig.get_config()
     return templates.TemplateResponse("login.html", {
@@ -136,22 +136,22 @@ async def login(
     password: str = Form(...),
     next_url: Optional[str] = Form(None)
 ):
-    """处理登录请求"""
+    """Handle login request"""
     config = get_auth_config()
     session_manager = get_session_manager()
     
-    # 获取客户端IP
+    # Get client IP
     client_ip = request.client.host if request.client else "unknown"
     
-    logger.info(f"收到登录请求 - 用户: {_mask_username(username)}, IP: {client_ip}")
-    logger.info(f"认证配置 - LDAP启用: {config.ldap_enabled}")
+    logger.info(f"Login request received - user: {_mask_username(username)}, IP: {client_ip}")
+    logger.info(f"Auth config - LDAP enabled: {config.ldap_enabled}")
     
-    # 检查登录尝试次数
+    # Check login attempt count
     attempts = session_manager.get_login_attempts(client_ip)
-    logger.info(f"当前登录尝试次数: {attempts}/{config.max_login_attempts}")
+    logger.info(f"Current login attempts: {attempts}/{config.max_login_attempts}")
     
     if attempts >= config.max_login_attempts:
-        logger.warning(f"IP {client_ip} 登录尝试次数过多，已锁定")
+        logger.warning(f"IP {client_ip} too many login attempts, locked")
         raise HTTPException(
             status_code=429,
             detail=f"Too many login attempts. Please try again in {config.login_attempt_window // 60} minutes."
@@ -160,29 +160,29 @@ async def login(
     try:
         user: User
         
-        # 混合认证策略：
-        # 1. 如果用户名是admin，始终使用本地认证，获得ADMIN角色
-        # 2. 如果LDAP启用且用户名不是admin，使用LDAP认证，获得LDAP_USER角色
-        # 3. 如果LDAP禁用，只使用本地admin认证
+        # Hybrid authentication policy:
+        # 1) If username is admin -> always use local auth with ADMIN role
+        # 2) If LDAP enabled and username is not admin -> use LDAP auth
+        # 3) If LDAP disabled -> only local admin auth is allowed
         
         if username == config.default_username:
-            # admin用户始终使用本地认证
-            logger.info(f"使用本地认证admin用户: {_mask_username(username)}")
+            # admin user always uses local authentication
+            logger.info(f"Using local admin authentication for: {_mask_username(username)}")
             if password == config.default_password:
                 user = User(
                     username=username,
                     display_name="Administrator",
                     email=None,
                     is_authenticated=True,
-                    role=UserRole.ADMIN  # admin用户始终是管理员
+                    role=UserRole.ADMIN  # admin is always administrator
                 )
-                logger.info(f"admin用户认证成功: {_mask_username(username)}")
+                logger.info(f"Admin user authenticated: {_mask_username(username)}")
             else:
-                logger.warning(f"admin用户认证失败: {_mask_username(username)}")
+                logger.warning(f"Admin user authentication failed: {_mask_username(username)}")
                 raise InvalidCredentials("Invalid username or password")
         elif config.ldap_enabled:
-            # 非admin用户使用LDAP认证（统一使用 ldap3 客户端，避免可用性标志差异）
-            logger.info(f"使用LDAP认证用户: {_mask_username(username)}")
+            # Non-admin users use LDAP authentication (ldap3 client)
+            logger.info(f"Using LDAP authentication for user: {_mask_username(username)}")
             try:
                 from .ldap_client import LDAPClient
                 ldap3_client = LDAPClient(config)
@@ -192,34 +192,47 @@ async def login(
                     ldap3_client.close()
                 except Exception:
                     pass
-            logger.info(f"LDAP认证成功，用户: {_mask_username(username)}")
+            logger.info(f"LDAP authentication successful, user: {_mask_username(username)}")
         else:
-            # LDAP禁用且不是admin用户
-            logger.warning(f"LDAP禁用且非admin用户尝试登录: {_mask_username(username)}")
+            # LDAP disabled and username is not admin
+            logger.warning(f"LDAP disabled and non-admin user attempted login: {_mask_username(username)}")
             raise InvalidCredentials("LDAP authentication is disabled and only admin user is allowed")
         
-        # 创建会话
-        logger.info(f"为用户 {_mask_username(username)} 创建会话")
+        # Log permission/role info
+        try:
+            logger.info(
+                "User permissions: role=%s, is_admin=%s, is_super_admin=%s, can_access_admin_settings=%s, can_access_glossary_management=%s",
+                getattr(user, 'role', None).value if getattr(user, 'role', None) is not None else 'unknown',
+                str(user.is_admin() if hasattr(user, 'is_admin') else False),
+                str(user.is_super_admin() if hasattr(user, 'is_super_admin') else False),
+                str(user.can_access_admin_settings() if hasattr(user, 'can_access_admin_settings') else False),
+                str(user.can_access_glossary_management() if hasattr(user, 'can_access_glossary_management') else False)
+            )
+        except Exception:
+            pass
+
+        # Create session
+        logger.info(f"Creating session for user {_mask_username(username)}")
         await session_manager.create_session(request, response, user)
         
-        # 确保用户有个人配置Profile
+        # Ensure user has a personal profile
         from .user_profile import get_user_profile_manager
         profile_manager = get_user_profile_manager()
         
-        # 检查用户是否已有Profile，如果没有则创建
+        # Create default profile if not exists
         if not os.path.exists(f"user_profiles/{username}_profile.json"):
-            logger.info(f"为用户 {_mask_username(username)} 创建默认Profile")
+            logger.info(f"Creating default profile for user {_mask_username(username)}")
             profile_manager.create_default_profile(username)
         else:
-            logger.info(f"用户 {_mask_username(username)} 已有Profile，跳过创建")
+            logger.info(f"User {_mask_username(username)} already has a profile, skipping creation")
         
-        # 重置登录尝试次数
+        # Reset attempts for this IP
         session_manager.reset_login_attempts(client_ip)
-        logger.info(f"重置IP {client_ip} 的登录尝试次数")
+        logger.info(f"Reset login attempts for IP {client_ip}")
         
-        # 确定跳转URL
+        # Determine redirect URL
         redirect_url = next_url if next_url and next_url.startswith('/') else "/"
-        logger.info(f"登录成功，跳转URL: {redirect_url}")
+        logger.info(f"Login successful, redirect URL: {redirect_url}")
         
         return LoginResponse(
             success=True,
@@ -228,14 +241,14 @@ async def login(
         )
         
     except InvalidCredentials as e:
-        logger.warning(f"认证失败 - 无效凭据: {_mask_username(username)}, 错误: {e}")
+        logger.warning(f"Authentication failed - invalid credentials: {_mask_username(username)}, error: {e}")
         # 增加登录尝试次数
         session_manager.increment_login_attempts(client_ip)
-        logger.info(f"增加IP {client_ip} 的登录尝试次数")
+        logger.info(f"Incremented login attempts for IP {client_ip}")
         raise HTTPException(status_code=401, detail="Invalid username or password")
     except Exception as e:
-        logger.error(f"认证过程中发生异常: {_mask_username(username)}, 错误: {e}")
-        logger.error(f"异常类型: {type(e)}")
+        logger.error(f"Exception during authentication: {_mask_username(username)}, error: {e}")
+        logger.error(f"Exception type: {type(e)}")
         # 增加登录尝试次数
         session_manager.increment_login_attempts(client_ip)
         logger.info(f"增加IP {client_ip} 的登录尝试次数")

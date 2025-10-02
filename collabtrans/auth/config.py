@@ -143,9 +143,37 @@ class AuthConfig:
     
     @classmethod
     def load_from_file(cls, config_file: str = "local_config.json") -> "AuthConfig":
-        """Load configuration from grouped local_config.json and then load secrets"""
-        config_path = _resolve_auth_config_path(config_file)
-        
+        """Load configuration from grouped local_config.json and then load secrets.
+        Prefer the most recently modified existing config among system/executable/cwd/project.
+        """
+        # Build candidate paths
+        system_dir = Path("/etc/collabtrans")
+        system_cfg = system_dir / "local_config.json"
+        exe_cfg = None
+        if getattr(sys, 'frozen', False):
+            exe_dir = Path(os.path.dirname(sys.executable))
+            exe_cfg = exe_dir / "local_config.json"
+        cwd_cfg = Path.cwd() / "local_config.json"
+        project_root = Path(__file__).resolve().parents[2]
+        proj_cfg = project_root / "local_config.json"
+
+        candidates = []
+        for p in [system_cfg, exe_cfg, cwd_cfg, proj_cfg]:
+            if p is not None and p.exists():
+                try:
+                    mtime = p.stat().st_mtime
+                except Exception:
+                    mtime = 0
+                candidates.append((mtime, p))
+
+        # Choose newest existing config, otherwise fall back to resolved path
+        if candidates:
+            candidates.sort(reverse=True)
+            config_path = candidates[0][1]
+            logger.info(f"[AuthConfig] Selected newest config: {config_path}")
+        else:
+            config_path = _resolve_auth_config_path(config_file)
+
         logger.debug(f"[AuthConfig] Attempting to read config from: {config_path}")
         if not config_path.exists():
             # Auto-create from template if available (system first)
@@ -320,41 +348,46 @@ class AuthConfig:
     def save_to_file(self, config_file: str = "local_config.json") -> bool:
         """Save grouped configuration to local_config.json (without secrets).
 
-        Always prefer writing to /etc/collabtrans/local_config.json if the system directory exists.
+        Write-order policy (mirrors AppConfig/global_config):
+        1) /etc/collabtrans/local_config.json (if dir exists and writable)
+        2) Resolved path by _resolve_auth_config_path (executable dir or cwd)
+        3) Explicit fallback to CWD local_config.json
         """
+        grouped = self.to_grouped_dict()
+        grouped.get("default_user", {}).pop("password", None)
+        grouped.get("session", {}).pop("secret_key", None)
+        grouped.get("redis", {}).pop("password", None)
+
+        candidates = []
+        system_dir = Path("/etc/collabtrans")
+        candidates.append(system_dir / "local_config.json")
         try:
-            # If config_file is absolute, use it directly
-            if Path(config_file).is_absolute():
-                config_path = Path(config_file)
-            else:
-                # Always use the resolved path from current working directory
-                config_path = _resolve_auth_config_path(config_file)
+            candidates.append(_resolve_auth_config_path(config_file))
+        except Exception:
+            pass
+        candidates.append(Path.cwd() / "local_config.json")
 
-            logger.info(f"[AuthConfig] Preparing to write grouped config to: {config_path}")
-
-            # 确保目录存在
-            config_path.parent.mkdir(parents=True, exist_ok=True)
-
-            grouped = self.to_grouped_dict()
-            grouped.get("default_user", {}).pop("password", None)
-            grouped.get("session", {}).pop("secret_key", None)
-            grouped.get("redis", {}).pop("password", None)
-
-            with open(config_path, 'w', encoding='utf-8') as f:
-                json.dump(grouped, f, indent=2, ensure_ascii=False)
-
-            # 系统目录下设置保守权限
+        last_error = None
+        for path in candidates:
             try:
-                if str(config_path).startswith(str(system_dir)):
-                    os.chmod(config_path, 0o640)
-            except Exception:
-                pass
+                path.parent.mkdir(parents=True, exist_ok=True)
+                with open(path, 'w', encoding='utf-8') as f:
+                    json.dump(grouped, f, indent=2, ensure_ascii=False)
+                # conservative permissions for system dir
+                try:
+                    if str(path).startswith(str(system_dir)):
+                        os.chmod(path, 0o640)
+                except Exception:
+                    pass
+                logger.info(f"[AuthConfig] Grouped config saved to {path}")
+                return True
+            except Exception as e:
+                last_error = e
+                logger.warning(f"[AuthConfig] Write failed, trying next location: {path} -> {e}")
+                continue
 
-            logger.info(f"[AuthConfig] Grouped config saved to {config_path}")
-            return True
-        except Exception as e:
-            logger.error(f"[AuthConfig] Failed to save grouped config: {e}")
-            return False
+        logger.error(f"[AuthConfig] Failed to save grouped config after fallbacks: {last_error}")
+        return False
     
     def update_from_dict(self, config_data: dict) -> None:
         """从字典更新配置"""
@@ -445,12 +478,14 @@ def get_auth_config(config_file: str = "local_config.json") -> "AuthConfig":
 
 def save_auth_config(config_file: str = "local_config.json") -> bool:
     try:
-        cfg = AuthConfig.get_config(config_file)
+        global _AUTH_CONFIG_SINGLETON
+        # Prefer in-memory singleton (which may have recent updates) to avoid stale writes
+        cfg = _AUTH_CONFIG_SINGLETON if _AUTH_CONFIG_SINGLETON is not None else AuthConfig.get_config(config_file)
         result = cfg.save_to_file(config_file)
-        logger.info(f"[AuthConfig] save_auth_config 写盘结果: {result}")
+        logger.info(f"[AuthConfig] save_auth_config write result: {result}")
         return result
     except Exception as e:
-        logger.error(f"[AuthConfig] 保存认证配置失败: {e}")
+        logger.error(f"[AuthConfig] Failed to save auth config: {e}")
         return False
 
 
