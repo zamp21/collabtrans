@@ -175,7 +175,7 @@ async function loadModuleContent(moduleName) {
   if (!contentDiv) return;
 
   try {
-    const response = await fetch(`/static/settings/${moduleName}.html`);
+    const response = await fetch(`/static/settings/${moduleName}.html`, { cache: 'no-store' });
     if (!response.ok) {
       throw new Error(`Failed to load ${moduleName} module`);
     }
@@ -187,7 +187,8 @@ async function loadModuleContent(moduleName) {
     
     // Load corresponding JavaScript module
     const script = document.createElement('script');
-    script.src = `/static/settings/${moduleName}.js`;
+    const ts = Date.now();
+    script.src = `/static/settings/${moduleName}.js?v=${ts}`;
     script.onload = () => {
       loadedModules.add(moduleName);
       console.log(`Module ${moduleName} loaded successfully`);
@@ -213,6 +214,9 @@ async function loadModuleContent(moduleName) {
         } else if (moduleName === 'web-settings' && window.initWebSettingsModule) {
           console.log(`Calling ${moduleName} initialization`);
           window.initWebSettingsModule();
+        } else if (moduleName === 'certificate-settings' && window.initCertificateSettingsModule) {
+          console.log(`Calling ${moduleName} initialization`);
+          window.initCertificateSettingsModule();
         } else if (moduleName === 'prompts' && window.initPromptsModule) {
           console.log(`Calling ${moduleName} initialization`);
           window.initPromptsModule();
@@ -387,6 +391,10 @@ async function saveAllSettings() {
     
     if (loadedModules.has('web-settings') && window.saveWebSettings) {
       savePromises.push(window.saveWebSettings());
+    }
+    
+    if (loadedModules.has('certificate-settings') && window.saveCertificateSettings) {
+      savePromises.push(window.saveCertificateSettings());
     }
 
     const results = await Promise.allSettled(savePromises);

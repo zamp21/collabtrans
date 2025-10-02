@@ -14,6 +14,29 @@ async function loadAppConfig() {
       const keyPath = cfg.https_key_file;
       document.getElementById('currentCertName').textContent = certPath ? (certPath.split('/').pop()) : '-';
       document.getElementById('currentKeyName').textContent = keyPath ? (keyPath.split('/').pop()) : '-';
+
+      // Fetch validity for current certificate
+      const certName = certPath ? (certPath.split('/').pop()) : null;
+      if (certName) {
+        try {
+          const lresp = await fetch('/auth/certificate-list', { credentials: 'include' });
+          if (lresp.ok) {
+            const list = await lresp.json();
+            const cert = (list.certificates || []).find(c => c.type === 'cert' && c.name === certName);
+            if (cert && cert.valid_until) {
+              const validityText = `${cert.days_left || ''}${cert.days_left ? ' - ' : ''}${cert.valid_until}`;
+              const el = document.getElementById('currentCertValidity');
+              if (el) el.textContent = validityText || '-';
+            } else {
+              const el = document.getElementById('currentCertValidity');
+              if (el) el.textContent = '-';
+            }
+          }
+        } catch (_) {}
+      } else {
+        const el = document.getElementById('currentCertValidity');
+        if (el) el.textContent = '-';
+      }
     } catch(_) {}
     
     return cfg;
@@ -41,9 +64,28 @@ async function uploadCertAndKey(certFile, keyFile) {
   return resp.ok;
 }
 
-// Save web settings
+// Internal helper: upload if user selected files
+async function maybeUploadSelectedFiles() {
+  const cert = document.getElementById('certFile').files[0];
+  const key = document.getElementById('keyFile').files[0];
+  if (cert || key) {
+    const ok = await uploadCertAndKey(cert, key);
+    return ok;
+  }
+  return true;
+}
+
+// Save web settings (auto-upload selected files first)
 async function saveWebSettings() {
   try {
+    const uploadOk = await maybeUploadSelectedFiles();
+    if (!uploadOk) {
+      if (window.SettingsCore) {
+        window.SettingsCore.showNotification(window.SettingsCore.getText('certUploadFailed'), 'error');
+      }
+      return false;
+    }
+
     const patch = {
       https_enabled: document.getElementById('httpsEnabled').checked,
       https_key_password: document.getElementById('keyPassword').value || null
@@ -70,8 +112,8 @@ async function saveWebSettings() {
   }
 }
 
-// Initialize web settings module
-document.addEventListener('DOMContentLoaded', async () => {
+// Initialize web settings module (called by SettingsCore after HTML injected)
+async function initWebSettingsModule() {
   // Set default HTTPS disabled, and disable modification until tested
   document.getElementById('httpsEnabled').checked = false;
   document.getElementById('httpsEnabled').disabled = true;
@@ -105,28 +147,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     saveWebBtn.addEventListener('click', saveWebSettings);
   }
 
-  // Upload certificate and key button
-  const uploadCertBtn = document.getElementById('uploadCertBtn');
-  if (uploadCertBtn) {
-    uploadCertBtn.addEventListener('click', async () => {
-      const cert = document.getElementById('certFile').files[0];
-      const key = document.getElementById('keyFile').files[0];
-      const ok = await uploadCertAndKey(cert, key);
-      if (ok) {
-        // Reload to update current file name display
-        await loadAppConfig();
-        if (window.SettingsCore) {
-          window.SettingsCore.showNotification(window.SettingsCore.getText('certUploadSuccess'), 'success');
-        }
-      } else {
-        if (window.SettingsCore) {
-          window.SettingsCore.showNotification(window.SettingsCore.getText('certUploadFailed'), 'error');
-        }
-      }
-    });
-  }
+  // removed openGenerateCertBtn (now implemented in embedded section below)
 
-  // Test HTTPS button
+  // Test HTTPS button (auto-upload before test)
   const testHttpsBtn = document.getElementById('testHttpsBtn');
   if (testHttpsBtn) {
     testHttpsBtn.addEventListener('click', async () => {
@@ -137,20 +160,16 @@ document.addEventListener('DOMContentLoaded', async () => {
           await saveAppConfig({ https_key_password: pwd });
         }
         
-        // If user selected new file, upload first, then test with new certificate
-        const certSel = document.getElementById('certFile').files[0];
-        const keySel = document.getElementById('keyFile').files[0];
-        if (certSel || keySel) {
-          const upOk = await uploadCertAndKey(certSel, keySel);
-          if (!upOk) {
-            if (window.SettingsCore) {
-              window.SettingsCore.showNotification(window.SettingsCore.getText('certUploadFailedTestCancelled'), 'error');
-            }
-            return;
+        // Auto upload selected files before test
+        const upOk = await maybeUploadSelectedFiles();
+        if (!upOk) {
+          if (window.SettingsCore) {
+            window.SettingsCore.showNotification(window.SettingsCore.getText('certUploadFailedTestCancelled'), 'error');
           }
-          // Refresh display after upload
-          await loadAppConfig();
+          return;
         }
+        // Refresh display after upload
+        await loadAppConfig();
         
         const resp = await fetch('/auth/web/test-https', {
           method: 'POST',
@@ -180,7 +199,41 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
-});
+
+  // Load and initialize embedded certificate module
+  try {
+    const container = document.getElementById('embedded-certificate-content');
+    if (container) {
+      const resp = await fetch('/static/settings/certificate-settings.html', { cache: 'no-store' });
+      if (resp.ok) {
+        const html = await resp.text();
+        container.innerHTML = html;
+        try { if (window.SettingsCore) window.SettingsCore.setLanguage && window.SettingsCore.setLanguage(localStorage.getItem('ui_language') || 'zh'); } catch (_) {}
+
+        // Load JS for certificate module (once)
+        if (!window.__certificateModuleLoaded) {
+          const script = document.createElement('script');
+          script.src = '/static/settings/certificate-settings.js?v=' + Date.now();
+          script.onload = () => {
+            window.__certificateModuleLoaded = true;
+            if (window.initCertificateSettingsModule) {
+              window.initCertificateSettingsModule();
+            }
+          };
+          document.head.appendChild(script);
+        } else if (window.initCertificateSettingsModule) {
+          // If already loaded, just init again to bind events
+          window.initCertificateSettingsModule();
+        }
+      } else if (window.SettingsCore) {
+        window.SettingsCore.showNotification('Failed to load embedded certificate settings', 'error');
+      }
+    }
+  } catch (e) {
+    console.error('Failed to initialize embedded certificate settings:', e);
+  }
+}
 
 // Export functions for global access
 window.saveWebSettings = saveWebSettings;
+window.initWebSettingsModule = initWebSettingsModule;

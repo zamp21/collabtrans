@@ -1,0 +1,298 @@
+<div class="border rounded p-4">
+  <div class="row g-3">
+    <div class="col-12">
+      <h5 class="mb-3"><i class="bi bi-shield-check me-2"></i><span data-i18n="certificateSettingsTitle">Certificate Settings</span></h5>
+    </div>
+  </div>
+  
+  <div class="row g-3">
+    <div class="col-12">
+      <div class="alert alert-info">
+        <i class="bi bi-info-circle me-2"></i>
+        <span data-i18n="certificateInfo">Generate temporary SSL/TLS certificates for HTTPS connections. Choose your platform below for detailed instructions.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-12">
+      <div class="d-grid gap-2">
+        <button type="button" class="btn btn-primary btn-lg" id="generateCertBtn">
+          <i class="bi bi-plus-circle me-2"></i><span data-i18n="generateCertificateBtn">Generate Temporary Certificate</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mt-3">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header">
+          <h6 class="mb-0"><i class="bi bi-file-earmark-text me-2"></i><span data-i18n="currentCertificates">Current Certificates</span></h6>
+        </div>
+        <div class="card-body">
+          <div id="certificateList">
+            <div class="text-muted">
+              <i class="bi bi-hourglass-split me-2"></i><span data-i18n="loadingCertificates">Loading certificates...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Certificate Generation Modal -->
+<div class="modal fade" id="certificateModal" tabindex="-1" aria-labelledby="certificateModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="certificateModalLabel">
+          <i class="bi bi-shield-check me-2"></i><span data-i18n="generateCertificateTitle">Generate Temporary Certificate</span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="container-fluid">
+          <!-- Platform Selection -->
+          <div class="row mb-4">
+            <div class="col-12">
+              <h6><span data-i18n="selectPlatform">Select Your Platform</span></h6>
+              <div class="btn-group w-100" role="group" aria-label="Platform selection">
+                <input type="radio" class="btn-check" name="platform" id="platformWindows" value="windows" autocomplete="off">
+                <label class="btn btn-outline-primary" for="platformWindows">
+                  <i class="bi bi-windows me-2"></i><span data-i18n="windows">Windows</span>
+                </label>
+
+                <input type="radio" class="btn-check" name="platform" id="platformLinux" value="linux" autocomplete="off">
+                <label class="btn btn-outline-primary" for="platformLinux">
+                  <i class="bi bi-ubuntu me-2"></i><span data-i18n="linux">Linux</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Windows Instructions -->
+          <div id="windowsInstructions" class="platform-instructions" style="display: none;">
+            <div class="row">
+              <div class="col-12">
+                <h6 class="text-primary"><i class="bi bi-windows me-2"></i><span data-i18n="windowsInstructions">Windows Instructions</span></h6>
+              </div>
+            </div>
+            
+            <!-- Preparation Phase -->
+            <div class="row mb-3">
+              <div class="col-12">
+                <div class="card">
+                  <div class="card-header bg-warning text-dark">
+                    <h6 class="mb-0"><i class="bi bi-tools me-2"></i><span data-i18n="preparationPhase">Preparation Phase</span></h6>
+                  </div>
+                  <div class="card-body">
+                    <ol>
+                      <li><span data-i18n="windowsPrep1">Download and install OpenSSL for Windows:</span>
+                        <ul>
+                          <li><span data-i18n="windowsPrep1a">Visit</span> <a href="https://slproweb.com/products/Win32OpenSSL.html" target="_blank">https://slproweb.com/products/Win32OpenSSL.html</a></li>
+                          <li><span data-i18n="windowsPrep1b">Download "Win64 OpenSSL v3.x.x" (Light version is sufficient)</span></li>
+                          <li><span data-i18n="windowsPrep1c">Install with default settings</span></li>
+                        </ul>
+                      </li>
+                      <li><span data-i18n="windowsPrep2">Add OpenSSL to your PATH:</span>
+                        <ul>
+                          <li><span data-i18n="windowsPrep2a">Open Command Prompt as Administrator</span></li>
+                          <li><span data-i18n="windowsPrep2b">Run:</span> <code>setx PATH "%PATH%;C:\Program Files\OpenSSL-Win64\bin"</code></li>
+                          <li><span data-i18n="windowsPrep2c">Restart Command Prompt</span></li>
+                        </ul>
+                      </li>
+                      <li><span data-i18n="windowsPrep3">Verify installation:</span> <code>openssl version</code></li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Generation Phase -->
+            <div class="row mb-3">
+              <div class="col-12">
+                <div class="card">
+                  <div class="card-header bg-success text-white">
+                    <h6 class="mb-0"><i class="bi bi-gear me-2"></i><span data-i18n="generationPhase">Generation Phase</span></h6>
+                  </div>
+                  <div class="card-body">
+                    <ol>
+                      <li><span data-i18n="windowsGen1">Open Command Prompt and navigate to your project directory</span></li>
+                      <li><span data-i18n="windowsGen2">Create a directory for certificates:</span>
+                        <div class="bg-dark text-light p-2 rounded mt-2">
+                          <code>mkdir certs</code><br>
+                          <code>cd certs</code>
+                        </div>
+                      </li>
+                      <li><span data-i18n="windowsGen3">Generate private key:</span>
+                        <div class="bg-dark text-light p-2 rounded mt-2">
+                          <code>openssl genrsa -out server.key 2048</code>
+                        </div>
+                      </li>
+                      <li><span data-i18n="windowsGen4">Generate certificate signing request (CSR):</span>
+                        <div class="bg-dark text-light p-2 rounded mt-2">
+                          <code>openssl req -new -key server.key -out server.csr</code>
+                        </div>
+                        <small class="text-muted"><span data-i18n="windowsGen4Note">Note: You can press Enter for all fields except Common Name, which should be "localhost"</span></small>
+                      </li>
+                      <li><span data-i18n="windowsGen5">Generate self-signed certificate:</span>
+                        <div class="bg-dark text-light p-2 rounded mt-2">
+                          <code>openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt</code>
+                        </div>
+                      </li>
+                      <li><span data-i18n="windowsGen6">Verify certificate:</span>
+                        <div class="bg-dark text-light p-2 rounded mt-2">
+                          <code>openssl x509 -in server.crt -text -noout</code>
+                        </div>
+                      </li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Linux Instructions -->
+          <div id="linuxInstructions" class="platform-instructions" style="display: none;">
+            <div class="row">
+              <div class="col-12">
+                <h6 class="text-primary"><i class="bi bi-ubuntu me-2"></i><span data-i18n="linuxInstructions">Linux Instructions</span></h6>
+              </div>
+            </div>
+            
+            <!-- Preparation Phase -->
+            <div class="row mb-3">
+              <div class="col-12">
+                <div class="card">
+                  <div class="card-header bg-warning text-dark">
+                    <h6 class="mb-0"><i class="bi bi-tools me-2"></i><span data-i18n="preparationPhase">Preparation Phase</span></h6>
+                  </div>
+                  <div class="card-body">
+                    <ol>
+                      <li><span data-i18n="linuxPrep1">Install OpenSSL (if not already installed):</span>
+                        <div class="bg-dark text-light p-2 rounded mt-2">
+                          <code># Ubuntu/Debian</code><br>
+                          <code>sudo apt update && sudo apt install openssl</code><br><br>
+                          <code># CentOS/RHEL/Fedora</code><br>
+                          <code>sudo yum install openssl</code><br>
+                          <code># or for newer versions</code><br>
+                          <code>sudo dnf install openssl</code>
+                        </div>
+                      </li>
+                      <li><span data-i18n="linuxPrep2">Verify installation:</span>
+                        <div class="bg-dark text-light p-2 rounded mt-2">
+                          <code>openssl version</code>
+                        </div>
+                      </li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Generation Phase -->
+            <div class="row mb-3">
+              <div class="col-12">
+                <div class="card">
+                  <div class="card-header bg-success text-white">
+                    <h6 class="mb-0"><i class="bi bi-gear me-2"></i><span data-i18n="generationPhase">Generation Phase</span></h6>
+                  </div>
+                  <div class="card-body">
+                    <ol>
+                      <li><span data-i18n="linuxGen1">Open terminal and navigate to your project directory</span></li>
+                      <li><span data-i18n="linuxGen2">Create a directory for certificates:</span>
+                        <div class="bg-dark text-light p-2 rounded mt-2">
+                          <code>mkdir -p certs</code><br>
+                          <code>cd certs</code>
+                        </div>
+                      </li>
+                      <li><span data-i18n="linuxGen3">Generate private key:</span>
+                        <div class="bg-dark text-light p-2 rounded mt-2">
+                          <code>openssl genrsa -out server.key 2048</code>
+                        </div>
+                      </li>
+                      <li><span data-i18n="linuxGen4">Generate certificate signing request (CSR):</span>
+                        <div class="bg-dark text-light p-2 rounded mt-2">
+                          <code>openssl req -new -key server.key -out server.csr</code>
+                        </div>
+                        <small class="text-muted"><span data-i18n="linuxGen4Note">Note: You can press Enter for all fields except Common Name, which should be "localhost"</span></small>
+                      </li>
+                      <li><span data-i18n="linuxGen5">Generate self-signed certificate:</span>
+                        <div class="bg-dark text-light p-2 rounded mt-2">
+                          <code>openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt</code>
+                        </div>
+                      </li>
+                      <li><span data-i18n="linuxGen6">Set proper permissions:</span>
+                        <div class="bg-dark text-light p-2 rounded mt-2">
+                          <code>chmod 600 server.key</code><br>
+                          <code>chmod 644 server.crt</code>
+                        </div>
+                      </li>
+                      <li><span data-i18n="linuxGen7">Verify certificate:</span>
+                        <div class="bg-dark text-light p-2 rounded mt-2">
+                          <code>openssl x509 -in server.crt -text -noout</code>
+                        </div>
+                      </li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Certificate Location Info -->
+          <div class="row mt-4">
+            <div class="col-12">
+              <div class="alert alert-warning">
+                <h6><i class="bi bi-info-circle me-2"></i><span data-i18n="certificateLocationTitle">Certificate Location</span></h6>
+                <p class="mb-2"><span data-i18n="certificateLocationInfo">After clicking "Generate Certificate", the files will be saved to:</span></p>
+                <div class="bg-dark text-light p-2 rounded">
+                  <code>./certs/server.crt</code> - <span data-i18n="certificateFile">Certificate file</span><br>
+                  <code>./certs/server.key</code> - <span data-i18n="privateKeyFile">Private key file</span>
+                </div>
+                <small class="text-muted mt-2 d-block">
+                  <i class="bi bi-exclamation-triangle me-1"></i>
+                  <span data-i18n="certificateLocationNote">Note: The certs/ directory is relative to your application's root directory.</span>
+                </small>
+              </div>
+            </div>
+          </div>
+
+          <!-- Common Usage Instructions -->
+          <div class="row mt-3">
+            <div class="col-12">
+              <div class="card">
+                <div class="card-header bg-info text-white">
+                  <h6 class="mb-0"><i class="bi bi-lightbulb me-2"></i><span data-i18n="usageInstructions">Usage Instructions</span></h6>
+                </div>
+                <div class="card-body">
+                  <ol>
+                    <li><span data-i18n="usage1">After generating the certificate, you will have two files:</span>
+                      <ul>
+                        <li><code>server.key</code> - <span data-i18n="usage1a">Private key (keep this secure)</span></li>
+                        <li><code>server.crt</code> - <span data-i18n="usage1b">Certificate file</span></li>
+                      </ul>
+                    </li>
+                    <li><span data-i18n="usage2">Configure your application to use these files for HTTPS</span></li>
+                    <li><span data-i18n="usage3">The certificate is valid for 365 days</span></li>
+                    <li><span data-i18n="usage4">For production use, consider using a certificate from a trusted Certificate Authority (CA)</span></li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="bi bi-x-circle me-2"></i><span data-i18n="close">Close</span>
+        </button>
+        <button type="button" class="btn btn-primary" id="generateCertNowBtn" disabled>
+          <i class="bi bi-download me-2"></i><span data-i18n="generateNow">Generate Certificate</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

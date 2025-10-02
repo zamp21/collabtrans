@@ -2206,3 +2206,149 @@ async def test_mineru_connection(request: Request):
     except Exception as e:
         logger.error(f"MinerU测试连接端点错误: {e}")
         raise HTTPException(status_code=500, detail="服务器内部错误")
+
+
+@auth_router.get("/certificate-list")
+async def get_certificate_list(user: User = Depends(get_current_user)):
+    """Get list of certificates in certs directory"""
+    try:
+        import os
+        import subprocess
+        from pathlib import Path
+        from datetime import datetime
+        
+        certs_dir = Path("certs")
+        certificates = []
+        
+        if certs_dir.exists():
+            for file_path in certs_dir.iterdir():
+                if file_path.is_file() and file_path.suffix in ['.crt', '.key', '.pem']:
+                    stat = file_path.stat()
+                    file_type = 'cert' if file_path.suffix in ['.crt', '.pem'] else 'key'
+                    
+                    cert_info = {
+                        'name': file_path.name,
+                        'type': file_type,
+                        'size': f"{stat.st_size} bytes",
+                        'modified': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+                    }
+                    
+                    # For certificate files, try to get validity period
+                    if file_type == 'cert':
+                        try:
+                            # Use openssl to get certificate validity
+                            result = subprocess.run([
+                                'openssl', 'x509', '-in', str(file_path), '-noout', '-dates'
+                            ], capture_output=True, text=True, check=True)
+                            
+                            # Parse the output to extract dates
+                            output = result.stdout
+                            not_before = None
+                            not_after = None
+                            
+                            for line in output.split('\n'):
+                                if line.startswith('notBefore='):
+                                    not_before = line.split('=', 1)[1].strip()
+                                elif line.startswith('notAfter='):
+                                    not_after = line.split('=', 1)[1].strip()
+                            
+                            if not_after:
+                                # Parse the date and check if it's expired
+                                try:
+                                    # OpenSSL date format: Oct  2 19:42:59 2025 GMT
+                                    from datetime import datetime
+                                    parsed_date = datetime.strptime(not_after, '%b %d %H:%M:%S %Y %Z')
+                                    now = datetime.now()
+                                    
+                                    cert_info['valid_until'] = parsed_date.strftime('%Y-%m-%d %H:%M:%S')
+                                    cert_info['is_expired'] = parsed_date < now
+                                    
+                                    # Calculate days until expiration
+                                    days_left = (parsed_date - now).days
+                                    if days_left < 0:
+                                        cert_info['days_left'] = f"Expired {abs(days_left)} days ago"
+                                    elif days_left == 0:
+                                        cert_info['days_left'] = "Expires today"
+                                    else:
+                                        cert_info['days_left'] = f"{days_left} days left"
+                                        
+                                except ValueError:
+                                    cert_info['valid_until'] = not_after
+                                    cert_info['days_left'] = "Unknown"
+                                    cert_info['is_expired'] = False
+                                    
+                        except (subprocess.CalledProcessError, FileNotFoundError):
+                            # If openssl is not available or fails, skip validity info
+                            pass
+                    
+                    certificates.append(cert_info)
+        
+        return {"certificates": certificates}
+        
+    except Exception as e:
+        logger.error(f"Failed to get certificate list: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get certificate list")
+
+
+@auth_router.post("/generate-certificate")
+async def generate_certificate(request: Request, user: User = Depends(get_current_user)):
+    """Generate temporary SSL certificate"""
+    if not user.is_admin():
+        raise HTTPException(status_code=403, detail="Access denied: Admin privileges required")
+    
+    try:
+        data = await request.json()
+        platform = data.get('platform', 'linux')
+        
+        import os
+        import subprocess
+        from pathlib import Path
+        
+        # Create certs directory if it doesn't exist
+        certs_dir = Path("certs")
+        certs_dir.mkdir(exist_ok=True)
+        
+        # Change to certs directory
+        os.chdir(certs_dir)
+        
+        try:
+            # Generate private key
+            subprocess.run([
+                'openssl', 'genrsa', '-out', 'server.key', '2048'
+            ], check=True, capture_output=True)
+            
+            # Generate CSR
+            subprocess.run([
+                'openssl', 'req', '-new', '-key', 'server.key', '-out', 'server.csr',
+                '-subj', '/C=US/ST=State/L=City/O=Organization/CN=localhost'
+            ], check=True, capture_output=True)
+            
+            # Generate self-signed certificate
+            subprocess.run([
+                'openssl', 'x509', '-req', '-days', '365', '-in', 'server.csr',
+                '-signkey', 'server.key', '-out', 'server.crt'
+            ], check=True, capture_output=True)
+            
+            # Set proper permissions (Linux/Unix)
+            if platform == 'linux':
+                os.chmod('server.key', 0o600)
+                os.chmod('server.crt', 0o644)
+            
+            # Clean up CSR file
+            if Path('server.csr').exists():
+                Path('server.csr').unlink()
+            
+            logger.info(f"Certificate generated successfully by user {_mask_username(user.username)}")
+            return {"success": True, "message": "Certificate generated successfully"}
+            
+        except subprocess.CalledProcessError as e:
+            logger.error(f"OpenSSL command failed: {e}")
+            return {"success": False, "message": f"Certificate generation failed: {e.stderr.decode() if e.stderr else str(e)}"}
+        
+        finally:
+            # Change back to original directory
+            os.chdir('..')
+            
+    except Exception as e:
+        logger.error(f"Certificate generation error: {e}")
+        raise HTTPException(status_code=500, detail=f"Certificate generation failed: {str(e)}")

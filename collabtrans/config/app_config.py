@@ -147,37 +147,41 @@ class AppConfig:
             return cls()
     
     def save_to_file(self, config_file: str = "app_config.json") -> bool:
-        """保存配置到文件
-
-        优先写入 /etc/collabtrans/app_config.json（若系统目录存在），否则回落到传入路径。
-        """
+        """保存配置到文件（系统目录优先，失败则回退到工作目录）"""
+        config_data = asdict(self)
+        candidates = []
+        system_dir = Path("/etc/collabtrans")
+        # 1) 系统目录优先
+        candidates.append(system_dir / "app_config.json")
+        # 2) 解析得到的路径（可能是可执行目录或工作目录）
         try:
-            system_dir = Path("/etc/collabtrans")
-            if system_dir.exists():
-                cfg_path = system_dir / "app_config.json"
-            else:
-                # 使用与读取相同的解析逻辑，尽量与运行环境一致
-                cfg_path = self._resolve_app_config_path(config_file)
+            candidates.append(self._resolve_app_config_path(config_file))
+        except Exception:
+            pass
+        # 3) 明确工作目录回退
+        candidates.append(Path.cwd() / "app_config.json")
 
-            logger.info(f"[AppConfig] 正在保存应用配置到文件: {cfg_path}")
-
-            cfg_path.parent.mkdir(parents=True, exist_ok=True)
-            config_data = asdict(self)
-            with open(cfg_path, 'w', encoding='utf-8') as f:
-                json.dump(config_data, f, indent=4, ensure_ascii=False)
-
-            # 系统目录下设置保守权限
+        last_error = None
+        for path in candidates:
             try:
-                if str(cfg_path).startswith(str(system_dir)):
-                    os.chmod(cfg_path, 0o660)
-            except Exception:
-                pass
+                if not path.parent.exists():
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                with open(path, 'w', encoding='utf-8') as f:
+                    json.dump(config_data, f, indent=4, ensure_ascii=False)
+                try:
+                    if str(path).startswith(str(system_dir)):
+                        os.chmod(path, 0o660)
+                except Exception:
+                    pass
+                logger.info(f"应用配置保存成功: {path}")
+                return True
+            except Exception as e:
+                last_error = e
+                logger.warning(f"写入失败，尝试下一个位置: {path} -> {e}")
+                continue
 
-            logger.info("应用配置保存成功")
-            return True
-        except Exception as e:
-            logger.error(f"保存应用配置失败: {e}")
-            return False
+        logger.error(f"保存应用配置失败: {last_error}")
+        return False
     
     def update_from_dict(self, data: Dict[str, Any]) -> None:
         """从字典更新配置"""

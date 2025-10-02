@@ -10,6 +10,7 @@
       <label class="form-label" for="certFile" data-i18n="certFileLabel">证书文件（.crt/.pem）</label>
       <input class="form-control" type="file" id="certFile" accept=".crt,.pem">
       <div class="form-text" data-i18n="currentCertLabel">当前证书：<span id="currentCertName">-</span></div>
+      <div class="form-text"><span data-i18n="certificateValidity">有效期</span>：<span id="currentCertValidity">-</span></div>
     </div>
     <div class="col-md-6">
       <label class="form-label" for="keyFile" data-i18n="keyFileLabel">私钥文件（.key/.pem）</label>
@@ -25,7 +26,23 @@
 
   <div class="mt-4 d-flex gap-2">
     <button id="saveWebBtn" type="button" class="btn btn-outline-secondary" data-i18n="saveWebSettingsBtn">保存Web设置</button>
-    <button id="uploadCertBtn" type="button" class="btn btn-outline-secondary" data-i18n="uploadCertKeyBtn">上传证书与私钥</button>
     <button id="testHttpsBtn" type="button" class="btn bbtn-outline-secondary" data-i18n="testCertHttpsBtn">测试证书/HTTPS</button>
+  </div>
+</div>
+
+<!-- Certificate sub-section (embedded) -->
+<div class="border rounded p-4 mt-4">
+  <div class="row g-3">
+    <div class="col-12">
+      <h5 class="mb-3"><i class="bi bi-shield-check me-2"></i><span data-i18n="certificateSettingsTitle">Certificate Settings</span></h5>
+      <p data-i18n="certificateInfo">生成临时SSL/TLS证书用于HTTPS连接。请根据您的平台选择相应的操作指南。</p>
+    </div>
+  </div>
+  <div id="embedded-certificate-content">
+    <div class="loading-spinner">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden" data-i18n="loadingCertificates">正在加载证书...</span>
+      </div>
+    </div>
   </div>
 </div>

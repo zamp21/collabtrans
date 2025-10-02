@@ -162,43 +162,49 @@ class GlobalConfig:
     
     def save_to_file(self, config_file: str = "global_config.json") -> bool:
         """Save global configuration to file (excluding sensitive information)
-
-        Always writes to system config if available: /etc/collabtrans/global_config.json
+        System-first; if permission denied or other errors, fall back to user-writable locations.
         """
+        # Prepare dictionary without sensitive info
         try:
-            # Determine target path with system-first policy
-            system_dir = "/etc/collabtrans"
-            target_path = None
-            try:
-                if os.path.exists(system_dir):
-                    target_path = os.path.join(system_dir, "global_config.json")
-            except Exception:
-                target_path = None
-            if target_path is None:
-                target_path = config_file
-
-            # Prepare dictionary without sensitive info
             config_dict = self.get_config_dict(include_api_keys=False)
             config_dict.pop("translator_mineru_token", None)
+        except Exception:
+            config_dict = {}
 
-            # Ensure directory exists
-            Path(os.path.dirname(target_path)).mkdir(parents=True, exist_ok=True)
+        system_dir = "/etc/collabtrans"
+        candidates = []
+        # 1) System dir first
+        candidates.append(os.path.join(system_dir, "global_config.json"))
+        # 2) Provided path
+        candidates.append(config_file)
+        # 3) CWD fallback
+        try:
+            candidates.append(str(Path.cwd() / "global_config.json"))
+        except Exception:
+            pass
 
-            with open(target_path, 'w', encoding='utf-8') as f:
-                json.dump(config_dict, f, ensure_ascii=False, indent=2)
-
-            # Set conservative permissions if writing to system dir
+        last_error = None
+        for target_path in candidates:
             try:
-                if target_path.startswith(system_dir):
-                    os.chmod(target_path, 0o640)
-            except Exception:
-                pass
+                # Ensure directory exists
+                Path(os.path.dirname(target_path)).mkdir(parents=True, exist_ok=True)
+                with open(target_path, 'w', encoding='utf-8') as f:
+                    json.dump(config_dict, f, ensure_ascii=False, indent=2)
+                # Set conservative permissions if writing to system dir
+                try:
+                    if target_path.startswith(system_dir):
+                        os.chmod(target_path, 0o640)
+                except Exception:
+                    pass
+                logger.info(f"Global configuration saved to: {target_path} (excluding sensitive information)")
+                return True
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Failed to write global config to {target_path}: {e}")
+                continue
 
-            logger.info(f"Global configuration saved to: {target_path} (excluding sensitive information)")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to save global configuration: {e}")
-            return False
+        logger.error(f"Failed to save global configuration after fallbacks: {last_error}")
+        return False
     
     def update_from_dict(self, data: Dict[str, Any]) -> None:
         """Update configuration from dictionary"""
