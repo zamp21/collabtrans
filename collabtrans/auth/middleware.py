@@ -29,13 +29,23 @@ class AuthMiddleware(BaseHTTPMiddleware):
             "/openapi.json",
             "/favicon.ico"
         }
+        
+        # 不需要认证的API路径（仅GET请求）
+        self.exempt_api_paths = {
+            "/auth/message-config"
+        }
     
     async def dispatch(self, request: Request, call_next):
         """处理请求"""
         path = request.url.path
+        method = request.method
         
         # 检查是否为豁免路径
         if self._is_exempt_path(path):
+            return await call_next(request)
+        
+        # 检查是否为豁免API路径（仅GET请求）
+        if self._is_exempt_api_path(path, method):
             return await call_next(request)
         
         # 检查用户是否已认证
@@ -61,4 +71,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if path.startswith("/docs") or path.startswith("/redoc"):
             return True
         
+        return False
+    
+    def _is_exempt_api_path(self, path: str, method: str) -> bool:
+        """检查API路径是否豁免认证（仅GET请求）"""
+        if method.upper() == "GET" and path in self.exempt_api_paths:
+            return True
         return False

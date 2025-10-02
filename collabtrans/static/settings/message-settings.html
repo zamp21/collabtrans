@@ -1,0 +1,41 @@
+<div class="border rounded p-4">
+  <div class="row g-3">
+    <div class="col-12">
+      <h5 class="mb-3"><i class="bi bi-chat-text me-2"></i><span data-i18n="messageSettingsTitle">Message Settings</span></h5>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-12">
+      <label for="loginBannerInput" class="form-label" data-i18n="loginBannerLabel">Login Banner</label>
+      <textarea 
+        class="form-control" 
+        id="loginBannerInput" 
+        rows="3" 
+        data-i18n-placeholder="loginBannerPlaceholder"
+        placeholder="Welcome to document translation system."></textarea>
+      <div class="form-text" data-i18n="loginBannerHelp">This message will be displayed on the login page to welcome users.</div>
+    </div>
+  </div>
+
+  <div class="row g-3 mt-2">
+    <div class="col-12">
+      <label for="usageMessageInput" class="form-label" data-i18n="usageMessageLabel">Usage Message</label>
+      <textarea 
+        class="form-control" 
+        id="usageMessageInput" 
+        rows="3" 
+        data-i18n-placeholder="usageMessagePlaceholder"
+        placeholder="Please drop your file and click Translate."></textarea>
+      <div class="form-text" data-i18n="usageMessageHelp">This message will be displayed on the main page below the task list to guide users.</div>
+    </div>
+  </div>
+
+  <div class="row g-3 mt-3">
+    <div class="col-12">
+      <button type="button" class="btn btn-primary" id="saveMessageBtn">
+        <i class="bi bi-check-circle me-2"></i><span data-i18n="saveMessageBtn">Save Message Settings</span>
+      </button>
+    </div>
+  </div>
+</div>

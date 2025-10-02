@@ -35,5 +35,9 @@
     "max_login_attempts": 5,
     "login_attempt_window": 300,
     "rate_limit_window": 300
+  },
+  "messages": {
+    "login_banner": "Welcome",
+    "usage_message": "Drop file and translate"
   }
 }

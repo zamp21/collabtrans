@@ -97,6 +97,9 @@
           <a class="nav-link" href="#" data-section="login-settings">
             <i class="bi bi-shield-lock me-2"></i><span data-i18n="loginTitle">登录</span>
           </a>
+          <a class="nav-link" href="#" data-section="message-settings">
+            <i class="bi bi-chat-dots me-2"></i><span data-i18n="messageTitle">Message</span>
+          </a>
           <a class="nav-link" href="#" data-section="web-settings">
             <i class="bi bi-globe me-2"></i><span data-i18n="webTitle">Web</span>
           </a>
@@ -190,6 +193,21 @@
             <p data-i18n="loginDescription">配置LDAP认证和用户管理设置</p>
           </div>
           <div id="login-settings-content">
+            <div class="loading-spinner">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">加载中...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Message -->
+        <div class="settings-section" id="message-settings-section">
+          <div class="section-header">
+            <h2><span data-i18n="messageTitle">Message</span></h2>
+            <p data-i18n="messageDescription">配置登录页面和主页的显示消息</p>
+          </div>
+          <div id="message-settings-content">
             <div class="loading-spinner">
               <div class="spinner-border text-primary" role="status">
                 <span class="visually-hidden">加载中...</span>

@@ -1192,6 +1192,11 @@ $.*"></textarea>
                     <img src="/static/favicon.ico" alt="LOGO" style="width:10%;min-width: 55px; height: auto;">
                     <p class="mt-3" data-i18n="noTaskPlaceholder">当前没有任务，点击"新建任务"开始吧！</p>
                 </div>
+                
+                <!-- Usage Message -->
+                <div id="usageMessage" class="text-center text-muted mt-4" style="font-size: 0.9rem; line-height: 1.4;">
+                    <!-- Usage message content will be loaded dynamically -->
+                </div>
             </div>
         </div>
     </div>
@@ -1766,6 +1771,21 @@ document.addEventListener('DOMContentLoaded', function() {
             const name = user.display_name || user.username || '--';
             const el = document.getElementById('currentUserName');
             if (el) el.textContent = name;
+        } catch (e) {
+            // 静默失败
+        }
+    }
+
+    // 加载Usage Message
+    async function loadUsageMessage() {
+        try {
+            const resp = await fetch('/auth/message-config', { credentials: 'include' });
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const usageElement = document.getElementById('usageMessage');
+            if (usageElement && data.usage_message) {
+                usageElement.textContent = data.usage_message;
+            }
         } catch (e) {
             // 静默失败
         }
@@ -4585,6 +4605,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Step 2: Load user info, permissions and app config
         await loadAndRenderCurrentUser();
+        await loadUsageMessage();
         console.log("Loading user permissions and app config...");
         const permissionsLoaded = await loadUserPermissions();
         const appConfigLoaded = await loadAppConfig();

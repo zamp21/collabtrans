@@ -117,11 +117,14 @@ async def login_page(
     error: Optional[str] = None
 ):
     """登录页面"""
+    from .config import AuthConfig
+    config = AuthConfig.get_config()
     return templates.TemplateResponse("login.html", {
         "request": request,
         "next_url": next_url,
         "error": error,
-        "ldap_enabled": get_auth_config().ldap_enabled
+        "ldap_enabled": config.ldap_enabled,
+        "login_banner": config.login_banner
     })
 
 
@@ -1965,6 +1968,58 @@ async def update_ldap_config_api(request: Request, user: User = Depends(get_curr
     except Exception as e:
         logger.error(f"更新LDAP配置失败: {e}")
         raise HTTPException(status_code=400, detail=f"Failed to update LDAP configuration: {str(e)}")
+
+
+# === Message 配置专用读写接口 ===
+@auth_router.get("/message-config")
+async def get_message_config_api():
+    """读取消息相关配置（公开接口，无需认证）"""
+    from .config import AuthConfig
+    config = AuthConfig.get_config()
+    return {
+        "login_banner": config.login_banner,
+        "usage_message": config.usage_message,
+    }
+
+
+@auth_router.post("/message-config")
+async def update_message_config_api(request: Request, user: User = Depends(get_current_user)):
+    """更新消息相关配置（需要管理员权限）"""
+    if not user.is_admin():
+        raise HTTPException(status_code=403, detail="Access denied: Admin privileges required")
+
+    try:
+        data = await request.json()
+
+        # 仅提取消息相关字段
+        allowed = {'login_banner', 'usage_message'}
+        update_payload = {k: v for k, v in data.items() if k in allowed}
+
+        # 更新并保存
+        from .config import AuthConfig
+        auth_cfg = AuthConfig.get_config()
+        logger.info(f"[Message-API] 更新字段: {update_payload}")
+        auth_cfg.update_from_dict(update_payload)
+        saved = auth_cfg.save_to_file()
+        
+        # 同步更新本模块内存中的全局配置
+        try:
+            local_cfg = get_auth_config()
+            local_cfg.update_from_dict(update_payload)
+            logger.info("[Message-API] 已同步更新内存配置")
+        except Exception:
+            pass
+            
+        if saved:
+            logger.info(f"消息配置已由用户 {_mask_username(user.username)} 更新")
+            return {"success": True, "message": "Message configuration updated"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to save message configuration")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"更新消息配置失败: {e}")
+        raise HTTPException(status_code=400, detail=f"Failed to update message configuration: {str(e)}")
 
 # 兼容性路由（不使用/auth前缀）
 @auth_compat_router.get("/login")

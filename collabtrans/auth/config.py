@@ -98,6 +98,10 @@ class AuthConfig:
     login_attempt_window: int = 300  # 5分钟
     rate_limit_window: int = 300  # 5分钟
     
+    # 消息配置
+    login_banner: str = "Welcome to document translation system."
+    usage_message: str = "Please drop your file and click Translate."
+    
     @classmethod
     def from_env(cls) -> "AuthConfig":
         """从环境变量创建配置"""
@@ -129,6 +133,8 @@ class AuthConfig:
             max_login_attempts=int(os.getenv("MAX_LOGIN_ATTEMPTS", "5")),
             login_attempt_window=int(os.getenv("LOGIN_ATTEMPT_WINDOW", "300")),
             rate_limit_window=int(os.getenv("RATE_LIMIT_WINDOW", "300")),
+            login_banner=os.getenv("LOGIN_BANNER", "Welcome to document translation system."),
+            usage_message=os.getenv("USAGE_MESSAGE", "Please drop your file and click Translate."),
         )
     
     def get_ldap_uri(self) -> str:
@@ -206,6 +212,7 @@ class AuthConfig:
         session = data.get("session", {})
         redis = data.get("redis", {})
         security = data.get("security", {})
+        messages = data.get("messages", {})
 
         return cls(
             ldap_enabled=ldap.get("enabled", False),
@@ -234,6 +241,8 @@ class AuthConfig:
             max_login_attempts=int(security.get("max_login_attempts", 5)),
             login_attempt_window=int(security.get("login_attempt_window", 300)),
             rate_limit_window=int(security.get("rate_limit_window", 300)),
+            login_banner=messages.get("login_banner", "Welcome to document translation system."),
+            usage_message=messages.get("usage_message", "Please drop your file and click Translate."),
         )
 
     def to_grouped_dict(self) -> dict:
@@ -279,6 +288,10 @@ class AuthConfig:
                 "login_attempt_window": self.login_attempt_window,
                 "rate_limit_window": self.rate_limit_window,
             },
+            "messages": {
+                "login_banner": self.login_banner,
+                "usage_message": self.usage_message,
+            },
         }
     
     def _load_auth_secrets(self) -> None:
@@ -314,11 +327,8 @@ class AuthConfig:
             if Path(config_file).is_absolute():
                 config_path = Path(config_file)
             else:
-                system_dir = Path("/etc/collabtrans")
-                if system_dir.exists():
-                    config_path = system_dir / "local_config.json"
-                else:
-                    config_path = _resolve_auth_config_path(config_file)
+                # Always use the resolved path from current working directory
+                config_path = _resolve_auth_config_path(config_file)
 
             logger.info(f"[AuthConfig] Preparing to write grouped config to: {config_path}")
 
@@ -435,7 +445,7 @@ def get_auth_config(config_file: str = "local_config.json") -> "AuthConfig":
 
 def save_auth_config(config_file: str = "local_config.json") -> bool:
     try:
-        cfg = get_auth_config(config_file)
+        cfg = AuthConfig.get_config(config_file)
         result = cfg.save_to_file(config_file)
         logger.info(f"[AuthConfig] save_auth_config 写盘结果: {result}")
         return result

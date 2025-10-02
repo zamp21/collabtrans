@@ -204,6 +204,9 @@ async function loadModuleContent(moduleName) {
         } else if (moduleName === 'login-settings' && window.initLoginSettingsModule) {
           console.log(`Calling ${moduleName} initialization`);
           window.initLoginSettingsModule();
+        } else if (moduleName === 'message-settings' && window.initMessageSettingsModule) {
+          console.log(`Calling ${moduleName} initialization`);
+          window.initMessageSettingsModule();
         } else if (moduleName === 'parsing-engines' && window.initParsingEnginesModule) {
           console.log(`Calling ${moduleName} initialization`);
           window.initParsingEnginesModule();
@@ -376,6 +379,10 @@ async function saveAllSettings() {
     
     if (loadedModules.has('login-settings') && window.saveLoginSettings) {
       savePromises.push(window.saveLoginSettings(true));
+    }
+    
+    if (loadedModules.has('message-settings') && window.saveMessageSettings) {
+      savePromises.push(window.saveMessageSettings(true));
     }
     
     if (loadedModules.has('web-settings') && window.saveWebSettings) {
