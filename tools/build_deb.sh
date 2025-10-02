@@ -76,11 +76,11 @@ make_deb_lite() {
   # 安装配置文件到 /etc/collabtrans
   install -m644 "${ROOT_DIR}/global_config.json" "${pkg_root}/etc/collabtrans/"
   install -m644 "${ROOT_DIR}/local_secrets.json.template" "${pkg_root}/etc/collabtrans/"
-  if [[ -f "${ROOT_DIR}/auth_config.json.template" ]]; then
-    install -m644 "${ROOT_DIR}/auth_config.json.template" "${pkg_root}/etc/collabtrans/"
+  if [[ -f "${ROOT_DIR}/local_config.json.template" ]]; then
+    install -m644 "${ROOT_DIR}/local_config.json.template" "${pkg_root}/etc/collabtrans/"
   fi
-  if [[ -f "${ROOT_DIR}/auth_config.json" ]]; then
-    install -m640 "${ROOT_DIR}/auth_config.json" "${pkg_root}/etc/collabtrans/"
+  if [[ -f "${ROOT_DIR}/local_config.json" ]]; then
+    install -m640 "${ROOT_DIR}/local_config.json" "${pkg_root}/etc/collabtrans/"
   fi
   # app_config.json 及模板
   if [[ -f "${ROOT_DIR}/app_config.json.template" ]]; then
@@ -187,9 +187,9 @@ if [[ -f "$CFG_DIR/local_secrets.json" ]]; then
   chown root:collabtrans "$CFG_DIR/local_secrets.json" || true
   chmod 660 "$CFG_DIR/local_secrets.json" || true
 fi
-if [[ -f "$CFG_DIR/auth_config.json" ]]; then
-  chown root:collabtrans "$CFG_DIR/auth_config.json" || true
-  chmod 660 "$CFG_DIR/auth_config.json" || true
+if [[ -f "$CFG_DIR/local_config.json" ]]; then
+  chown root:collabtrans "$CFG_DIR/local_config.json" || true
+  chmod 660 "$CFG_DIR/local_config.json" || true
 fi
 # app_config.json 权限
 if [[ -f "$CFG_DIR/app_config.json" ]]; then
@@ -206,12 +206,12 @@ echo "CollabTrans service installed successfully"
 echo "To start the service: sudo systemctl start collabtrans"
 echo "To enable auto-start: sudo systemctl enable collabtrans"
 
-# 初始化 /etc/collabtrans/auth_config.json（如缺失且有模板）
+# 初始化 /etc/collabtrans/local_config.json（如缺失且有模板）
 CFG_DIR="/etc/collabtrans"
-if [[ ! -f "$CFG_DIR/auth_config.json" && -f "$CFG_DIR/auth_config.json.template" ]]; then
-  cp -f "$CFG_DIR/auth_config.json.template" "$CFG_DIR/auth_config.json"
-  chmod 660 "$CFG_DIR/auth_config.json" || true
-  echo "Created /etc/collabtrans/auth_config.json from template"
+if [[ ! -f "$CFG_DIR/local_config.json" && -f "$CFG_DIR/local_config.json.template" ]]; then
+  cp -f "$CFG_DIR/local_config.json.template" "$CFG_DIR/local_config.json"
+  chmod 660 "$CFG_DIR/local_config.json" || true
+  echo "Created /etc/collabtrans/local_config.json from template"
 fi
 # 初始化 /etc/collabtrans/app_config.json（如缺失且有模板）
 if [[ ! -f "$CFG_DIR/app_config.json" && -f "$CFG_DIR/app_config.json.template" ]]; then
@@ -299,11 +299,11 @@ make_deb_full() {
   # 安装配置文件到 /etc/collabtrans
   install -m644 "${ROOT_DIR}/global_config.json" "${pkg_root}/etc/collabtrans/"
   install -m644 "${ROOT_DIR}/local_secrets.json.template" "${pkg_root}/etc/collabtrans/"
-  if [[ -f "${ROOT_DIR}/auth_config.json.template" ]]; then
-    install -m644 "${ROOT_DIR}/auth_config.json.template" "${pkg_root}/etc/collabtrans/"
+  if [[ -f "${ROOT_DIR}/local_config.json.template" ]]; then
+    install -m644 "${ROOT_DIR}/local_config.json.template" "${pkg_root}/etc/collabtrans/"
   fi
-  if [[ -f "${ROOT_DIR}/auth_config.json" ]]; then
-    install -m640 "${ROOT_DIR}/auth_config.json" "${pkg_root}/etc/collabtrans/"
+  if [[ -f "${ROOT_DIR}/local_config.json" ]]; then
+    install -m640 "${ROOT_DIR}/local_config.json" "${pkg_root}/etc/collabtrans/"
   fi
 
   cat > "${pkg_root}/DEBIAN/control" <<EOF
@@ -530,21 +530,21 @@ if [[ -f "$CFG_DIR/local_secrets.json" ]]; then
   chown root:collabtrans "$CFG_DIR/local_secrets.json" || true
   chmod 660 "$CFG_DIR/local_secrets.json" || true
 fi
-if [[ -f "$CFG_DIR/auth_config.json" ]]; then
-  chown root:collabtrans "$CFG_DIR/auth_config.json" || true
-  chmod 660 "$CFG_DIR/auth_config.json" || true
+if [[ -f "$CFG_DIR/local_config.json" ]]; then
+  chown root:collabtrans "$CFG_DIR/local_config.json" || true
+  chmod 660 "$CFG_DIR/local_config.json" || true
 fi
 
 echo "CollabTrans balance service installed successfully"
 echo "To start the service: sudo systemctl start collabtrans-balance"
 echo "To enable auto-start: sudo systemctl enable collabtrans-balance"
 
-# 初始化 /etc/collabtrans/auth_config.json（如缺失且有模板）
+# 初始化 /etc/collabtrans/local_config.json（如缺失且有模板）
 CFG_DIR="/etc/collabtrans"
-if [[ ! -f "$CFG_DIR/auth_config.json" && -f "$CFG_DIR/auth_config.json.template" ]]; then
-  cp -f "$CFG_DIR/auth_config.json.template" "$CFG_DIR/auth_config.json"
-  chmod 660 "$CFG_DIR/auth_config.json" || true
-  echo "Created /etc/collabtrans/auth_config.json from template"
+if [[ ! -f "$CFG_DIR/local_config.json" && -f "$CFG_DIR/local_config.json.template" ]]; then
+  cp -f "$CFG_DIR/local_config.json.template" "$CFG_DIR/local_config.json"
+  chmod 660 "$CFG_DIR/local_config.json" || true
+  echo "Created /etc/collabtrans/local_config.json from template"
 fi
 
 # 创建运行期数据目录并授权（用户配置、缓存等）

@@ -1,6 +1,9 @@
 // Login Settings Module
 // 登录设置模块
 
+// Global variable to track LDAP test validation status
+let ldapTestValidated = false;
+
 // Load LDAP configuration
 async function loadLdapConfig() {
   try {
@@ -68,9 +71,18 @@ function updateLdapsUi() {
 
 // Save login settings
 async function saveLoginSettings(silent = false) {
+  // Check if trying to enable LDAP without test validation
+  const ldapEnabled = document.getElementById('ldapEnabled').checked;
+  if (ldapEnabled && !ldapTestValidated) {
+    if (window.SettingsCore) {
+      window.SettingsCore.showNotification('LDAP test must be performed and passed before enabling LDAP. Please test the connection first.', 'warning');
+    }
+    return false;
+  }
+
   // Save LDAP configuration
   const ldapPayload = {
-    ldap_enabled: document.getElementById('ldapEnabled').checked,
+    ldap_enabled: ldapEnabled,
     ldap_protocol: document.getElementById('ldapProtocol').value,
     ldap_host: document.getElementById('ldapHost').value,
     ldap_port: parseInt(document.getElementById('ldapPort').value || '389'),
@@ -83,7 +95,8 @@ async function saveLoginSettings(silent = false) {
     ldap_glossary_group: document.getElementById('ldapGlossaryGroup').value,
     ldap_group_base_dn: document.getElementById('ldapGroupBaseDn').value,
     ldap_tls_verify: document.getElementById('ldapTlsVerify').checked,
-    ldap_tls_cacertfile: document.getElementById('ldapTlsCacertfile').value
+    ldap_tls_cacertfile: document.getElementById('ldapTlsCacertfile').value,
+    ldap_test_validated: ldapTestValidated
   };
   
   const ldapResp = await fetch('/auth/ldap-config', {
@@ -111,7 +124,25 @@ async function saveLoginSettings(silent = false) {
     if (success) {
       window.SettingsCore.showNotification(window.SettingsCore.getText('loginSettingsSaved'), 'success');
     } else {
-      window.SettingsCore.showNotification(window.SettingsCore.getText('saveFailed'), 'error');
+      // Show detailed error information
+      let errorMsg = window.SettingsCore.getText('saveFailed');
+      if (!ldapResp.ok) {
+        try {
+          const ldapError = await ldapResp.text();
+          errorMsg += ` (LDAP: ${ldapResp.status} - ${ldapError})`;
+        } catch (e) {
+          errorMsg += ` (LDAP: ${ldapResp.status})`;
+        }
+      }
+      if (!sessionSecurityResp.ok) {
+        try {
+          const sessionError = await sessionSecurityResp.text();
+          errorMsg += ` (Session: ${sessionSecurityResp.status} - ${sessionError})`;
+        } catch (e) {
+          errorMsg += ` (Session: ${sessionSecurityResp.status})`;
+        }
+      }
+      window.SettingsCore.showNotification(errorMsg, 'error');
     }
   }
   
@@ -225,16 +256,30 @@ async function testLdapConnectivity() {
       const text = await resp.text();
       console.log('LDAP 测试响应内容:', text);
       
+      // Log detailed error information
+      if (!resp.ok) {
+        console.error('LDAP test failed with status:', resp.status);
+        console.error('Response headers:', Object.fromEntries(resp.headers.entries()));
+      }
+      
       modal.hide();
       
       if (window.SettingsCore) {
         if (resp.ok) {
-          window.SettingsCore.showNotification(window.SettingsCore.getText('ldapConnectionTestSuccess'), 'success');
+          const result = JSON.parse(text);
+          if (result.test_validated) {
+            ldapTestValidated = true;
+            window.SettingsCore.showNotification(window.SettingsCore.getText('ldapConnectionTestSuccess') + ' - LDAP can now be enabled', 'success');
+          } else {
+            window.SettingsCore.showNotification(window.SettingsCore.getText('ldapConnectionTestSuccess'), 'success');
+          }
         } else {
+          ldapTestValidated = false;
           window.SettingsCore.showNotification(window.SettingsCore.getText('ldapConnectionTestFailed') + ': ' + text, 'error');
         }
       }
     } catch (e) {
+      ldapTestValidated = false;
       if (window.SettingsCore) {
         window.SettingsCore.showNotification(window.SettingsCore.getText('ldapConnectionTestFailed') + ': ' + e.message, 'error');
       }
@@ -330,6 +375,20 @@ function initLoginSettingsModule() {
     console.log('LDAP test button event listener added');
   } else {
     console.error('LDAP test button not found!');
+  }
+  
+  // Add event listener for LDAP enabled checkbox
+  const ldapEnabledCheckbox = document.getElementById('ldapEnabled');
+  if (ldapEnabledCheckbox) {
+    ldapEnabledCheckbox.addEventListener('change', function() {
+      if (this.checked && !ldapTestValidated) {
+        if (window.SettingsCore) {
+          window.SettingsCore.showNotification('Please test LDAP connection first before enabling LDAP.', 'warning');
+        }
+        // Uncheck the checkbox if test is not validated
+        this.checked = false;
+      }
+    });
   }
   
   // Initialize password toggle buttons and set internationalized placeholders

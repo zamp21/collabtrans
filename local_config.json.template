@@ -1,0 +1,39 @@
+{
+  "ldap": {
+    "enabled": false,
+    "protocol": "ldap",
+    "host": "dc.example.com",
+    "port": 389,
+    "bind_dn_template": "EXAMPLE\\{username}",
+    "base_dn": "OU=Users,DC=example,DC=com",
+    "user_filter": "(sAMAccountName={username})",
+    "tls": {
+      "cacertfile": null,
+      "verify": true
+    },
+    "groups": {
+      "admin_enabled": false,
+      "glossary_enabled": false,
+      "admin_group": "DocuTranslate-Admins",
+      "glossary_group": "DocuTranslate-Glossary",
+      "group_base_dn": "OU=Groups,DC=example,DC=com"
+    }
+  },
+  "default_user": {
+    "username": "admin"
+  },
+  "session": {
+    "cookie_name": "collabtrans_session",
+    "max_age": 604800
+  },
+  "redis": {
+    "host": "localhost",
+    "port": 6379,
+    "db": 0
+  },
+  "security": {
+    "max_login_attempts": 5,
+    "login_attempt_window": 300,
+    "rate_limit_window": 300
+  }
+}

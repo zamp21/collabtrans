@@ -16,11 +16,11 @@ logger = logging.getLogger(__name__)
 _AUTH_CONFIG_SINGLETON: Optional["AuthConfig"] = None
 
 
-def _resolve_auth_config_path(config_file: str = "auth_config.json") -> Path:
-    """Resolve absolute path for auth_config.json with deployment-aware priority.
+def _resolve_auth_config_path(config_file: str = "local_config.json") -> Path:
+    """Resolve absolute path for local_config.json with deployment-aware priority.
 
     Priority:
-      1) /etc/collabtrans/auth_config.json (system)
+      1) /etc/collabtrans/local_config.json (system)
       2) Executable directory (PyInstaller) / same-dir as binary
       3) Project root (development) fallback
     """
@@ -31,7 +31,7 @@ def _resolve_auth_config_path(config_file: str = "auth_config.json") -> Path:
         return p
 
     system_dir = Path("/etc/collabtrans")
-    system_cfg = system_dir / "auth_config.json"
+    system_cfg = system_dir / "local_config.json"
     if system_dir.exists() and system_cfg.exists():
         logger.info(f"[AuthConfig] Using system config: {system_cfg}")
         return system_cfg
@@ -39,12 +39,12 @@ def _resolve_auth_config_path(config_file: str = "auth_config.json") -> Path:
     # Executable directory (PyInstaller)
     if getattr(sys, 'frozen', False):
         exe_dir = Path(os.path.dirname(sys.executable))
-        exe_cfg = exe_dir / "auth_config.json"
+        exe_cfg = exe_dir / "local_config.json"
         if exe_cfg.exists():
             logger.info(f"[AuthConfig] Using executable directory config: {exe_cfg}")
             return exe_cfg
         # fallback to cwd if exists
-        cwd_cfg = Path.cwd() / "auth_config.json"
+        cwd_cfg = Path.cwd() / "local_config.json"
         if cwd_cfg.exists():
             logger.info(f"[AuthConfig] Using working directory config: {cwd_cfg}")
             return cwd_cfg
@@ -53,7 +53,7 @@ def _resolve_auth_config_path(config_file: str = "auth_config.json") -> Path:
 
     # Development: project root (two levels up from this file)
     project_root = Path(__file__).resolve().parents[2]
-    return project_root / "auth_config.json"
+    return project_root / "local_config.json"
 
 
 @dataclass
@@ -136,15 +136,15 @@ class AuthConfig:
         return f"{self.ldap_protocol}://{self.ldap_host}:{self.ldap_port}"
     
     @classmethod
-    def load_from_file(cls, config_file: str = "auth_config.json") -> "AuthConfig":
-        """从配置文件加载配置，并从敏感配置文件加载敏感信息"""
+    def load_from_file(cls, config_file: str = "local_config.json") -> "AuthConfig":
+        """Load configuration from grouped local_config.json and then load secrets"""
         config_path = _resolve_auth_config_path(config_file)
         
         logger.debug(f"[AuthConfig] Attempting to read config from: {config_path}")
         if not config_path.exists():
             # Auto-create from template if available (system first)
             system_dir = Path("/etc/collabtrans")
-            system_tpl = system_dir / "auth_config.json.template"
+            system_tpl = system_dir / "local_config.json.template"
             try:
                 if system_dir.exists() and system_tpl.exists():
                     import shutil
@@ -158,7 +158,7 @@ class AuthConfig:
                     # Try executable dir template in frozen mode
                     if getattr(sys, 'frozen', False):
                         exe_dir = Path(os.path.dirname(sys.executable))
-                        exe_tpl = exe_dir / "auth_config.json.template"
+                        exe_tpl = exe_dir / "local_config.json.template"
                         if exe_tpl.exists():
                             import shutil
                             shutil.copy2(exe_tpl, config_path)
@@ -176,22 +176,17 @@ class AuthConfig:
             else:
                 try:
                     with open(config_path, 'r', encoding='utf-8') as f:
-                        config_data = json.load(f)
-                    config = cls(**config_data)
+                        grouped = json.load(f)
+                    config = cls._from_grouped_dict(grouped)
                 except Exception as e:
-                    logger.error(f"[AuthConfig] Failed to load config file after creation: {e}, using default config")
+                    logger.error(f"[AuthConfig] Failed to load grouped config after creation: {e}, using default config")
                     config = cls.from_env()
         else:
             try:
                 with open(config_path, 'r', encoding='utf-8') as f:
-                    config_data = json.load(f)
-                
-                # 移除对旧键名的兼容映射，统一仅支持 glossary_group*
-                if 'ldap_user_group_enabled' in config_data or 'ldap_user_group' in config_data:
-                    logger.warning("[AuthConfig] Detected deprecated ldap_user_group* keys, ignored. Please use ldap_glossary_group*")
-
-                logger.debug(f"[AuthConfig] Loaded config from file: {config_path}")
-                config = cls(**config_data)
+                    grouped = json.load(f)
+                logger.debug(f"[AuthConfig] Loaded grouped config from file: {config_path}")
+                config = cls._from_grouped_dict(grouped)
             except Exception as e:
                 logger.error(f"[AuthConfig] Failed to load config file: {e}, using default config")
                 config = cls.from_env()
@@ -200,6 +195,91 @@ class AuthConfig:
         config._load_auth_secrets()
         
         return config
+
+    @classmethod
+    def _from_grouped_dict(cls, data: dict) -> "AuthConfig":
+        """Create AuthConfig from grouped local_config.json dictionary."""
+        ldap = data.get("ldap", {})
+        tls = ldap.get("tls", {})
+        groups = ldap.get("groups", {})
+        default_user = data.get("default_user", {})
+        session = data.get("session", {})
+        redis = data.get("redis", {})
+        security = data.get("security", {})
+
+        return cls(
+            ldap_enabled=ldap.get("enabled", False),
+            ldap_protocol=ldap.get("protocol", "ldap"),
+            ldap_host=ldap.get("host", "dc.example.com"),
+            ldap_port=int(ldap.get("port", 389)),
+            ldap_bind_dn_template=ldap.get("bind_dn_template", "EXAMPLE\\{username}"),
+            ldap_base_dn=ldap.get("base_dn", "OU=Users,DC=example,DC=com"),
+            ldap_user_filter=ldap.get("user_filter", "(sAMAccountName={username})"),
+            ldap_tls_cacertfile=tls.get("cacertfile"),
+            ldap_tls_verify=bool(tls.get("verify", True)),
+            ldap_admin_group_enabled=bool(groups.get("admin_enabled", False)),
+            ldap_glossary_group_enabled=bool(groups.get("glossary_enabled", False)),
+            ldap_admin_group=groups.get("admin_group", "DocuTranslate-Admins"),
+            ldap_glossary_group=groups.get("glossary_group", "DocuTranslate-Glossary"),
+            ldap_group_base_dn=groups.get("group_base_dn", "OU=Groups,DC=example,DC=com"),
+            default_username=default_user.get("username", "admin"),
+            default_password=default_user.get("password", "admin123"),
+            session_secret_key=session.get("secret_key", "your-secret-key-change-in-production"),
+            session_cookie_name=session.get("cookie_name", "collabtrans_session"),
+            session_max_age=int(session.get("max_age", 604800)),
+            redis_host=redis.get("host", "localhost"),
+            redis_port=int(redis.get("port", 6379)),
+            redis_db=int(redis.get("db", 0)),
+            redis_password=redis.get("password"),
+            max_login_attempts=int(security.get("max_login_attempts", 5)),
+            login_attempt_window=int(security.get("login_attempt_window", 300)),
+            rate_limit_window=int(security.get("rate_limit_window", 300)),
+        )
+
+    def to_grouped_dict(self) -> dict:
+        """Serialize AuthConfig to grouped dictionary for local_config.json."""
+        return {
+            "ldap": {
+                "enabled": self.ldap_enabled,
+                "protocol": self.ldap_protocol,
+                "host": self.ldap_host,
+                "port": self.ldap_port,
+                "bind_dn_template": self.ldap_bind_dn_template,
+                "base_dn": self.ldap_base_dn,
+                "user_filter": self.ldap_user_filter,
+                "tls": {
+                    "cacertfile": self.ldap_tls_cacertfile,
+                    "verify": self.ldap_tls_verify,
+                },
+                "groups": {
+                    "admin_enabled": self.ldap_admin_group_enabled,
+                    "glossary_enabled": self.ldap_glossary_group_enabled,
+                    "admin_group": self.ldap_admin_group,
+                    "glossary_group": self.ldap_glossary_group,
+                    "group_base_dn": self.ldap_group_base_dn,
+                },
+            },
+            "default_user": {
+                "username": self.default_username,
+                "password": self.default_password,
+            },
+            "session": {
+                "secret_key": self.session_secret_key,
+                "cookie_name": self.session_cookie_name,
+                "max_age": self.session_max_age,
+            },
+            "redis": {
+                "host": self.redis_host,
+                "port": self.redis_port,
+                "db": self.redis_db,
+                "password": self.redis_password,
+            },
+            "security": {
+                "max_login_attempts": self.max_login_attempts,
+                "login_attempt_window": self.login_attempt_window,
+                "rate_limit_window": self.rate_limit_window,
+            },
+        }
     
     def _load_auth_secrets(self) -> None:
         """从敏感配置文件加载认证相关敏感信息"""
@@ -224,32 +304,34 @@ class AuthConfig:
         except Exception as e:
             logger.warning(f"加载认证敏感配置失败: {e}")
     
-    def save_to_file(self, config_file: str = "auth_config.json") -> bool:
-        """保存配置到文件（不包含敏感信息）
+    def save_to_file(self, config_file: str = "local_config.json") -> bool:
+        """Save grouped configuration to local_config.json (without secrets).
 
-        始终优先写入 /etc/collabtrans/auth_config.json（若系统目录存在），否则回落到传入路径。
+        Always prefer writing to /etc/collabtrans/local_config.json if the system directory exists.
         """
         try:
-            system_dir = Path("/etc/collabtrans")
-            if system_dir.exists():
-                config_path = system_dir / "auth_config.json"
+            # If config_file is absolute, use it directly
+            if Path(config_file).is_absolute():
+                config_path = Path(config_file)
             else:
-                config_path = _resolve_auth_config_path(config_file)
+                system_dir = Path("/etc/collabtrans")
+                if system_dir.exists():
+                    config_path = system_dir / "local_config.json"
+                else:
+                    config_path = _resolve_auth_config_path(config_file)
 
-            logger.info(f"[AuthConfig] 准备写入配置到: {config_path}")
+            logger.info(f"[AuthConfig] Preparing to write grouped config to: {config_path}")
 
             # 确保目录存在
             config_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # 创建不包含敏感信息的配置副本（只写入新键名）
-            config_dict = asdict(self)
-            # 移除敏感信息，这些信息保存在local_secrets.json中
-            config_dict.pop("default_password", None)
-            config_dict.pop("session_secret_key", None)
-            config_dict.pop("redis_password", None)
+            grouped = self.to_grouped_dict()
+            grouped.get("default_user", {}).pop("password", None)
+            grouped.get("session", {}).pop("secret_key", None)
+            grouped.get("redis", {}).pop("password", None)
 
             with open(config_path, 'w', encoding='utf-8') as f:
-                json.dump(config_dict, f, indent=2, ensure_ascii=False)
+                json.dump(grouped, f, indent=2, ensure_ascii=False)
 
             # 系统目录下设置保守权限
             try:
@@ -258,10 +340,10 @@ class AuthConfig:
             except Exception:
                 pass
 
-            logger.info(f"[AuthConfig] 配置已保存到 {config_path}（不包含敏感信息）")
+            logger.info(f"[AuthConfig] Grouped config saved to {config_path}")
             return True
         except Exception as e:
-            logger.error(f"[AuthConfig] 保存配置文件失败: {e}")
+            logger.error(f"[AuthConfig] Failed to save grouped config: {e}")
             return False
     
     def update_from_dict(self, config_data: dict) -> None:
@@ -287,7 +369,7 @@ class AuthConfig:
                 logger.info(f"更新配置 {key} = {value}")
     
     @classmethod
-    def get_config(cls, config_file: str = "auth_config.json") -> "AuthConfig":
+    def get_config(cls, config_file: str = "local_config.json") -> "AuthConfig":
         """获取配置（优先从文件，然后从环境变量）"""
         # 首先尝试从文件加载
         config = cls.load_from_file(config_file)
@@ -340,7 +422,7 @@ class AuthConfig:
 
 
 # 模块级单例访问器，供路由的单项保存调用
-def get_auth_config(config_file: str = "auth_config.json") -> "AuthConfig":
+def get_auth_config(config_file: str = "local_config.json") -> "AuthConfig":
     global _AUTH_CONFIG_SINGLETON
     if _AUTH_CONFIG_SINGLETON is None:
         try:
@@ -351,7 +433,7 @@ def get_auth_config(config_file: str = "auth_config.json") -> "AuthConfig":
     return _AUTH_CONFIG_SINGLETON
 
 
-def save_auth_config(config_file: str = "auth_config.json") -> bool:
+def save_auth_config(config_file: str = "local_config.json") -> bool:
     try:
         cfg = get_auth_config(config_file)
         result = cfg.save_to_file(config_file)
@@ -362,7 +444,7 @@ def save_auth_config(config_file: str = "auth_config.json") -> bool:
         return False
 
 
-def reload_auth_config(config_file: str = "auth_config.json") -> "AuthConfig":
+def reload_auth_config(config_file: str = "local_config.json") -> "AuthConfig":
     """强制从磁盘重新加载认证配置，并刷新单例。"""
     global _AUTH_CONFIG_SINGLETON
     try:

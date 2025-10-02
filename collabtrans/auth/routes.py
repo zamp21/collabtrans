@@ -320,8 +320,8 @@ async def update_auth_config_api(request: Request, config_data: dict):
         # 更新配置
         config.update_from_dict(config_data)
         
-        # 保存到文件
-        config_file = "auth_config.json"
+        # Save to grouped local_config.json
+        config_file = "local_config.json"
         if config.save_to_file(config_file):
             logger.info("配置保存成功")
             return {"message": "Configuration updated successfully. Please restart the application to take effect."}
@@ -352,8 +352,7 @@ async def test_ldap_connection(request: Request, payload: dict):
         return JSONResponse(status_code=400, content={"ok": False, "message": "username/password required"})
 
     base_config = get_auth_config()
-    if not base_config.ldap_enabled:
-        return JSONResponse(status_code=400, content={"ok": False, "message": "LDAP is disabled"})
+    # Remove LDAP enabled check - allow testing regardless of current enabled state
 
     # 允许用当前UI中的值临时覆盖（不持久化）
     try:
@@ -383,7 +382,8 @@ async def test_ldap_connection(request: Request, payload: dict):
                     cfg_dict[key] = override[key]
 
         
-        # 构造临时配置
+        # 构造临时配置，强制启用LDAP用于测试
+        cfg_dict['ldap_enabled'] = True
         temp_config = AuthConfig(**cfg_dict)
 
         client = LDAPClient(temp_config)
@@ -434,7 +434,8 @@ async def test_ldap_connection(request: Request, payload: dict):
             "groups_enabled": groups_enabled,
             "groups": groups_codes,
             "user_role": user.role.value,
-            "is_admin": user.is_admin()
+            "is_admin": user.is_admin(),
+            "test_validated": True  # Mark that LDAP test has passed
         })
     except InvalidCredentials:
         return JSONResponse(status_code=401, content={"ok": False, "message": "invalid credentials"})
@@ -1919,6 +1920,19 @@ async def update_ldap_config_api(request: Request, user: User = Depends(get_curr
         for b in ['ldap_enabled', 'ldap_tls_verify', 'ldap_admin_group_enabled', 'ldap_glossary_group_enabled']:
             if b in update_payload and isinstance(update_payload[b], str):
                 update_payload[b] = update_payload[b].lower() in ("true", "1", "yes", "on")
+
+        # Check if trying to enable LDAP without test validation
+        if update_payload.get('ldap_enabled', False):
+            # Check if this is a test validation request
+            test_validated = data.get('ldap_test_validated', False)
+            if not test_validated:
+                return JSONResponse(
+                    status_code=400, 
+                    content={
+                        "ok": False, 
+                        "message": "LDAP test must be performed and passed before enabling LDAP. Please test the connection first."
+                    }
+                )
 
         # 更新并保存
         from .config import get_auth_config as _get_auth_cfg, save_auth_config as _save_auth_cfg

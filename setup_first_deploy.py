@@ -67,7 +67,7 @@ def setup_first_deploy():
             print(f"✅ 已创建目录: {directory}")
     
     # 3. 检查配置文件
-    config_files = ['auth_config.json', 'global_config.json', 'app_config.json']
+    config_files = ['local_config.json', 'global_config.json', 'app_config.json']
     for config_file in config_files:
         if os.path.exists(config_file):
             print(f"✅ 配置文件存在: {config_file}")
