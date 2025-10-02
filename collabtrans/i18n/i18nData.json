@@ -351,7 +351,7 @@
         "certificateLocation": "证书文件已保存到 certs/ 目录：",
         "privateKeyFile": "私钥文件",
         "certificateLocationTitle": "证书位置",
-        "certificateLocationInfo": "点击"生成证书"后，文件将保存到：",
+        "certificateLocationInfo": "点击\"生成证书\"后，文件将保存到：",
         "certificateLocationNote": "注意：certs/ 目录相对于应用程序的根目录。",
         "certificateValidity": "有效期",
         "webSettingsSaved": "Web 设置已保存",

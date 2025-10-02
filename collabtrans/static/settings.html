@@ -10,23 +10,23 @@
     <link href="/static/pico.css" rel="stylesheet">
     <style>
         .settings-nav {
-            background: #f8f9fa;
+            background: var(--bs-tertiary-bg);
             border-radius: 8px;
             padding: 1rem;
         }
         .settings-nav .nav-link {
-            color: #495057;
+            color: var(--bs-body-color);
             border-radius: 6px;
             margin-bottom: 0.25rem;
             transition: all 0.2s ease;
         }
         .settings-nav .nav-link:hover {
-            background-color: #e9ecef;
-            color: #212529;
+            background-color: var(--bs-secondary-bg);
+            color: var(--bs-body-color);
         }
         .settings-nav .nav-link.active {
-            background-color: #0d6efd;
-            color: white;
+            background-color: var(--bs-primary);
+            color: var(--bs-white);
         }
         .settings-content {
             min-height: 500px;
@@ -38,17 +38,17 @@
             display: block;
         }
         .section-header {
-            border-bottom: 2px solid #dee2e6;
+            border-bottom: 2px solid var(--bs-border-color);
             padding-bottom: 0.5rem;
             margin-bottom: 1.5rem;
         }
         .section-header h2 {
-            color: #495057;
+            color: var(--bs-emphasis-color);
             font-size: 1.5rem;
             margin: 0;
         }
         .section-header p {
-            color: #6c757d;
+            color: var(--bs-secondary-color);
             margin: 0.5rem 0 0 0;
         }
         .loading-spinner {
@@ -56,6 +56,27 @@
             justify-content: center;
             align-items: center;
             height: 200px;
+        }
+        /* Improve readability under dark theme */
+        [data-bs-theme="dark"] .form-label,
+        [data-bs-theme="dark"] label {
+            color: var(--bs-emphasis-color);
+        }
+        [data-bs-theme="dark"] .form-text,
+        [data-bs-theme="dark"] small,
+        [data-bs-theme="dark"] .text-muted {
+            color: var(--bs-secondary-color) !important;
+        }
+        [data-bs-theme="dark"] .card {
+            background-color: var(--bs-body-bg);
+            color: var(--bs-body-color);
+        }
+        [data-bs-theme="dark"] .card-header {
+            background-color: var(--bs-secondary-bg);
+            color: var(--bs-emphasis-color);
+        }
+        [data-bs-theme="dark"] table thead th {
+            color: var(--bs-emphasis-color);
         }
     </style>
 </head>

@@ -16,6 +16,20 @@ let i18nData = {
 let currentLang = 'zh';
 let loadedModules = new Set();
 
+// --- Theme Helper Functions ---
+function setTheme(theme) {
+  try {
+    if (theme === 'auto') {
+      const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.setAttribute('data-bs-theme', isDark ? 'dark' : 'light');
+    } else if (theme === 'dark' || theme === 'light') {
+      document.documentElement.setAttribute('data-bs-theme', theme);
+    } else {
+      document.documentElement.setAttribute('data-bs-theme', 'auto');
+    }
+  } catch (_) {}
+}
+
 // --- I18N Helper Functions ---
 const getText = (key, fallback = '') => {
   const translations = i18nData[currentLang] || i18nData.zh;
@@ -118,6 +132,11 @@ async function initI18n() {
   
   console.log('[I18N][settings] final resolved language =', savedLang);
   setLanguage(savedLang);
+  // Sync theme from home page
+  try {
+    const savedTheme = localStorage.getItem('theme') || 'auto';
+    setTheme(savedTheme);
+  } catch (e) {}
 }
 
 // Load i18n data from settings directory
