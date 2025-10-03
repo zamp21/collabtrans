@@ -102,6 +102,17 @@
             justify-content: center !important;
             padding: 0.375rem 0.75rem !important;
             font-size: 0.875rem !important;
+        }
+        
+        /* 强制隐藏Settings按钮的CSS类 */
+        .btn.hidden-by-permission {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+        
+        .btn {
             line-height: 1.5 !important;
             border-radius: 0.375rem !important;
             transition: all 0.15s ease-in-out !important;
@@ -4390,6 +4401,28 @@ document.addEventListener('DOMContentLoaded', function() {
     /**
      * 加载用户权限信息
      */
+    // 统一的Settings按钮显示/隐藏函数
+    function updateSettingsButtonVisibility() {
+        const settingsBtn = document.getElementById('settingsBtn');
+        if (!settingsBtn || !window.userPermissions) {
+            return;
+        }
+        
+        const isAdmin = window.userPermissions.is_super_admin || window.userPermissions.is_admin;
+        
+        if (isAdmin) {
+            settingsBtn.style.display = '';
+            settingsBtn.classList.remove('hidden-by-permission');
+            console.log('[DEBUG] Settings button shown for admin user');
+        } else {
+            settingsBtn.style.display = 'none';
+            settingsBtn.classList.add('hidden-by-permission');
+            console.log('[DEBUG] Settings button hidden for non-admin user');
+        }
+        
+        console.log('[DEBUG] Final button display style:', settingsBtn.style.display);
+    }
+
     async function loadUserPermissions() {
         try {
             const response = await fetch('/auth/user/permissions', {
@@ -4402,16 +4435,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 // 同步到全局，避免 window.userPermissions 未定义导致管理员分支判断失败
                 window.userPermissions = userPermissions;
                 console.log('User permissions loaded:', userPermissions);
-                try {
-                    const settingsBtn = document.getElementById('settingsBtn');
-                    if (settingsBtn) {
-                        if (userPermissions && (userPermissions.is_super_admin || userPermissions.is_admin)) {
-                            settingsBtn.style.display = '';
-                        } else {
-                            settingsBtn.style.display = 'none';
-                        }
-                    }
-                } catch (_) {}
+                
+                // 更新Settings按钮可见性
+                updateSettingsButtonVisibility();
                 return true;
             } else {
                 console.error('Failed to load user permissions');
@@ -4627,6 +4653,12 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log("Loading user permissions and app config...");
         const permissionsLoaded = await loadUserPermissions();
         const appConfigLoaded = await loadAppConfig();
+        
+        // Ensure settings button visibility is set correctly after all loading
+        setTimeout(() => {
+            console.log('[DEBUG] Final check of settings button visibility...');
+            updateSettingsButtonVisibility();
+        }, 1000);
         // LDAP 配置加载已迁移到 /settings 页面
         
         if (!permissionsLoaded || !appConfigLoaded) {
