@@ -175,6 +175,12 @@
       const htmlResp = await fetch(`/static/settings/users.html?v=${Date.now()}`, {cache:'no-store'});
       if(!htmlResp.ok) throw new Error('Failed to load users module');
       document.getElementById('users-content').innerHTML = await htmlResp.text();
+      
+      // Apply i18n to newly loaded content
+      if(window.SettingsCore && window.SettingsCore.i18n){
+        window.SettingsCore.i18n.applyTranslations();
+      }
+      
       // Load config for super admin username
       const cfg = await fetchAppConfig();
       if(cfg && cfg.default_username){ superAdminUsername = cfg.default_username; }

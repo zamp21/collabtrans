@@ -18,8 +18,7 @@ class I18nManager {
 
   async load() {
     try {
-      console.log('[I18n] Loading i18n data...');
-      const response = await fetch('/i18n/i18nData.json', { cache: 'no-store' });
+      const response = await fetch('/i18n/i18nSettings.json', { cache: 'no-store' });
       if (!response.ok) {
         throw new Error(`Failed to load i18n data: ${response.statusText}`);
       }
@@ -58,8 +57,6 @@ class I18nManager {
   }
 
   setLanguage(lang) {
-    console.log('[I18n] Setting language to:', lang);
-    
     if (!this.isLoaded || !this.data) {
       console.warn('[I18n] i18n data not loaded yet');
       return false;
@@ -67,7 +64,6 @@ class I18nManager {
 
     if (!this.data[lang]) {
       console.warn(`[I18n] Language ${lang} not available`);
-      console.warn('[I18n] Available languages:', Object.keys(this.data));
       return false;
     }
 
@@ -75,7 +71,6 @@ class I18nManager {
     document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
     
     this.applyTranslations();
-    console.log(`[I18n] Language set to ${lang}`);
     return true;
   }
 
@@ -183,13 +178,9 @@ function initSettingsNavigation() {
   const navLinks = document.querySelectorAll('.nav-link[data-section]');
   const contentSections = document.querySelectorAll('.settings-section');
   
-  console.log('[Settings] Found navigation links:', navLinks.length);
-  console.log('[Settings] Found content sections:', contentSections.length);
-  
   navLinks.forEach(link => {
     link.addEventListener('click', (e) => {
       e.preventDefault();
-      console.log('[Settings] Navigation link clicked:', link.getAttribute('data-section'));
       
       // Remove active class from all links
       navLinks.forEach(l => l.classList.remove('active'));
@@ -209,12 +200,9 @@ function initSettingsNavigation() {
       if (targetSection) {
         targetSection.classList.add('active');
         targetSection.style.display = 'block';
-        console.log('[Settings] Showing section:', sectionName);
         
         // Load module content if needed
         loadModuleContent(sectionName);
-      } else {
-        console.warn('[Settings] Target section not found:', sectionName);
       }
     });
   });
@@ -247,7 +235,9 @@ async function loadModuleContent(moduleName) {
     script.src = `/static/settings/${moduleName}.js?v=${ts}`;
     script.onload = () => {
       loadedModules.add(moduleName);
-      console.log(`Module ${moduleName} loaded successfully`);
+      
+      // Apply i18n to newly loaded content
+      i18n.applyTranslations();
       
       // Call module-specific initialization if available
       setTimeout(() => {
@@ -291,7 +281,6 @@ async function loadUserPermissionsForSettings() {
     const response = await fetch('/auth/user-permissions', { credentials: 'include' });
     if (response.ok) {
       settingsUserPermissions = await response.json();
-      console.log('[Settings] User permissions loaded:', settingsUserPermissions);
       
       // Control Users tab visibility based on permissions
       const usersTab = document.querySelector('[data-target="users-content"]');
@@ -307,20 +296,38 @@ async function loadUserPermissionsForSettings() {
   }
 }
 
+// --- Theme Management ---
+function applyTheme(theme) {
+  const htmlElement = document.documentElement;
+  if (theme === 'light' || theme === 'dark') {
+    htmlElement.setAttribute('data-bs-theme', theme);
+  } else {
+    // Auto theme - detect system preference
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    htmlElement.setAttribute('data-bs-theme', prefersDark ? 'dark' : 'light');
+  }
+}
+
+function applyThemeFromStorage() {
+  const savedTheme = localStorage.getItem('theme') || 'auto';
+  applyTheme(savedTheme);
+}
+
 // --- Language Change Listeners ---
 function setupLanguageChangeListeners() {
   // Listen for language changes from main page via localStorage
   window.addEventListener('storage', (e) => {
-    console.log('[Settings] Storage event received:', e.key, e.newValue);
-    if (e.key === 'currentLanguage' && e.newValue) {
-      console.log('[Settings] Language changed via storage to:', e.newValue);
+    if ((e.key === 'currentLanguage' || e.key === 'ui_language') && e.newValue) {
       i18n.setLanguage(e.newValue);
+    }
+    // Listen for theme changes
+    if (e.key === 'theme') {
+      applyTheme(e.newValue);
     }
   });
   
   // Listen for custom language change events
   window.addEventListener('languageChanged', (e) => {
-    console.log('[Settings] Language changed via custom event:', e.detail);
     if (e.detail) {
       i18n.setLanguage(e.detail);
     }
@@ -330,12 +337,10 @@ function setupLanguageChangeListeners() {
 // --- Main Initialization ---
 async function initSettings() {
   if (isInitialized) {
-    console.log('[Settings] Already initialized, skipping...');
     return;
   }
   
   try {
-    console.log('[Settings] Initializing settings page...');
     isInitialized = true;
     
     // Load i18n data first
@@ -346,10 +351,12 @@ async function initSettings() {
     const savedLang = localStorage.getItem('currentLanguage') || 
                      localStorage.getItem('ui_language') || 
                      'zh';
-    console.log('[Settings] Current language from localStorage:', savedLang);
     
     // Set initial language
     i18n.setLanguage(savedLang);
+    
+    // Apply theme from localStorage
+    applyThemeFromStorage();
     
     // Initialize navigation
     initSettingsNavigation();
@@ -365,12 +372,6 @@ async function initSettings() {
     
     // Setup language change listeners
     setupLanguageChangeListeners();
-    
-    // Debug: Check current localStorage value
-    console.log('[Settings] Current localStorage currentLanguage:', localStorage.getItem('currentLanguage'));
-    console.log('[Settings] All localStorage keys:', Object.keys(localStorage));
-    
-    console.log('[Settings] Settings initialized successfully');
     
   } catch (error) {
     console.error('[Settings] Failed to initialize settings:', error);
