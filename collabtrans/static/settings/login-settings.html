@@ -3,12 +3,12 @@
     <div class="col-md-6">
       <div class="form-check form-switch">
         <input class="form-check-input" type="checkbox" id="ldapEnabled" disabled>
-        <label class="form-check-label" for="ldapEnabled" data-i18n="ldapEnabledLabel">启用LDAP登录</label>
-        <div class="form-text" id="ldapEnableHint" data-i18n="ldapEnableHint">需要先通过测试后，才能启用LDAP。</div>
+        <label class="form-check-label" for="ldapEnabled" data-i18n="ldapEnabledLabel">Enable LDAP Login</label>
+        <div class="form-text" id="ldapEnableHint" data-i18n="ldapEnableHint">LDAP can be enabled only after a successful test.</div>
       </div>
     </div>
     <div class="col-md-6">
-      <label class="form-label" for="ldapProtocol" data-i18n="protocolLabel">协议</label>
+      <label class="form-label" for="ldapProtocol" data-i18n="protocolLabel">Protocol</label>
       <select id="ldapProtocol" class="form-select">
         <option value="ldap">LDAP</option>
         <option value="ldaps">LDAPS</option>
@@ -18,26 +18,26 @@
 
   <div class="row g-3 mt-0">
     <div class="col-md-6">
-      <label for="ldapHost" class="form-label" data-i18n="ldapHostLabel">LDAP服务器（与证书CN/SAN匹配）</label>
+      <label for="ldapHost" class="form-label" data-i18n="ldapHostLabel">LDAP Server (matches certificate CN/SAN)</label>
       <input type="text" class="form-control" id="ldapHost" data-i18n-placeholder="ldapHostPlaceholder" placeholder="adtest2.testldaps.io">
     </div>
     <div class="col-md-3">
-      <label for="ldapPort" class="form-label" data-i18n="portLabel">端口</label>
+      <label for="ldapPort" class="form-label" data-i18n="portLabel">Port</label>
       <input type="number" class="form-control" id="ldapPort" data-i18n-placeholder="ldapPortPlaceholder" placeholder="389">
     </div>
     <div class="col-md-3">
-      <label for="ldapBaseDn" class="form-label" data-i18n="userSearchBaseDnLabel">用户搜索 Base DN</label>
+      <label for="ldapBaseDn" class="form-label" data-i18n="userSearchBaseDnLabel">User Search Base DN</label>
       <input type="text" class="form-control" id="ldapBaseDn" data-i18n-placeholder="ldapBaseDnPlaceholder" placeholder="OU=Users,DC=example,DC=com">
     </div>
   </div>
 
   <div class="mt-3">
-    <label for="ldapBindDnTemplate" class="form-label" data-i18n="bindDnTemplateLabel">绑定 DN 模板</label>
+    <label for="ldapBindDnTemplate" class="form-label" data-i18n="bindDnTemplateLabel">Bind DN Template</label>
     <input type="text" class="form-control" id="ldapBindDnTemplate" data-i18n-placeholder="bindDnTemplatePlaceholder" placeholder="">
   </div>
 
   <div class="mt-3">
-    <label for="ldapUserFilter" class="form-label" data-i18n="userFilterLabel">用户过滤器</label>
+    <label for="ldapUserFilter" class="form-label" data-i18n="userFilterLabel">User Filter</label>
     <input type="text" class="form-control" id="ldapUserFilter" data-i18n-placeholder="ldapUserFilterPlaceholder" placeholder="(sAMAccountName={username})">
   </div>
 
@@ -46,20 +46,20 @@
       <div class="col-md-6">
         <div class="form-check form-switch">
           <input class="form-check-input" type="checkbox" id="ldapAdminGroupEnabled">
-          <label class="form-check-label" for="ldapAdminGroupEnabled" data-i18n="enableAdminGroupQueryLabel">启用管理员组查询</label>
+          <label class="form-check-label" for="ldapAdminGroupEnabled" data-i18n="enableAdminGroupQueryLabel">Enable Admin Group Query</label>
         </div>
         <input type="text" class="form-control mt-2" id="ldapAdminGroup" data-i18n-placeholder="ldapAdminGroupPlaceholder" placeholder="DocuTranslate-Admins">
       </div>
       <div class="col-md-6">
         <div class="form-check form-switch">
           <input class="form-check-input" type="checkbox" id="ldapGlossaryGroupEnabled">
-          <label class="form-check-label" for="ldapGlossaryGroupEnabled" data-i18n="enableGlossaryGroupQueryLabel">启用术语表组查询</label>
+          <label class="form-check-label" for="ldapGlossaryGroupEnabled" data-i18n="enableGlossaryGroupQueryLabel">Enable Glossary Group Query</label>
         </div>
         <input type="text" class="form-control mt-2" id="ldapGlossaryGroup" data-i18n-placeholder="ldapGlossaryGroupPlaceholder" placeholder="DocuTranslate-Glossary">
       </div>
     </div>
     <div class="mt-3">
-      <label for="ldapGroupBaseDn" class="form-label" data-i18n="groupSearchBaseDnLabel">组搜索 Base DN</label>
+      <label for="ldapGroupBaseDn" class="form-label" data-i18n="groupSearchBaseDnLabel">Group Search Base DN</label>
       <input type="text" class="form-control" id="ldapGroupBaseDn" data-i18n-placeholder="ldapGroupBaseDnPlaceholder" placeholder="OU=Groups,DC=example,DC=com">
     </div>
   </div>
@@ -67,50 +67,50 @@
   <div id="ldapsConfigContainer" class="mt-3" style="display:none;">
     <div class="form-check form-switch">
       <input class="form-check-input" type="checkbox" id="ldapTlsVerify">
-      <label class="form-check-label" for="ldapTlsVerify" data-i18n="verifyTlsCertLabel">验证TLS证书</label>
+      <label class="form-check-label" for="ldapTlsVerify" data-i18n="verifyTlsCertLabel">Verify TLS Certificate</label>
     </div>
     <div class="mt-2">
-      <label for="ldapTlsCacertfile" class="form-label" data-i18n="tlsCertFilePathLabel">TLS证书文件路径</label>
+      <label for="ldapTlsCacertfile" class="form-label" data-i18n="tlsCertFilePathLabel">TLS Certificate File Path</label>
       <input type="text" class="form-control" id="ldapTlsCacertfile" data-i18n-placeholder="ldapTlsCacertfilePlaceholder" placeholder="/path/to/ca.crt">
     </div>
   </div>
 
   <!-- 会话配置 -->
   <div class="mt-4">
-    <h6 class="mb-3" data-i18n="sessionConfigTitle">会话配置</h6>
+    <h6 class="mb-3" data-i18n="sessionConfigTitle">Session Configuration</h6>
     <div class="row g-3">
       <div class="col-md-6">
-        <label for="sessionMaxAgeInput" class="form-label" data-i18n="sessionMaxAgeLabel">会话最大时长（秒）</label>
+        <label for="sessionMaxAgeInput" class="form-label" data-i18n="sessionMaxAgeLabel">Session Max Age (seconds)</label>
         <input type="number" class="form-control" id="sessionMaxAgeInput" 
                placeholder="604800" min="3600" max="2592000">
-        <div class="form-text" data-i18n="sessionMaxAgeHelp">会话的最大持续时间，默认 7 天（604800 秒）</div>
+        <div class="form-text" data-i18n="sessionMaxAgeHelp">Maximum duration of the session, default 7 days (604800 seconds)</div>
       </div>
     </div>
   </div>
 
   <!-- 安全配置 -->
   <div class="mt-4">
-    <h6 class="mb-3" data-i18n="securityConfigTitle">安全配置</h6>
+    <h6 class="mb-3" data-i18n="securityConfigTitle">Security Configuration</h6>
     <div class="row g-3">
       <div class="col-md-6">
-        <label for="maxLoginAttemptsInput" class="form-label" data-i18n="maxLoginAttemptsLabel">最大登录尝试次数</label>
+        <label for="maxLoginAttemptsInput" class="form-label" data-i18n="maxLoginAttemptsLabel">Maximum Login Attempts</label>
         <input type="number" class="form-control" id="maxLoginAttemptsInput" 
                placeholder="5" min="1" max="20">
-        <div class="form-text" data-i18n="maxLoginAttemptsHelp">在锁定前允许的最大登录尝试次数</div>
+        <div class="form-text" data-i18n="maxLoginAttemptsHelp">Maximum number of login attempts allowed before lockout</div>
       </div>
       <div class="col-md-6">
-        <label for="loginAttemptWindowInput" class="form-label" data-i18n="loginAttemptWindowLabel">登录尝试窗口（秒）</label>
+        <label for="loginAttemptWindowInput" class="form-label" data-i18n="loginAttemptWindowLabel">Login Attempt Window (seconds)</label>
         <input type="number" class="form-control" id="loginAttemptWindowInput" 
                placeholder="300" min="60" max="3600">
-        <div class="form-text" data-i18n="loginAttemptWindowHelp">登录尝试计数的重置时间窗口</div>
+        <div class="form-text" data-i18n="loginAttemptWindowHelp">Time window for resetting login attempt count</div>
       </div>
     </div>
   </div>
 
   <div class="mt-4 d-flex gap-2">
-    <button type="button" class="btn btn-outline-secondary" id="saveLoginBtn" data-i18n="saveLoginSettingsBtn">保存登录设置</button>
-    <button type="button" class="btn btn-outline-secondary" id="genLdapTestCmdBtn" data-i18n="generateTestCmdLabel">生成测试命令</button>
-    <button type="button" class="btn btn-outline-secondary" id="runLdapConnectivityBtn" data-i18n="testLdapConnectionLabel">测试LDAP连接</button>
+    <button type="button" class="btn btn-outline-secondary" id="saveLoginBtn" data-i18n="saveLoginSettingsBtn">Save Login Settings</button>
+    <button type="button" class="btn btn-outline-secondary" id="genLdapTestCmdBtn" data-i18n="generateTestCmdLabel">Generate Test Command</button>
+    <button type="button" class="btn btn-outline-secondary" id="runLdapConnectivityBtn" data-i18n="testLdapConnectionLabel">Test LDAP Connection</button>
   </div>
 </div>
 
@@ -119,16 +119,16 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" data-i18n="testLdapConnectionTitle">测试 LDAP 连接</h5>
+        <h5 class="modal-title" data-i18n="testLdapConnectionTitle">Test LDAP Connection</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
         <div class="mb-3">
-          <label for="ldapTestUsernameInput" class="form-label" data-i18n="usernameWithoutDomainLabel">用户名（不含域）</label>
+          <label for="ldapTestUsernameInput" class="form-label" data-i18n="usernameWithoutDomainLabel">Username (without domain)</label>
           <input type="text" class="form-control" id="ldapTestUsernameInput" data-i18n-placeholder="ldapTestUsernamePlaceholder" placeholder="testuser">
         </div>
         <div class="mb-3">
-          <label for="ldapTestPasswordInput" class="form-label" data-i18n="passwordLabel">密码</label>
+          <label for="ldapTestPasswordInput" class="form-label" data-i18n="passwordLabel">Password</label>
           <div class="input-group">
             <input type="password" class="form-control" id="ldapTestPasswordInput" data-i18n-placeholder="ldapTestPasswordPlaceholder" placeholder="********">
             <button class="btn btn-outline-secondary toggle-password" type="button" data-target="ldapTestPasswordInput">
@@ -138,8 +138,8 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="closeBtn">关闭</button>
-        <button type="button" class="btn btn-primary" id="ldapTestConfirmBtn" data-i18n="startTestBtn">开始测试</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="closeBtn">Close</button>
+        <button type="button" class="btn btn-primary" id="ldapTestConfirmBtn" data-i18n="startTestBtn">Start Test</button>
       </div>
     </div>
   </div>
@@ -150,16 +150,16 @@
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">LDAP 测试命令</h5>
+        <h5 class="modal-title">LDAP Test Command</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <div class="mb-2">请复制并在终端执行：</div>
+        <div class="mb-2">Please copy and execute in terminal:</div>
         <textarea id="ldapCmdOutput" class="form-control" rows="5" readonly></textarea>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">关闭</button>
-        <button type="button" class="btn btn-primary" id="copyLdapCmdBtn">复制命令</button>
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id="copyLdapCmdBtn">Copy Command</button>
       </div>
     </div>
   </div>

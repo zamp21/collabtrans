@@ -1,8 +1,8 @@
-// Message Settings Module
-// 消息设置模块
+// Banner Settings Module
+// 横幅设置模块
 
-// Load message configuration
-async function loadMessageConfig() {
+// Load banner configuration
+async function loadBannerConfig() {
   try {
     const resp = await fetch('/auth/message-config');
     if (!resp.ok) return false;
@@ -15,9 +15,9 @@ async function loadMessageConfig() {
   }
 }
 
-// Save message settings
-async function saveMessageSettings(silent = false) {
-  const messagePayload = {
+// Save banner settings
+async function saveBannerSettings(silent = false) {
+  const bannerPayload = {
     login_banner: document.getElementById('loginBannerInput').value.trim(),
     usage_message: document.getElementById('usageMessageInput').value.trim()
   };
@@ -25,14 +25,14 @@ async function saveMessageSettings(silent = false) {
   const resp = await fetch('/auth/message-config', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(messagePayload)
+    body: JSON.stringify(bannerPayload)
   });
   
   const success = resp.ok;
   
   if (!silent && window.SettingsCore) {
     if (success) {
-      window.SettingsCore.showNotification(window.SettingsCore.getText('messageSettingsSaved'), 'success');
+      window.SettingsCore.showNotification(window.SettingsCore.getText('bannerSettingsSaved'), 'success');
     } else {
       // Show detailed error information
       let errorMsg = window.SettingsCore.getText('saveFailed');
@@ -51,16 +51,16 @@ async function saveMessageSettings(silent = false) {
   return success;
 }
 
-// Initialize message settings module (called by settings-core.js)
-function initMessageSettingsModule() {
-  console.log('Initializing message settings module');
+// Initialize banner settings module (called by settings-core.js)
+function initBannerSettingsModule() {
+  console.log('Initializing banner settings module');
   
-  // Load message configuration
-  loadMessageConfig();
+  // Load banner configuration
+  loadBannerConfig();
   
   // Setup event listeners
-  const saveMessageBtn = document.getElementById('saveMessageBtn');
-  if (saveMessageBtn) {
-    saveMessageBtn.addEventListener('click', () => saveMessageSettings(false));
+  const saveBannerBtn = document.getElementById('saveBannerBtn');
+  if (saveBannerBtn) {
+    saveBannerBtn.addEventListener('click', () => saveBannerSettings(false));
   }
 }

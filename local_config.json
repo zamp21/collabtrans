@@ -9,7 +9,7 @@
     "user_filter": "(sAMAccountName={username})",
     "tls": {
       "cacertfile": null,
-      "verify": true
+      "verify": false
     },
     "groups": {
       "admin_enabled": true,

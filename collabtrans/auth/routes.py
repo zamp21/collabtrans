@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2025 QinHan
 # SPDX-License-Identifier: MPL-2.0
 
-from fastapi import APIRouter, Request, Response, HTTPException, Form, Depends, UploadFile, File
+from fastapi import APIRouter, Request, Response, HTTPException, Form, Depends, UploadFile, File, Body
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from typing import Optional
@@ -19,6 +19,7 @@ from .session_manager import AuthSessionManager
 from .models import LoginRequest, LoginResponse, LogoutResponse, UserInfo, User, UserRole
 from ..config import get_app_config, save_app_config
 from ..config.secrets_manager import get_secrets_manager
+from .local_users import get_local_user_store, LocalUserRole
 
 # 创建认证专用的日志记录器
 logger = logging.getLogger(__name__)
@@ -194,9 +195,28 @@ async def login(
                     pass
             logger.info(f"LDAP authentication successful, user: {_mask_username(username)}")
         else:
-            # LDAP disabled and username is not admin
-            logger.warning(f"LDAP disabled and non-admin user attempted login: {_mask_username(username)}")
-            raise InvalidCredentials("LDAP authentication is disabled and only admin user is allowed")
+            # LDAP disabled: support local users (except super admin handled above)
+            from .local_users import get_local_user_store, LocalUserRole
+            logger.info("Using local user authentication (LDAP disabled)")
+            store = get_local_user_store()
+            ok, lu = store.verify_credentials(username, password)
+            if not ok or lu is None:
+                logger.warning(f"Local user authentication failed: {_mask_username(username)}")
+                raise InvalidCredentials("Invalid username or password")
+            # Map local role to system UserRole
+            mapped_role = (
+                UserRole.ADMIN if lu.role == LocalUserRole.ADMIN else
+                UserRole.LDAP_GLOSSARY if lu.role == LocalUserRole.APP_ADMIN else
+                UserRole.LDAP_USER
+            )
+            user = User(
+                username=lu.username,
+                display_name=lu.display_name or lu.username,
+                email=lu.email,
+                is_authenticated=True,
+                role=mapped_role
+            )
+            logger.info(f"Local user authenticated, role mapped: {user.role}")
         
         # Log permission/role info
         try:
@@ -2365,3 +2385,98 @@ async def generate_certificate(request: Request, user: User = Depends(get_curren
     except Exception as e:
         logger.error(f"Certificate generation error: {e}")
         raise HTTPException(status_code=500, detail=f"Certificate generation failed: {str(e)}")
+
+
+def _require_admin(user: Optional[User]):
+    if not user or not (user.is_admin() or user.is_super_admin()):
+        raise HTTPException(status_code=403, detail="Admin permission required")
+
+
+@auth_router.get("/local-users", response_class=JSONResponse)
+async def list_local_users(current_user: Optional[User] = Depends(get_current_user)):
+    """List local users (admin only)."""
+    _require_admin(current_user)
+    store = get_local_user_store()
+    users = store.list_users()
+    # Hide password hashes
+    safe = {
+        u: {k: v for k, v in info.items() if k != "password_hash"}
+        for u, info in users.items()
+    }
+    return {"users": safe}
+
+
+@auth_router.post("/local-users", response_class=JSONResponse)
+async def create_local_user(
+    request: Request,
+    current_user: Optional[User] = Depends(get_current_user)
+):
+    """Create local user (admin only)."""
+    _require_admin(current_user)
+    payload = await request.json()
+    username = payload.get("username")
+    password = payload.get("password")
+    role = payload.get("role", "user")
+    display_name = payload.get("display_name")
+    email = payload.get("email")
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="username and password are required")
+    try:
+        store = get_local_user_store()
+        store.create_user(username, password, LocalUserRole(role), display_name, email)
+        return {"ok": True}
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+
+
+@auth_router.put("/local-users/{username}", response_class=JSONResponse)
+async def update_local_user(username: str, request: Request, current_user: Optional[User] = Depends(get_current_user)):
+    """Update local user basic info (admin only)."""
+    _require_admin(current_user)
+    payload = await request.json()
+    role = payload.get("role")
+    display_name = payload.get("display_name")
+    email = payload.get("email")
+    store = get_local_user_store()
+    try:
+        store.update_user(
+            username,
+            role=LocalUserRole(role) if role is not None else None,
+            display_name=display_name,
+            email=email
+        )
+        return {"ok": True}
+    except ValueError as ve:
+        raise HTTPException(status_code=404, detail=str(ve))
+
+
+@auth_router.post("/local-users/{username}/reset-password", response_class=JSONResponse)
+async def reset_local_user_password(username: str, request: Request, current_user: Optional[User] = Depends(get_current_user)):
+    """Reset local user password (admin only, cannot reset super admin)."""
+    _require_admin(current_user)
+    payload = await request.json()
+    new_password = payload.get("password")
+    if not new_password:
+        raise HTTPException(status_code=400, detail="password is required")
+    # Super admin guard
+    auth_cfg = get_auth_config()
+    if username == auth_cfg.default_username:
+        raise HTTPException(status_code=403, detail="Cannot reset super admin password here")
+    store = get_local_user_store()
+    try:
+        store.reset_password(username, new_password)
+        return {"ok": True}
+    except ValueError as ve:
+        raise HTTPException(status_code=404, detail=str(ve))
+
+
+@auth_router.delete("/local-users/{username}", response_class=JSONResponse)
+async def delete_local_user(username: str, current_user: Optional[User] = Depends(get_current_user)):
+    """Delete local user (admin only, cannot delete super admin)."""
+    _require_admin(current_user)
+    auth_cfg = get_auth_config()
+    if username == auth_cfg.default_username:
+        raise HTTPException(status_code=403, detail="Cannot delete super admin")
+    store = get_local_user_store()
+    ok = store.delete_user(username)
+    return {"ok": ok}

@@ -1,0 +1,75 @@
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <div>
+      <i class="bi bi-people me-2"></i>
+      <span data-i18n="usersTitle">Users</span>
+    </div>
+    <button class="btn btn-sm btn-primary" id="createUserBtn">
+      <i class="bi bi-plus-circle me-1"></i>
+      <span data-i18n="createUser">Create User</span>
+    </button>
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle" id="usersTable">
+        <thead>
+          <tr>
+            <th data-i18n="username">Username</th>
+            <th data-i18n="displayName">Display Name</th>
+            <th data-i18n="email">Email</th>
+            <th data-i18n="role">Role</th>
+            <th data-i18n="actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="usersTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Create/Edit Modal -->
+<div class="modal fade" id="userEditModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" data-i18n="editUser">Edit User</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label" data-i18n="username">Username</label>
+          <input type="text" class="form-control" id="editUsername" data-i18n-placeholder="username" placeholder="username">
+        </div>
+        <div class="mb-3">
+          <label class="form-label" data-i18n="displayName">Display Name</label>
+          <input type="text" class="form-control" id="editDisplayName" data-i18n-placeholder="displayName" placeholder="display name">
+        </div>
+        <div class="mb-3">
+          <label class="form-label" data-i18n="email">Email</label>
+          <input type="email" class="form-control" id="editEmail" data-i18n-placeholder="email" placeholder="email">
+        </div>
+        <div class="mb-3">
+          <label class="form-label" data-i18n="role">Role</label>
+          <select class="form-select" id="editRole">
+            <option value="admin" data-i18n="userRoleAdmin">Admin</option>
+            <option value="app_admin" data-i18n="userRoleAppAdmin">App Admin</option>
+            <option value="user" data-i18n="userRoleUser">User</option>
+          </select>
+        </div>
+        <div class="mb-3" id="editPasswordGroup">
+          <label class="form-label" data-i18n="password">Password</label>
+          <div class="input-group">
+            <input type="password" class="form-control" id="editPassword" data-i18n-placeholder="passwordPlaceholder" placeholder="password">
+            <button class="btn btn-outline-secondary toggle-password" type="button" data-target="editPassword" title="Show/Hide">
+              <i class="bi bi-eye-slash"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="cancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="saveUserBtn" data-i18n="save">Save</button>
+      </div>
+    </div>
+  </div>
+</div>

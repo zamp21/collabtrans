@@ -15,6 +15,7 @@ let i18nData = {
 
 let currentLang = 'zh';
 let loadedModules = new Set();
+let settingsUserPermissions = null; // cached permissions for settings page
 
 // --- Theme Helper Functions ---
 function setTheme(theme) {
@@ -155,6 +156,27 @@ async function loadI18nData() {
   }
 }
 
+// --- Permissions ---
+async function loadUserPermissionsForSettings() {
+  try {
+    const resp = await fetch('/auth/user/permissions', { credentials: 'include' });
+    if (!resp.ok) return false;
+    settingsUserPermissions = await resp.json();
+    window.SettingsCore = window.SettingsCore || {};
+    window.SettingsCore.userPermissions = settingsUserPermissions;
+    // Control Users tab visibility: Admins and App Admins can see
+    const usersLink = document.querySelector('.settings-nav .nav-link[data-section="users"]');
+    if (usersLink) {
+      const isAdmin = !!(settingsUserPermissions?.is_admin || settingsUserPermissions?.is_super_admin);
+      const isAppAdmin = (settingsUserPermissions?.role === 'ldap_glossary' || settingsUserPermissions?.role === 'app_admin');
+      if (!(isAdmin || isAppAdmin)) {
+        usersLink.style.display = 'none';
+      }
+    }
+    return true;
+  } catch (_) { return false; }
+}
+
 // --- Settings Navigation ---
 function initSettingsNavigation() {
   const navLinks = document.querySelectorAll('.settings-nav .nav-link');
@@ -242,6 +264,9 @@ async function loadModuleContent(moduleName) {
         } else if (moduleName === 'glossary' && window.initGlossaryModule) {
           console.log(`Calling ${moduleName} initialization`);
           window.initGlossaryModule();
+        } else if (moduleName === 'users' && window.initUsersModule) {
+          console.log(`Calling ${moduleName} initialization`);
+          window.initUsersModule();
         }
       }, 50);
     };
@@ -490,6 +515,9 @@ async function initSettings() {
     
     // Initialize password toggle buttons
     initTogglePasswordButtons();
+  
+  // Load permissions and control Users tab visibility
+  await loadUserPermissionsForSettings();
     
     // Load default module (general)
     await loadModuleContent('general');

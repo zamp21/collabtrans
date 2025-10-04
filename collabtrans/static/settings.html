@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title data-i18n-title="settingsTitle">设置 - CollabTrans</title>
+    <title data-i18n-title="settingsTitle">Settings - CollabTrans</title>
     <link rel="icon" href="/static/favicon.ico">
     <link href="/static/bootstrap.css" rel="stylesheet">
     <link href="/static/bootstrap-icons.css" rel="stylesheet">
@@ -93,7 +93,7 @@
 </nav>
 
 <main class="container py-4">
-  <h1 class="h4 mb-4" data-i18n="settingsTitle">设置</h1>
+  <h1 class="h4 mb-4" data-i18n="settingsTitle">Settings</h1>
 
   <div class="row g-4">
     <!-- 左侧导航 -->
@@ -104,7 +104,7 @@
             <i class="bi bi-gear me-2"></i><span data-i18n="generalTitle">General</span>
           </a>
           <a class="nav-link" href="#" data-section="ai-platforms">
-            <i class="bi bi-robot me-2"></i><span data-i18n="aiPlatformTitle">AI 平台</span>
+            <i class="bi bi-robot me-2"></i><span data-i18n="aiPlatformTitle">AI Platforms</span>
           </a>
           <a class="nav-link" href="#" data-section="parsing-engines">
             <i class="bi bi-cpu me-2"></i><span data-i18n="parsingEngineTitle">Parsing Engine</span>
@@ -116,13 +116,16 @@
             <i class="bi bi-book me-2"></i><span data-i18n="glossaryTitle">Glossary</span>
           </a>
           <a class="nav-link" href="#" data-section="login-settings">
-            <i class="bi bi-shield-lock me-2"></i><span data-i18n="loginTitle">登录</span>
+            <i class="bi bi-shield-lock me-2"></i><span data-i18n="ldapTitle">LDAP</span>
           </a>
-          <a class="nav-link" href="#" data-section="message-settings">
-            <i class="bi bi-chat-dots me-2"></i><span data-i18n="messageTitle">Message</span>
+          <a class="nav-link" href="#" data-section="banner-settings">
+            <i class="bi bi-chat-dots me-2"></i><span data-i18n="bannerTitle">Banner</span>
           </a>
           <a class="nav-link" href="#" data-section="web-settings">
             <i class="bi bi-globe me-2"></i><span data-i18n="webTitle">Web</span>
+          </a>
+          <a class="nav-link" href="#" data-section="users">
+            <i class="bi bi-people me-2"></i><span data-i18n="usersTitle">Users</span>
           </a>
           
         </nav>
@@ -137,12 +140,12 @@
         <div class="settings-section active" id="general-section">
           <div class="section-header">
             <h2><span data-i18n="generalTitle">General</span></h2>
-            <p data-i18n="generalDescription">配置系统的基本设置和默认选项</p>
+            <p data-i18n="generalDescription">Configure basic system settings and default options</p>
           </div>
           <div id="general-content">
             <div class="loading-spinner">
               <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">加载中...</span>
+                <span class="visually-hidden">Loading...</span>
               </div>
             </div>
           </div>
@@ -157,7 +160,7 @@
           <div id="ai-platforms-content">
             <div class="loading-spinner">
               <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">加载中...</span>
+                <span class="visually-hidden">Loading...</span>
               </div>
             </div>
           </div>
@@ -167,12 +170,12 @@
         <div class="settings-section" id="parsing-engines-section">
           <div class="section-header">
             <h2><span data-i18n="parsingEngineTitle">Parsing Engine</span></h2>
-            <p data-i18n="parsingEngineDescription">配置文档解析引擎的参数和API设置</p>
+            <p data-i18n="parsingEngineDescription">Configure document parsing engine parameters and API settings</p>
           </div>
           <div id="parsing-engines-content">
             <div class="loading-spinner">
               <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">加载中...</span>
+                <span class="visually-hidden">Loading...</span>
               </div>
             </div>
           </div>
@@ -187,7 +190,7 @@
           <div id="prompts-content">
             <div class="loading-spinner">
               <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">加载中...</span>
+                <span class="visually-hidden">Loading...</span>
               </div>
             </div>
           </div>
@@ -202,37 +205,37 @@
           <div id="glossary-content">
             <div class="loading-spinner">
               <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">加载中...</span>
+                <span class="visually-hidden">Loading...</span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- 登录 -->
+        <!-- LDAP -->
         <div class="settings-section" id="login-settings-section">
           <div class="section-header">
-            <h2><span data-i18n="loginTitle">登录</span></h2>
-            <p data-i18n="loginDescription">配置LDAP认证和用户管理设置</p>
+            <h2><span data-i18n="ldapTitle">LDAP</span></h2>
+            <p data-i18n="ldapDescription">Configure LDAP authentication and parameters</p>
           </div>
           <div id="login-settings-content">
             <div class="loading-spinner">
               <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">加载中...</span>
+                <span class="visually-hidden">Loading...</span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Message -->
-        <div class="settings-section" id="message-settings-section">
+        <!-- Banner -->
+        <div class="settings-section" id="banner-settings-section">
           <div class="section-header">
-            <h2><span data-i18n="messageTitle">Message</span></h2>
-            <p data-i18n="messageDescription">配置登录页面和主页的显示消息</p>
+            <h2><span data-i18n="bannerTitle">Banner</span></h2>
+            <p data-i18n="bannerDescription">Configure display messages for login page and main page</p>
           </div>
-          <div id="message-settings-content">
+          <div id="banner-settings-content">
             <div class="loading-spinner">
               <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">加载中...</span>
+                <span class="visually-hidden">Loading...</span>
               </div>
             </div>
           </div>
@@ -242,12 +245,27 @@
         <div class="settings-section" id="web-settings-section">
           <div class="section-header">
             <h2><span data-i18n="webTitle">Web</span></h2>
-            <p data-i18n="webDescription">配置HTTPS证书和安全设置</p>
+            <p data-i18n="webDescription">Configure HTTPS certificates and security settings</p>
           </div>
           <div id="web-settings-content">
             <div class="loading-spinner">
               <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">加载中...</span>
+                <span class="visually-hidden">Loading...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Users -->
+        <div class="settings-section" id="users-section">
+          <div class="section-header">
+            <h2><span data-i18n="usersTitle">Users</span></h2>
+            <p data-i18n="usersDescription">Manage local users, roles and passwords</p>
+          </div>
+          <div id="users-content">
+            <div class="loading-spinner">
+              <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
               </div>
             </div>
           </div>
@@ -263,7 +281,7 @@
   <!--
   <div class="mt-4 text-center">
     <button id="saveAllBtn" class="btn btn-success btn-lg" data-i18n="saveSettingsBtn">
-      <i class="bi bi-check-circle me-2"></i>保存所有设置
+      <i class="bi bi-check-circle me-2"></i>Save All Settings
     </button>
   </div>
   -->
