@@ -3,9 +3,33 @@
   let superAdminUsername = 'admin';
 
   async function fetchUsers(){
-    const resp = await fetch('/auth/local-users', {credentials:'include'});
-    if(!resp.ok) throw new Error('Failed to load users');
-    return (await resp.json()).users || {};
+    try {
+      const resp = await fetch('/auth/local-users', {credentials:'include'});
+      if(!resp.ok) {
+        if(resp.status === 401 || resp.status === 403 || resp.status === 302){
+          // Not authenticated or no permission
+          console.warn('[Users] Authentication required or no permission');
+          return {};
+        }
+        throw new Error(`Failed to load users: ${resp.status} ${resp.statusText}`);
+      }
+      const data = await resp.json();
+      // Convert object of users to array
+      if(data && data.users){
+        if(Array.isArray(data.users)){
+          return data.users;
+        }
+        // If users is an object, convert to array
+        return Object.entries(data.users).map(([username, info]) => ({
+          username,
+          ...info
+        }));
+      }
+      return [];
+    } catch(e) {
+      console.error('[Users] fetchUsers error:', e);
+      throw e;
+    }
   }
 
   async function fetchAppConfig(){
@@ -20,14 +44,20 @@
     const tbody = document.getElementById('usersTableBody');
     if(!tbody) return;
     tbody.innerHTML = '';
-    Object.entries(users).forEach(([username, info])=>{
+    
+    // Handle both array and object formats
+    const userEntries = Array.isArray(users) 
+      ? users.map(user => [user.username, user])
+      : Object.entries(users);
+    
+    userEntries.forEach(([username, info])=>{
       const tr = document.createElement('tr');
       const isSuperAdmin = username === superAdminUsername;
       tr.innerHTML = `
         <td>${username}</td>
         <td>${info.display_name||''}</td>
         <td>${info.email||''}</td>
-        <td><span data-i18n="userRole${info.role?.replace('_', '') || 'User'}">${info.role||'user'}</span></td>
+        <td><span data-i18n="userRole${info.role?.replace('_', '') || 'User'}" data-role="${info.role||'user'}">${info.role||'user'}</span></td>
         <td>
           <div class="btn-group btn-group-sm">
             <button class="btn btn-outline-primary" data-action="edit" data-user="${username}"><i class="bi bi-pencil-square"></i></button>
@@ -86,10 +116,11 @@
       if(action==='edit'){
         // Load row info
         const row = target.closest('tr');
+        const roleSpan = row.children[3].querySelector('[data-role]');
         const info = {
           display_name: row.children[1].textContent,
           email: row.children[2].textContent,
-          role: row.children[3].textContent
+          role: roleSpan ? roleSpan.getAttribute('data-role') : 'user'
         };
         openEditModal('edit', username, info);
       }else if(action==='reset'){
@@ -150,11 +181,28 @@
       const users = await fetchUsers();
       renderUsers(users);
       await bindEvents();
-      if(!silent && window.SettingsCore){ window.SettingsCore.showNotification(window.SettingsCore.getText('usersLoaded','Users loaded'),'success'); }
+      if(!silent && window.SettingsCore){ 
+        if(users && (Array.isArray(users) ? users.length : Object.keys(users).length) > 0){
+          window.SettingsCore.showNotification(window.SettingsCore.getText('usersLoaded','Users loaded'),'success'); 
+        }
+      }
     }catch(e){
       console.error('[Users] init failed:', e);
       const c = document.getElementById('users-content');
-      if(c){ c.innerHTML = `<div class="alert alert-danger">${e.message}</div>`; }
+      if(c){ 
+        // Check if this is an authentication error
+        if(e.message.includes('401') || e.message.includes('403') || e.message.includes('302')){
+          c.innerHTML = `<div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            Authentication required. Please log in to manage users.
+          </div>`;
+        } else {
+          c.innerHTML = `<div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            ${e.message}
+          </div>`; 
+        }
+      }
     }
   }
 

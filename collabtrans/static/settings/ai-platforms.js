@@ -530,6 +530,29 @@ if (document.readyState === 'loading') {
   initAiPlatformModule();
 }
 
+// Initialize AI platform settings module
+function initAiPlatformModule() {
+  console.log('Initializing AI platform settings module');
+  
+  // Apply i18n to the module content
+  if (window.SettingsCore && window.SettingsCore.setLanguage) {
+    try {
+      window.SettingsCore.setLanguage(window.SettingsCore.currentLang || 'zh');
+    } catch (e) {
+      console.warn('[AI Platform][init] Failed to apply i18n:', e);
+    }
+  }
+  
+  // Load platform configurations
+  loadPlatformConfigs();
+  
+  // Setup event listeners
+  const saveAiPlatformBtn = document.getElementById('saveAiPlatformBtn');
+  if (saveAiPlatformBtn) {
+    saveAiPlatformBtn.addEventListener('click', () => saveAiPlatformConfig(false));
+  }
+}
+
 // Export functions for global access
 window.saveAiPlatformConfig = saveAiPlatformConfig;
 window.initAiPlatformModule = initAiPlatformModule;

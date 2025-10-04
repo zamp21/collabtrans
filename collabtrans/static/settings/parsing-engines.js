@@ -263,6 +263,34 @@ async function initParsingEngineModule() {
   }
 }
 
+// Initialize parsing engines settings module
+function initParsingEngineModule() {
+  console.log('Initializing parsing engines settings module');
+  
+  // Apply i18n to the module content
+  if (window.SettingsCore && window.SettingsCore.setLanguage) {
+    try {
+      window.SettingsCore.setLanguage(window.SettingsCore.currentLang || 'zh');
+    } catch (e) {
+      console.warn('[Parsing Engines][init] Failed to apply i18n:', e);
+    }
+  }
+  
+  // Load engine configurations
+  loadEngineConfigs();
+  
+  // Setup event listeners
+  const saveParsingEngineBtn = document.getElementById('saveParsingEngineBtn');
+  if (saveParsingEngineBtn) {
+    saveParsingEngineBtn.addEventListener('click', () => saveParsingEngineConfig(false));
+  }
+  
+  // Initialize password toggle buttons
+  if (window.SettingsCore) {
+    window.SettingsCore.initTogglePasswordButtons();
+  }
+}
+
 // Export functions for global access
 window.saveParsingEngineConfig = saveParsingEngineConfig;
 window.initParsingEnginesModule = initParsingEngineModule;

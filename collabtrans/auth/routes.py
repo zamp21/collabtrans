@@ -2398,12 +2398,28 @@ async def list_local_users(current_user: Optional[User] = Depends(get_current_us
     _require_admin(current_user)
     store = get_local_user_store()
     users = store.list_users()
-    # Hide password hashes
-    safe = {
-        u: {k: v for k, v in info.items() if k != "password_hash"}
-        for u, info in users.items()
-    }
-    return {"users": safe}
+    # Hide password hashes and convert to list format
+    safe_users = []
+    for user_data in users:
+        if isinstance(user_data, dict):
+            # If it's already a dict with user info
+            safe_user = {k: v for k, v in user_data.items() if k != "password_hash"}
+            safe_users.append(safe_user)
+        else:
+            # If it's a username string, get the full user data
+            user = store.get_user(user_data)
+            if user:
+                safe_user = {
+                    "username": user.username,
+                    "role": user.role.value,
+                    "display_name": user.display_name,
+                    "email": user.email,
+                    "created_at": getattr(user, 'created_at', None),
+                    "last_login": getattr(user, 'last_login', None),
+                    "is_active": getattr(user, 'is_active', True)
+                }
+                safe_users.append(safe_user)
+    return {"users": safe_users}
 
 
 @auth_router.post("/local-users", response_class=JSONResponse)

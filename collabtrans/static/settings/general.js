@@ -118,6 +118,36 @@ function initGeneralModule() {
   }
 }
 
+// Initialize general settings module
+function initGeneralModule() {
+  console.log('Initializing general settings module');
+  
+  // Apply i18n to the module content
+  if (window.SettingsCore && window.SettingsCore.setLanguage) {
+    try {
+      window.SettingsCore.setLanguage(window.SettingsCore.currentLang || 'zh');
+    } catch (e) {
+      console.warn('[General][init] Failed to apply i18n:', e);
+    }
+  }
+  
+  // Load general settings
+  loadGeneralSettings();
+  
+  // Setup event listeners
+  const saveGeneralBtn = document.getElementById('saveGeneralBtn');
+  if (saveGeneralBtn) {
+    saveGeneralBtn.addEventListener('click', () => saveGeneralSettings(false));
+  } else {
+    console.warn('[General][init] #saveGeneralBtn not found');
+  }
+  
+  // Initialize password toggle buttons
+  if (window.SettingsCore) {
+    window.SettingsCore.initTogglePasswordButtons();
+  }
+}
+
 // Export functions for global access
 window.saveGeneralSettings = saveGeneralSettings;
 window.initGeneralModule = initGeneralModule;

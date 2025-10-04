@@ -12,9 +12,12 @@ logger = logging.getLogger(__name__)
 
 
 class LocalUserRole(str, Enum):
-    ADMIN = "admin"            # Full admin (cannot change super admin password)
-    APP_ADMIN = "app_admin"    # Manage prompts and glossary
-    USER = "user"              # Regular user
+    SUPER_ADMIN = "super_admin"    # Super admin (highest level)
+    ADMIN = "admin"                # Full admin (cannot change super admin password)
+    LOCAL_ADMIN = "local_admin"    # Local admin
+    APP_ADMIN = "app_admin"        # Manage prompts and glossary
+    LOCAL_USER = "local_user"      # Local user
+    USER = "user"                 # Regular user
 
 
 @dataclass
@@ -124,10 +127,33 @@ class LocalUserStore:
 
     # ===== CRUD =====
     def list_users(self) -> Dict[str, Dict]:
-        return self._load().get("users", {})
+        users_data = self._load().get("users", {})
+        # Handle both array and object formats
+        if isinstance(users_data, list):
+            # Convert array to dict format
+            users_dict = {}
+            for user in users_data:
+                if isinstance(user, dict) and "username" in user:
+                    username = user["username"]
+                    users_dict[username] = user
+            return users_dict
+        return users_data
 
     def get_user(self, username: str) -> Optional[LocalUser]:
-        data = self._load().get("users", {}).get(username)
+        users_data = self._load().get("users", {})
+        data = None
+        
+        # Handle both array and object formats
+        if isinstance(users_data, list):
+            # Find user in array
+            for user in users_data:
+                if isinstance(user, dict) and user.get("username") == username:
+                    data = user
+                    break
+        else:
+            # Handle object format
+            data = users_data.get(username)
+            
         if not data:
             return None
         try:
@@ -156,30 +182,79 @@ class LocalUserStore:
 
     def update_user(self, username: str, role: Optional[LocalUserRole] = None, display_name: Optional[str] = None, email: Optional[str] = None) -> bool:
         users = self._load()
-        if username not in users.get("users", {}):
-            raise ValueError("User not found")
-        u = users["users"][username]
-        if role is not None:
-            u["role"] = role.value
-        if display_name is not None:
-            u["display_name"] = display_name
-        if email is not None:
-            u["email"] = email
+        users_list = users.get("users", [])
+        
+        # Handle both array and object formats
+        if isinstance(users_list, list):
+            # Find user in array
+            user_found = False
+            for user in users_list:
+                if isinstance(user, dict) and user.get("username") == username:
+                    user_found = True
+                    if role is not None:
+                        user["role"] = role.value
+                    if display_name is not None:
+                        user["display_name"] = display_name
+                    if email is not None:
+                        user["email"] = email
+                    break
+            if not user_found:
+                raise ValueError("User not found")
+        else:
+            # Handle object format
+            if username not in users_list:
+                raise ValueError("User not found")
+            u = users_list[username]
+            if role is not None:
+                u["role"] = role.value
+            if display_name is not None:
+                u["display_name"] = display_name
+            if email is not None:
+                u["email"] = email
+                
         return self._save(users)
 
     def reset_password(self, username: str, new_password: str) -> bool:
         users = self._load()
-        if username not in users.get("users", {}):
-            raise ValueError("User not found")
-        users["users"][username]["password_hash"] = self._hash_password(new_password)
+        users_list = users.get("users", [])
+        
+        # Handle both array and object formats
+        if isinstance(users_list, list):
+            # Find user in array
+            user_found = False
+            for user in users_list:
+                if isinstance(user, dict) and user.get("username") == username:
+                    user_found = True
+                    user["password_hash"] = self._hash_password(new_password)
+                    break
+            if not user_found:
+                raise ValueError("User not found")
+        else:
+            # Handle object format
+            if username not in users_list:
+                raise ValueError("User not found")
+            users_list[username]["password_hash"] = self._hash_password(new_password)
+            
         return self._save(users)
 
     def delete_user(self, username: str) -> bool:
         users = self._load()
-        if username in users.get("users", {}):
-            del users["users"][username]
-            return self._save(users)
-        return True
+        users_list = users.get("users", [])
+        
+        # Handle both array and object formats
+        if isinstance(users_list, list):
+            # Find and remove user from array
+            for i, user in enumerate(users_list):
+                if isinstance(user, dict) and user.get("username") == username:
+                    users_list.pop(i)
+                    return self._save(users)
+            return True  # User not found, consider it deleted
+        else:
+            # Handle object format
+            if username in users_list:
+                del users_list[username]
+                return self._save(users)
+            return True
 
     # ===== Auth =====
     def verify_credentials(self, username: str, password: str) -> Tuple[bool, Optional[LocalUser]]:
