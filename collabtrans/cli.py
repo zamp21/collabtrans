@@ -1,52 +1,52 @@
 # SPDX-FileCopyrightText: 2025 QinHan
 # SPDX-License-Identifier: MPL-2.0
 import argparse
-import sys # 用于检查命令行参数数量
+import sys # Used to check command line argument count
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="CollabTrans: 一个协作翻译平台。",
-        epilog="示例: collabtrans -i  (启动图形界面)\ncollabtrans -i -p 8081 (启用端口号8081)" # epilog 会显示在帮助信息的末尾
+        description="CollabTrans: A collaborative translation platform.",
+        epilog="Example: collabtrans -i  (start GUI)\ncollabtrans -i -p 8081 (enable port 8081)" # epilog will be displayed at the end of help information
     )
     parser.add_argument(
-        "-i", "--interactive",  # 添加一个长选项，更友好
-        action="store_true",    # 当出现 -i 或 --interactive 时，args.interactive 将为 True
-        help="打开图形化用户界面 (GUI)。"
+        "-i", "--interactive",  # Add a long option for better user experience
+        action="store_true",    # When -i or --interactive appears, args.interactive will be True
+        help="Open graphical user interface (GUI)."
     )
 
     parser.add_argument(
         "-p", "--port",
-        type=int,  # 指定参数类型（例如整数）
-        default=None,  # 默认值（可选）
-        help="指定端口号（默认：8010）。"
+        type=int,  # Specify parameter type (e.g., integer)
+        default=None,  # Default value (optional)
+        help="Specify port number (default: 8010)."
     )
 
     parser.add_argument(
-         "--version",  # 添加一个长选项，更友好
+         "--version",  # Add a long option for better user experience
         action="store_true",
-        help="查看版本号。"
+        help="View version number."
     )
-    # 如果你想在未来添加其他非GUI的命令行功能，可以在这里添加更多参数
-    # parser.add_argument("input_file", help="要翻译的文件路径", nargs="?") # nargs="?" 使其可选
-    # parser.add_argument("-l", "--language", help="目标语言")
+    # If you want to add other non-GUI command line features in the future, you can add more parameters here
+    # parser.add_argument("input_file", help="File path to translate", nargs="?") # nargs="?" makes it optional
+    # parser.add_argument("-l", "--language", help="Target language")
 
-    # 检查是否没有提供任何参数 (除了脚本名本身)
-    # sys.argv[0] 是脚本名, len(sys.argv) == 1 表示只运行了命令本身，没有附加参数
+    # Check if no arguments are provided (except the script name itself)
+    # sys.argv[0] is the script name, len(sys.argv) == 1 means only the command itself was run without additional arguments
     if len(sys.argv) == 1:
-        # 如果用户只输入了 'collabtrans' 而没有任何参数
-        print("欢迎使用 CollabTrans！")
-        print("请使用 '-i' 或 '--interactive' 选项来启动图形化界面。")
-        print("\n示例:")
+        # If user only entered 'collabtrans' without any arguments
+        print("Welcome to CollabTrans!")
+        print("Please use '-i' or '--interactive' option to start the graphical interface.")
+        print("\nExamples:")
         print("  collabtrans -i")
         print("  collabtrans --interactive")
-        print("\n如需查看所有可用选项，请运行:")
-        sys.exit(0) # 正常退出
+        print("\nTo view all available options, run:")
+        sys.exit(0) # Normal exit
 
     args = parser.parse_args()
 
-    # 调用核心逻辑
-    if args.interactive: # 注意这里是 args.interactive，对应 "--interactive"
+    # Call core logic
+    if args.interactive: # Note: this is args.interactive, corresponding to "--interactive"
         from collabtrans.app import run_app
         run_app(port=args.port)
     elif args.version:

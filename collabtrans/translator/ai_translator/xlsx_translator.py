@@ -17,10 +17,10 @@ from collabtrans.translator.ai_translator.base import AiTranslatorConfig, AiTran
 class XlsxTranslatorConfig(AiTranslatorConfig):
     insert_mode: Literal["replace", "append", "prepend"] = "replace"
     separator: str = "\n"
-    # 指定翻译区域列表。
-    # 示例: ["Sheet1!A1:B10", "C:D", "E5"]
-    # 如果不指定表名 (如 "C:D")，则应用于所有表。
-    # 如果为 None 或空列表，则翻译整个文件中的所有文本。
+    # Specify translation region list.
+    # Example: ["Sheet1!A1:B10", "C:D", "E5"]
+    # If sheet name is not specified (like "C:D"), it applies to all sheets.
+    # If None or empty list, translate all text in the entire file.
     translate_regions: Optional[List[str]] = None
 
 
@@ -47,17 +47,17 @@ class XlsxTranslator(AiTranslator):
             self.translate_agent = SegmentsTranslateAgent(agent_config)
         self.insert_mode = config.insert_mode
         self.separator = config.separator
-        # --- 新增功能 ---
+        # --- New features ---
         self.translate_regions = config.translate_regions
 
     def _pre_translate(self, document: Document):
         workbook = openpyxl.load_workbook(BytesIO(document.content))
         cells_to_translate = []
 
-        # --- 步骤 1: 根据是否指定区域，收集需要翻译的文本单元格 ---
+        # --- Step 1: Collect text cells that need translation based on whether regions are specified ---
 
-        # 如果未指定翻译区域，则沿用旧逻辑，翻译所有单元格
-        if not self.translate_regions:  # 也处理 None 或空列表的情况
+        # If no translation regions are specified, use old logic to translate all cells
+        if not self.translate_regions:  # Also handle None or empty list cases
             for sheet in workbook.worksheets:
                 for row in sheet.iter_rows():
                     for cell in row:
@@ -67,7 +67,7 @@ class XlsxTranslator(AiTranslator):
                                 "coordinate": cell.coordinate,
                                 "original_text": cell.value,
                             })
-        # 如果指定了翻译区域，则只在这些区域内查找
+        # If translation regions are specified, only search within these regions
         else:
             processed_coordinates = set()
 
@@ -93,21 +93,21 @@ class XlsxTranslator(AiTranslator):
                     try:
                         cells_in_range = sheet[cell_range]
 
-                        # --- START: 这是修改的关键部分 ---
-                        # 无论返回的是单个cell、一维元组(行/列)还是二维元组(矩形)，都将其展平为一维列表
+                        # --- START: This is the key part of the modification ---
+                        # Flatten to 1D list regardless of whether it returns single cell, 1D tuple (row/column) or 2D tuple (rectangle)
                         flat_cells = []
                         if isinstance(cells_in_range, Cell):
                             flat_cells.append(cells_in_range)
                         elif isinstance(cells_in_range, tuple):
                             for item in cells_in_range:
                                 if isinstance(item, Cell):
-                                    flat_cells.append(item)  # 处理一维元组
+                                    flat_cells.append(item)  # Handle 1D tuple
                                 elif isinstance(item, tuple):
-                                    for cell in item:  # 处理二维元组
+                                    for cell in item:  # Handle 2D tuple
                                         flat_cells.append(cell)
-                        # --- END: 修改结束 ---
+                        # --- END: Modification complete ---
 
-                        # 使用简化后的单层循环
+                        # Use simplified single-layer loop
                         for cell in flat_cells:
                             full_coordinate = (sheet.title, cell.coordinate)
                             if full_coordinate in processed_coordinates:
@@ -123,7 +123,7 @@ class XlsxTranslator(AiTranslator):
                                 processed_coordinates.add(full_coordinate)
 
                     except Exception as e:
-                        self.logger.warning(f"跳过无效的区域 '{cell_range}' 在工作表 '{sheet.title}'. 错误: {e}")
+                        self.logger.warning(f"Skipping invalid range '{cell_range}' in worksheet '{sheet.title}'. Error: {e}")
 
         original_texts = [cell["original_text"] for cell in cells_to_translate]
         return workbook, cells_to_translate, original_texts
@@ -135,7 +135,7 @@ class XlsxTranslator(AiTranslator):
             translated_text = translated_texts[i]
             original_text = original_texts[i]
 
-            # 定位到工作表和单元格
+            # Locate worksheet and cell
             sheet = workbook[sheet_name]
             if self.insert_mode == "replace":
                 sheet[coordinate] = translated_text
@@ -144,10 +144,10 @@ class XlsxTranslator(AiTranslator):
             elif self.insert_mode == "prepend":
                 sheet[coordinate] = translated_text + self.separator + original_text
             else:
-                self.logger.error("不正确的XlsxTranslatorConfig参数")
+                self.logger.error("Invalid XlsxTranslatorConfig parameter")
 
         workbook_output_stream = BytesIO()
-        # 保存修改后的工作簿到新文件
+        # Save modified workbook to new file
         try:
             workbook.save(workbook_output_stream)
         finally:
@@ -158,14 +158,14 @@ class XlsxTranslator(AiTranslator):
 
         workbook, cells_to_translate, original_texts = self._pre_translate(document)
         if not cells_to_translate:
-            print("\n在指定区域中没有找到需要翻译的纯文本内容。")
+            print("\nNo plain text content found in specified regions that needs translation.")
             workbook.close()
             return self
         if self.glossary_agent:
             self.glossary_dict_gen = self.glossary_agent.send_segments(original_texts, self.chunk_size)
             if self.translate_agent:
                 self.translate_agent.update_glossary_dict(self.glossary_dict_gen)
-        # --- 步骤 2: 调用翻译函数 ---
+        # --- Step 2: Call translation function ---
         if self.translate_agent:
             translated_texts = self.translate_agent.send_segments(original_texts, self.chunk_size)
         else:
@@ -178,7 +178,7 @@ class XlsxTranslator(AiTranslator):
 
         workbook, cells_to_translate, original_texts = await asyncio.to_thread(self._pre_translate, document)
         if not cells_to_translate:
-            print("\n在指定区域中没有找到需要翻译的纯文本内容。")
+            print("\nNo plain text content found in specified regions that needs translation.")
             workbook.close()
             return self
 
@@ -187,7 +187,7 @@ class XlsxTranslator(AiTranslator):
             if self.translate_agent:
                 self.translate_agent.update_glossary_dict(self.glossary_dict_gen)
 
-        # --- 步骤 2: 调用翻译函数 ---
+        # --- Step 2: Call translation function ---
         if self.translate_agent:
             translated_texts = await self.translate_agent.send_segments_async(original_texts, self.chunk_size)
         else:

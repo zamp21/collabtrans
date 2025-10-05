@@ -60,7 +60,7 @@ class Workflow(ABC, Generic[T_Config, T_original, T_Translated]):
         output_path = Path(output_dir) / Path(name)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_bytes(docu.content)
-        self.logger.info(f"文件已保存到{output_path.resolve()}")
+        self.logger.info(f"File saved to {output_path.resolve()}")
         return self
 
     def get_attachment(self):

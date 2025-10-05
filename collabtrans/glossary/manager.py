@@ -12,25 +12,25 @@ logger = logging.getLogger(__name__)
 
 
 class GlossaryManager:
-    """术语表管理器"""
+    """Glossary manager"""
     
     def __init__(self):
         self.storage = get_glossary_storage()
     
     def get_global_glossaries(self) -> List[GlossaryFile]:
-        """获取全局术语表列表"""
+        """Get global glossary list"""
         return self.storage.get_global_glossaries()
     
     def get_user_personal_glossary(self, username: str) -> Optional[GlossaryFile]:
-        """获取用户个人术语表"""
+        """Get user personal glossary"""
         return self.storage.get_user_personal_glossary(username)
     
     def get_user_selection(self, username: str) -> UserGlossarySelection:
-        """获取用户术语表选择"""
+        """Get user glossary selection"""
         return self.storage.get_user_selection(username)
     
     def save_user_selection(self, selection: UserGlossarySelection):
-        """保存用户术语表选择"""
+        """Save user glossary selection"""
         self.storage.save_user_selection(selection)
     
     def create_global_glossary(
@@ -40,7 +40,7 @@ class GlossaryManager:
         owner: str,
         description: Optional[str] = None
     ) -> GlossaryFile:
-        """创建全局术语表"""
+        """Create global glossary"""
         return self.storage.create_global_glossary(name, glossary_dict, owner, description)
     
     def update_global_glossary(
@@ -49,11 +49,11 @@ class GlossaryManager:
         glossary_dict: Dict[str, str], 
         updated_by: str
     ) -> bool:
-        """更新全局术语表"""
+        """Update global glossary"""
         return self.storage.update_global_glossary(glossary_id, glossary_dict, updated_by)
     
     def delete_global_glossary(self, glossary_id: str) -> bool:
-        """删除全局术语表"""
+        """Delete global glossary"""
         return self.storage.delete_global_glossary(glossary_id)
     
     def save_user_personal_glossary(
@@ -61,20 +61,20 @@ class GlossaryManager:
         username: str, 
         glossary_dict: Dict[str, str]
     ) -> bool:
-        """保存用户个人术语表"""
+        """Save user personal glossary"""
         return self.storage.save_user_personal_glossary(username, glossary_dict)
     
     def get_glossary_content(self, glossary_id: str) -> Optional[Dict[str, str]]:
-        """获取术语表内容"""
+        """Get glossary content"""
         try:
-            # 检查是否为全局术语表
+            # Check if it's a global glossary
             if glossary_id.startswith('global_'):
                 global_glossaries = self.get_global_glossaries()
                 for glossary in global_glossaries:
                     if glossary.id == glossary_id:
                         return self.storage.load_glossary_from_csv(glossary.file_path)
             
-            # 检查是否为个人术语表
+            # Check if it's a personal glossary
             elif glossary_id.startswith('personal_'):
                 username = glossary_id.replace('personal_', '')
                 personal_glossary = self.get_user_personal_glossary(username)
@@ -83,21 +83,21 @@ class GlossaryManager:
             
             return None
         except Exception as e:
-            logger.error(f"获取术语表内容失败 {glossary_id}: {e}")
+            logger.error(f"Failed to get glossary content {glossary_id}: {e}")
             return None
     
     def merge_user_glossaries(self, username: str) -> Dict[str, str]:
-        """合并用户选择的术语表"""
+        """Merge user selected glossaries"""
         selection = self.get_user_selection(username)
         merged_glossary = {}
         
-        # 1. 添加选中的全局术语表（优先级低）
+        # 1. Add selected global glossaries (lower priority)
         for global_id in selection.selected_global_glossaries:
             global_content = self.get_glossary_content(global_id)
             if global_content:
                 merged_glossary.update(global_content)
         
-        # 2. 添加个人术语表（优先级高，会覆盖冲突项）
+        # 2. Add personal glossary (higher priority, will override conflicts)
         if selection.personal_glossary:
             personal_content = self.get_glossary_content(selection.personal_glossary)
             if personal_content:
@@ -106,36 +106,36 @@ class GlossaryManager:
         return merged_glossary
     
     def get_all_versions(self) -> Dict[str, float]:
-        """获取所有术语表版本"""
+        """Get all glossary versions"""
         return self.storage.get_all_versions()
     
     def get_glossary_version(self, glossary_id: str) -> float:
-        """获取术语表版本"""
+        """Get glossary version"""
         return self.storage.get_glossary_version(glossary_id)
     
     def update_glossary_version(self, glossary_id: str, updated_by: str):
-        """更新术语表版本"""
+        """Update glossary version"""
         self.storage.update_glossary_version(glossary_id, updated_by)
     
     def validate_glossary_dict(self, glossary_dict: Dict[str, str]) -> Tuple[bool, str]:
-        """验证术语表字典"""
+        """Validate glossary dictionary"""
         if not isinstance(glossary_dict, dict):
-            return False, "术语表必须是字典格式"
+            return False, "Glossary must be in dictionary format"
         
         if len(glossary_dict) == 0:
-            return False, "术语表不能为空"
+            return False, "Glossary cannot be empty"
         
         for src, dst in glossary_dict.items():
             if not isinstance(src, str) or not isinstance(dst, str):
-                return False, "术语表的键和值都必须是字符串"
+                return False, "Glossary keys and values must be strings"
             
             if not src.strip() or not dst.strip():
-                return False, "术语表的键和值不能为空"
+                return False, "Glossary keys and values cannot be empty"
         
-        return True, "验证通过"
+        return True, "Validation passed"
     
     def get_glossary_statistics(self) -> Dict[str, int]:
-        """获取术语表统计信息"""
+        """Get glossary statistics"""
         global_glossaries = self.get_global_glossaries()
         total_global_items = sum(glossary.item_count for glossary in global_glossaries)
         
@@ -146,12 +146,12 @@ class GlossaryManager:
         }
 
 
-# 全局管理器实例
+# Global manager instance
 _glossary_manager = None
 
 
 def get_glossary_manager() -> GlossaryManager:
-    """获取术语表管理器实例"""
+    """Get glossary manager instance"""
     global _glossary_manager
     if _glossary_manager is None:
         _glossary_manager = GlossaryManager()

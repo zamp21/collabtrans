@@ -1,5 +1,5 @@
 // Web Settings Module
-// Web设置模块
+// Web settings module
 
 // Load app configuration
 async function loadAppConfig() {

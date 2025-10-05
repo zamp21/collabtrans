@@ -8,7 +8,7 @@ from enum import Enum
 
 
 class UserRole(str, Enum):
-    """用户角色枚举"""
+    """User role enumeration"""
     ADMIN = "admin"
     LDAP_ADMIN = "ldap_admin"
     LDAP_GLOSSARY = "ldap_glossary"
@@ -17,7 +17,7 @@ class UserRole(str, Enum):
 
 @dataclass
 class User:
-    """用户信息"""
+    """User information"""
     username: str
     display_name: Optional[str] = None
     email: Optional[str] = None
@@ -25,23 +25,23 @@ class User:
     role: UserRole = UserRole.LDAP_USER
     
     def is_admin(self) -> bool:
-        """判断是否为管理员"""
+        """Check if user is administrator"""
         return self.role in [UserRole.ADMIN, UserRole.LDAP_ADMIN]
     
     def is_super_admin(self) -> bool:
-        """判断是否为超级管理员"""
+        """Check if user is super administrator"""
         return self.role == UserRole.ADMIN
     
     def can_access_admin_settings(self) -> bool:
-        """判断是否可以访问管理员设置"""
+        """Check if user can access administrator settings"""
         return self.is_admin()
     
     def can_access_glossary_management(self) -> bool:
-        """判断是否可以访问术语表管理"""
+        """Check if user can access glossary management"""
         return self.role in [UserRole.ADMIN, UserRole.LDAP_ADMIN, UserRole.LDAP_GLOSSARY]
     
     def get_allowed_settings(self) -> List[str]:
-        """获取允许访问的设置项"""
+        """Get allowed settings items"""
         if self.is_admin():
             return [
                 "workflow_settings",
@@ -53,14 +53,14 @@ class User:
                 "glossary_settings"
             ]
         elif self.role == UserRole.LDAP_GLOSSARY:
-            # Glossary Group用户可以访问术语表管理
+            # Glossary Group users can access glossary management
             return [
                 "workflow_settings",
                 "translation_settings",
                 "glossary_settings"
             ]
         else:
-            # 普通LDAP用户只能访问基础设置
+            # Regular LDAP users can only access basic settings
             return [
                 "workflow_settings",
                 "translation_settings"
@@ -68,27 +68,27 @@ class User:
 
 
 class LoginRequest(BaseModel):
-    """登录请求模型"""
-    username: str = Field(..., description="用户名")
-    password: str = Field(..., description="密码")
-    next_url: Optional[str] = Field(None, description="登录后跳转的URL")
+    """Login request model"""
+    username: str = Field(..., description="Username")
+    password: str = Field(..., description="Password")
+    next_url: Optional[str] = Field(None, description="URL to redirect after login")
 
 
 class LoginResponse(BaseModel):
-    """登录响应模型"""
-    success: bool = Field(..., description="登录是否成功")
-    message: str = Field(..., description="响应消息")
-    next_url: Optional[str] = Field(None, description="跳转URL")
+    """Login response model"""
+    success: bool = Field(..., description="Whether login is successful")
+    message: str = Field(..., description="Response message")
+    next_url: Optional[str] = Field(None, description="Redirect URL")
 
 
 class LogoutResponse(BaseModel):
-    """登出响应模型"""
-    success: bool = Field(..., description="登出是否成功")
-    message: str = Field(..., description="响应消息")
+    """Logout response model"""
+    success: bool = Field(..., description="Whether logout is successful")
+    message: str = Field(..., description="Response message")
 
 
 class UserInfo(BaseModel):
-    """用户信息响应模型"""
-    username: str = Field(..., description="用户名")
-    display_name: Optional[str] = Field(None, description="显示名称")
-    email: Optional[str] = Field(None, description="邮箱")
+    """User information response model"""
+    username: str = Field(..., description="Username")
+    display_name: Optional[str] = Field(None, description="Display name")
+    email: Optional[str] = Field(None, description="Email")

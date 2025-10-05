@@ -1,5 +1,5 @@
 // Parsing Engine Settings Module
-// 解析引擎设置模块
+// Parsing engine settings module
 
 let engineConfigs = {};
 
@@ -33,7 +33,7 @@ async function loadEngineConfigs() {
       if (!select.value && select.querySelector('option[value="mineru"]')) {
         select.value = 'mineru';
       }
-      // 确保MinerU设置默认显示
+      // Ensure MinerU settings are displayed by default
       if (select.value === 'mineru') {
         updateEngineFields();
       }
@@ -43,7 +43,7 @@ async function loadEngineConfigs() {
     // Load MinerU API Key (masked display from sensitive configuration)
     await loadMineruApiKey();
     
-    // 强制显示MinerU设置，确保用户能看到API Key配置
+    // Force display MinerU settings to ensure users can see API Key configuration
     const mineruApiKeyRow = document.getElementById('mineruApiKeyRow');
     if (mineruApiKeyRow) {
       mineruApiKeyRow.style.display = 'block';
@@ -105,7 +105,7 @@ async function loadMineruApiKey() {
     const resp = await fetch('/auth/app-config/raw-secrets', { credentials: 'include' });
     if (!resp.ok) return;
     const secrets = await resp.json();
-    // 优先用新结构 meta
+    // Prioritize new structure meta
     const mineruMeta = secrets.translator_mineru_token_meta || null;
     const key = mineruMeta ? (mineruMeta.key || '') : (secrets.translator_mineru_token || '');
     const isConfigured = mineruMeta ? !!mineruMeta.configured : !!key;
@@ -118,7 +118,7 @@ async function loadMineruApiKey() {
       if (status) {
         status.classList.remove('bg-secondary');
         status.classList.add('bg-success');
-        status.textContent = window.SettingsCore ? window.SettingsCore.getText('statusConfigured') : '已配置';
+        status.textContent = window.SettingsCore ? window.SettingsCore.getText('statusConfigured') : 'Configured';
         status.setAttribute('data-i18n', 'statusConfigured');
       }
     } else {
@@ -128,7 +128,7 @@ async function loadMineruApiKey() {
       if (status) {
         status.classList.remove('bg-success');
         status.classList.add('bg-secondary');
-        status.textContent = window.SettingsCore ? window.SettingsCore.getText('statusNotConfigured') : '未配置';
+        status.textContent = window.SettingsCore ? window.SettingsCore.getText('statusNotConfigured') : 'Not configured';
         status.setAttribute('data-i18n', 'statusNotConfigured');
       }
     }
@@ -138,7 +138,7 @@ async function loadMineruApiKey() {
     if (status) {
       status.classList.remove('bg-success');
       status.classList.add('bg-secondary');
-      status.textContent = window.SettingsCore ? window.SettingsCore.getText('statusNotConfigured') : '未配置';
+      status.textContent = window.SettingsCore ? window.SettingsCore.getText('statusNotConfigured') : 'Not configured';
       status.setAttribute('data-i18n', 'statusNotConfigured');
     }
   }
@@ -229,7 +229,7 @@ async function saveParsingEngineConfig() {
 document.addEventListener('DOMContentLoaded', () => {
   // Load engine configurations
   loadEngineConfigs().then(() => {
-    // 延迟再次刷新一次 MinerU Key 状态，避免被其它渲染覆盖
+    // Delay refresh MinerU Key status again to avoid being overridden by other rendering
     setTimeout(() => { try { loadMineruApiKey(); } catch (e) {} }, 150);
   });
   

@@ -73,7 +73,7 @@ make_deb_lite() {
 
   install -m755 "${appbin}" "${pkg_root}/opt/collabtrans/"
   
-  # 安装配置文件到 /etc/collabtrans
+  # Install configuration files to /etc/collabtrans
   install -m644 "${ROOT_DIR}/global_config.json" "${pkg_root}/etc/collabtrans/"
   install -m644 "${ROOT_DIR}/local_secrets.json.template" "${pkg_root}/etc/collabtrans/"
   if [[ -f "${ROOT_DIR}/local_config.json.template" ]]; then
@@ -82,14 +82,14 @@ make_deb_lite() {
   if [[ -f "${ROOT_DIR}/local_config.json" ]]; then
     install -m640 "${ROOT_DIR}/local_config.json" "${pkg_root}/etc/collabtrans/"
   fi
-  # app_config.json 及模板
+  # app_config.json and templates
   if [[ -f "${ROOT_DIR}/app_config.json.template" ]]; then
     install -m644 "${ROOT_DIR}/app_config.json.template" "${pkg_root}/etc/collabtrans/"
   fi
   if [[ -f "${ROOT_DIR}/app_config.json" ]]; then
     install -m640 "${ROOT_DIR}/app_config.json" "${pkg_root}/etc/collabtrans/"
   fi
-  # app_config.json 及模板
+  # app_config.json and templates
   if [[ -f "${ROOT_DIR}/app_config.json.template" ]]; then
     install -m644 "${ROOT_DIR}/app_config.json.template" "${pkg_root}/etc/collabtrans/"
   fi
@@ -146,35 +146,35 @@ WantedBy=multi-user.target
 EOF
   chmod 644 "${pkg_root}/lib/systemd/system/collabtrans.service"
 
-  # 添加postinst脚本
+  # Add postinst script
   cat > "${pkg_root}/DEBIAN/postinst" <<'EOF'
 #!/bin/bash
 set -e
 
-# 重新加载systemd配置
+# Reload systemd configuration
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload
     echo "systemd configuration reloaded"
 fi
 
-# 创建www-data用户和组（如果不存在）
+# Create www-data user and group (if not exists)
 if ! id www-data >/dev/null 2>&1; then
     useradd --system --no-create-home --shell /bin/false www-data || true
 fi
 
-# 创建协作组并授予权限
+# Create collaboration group and grant permissions
 if ! getent group collabtrans >/dev/null 2>&1; then
     groupadd collabtrans || true
 fi
 usermod -aG collabtrans www-data || true
 
-# 配置文件权限与属组
+# Configuration file permissions and ownership
 CFG_DIR="/etc/collabtrans"
 install -d -m 755 "$CFG_DIR"
 chgrp collabtrans "$CFG_DIR" || true
-chmod 2755 "$CFG_DIR" || true  # 目录setgid，便于继承组
+chmod 2755 "$CFG_DIR" || true  # Directory setgid for group inheritance
 
-# 关键配置文件：全局配置与模板
+# Key configuration files: global configuration and templates
 if [[ -f "$CFG_DIR/global_config.json" ]]; then
   chown root:collabtrans "$CFG_DIR/global_config.json" || true
   chmod 660 "$CFG_DIR/global_config.json" || true
@@ -191,12 +191,12 @@ if [[ -f "$CFG_DIR/local_config.json" ]]; then
   chown root:collabtrans "$CFG_DIR/local_config.json" || true
   chmod 660 "$CFG_DIR/local_config.json" || true
 fi
-# app_config.json 权限
+# app_config.json permissions
 if [[ -f "$CFG_DIR/app_config.json" ]]; then
   chown root:collabtrans "$CFG_DIR/app_config.json" || true
   chmod 660 "$CFG_DIR/app_config.json" || true
 fi
-# app_config.json 权限
+# app_config.json permissions
 if [[ -f "$CFG_DIR/app_config.json" ]]; then
   chown root:collabtrans "$CFG_DIR/app_config.json" || true
   chmod 660 "$CFG_DIR/app_config.json" || true
@@ -206,27 +206,27 @@ echo "CollabTrans service installed successfully"
 echo "To start the service: sudo systemctl start collabtrans"
 echo "To enable auto-start: sudo systemctl enable collabtrans"
 
-# 初始化 /etc/collabtrans/local_config.json（如缺失且有模板）
+# Initialize /etc/collabtrans/local_config.json (if missing and template exists)
 CFG_DIR="/etc/collabtrans"
 if [[ ! -f "$CFG_DIR/local_config.json" && -f "$CFG_DIR/local_config.json.template" ]]; then
   cp -f "$CFG_DIR/local_config.json.template" "$CFG_DIR/local_config.json"
   chmod 660 "$CFG_DIR/local_config.json" || true
   echo "Created /etc/collabtrans/local_config.json from template"
 fi
-# 初始化 /etc/collabtrans/app_config.json（如缺失且有模板）
+# Initialize /etc/collabtrans/app_config.json (if missing and template exists)
 if [[ ! -f "$CFG_DIR/app_config.json" && -f "$CFG_DIR/app_config.json.template" ]]; then
   cp -f "$CFG_DIR/app_config.json.template" "$CFG_DIR/app_config.json"
   chmod 660 "$CFG_DIR/app_config.json" || true
   echo "Created /etc/collabtrans/app_config.json from template"
 fi
-# 初始化 /etc/collabtrans/app_config.json（如缺失且有模板）
+# Initialize /etc/collabtrans/app_config.json (if missing and template exists)
 if [[ ! -f "$CFG_DIR/app_config.json" && -f "$CFG_DIR/app_config.json.template" ]]; then
   cp -f "$CFG_DIR/app_config.json.template" "$CFG_DIR/app_config.json"
   chmod 660 "$CFG_DIR/app_config.json" || true
   echo "Created /etc/collabtrans/app_config.json from template"
 fi
 
-# 创建运行期数据目录并授权（用户配置、缓存等）
+# Create runtime data directories and grant permissions (user profiles, cache, etc.)
 RUNTIME_DIR="/var/lib/collabtrans"
 install -d -m 750 "$RUNTIME_DIR" || true
 chown -R www-data:collabtrans "$RUNTIME_DIR" || true
@@ -237,7 +237,7 @@ chown -R www-data:collabtrans "$RUNTIME_DIR/prompts" || true
 install -d -m 750 "$RUNTIME_DIR/glossaries" || true
 chown -R www-data:collabtrans "$RUNTIME_DIR/glossaries" || true
 
-# 建立默认写路径的符号链接，指向可写目录
+# Create symbolic links for default write paths pointing to writable directories
 install -d -m 755 /opt/collabtrans || true
 if [[ ! -L "/opt/collabtrans/user_profiles" ]]; then
   ln -sfn "$RUNTIME_DIR/user_profiles" "/opt/collabtrans/user_profiles" || true
@@ -251,12 +251,12 @@ fi
 EOF
   chmod 755 "${pkg_root}/DEBIAN/postinst"
 
-  # 添加prerm脚本
+  # Add prerm script
   cat > "${pkg_root}/DEBIAN/prerm" <<'EOF'
 #!/bin/bash
 set -e
 
-# 停止服务
+# Stop service
 if command -v systemctl >/dev/null 2>&1; then
     systemctl stop collabtrans || true
     systemctl disable collabtrans || true
@@ -264,12 +264,12 @@ fi
 EOF
   chmod 755 "${pkg_root}/DEBIAN/prerm"
 
-  # 添加postrm脚本
+  # Add postrm script
   cat > "${pkg_root}/DEBIAN/postrm" <<'EOF'
 #!/bin/bash
 set -e
 
-# 重新加载systemd配置
+# Reload systemd configuration
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload
 fi
@@ -296,7 +296,7 @@ make_deb_full() {
 
   install -m755 "${appbin}" "${pkg_root}/opt/collabtrans/"
   
-  # 安装配置文件到 /etc/collabtrans
+  # Install configuration files to /etc/collabtrans
   install -m644 "${ROOT_DIR}/global_config.json" "${pkg_root}/etc/collabtrans/"
   install -m644 "${ROOT_DIR}/local_secrets.json.template" "${pkg_root}/etc/collabtrans/"
   if [[ -f "${ROOT_DIR}/local_config.json.template" ]]; then
@@ -355,18 +355,18 @@ WantedBy=multi-user.target
 EOF
   chmod 644 "${pkg_root}/lib/systemd/system/collabtrans-full.service"
 
-  # 添加postinst脚本
+  # Add postinst script
   cat > "${pkg_root}/DEBIAN/postinst" <<'EOF'
 #!/bin/bash
 set -e
 
-# 重新加载systemd配置
+# Reload systemd configuration
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload
     echo "systemd configuration reloaded"
 fi
 
-# 创建www-data用户和组（如果不存在）
+# Create www-data user and group (if not exists)
 if ! id www-data >/dev/null 2>&1; then
     useradd --system --no-create-home --shell /bin/false www-data || true
 fi
@@ -384,12 +384,12 @@ fi
 EOF
   chmod 755 "${pkg_root}/DEBIAN/postinst"
 
-  # 添加prerm脚本
+  # Add prerm script
   cat > "${pkg_root}/DEBIAN/prerm" <<'EOF'
 #!/bin/bash
 set -e
 
-# 停止服务
+# Stop service
 if command -v systemctl >/dev/null 2>&1; then
     systemctl stop collabtrans-full || true
     systemctl disable collabtrans-full || true
@@ -397,12 +397,12 @@ fi
 EOF
   chmod 755 "${pkg_root}/DEBIAN/prerm"
 
-  # 添加postrm脚本
+  # Add postrm script
   cat > "${pkg_root}/DEBIAN/postrm" <<'EOF'
 #!/bin/bash
 set -e
 
-# 重新加载systemd配置
+# Reload systemd configuration
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload
 fi
@@ -429,7 +429,7 @@ make_deb_balance() {
 
   install -m755 "${appbin}" "${pkg_root}/opt/collabtrans/"
   
-  # 安装配置文件到 /etc/collabtrans
+  # Install configuration files to /etc/collabtrans
   install -m644 "${ROOT_DIR}/global_config.json" "${pkg_root}/etc/collabtrans/"
   install -m644 "${ROOT_DIR}/local_secrets.json.template" "${pkg_root}/etc/collabtrans/"
   if [[ -f "${ROOT_DIR}/auth_config.json.template" ]]; then
@@ -489,35 +489,35 @@ WantedBy=multi-user.target
 EOF
   chmod 644 "${pkg_root}/lib/systemd/system/collabtrans-balance.service"
 
-  # 添加postinst脚本
+  # Add postinst script
   cat > "${pkg_root}/DEBIAN/postinst" <<'EOF'
 #!/bin/bash
 set -e
 
-# 重新加载systemd配置
+# Reload systemd configuration
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload
     echo "systemd configuration reloaded"
 fi
 
-# 创建www-data用户和组（如果不存在）
+# Create www-data user and group (if not exists)
 if ! id www-data >/dev/null 2>&1; then
     useradd --system --no-create-home --shell /bin/false www-data || true
 fi
 
-# 创建协作组并授予权限
+# Create collaboration group and grant permissions
 if ! getent group collabtrans >/dev/null 2>&1; then
     groupadd collabtrans || true
 fi
 usermod -aG collabtrans www-data || true
 
-# 配置文件权限与属组
+# Configuration file permissions and ownership
 CFG_DIR="/etc/collabtrans"
 install -d -m 755 "$CFG_DIR"
 chgrp collabtrans "$CFG_DIR" || true
-chmod 2755 "$CFG_DIR" || true  # 目录setgid，便于继承组
+chmod 2755 "$CFG_DIR" || true  # Directory setgid for group inheritance
 
-# 关键配置文件：全局配置与模板
+# Key configuration files: global configuration and templates
 if [[ -f "$CFG_DIR/global_config.json" ]]; then
   chown root:collabtrans "$CFG_DIR/global_config.json" || true
   chmod 660 "$CFG_DIR/global_config.json" || true
@@ -539,7 +539,7 @@ echo "CollabTrans balance service installed successfully"
 echo "To start the service: sudo systemctl start collabtrans-balance"
 echo "To enable auto-start: sudo systemctl enable collabtrans-balance"
 
-# 初始化 /etc/collabtrans/local_config.json（如缺失且有模板）
+# Initialize /etc/collabtrans/local_config.json (if missing and template exists)
 CFG_DIR="/etc/collabtrans"
 if [[ ! -f "$CFG_DIR/local_config.json" && -f "$CFG_DIR/local_config.json.template" ]]; then
   cp -f "$CFG_DIR/local_config.json.template" "$CFG_DIR/local_config.json"
@@ -547,7 +547,7 @@ if [[ ! -f "$CFG_DIR/local_config.json" && -f "$CFG_DIR/local_config.json.templa
   echo "Created /etc/collabtrans/local_config.json from template"
 fi
 
-# 创建运行期数据目录并授权（用户配置、缓存等）
+# Create runtime data directories and grant permissions (user profiles, cache, etc.)
 RUNTIME_DIR="/var/lib/collabtrans"
 install -d -m 750 "$RUNTIME_DIR" || true
 chown -R www-data:collabtrans "$RUNTIME_DIR" || true
@@ -558,7 +558,7 @@ chown -R www-data:collabtrans "$RUNTIME_DIR/prompts" || true
 install -d -m 750 "$RUNTIME_DIR/glossaries" || true
 chown -R www-data:collabtrans "$RUNTIME_DIR/glossaries" || true
 
-# 建立默认写路径的符号链接，指向可写目录
+# Create symbolic links for default write paths pointing to writable directories
 install -d -m 755 /opt/collabtrans || true
 if [[ ! -L "/opt/collabtrans/user_profiles" ]]; then
   ln -sfn "$RUNTIME_DIR/user_profiles" "/opt/collabtrans/user_profiles" || true
@@ -572,12 +572,12 @@ fi
 EOF
   chmod 755 "${pkg_root}/DEBIAN/postinst"
 
-  # 添加prerm脚本
+  # Add prerm script
   cat > "${pkg_root}/DEBIAN/prerm" <<'EOF'
 #!/bin/bash
 set -e
 
-# 停止服务
+# Stop service
 if command -v systemctl >/dev/null 2>&1; then
     systemctl stop collabtrans-balance || true
     systemctl disable collabtrans-balance || true
@@ -585,12 +585,12 @@ fi
 EOF
   chmod 755 "${pkg_root}/DEBIAN/prerm"
 
-  # 添加postrm脚本
+  # Add postrm script
   cat > "${pkg_root}/DEBIAN/postrm" <<'EOF'
 #!/bin/bash
 set -e
 
-# 重新加载systemd配置
+# Reload systemd configuration
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload
 fi

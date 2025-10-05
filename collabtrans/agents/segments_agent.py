@@ -54,10 +54,10 @@ class SegmentsTranslateAgent(Agent):
 # Example(Assuming the target language is English in the example, {config.to_lang} is the actual target language)
 ## Input
 {{
-"10": "汤姆说：“你好”",
-"11": "苹果",
+"10": "Tom said: \"Hello\"",
+"11": "Apple",
 "12": true,
-"13": "错误",
+"13": "Error",
 "14": null
 }}
 ## Correct Output
@@ -83,14 +83,14 @@ class SegmentsTranslateAgent(Agent):
 
     def _result_handler(self, result: str, origin_prompt: str, logger: Logger):
         """
-        处理成功的API响应。
-        - 如果键完全匹配，返回翻译结果。
-        - 如果键不匹配，构造一个部分成功的结果，并通过 PartialTranslationError 异常抛出，以触发重试。
-        - 其他错误（如JSON解析失败、模型偷懒）则抛出普通 ValueError 触发重试。
+        Handle successful API response.
+        - If keys match completely, return translation result.
+        - If keys don't match, construct a partially successful result and throw PartialTranslationError exception to trigger retry.
+        - Other errors (such as JSON parsing failure, model laziness) throw regular ValueError to trigger retry.
         """
         if result == "":
             if origin_prompt.strip() != "":
-                raise AgentResultError("result为空值但原文不为空")
+                raise AgentResultError("Result is empty but original text is not empty")
             return {}
         try:
             result = fix_json_string(result)
@@ -98,60 +98,60 @@ class SegmentsTranslateAgent(Agent):
             repaired_result = json_repair.loads(result)
 
             if not isinstance(repaired_result, dict):
-                raise AgentResultError(f"Agent返回结果不是dict的json形式, result: {result}")
+                raise AgentResultError(f"Agent returned result is not in dict JSON format, result: {result}")
 
             if repaired_result == original_chunk:
-                raise AgentResultError("翻译结果与原文完全相同，疑似翻译失败，将进行重试。")
+                raise AgentResultError("Translation result is identical to original text, suspected translation failure, will retry.")
 
             original_keys = set(original_chunk.keys())
             result_keys = set(repaired_result.keys())
 
-            # 如果键不完全匹配
+            # If keys don't match completely
             if original_keys != result_keys:
-                # 仍然先构造一个最完整的“部分结果”
+                # Still construct the most complete "partial result" first
                 final_chunk = {}
                 common_keys = original_keys.intersection(result_keys)
                 missing_keys = original_keys - result_keys
                 extra_keys = result_keys - original_keys
 
-                logger.warning(f"翻译结果的键与原文不匹配！将尝试重试。")
-                if missing_keys: logger.warning(f"缺失的键: {missing_keys}")
-                if extra_keys: logger.warning(f"多余的键: {extra_keys}")
+                logger.warning(f"Translation result keys don't match original text! Will retry.")
+                if missing_keys: logger.warning(f"Missing keys: {missing_keys}")
+                if extra_keys: logger.warning(f"Extra keys: {extra_keys}")
 
                 for key in common_keys:
                     final_chunk[key] = str(repaired_result[key])
                 for key in missing_keys:
                     final_chunk[key] = str(original_chunk[key])
 
-                # 抛出自定义异常，将部分结果和错误信息一起传递出去
-                raise PartialAgentResultError("键不匹配，触发重试", partial_result=final_chunk)
+                # Throw custom exception, passing partial result and error information together
+                raise PartialAgentResultError("Key mismatch, triggering retry", partial_result=final_chunk)
 
-            # 如果键完全匹配（理想情况），正常返回
+            # If keys match completely (ideal case), return normally
             for key, value in repaired_result.items():
                 repaired_result[key] = str(value)
 
             return repaired_result
 
         except (RuntimeError, JSONDecodeError) as e:
-            # 对于JSON解析等硬性错误，继续抛出普通ValueError
-            raise AgentResultError(f"结果处理失败: {e.__repr__()}")
+            # For hard errors like JSON parsing, continue throwing regular ValueError
+            raise AgentResultError(f"Result processing failed: {e.__repr__()}")
 
     def _error_result_handler(self, origin_prompt: str, logger: Logger):
         """
-        处理在所有重试后仍然失败的请求。
-        作为备用方案，返回原文内容，并将所有值转换为字符串。
+        Handle requests that still fail after all retries.
+        As a fallback, return original content and convert all values to strings.
         """
         if origin_prompt == "":
             return {}
         try:
             original_chunk = json.loads(origin_prompt)
-            # 此处逻辑保留，作为最终的兜底方案
+            # This logic is preserved as the final fallback solution
             for key, value in original_chunk.items():
                 original_chunk[key] = f"{value}"
             return original_chunk
         except (RuntimeError, JSONDecodeError):
-            logger.error(f"原始prompt也不是有效的json格式: {origin_prompt}")
-            # 如果原始prompt本身也无效，返回一个清晰的错误对象
+            logger.error(f"Original prompt is also not valid JSON format: {origin_prompt}")
+            # If original prompt itself is also invalid, return a clear error object
             return {"error": f"{origin_prompt}"}
 
     def send_segments(self, segments: list[str], chunk_size: int) -> list[str]:
@@ -166,19 +166,19 @@ class SegmentsTranslateAgent(Agent):
         for chunk in translated_chunks:
             try:
                 if not isinstance(chunk, dict):
-                    self.logger.warning(f"接收到的chunk不是有效的字典，已跳过: {chunk}")
+                    self.logger.warning(f"Received chunk is not a valid dictionary, skipped: {chunk}")
                     continue
                 for key, val in chunk.items():
                     if key in indexed_translated:
                         indexed_translated[key] = val
                     else:
-                        self.logger.warning(f"在结果chunk中发现未知键 '{key}'，已忽略。")
+                        self.logger.warning(f"Unknown key '{key}' found in result chunk, ignored.")
             except (AttributeError, TypeError) as e:
-                self.logger.error(f"处理chunk时发生类型或属性错误，已跳过。Chunk: {chunk}, 错误: {e.__repr__()}")
+                self.logger.error(f"Type or attribute error occurred while processing chunk, skipped. Chunk: {chunk}, Error: {e.__repr__()}")
             except Exception as e:
-                self.logger.error(f"处理chunk时发生未知错误: {e.__repr__()}")
+                self.logger.error(f"Unknown error occurred while processing chunk: {e.__repr__()}")
 
-        # 重建最终列表
+        # Rebuild final list
         result = []
         last_end = 0
         ls = list(indexed_translated.values())
@@ -204,20 +204,20 @@ class SegmentsTranslateAgent(Agent):
         for chunk in translated_chunks:
             try:
                 if not isinstance(chunk, dict):
-                    self.logger.error(f"接收到的chunk不是有效的字典，已跳过: {chunk}")
+                    self.logger.error(f"Received chunk is not a valid dictionary, skipped: {chunk}")
                     continue
                 for key, val in chunk.items():
                     if key in indexed_translated:
-                        # 此处不再需要 str(val)，因为 _result_handler 已经处理好了
+                        # str(val) is no longer needed here, as _result_handler has already handled it
                         indexed_translated[key] = val
                     else:
-                        self.logger.warning(f"在结果chunk中发现未知键 '{key}'，已忽略。")
+                        self.logger.warning(f"Unknown key '{key}' found in result chunk, ignored.")
             except (AttributeError, TypeError) as e:
-                self.logger.error(f"处理chunk时发生类型或属性错误，已跳过。Chunk: {chunk}, 错误: {e.__repr__()}")
+                self.logger.error(f"Type or attribute error occurred while processing chunk, skipped. Chunk: {chunk}, Error: {e.__repr__()}")
             except Exception as e:
-                self.logger.error(f"处理chunk时发生未知错误: {e.__repr__()}")
+                self.logger.error(f"Unknown error occurred while processing chunk: {e.__repr__()}")
 
-        # 重建最终列表
+        # Rebuild final list
         result = []
         last_end = 0
         ls = list(indexed_translated.values())

@@ -1,5 +1,5 @@
 // Login Settings Module
-// 登录设置模块
+// Login settings module
 
 // Global variable to track LDAP test validation status
 let ldapTestValidated = false;
@@ -183,7 +183,7 @@ async function generateLdapTestCmd() {
   const cacertPart = (protocol === 'ldaps' && tlsVerify && cacert) ? ` LDAPTLS_CACERT=${cacert}` : '';
   const finalCmd = `${cacertPart ? cacertPart + ' ' : ''}${baseCmd}${tlsPart} ${filter}`;
   
-  // 展示弹窗，供用户复制
+  // Show popup for user to copy
   try {
     const modalEl = document.getElementById('ldapCmdModal');
     const output = document.getElementById('ldapCmdOutput');
@@ -206,7 +206,7 @@ async function generateLdapTestCmd() {
       };
       copyBtn.onclick = handler;
     } else {
-      // 兜底：直接尝试复制
+      // Fallback: directly try to copy
       await navigator.clipboard.writeText(finalCmd);
       if (window.SettingsCore) {
         window.SettingsCore.showNotification(window.SettingsCore.getText('ldapTestCmdCopied'), 'success');
@@ -259,7 +259,7 @@ async function testLdapConnectivity() {
         ldap_tls_cacertfile: document.getElementById('ldapTlsCacertfile').value
       };
       
-      console.log('发送 LDAP 测试请求:', payload);
+      console.log('Sending LDAP test request:', payload);
       
       const resp = await fetch('/auth/test-ldap', {
         method: 'POST',
@@ -268,9 +268,9 @@ async function testLdapConnectivity() {
         body: JSON.stringify(payload)
       });
       
-      console.log('LDAP 测试响应状态:', resp.status);
+      console.log('LDAP test response status:', resp.status);
       const text = await resp.text();
-      console.log('LDAP 测试响应内容:', text);
+      console.log('LDAP test response content:', text);
       
       // Log detailed error information
       if (!resp.ok) {
@@ -285,16 +285,16 @@ async function testLdapConnectivity() {
           const result = JSON.parse(text);
           if (result.test_validated) {
             ldapTestValidated = true;
-            // 自动勾选"启用LDAP"并启用开关，避免后续保存时误传 false 覆盖
+            // Automatically check "Enable LDAP" and enable switch to avoid false override during subsequent save
             try {
               const ldapEnabledEl = document.getElementById('ldapEnabled');
               const hintEl = document.getElementById('ldapEnableHint');
               if (ldapEnabledEl) {
                 ldapEnabledEl.checked = true;
-                ldapEnabledEl.disabled = false; // 启用开关
+                ldapEnabledEl.disabled = false; // Enable switch
               }
               if (hintEl) {
-                hintEl.style.display = 'none'; // 隐藏提示
+                hintEl.style.display = 'none'; // Hide hint
               }
             } catch (_) {}
             window.SettingsCore && window.SettingsCore.showNotification(

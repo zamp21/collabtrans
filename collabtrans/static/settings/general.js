@@ -1,5 +1,5 @@
 // General Settings Module
-// 通用设置模块
+// General settings module
 
 // Load general settings
 async function loadGeneralSettings() {
@@ -57,7 +57,7 @@ async function saveGeneralSettings() {
       if (window.SettingsCore) {
         window.SettingsCore.showNotification(window.SettingsCore.getText('generalSettingsSaved'), 'success');
       }
-      // 将默认语言同步到用户偏好与当前页面语言
+      // Sync default language to user preferences and current page language
       try {
         console.log('[General][save] default_language to set =', defaultLang);
         localStorage.setItem('ui_language', defaultLang);
@@ -65,7 +65,7 @@ async function saveGeneralSettings() {
           console.log('[General][save] calling SettingsCore.setLanguage with', defaultLang);
           window.SettingsCore.setLanguage(defaultLang);
         }
-        // 通知其它页面
+        // Notify other pages
         console.log('[General][save] dispatch languageChanged event:', defaultLang);
         window.dispatchEvent(new CustomEvent('languageChanged', { detail: { language: defaultLang } }));
       } catch (_) {}
@@ -90,7 +90,7 @@ function initGeneralModule() {
   console.log('[General][init] initGeneralModule called');
   // Load settings
   loadGeneralSettings().then(cfg => {
-    // 保险：i18n应用后再次同步一次select的值
+    // Safety: sync select value again after i18n is applied
     try {
       const defaultLangSelect = document.getElementById('defaultLanguage');
       if (defaultLangSelect && cfg && cfg.default_language) {

@@ -13,7 +13,7 @@ import types
 os.environ['NUMPY_EXPERIMENTAL_DTYPE_API'] = '1'
 os.environ['NUMPY_DISABLE_CPU_FEATURES'] = '1'
 
-# 完全禁用有问题的模块
+# Completely disable problematic modules
 sys.modules['numpy.core._add_newdocs'] = types.ModuleType('numpy.core._add_newdocs')
 sys.modules['numpy._core._add_newdocs'] = types.ModuleType('numpy._core._add_newdocs')
 

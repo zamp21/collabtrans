@@ -1,5 +1,5 @@
 // AI Platform Settings Module
-// AI平台设置模块
+// AI platform settings module
 
 let platformConfigs = window.platformConfigs || {};
 
@@ -124,7 +124,7 @@ async function loadApiKey(platform) {
     
     const apiKeyInput = document.getElementById('platformApiKey');
     const statusBadge = document.getElementById('platformApiKeyStatus');
-    // 优先用 meta（新结构），回退到旧结构
+    // Prioritize meta (new structure), fallback to old structure
     const meta = (secrets.platform_api_keys_meta && secrets.platform_api_keys_meta[platform]) || null;
     const apiKey = meta ? meta.key : (secrets.platform_api_keys?.[platform]);
     const isConfigured = meta ? !!meta.configured : !!apiKey;
@@ -139,7 +139,7 @@ async function loadApiKey(platform) {
       if (statusBadge) {
         statusBadge.classList.remove('bg-secondary');
         statusBadge.classList.add('bg-success');
-        statusBadge.textContent = window.SettingsCore ? window.SettingsCore.getText('statusConfigured') : '已配置';
+        statusBadge.textContent = window.SettingsCore ? window.SettingsCore.getText('statusConfigured') : 'Configured';
         statusBadge.setAttribute('data-i18n', 'statusConfigured');
       }
       
@@ -160,7 +160,7 @@ async function loadApiKey(platform) {
       if (statusBadge) {
         statusBadge.classList.remove('bg-success');
         statusBadge.classList.add('bg-secondary');
-        statusBadge.textContent = window.SettingsCore ? window.SettingsCore.getText('statusNotConfigured') : '未配置';
+        statusBadge.textContent = window.SettingsCore ? window.SettingsCore.getText('statusNotConfigured') : 'Not configured';
         statusBadge.setAttribute('data-i18n', 'statusNotConfigured');
       }
     }
@@ -174,7 +174,7 @@ async function loadApiKey(platform) {
     if (statusBadge) {
       statusBadge.classList.remove('bg-success');
       statusBadge.classList.add('bg-secondary');
-      statusBadge.textContent = window.SettingsCore ? window.SettingsCore.getText('statusNotConfigured') : '未配置';
+      statusBadge.textContent = window.SettingsCore ? window.SettingsCore.getText('statusNotConfigured') : 'Not configured';
       statusBadge.setAttribute('data-i18n', 'statusNotConfigured');
     }
   }
@@ -303,7 +303,7 @@ async function saveAiPlatformConfig() {
     if (apiKeyValue && !apiKeyValue.endsWith('***')) {
       console.log(`[DEBUG] saveAiPlatformConfig - saving API key for platform: ${platformType}`);
       
-      // 获取当前的API Keys，确保不覆盖其他平台（优先使用带meta的新结构）
+      // Get current API Keys, ensure not overwriting other platforms (prioritize new structure with meta)
       let currentApiKeys = {};
       try {
         const resp = await fetch('/auth/app-config/raw-secrets', { credentials: 'include' });
@@ -312,7 +312,7 @@ async function saveAiPlatformConfig() {
           if (secrets.platform_api_keys_meta && typeof secrets.platform_api_keys_meta === 'object') {
             currentApiKeys = secrets.platform_api_keys_meta;
           } else {
-            // 回退并规范化旧结构
+            // Fallback and normalize old structure
             const plain = secrets.platform_api_keys || {};
             currentApiKeys = {};
             Object.entries(plain).forEach(([p, v]) => {
@@ -326,7 +326,7 @@ async function saveAiPlatformConfig() {
         console.warn('[DEBUG] saveAiPlatformConfig - failed to get current API keys:', error);
       }
       
-      // 只更新当前平台的API Key，保留其他平台（新结构：{key, configured}）
+      // Only update current platform's API Key, preserve other platforms (new structure: {key, configured})
       currentApiKeys[platformType] = { key: apiKeyValue, configured: true };
       console.log(`[DEBUG] saveAiPlatformConfig - updated API keys:`, Object.keys(currentApiKeys));
       
@@ -353,7 +353,7 @@ async function saveAiPlatformConfig() {
       }
       // Reload API Key display (masked version) and status
       await loadApiKey(platformType);
-      // 同步当前平台到后端用户配置，供主页读取
+      // Sync current platform to backend user configuration for homepage reading
       try {
         await fetch('/auth/app-config/setting', {
           method: 'POST',
@@ -361,7 +361,7 @@ async function saveAiPlatformConfig() {
           credentials: 'include',
           body: JSON.stringify({ key: 'translator_platform_type', value: platformType })
         });
-        // 同步到本地存储，供主页备用读取
+        // Sync to local storage for homepage backup reading
         try { localStorage.setItem('translator_platform_type', platformType); } catch (e) {}
       } catch (e) {
         console.warn('[DEBUG] saveAiPlatformConfig - failed to sync translator_platform_type:', e);
@@ -436,11 +436,11 @@ function initAiPlatformModule() {
     // Load platform configurations
     loadPlatformConfigs();
     
-    // 修复: 确保在加载平台配置后，主动加载当前选中平台的配置信息
-    // 这里添加一个小延迟确保updatePlatformSelect完成后再调用updatePlatformFields
+    // Fix: Ensure that after loading platform configuration, actively load the configuration information of the currently selected platform
+    // Add a small delay here to ensure updatePlatformSelect completes before calling updatePlatformFields
     setTimeout(() => {
       updatePlatformFields();
-      console.log('[DEBUG] initAiPlatformModule -主动加载了当前选中平台的配置');
+      console.log('[DEBUG] initAiPlatformModule - actively loaded configuration of currently selected platform');
     }, 100);
     
     // Setup event listeners
@@ -471,18 +471,18 @@ function initAiPlatformModule() {
     // Initialize password toggle buttons after a delay to ensure DOM elements are ready
     setTimeout(() => {
       if (window.SettingsCore) {
-        // 先移除可能存在的旧事件监听器
+        // First remove any existing old event listeners
         const toggleButtons = document.querySelectorAll('.toggle-password');
         toggleButtons.forEach(button => {
           const newButton = button.cloneNode(true);
           button.parentNode.replaceChild(newButton, button);
         });
         
-        // 重新初始化密码切换按钮
+        // Re-initialize password toggle buttons
         window.SettingsCore.initTogglePasswordButtons();
         console.log('[DEBUG] initAiPlatformModule - password toggle buttons re-initialized');
         
-        // 验证密码切换按钮是否正确初始化
+        // Verify password toggle buttons are correctly initialized
         const newToggleButtons = document.querySelectorAll('.toggle-password');
         console.log('[DEBUG] initAiPlatformModule - found toggle buttons:', newToggleButtons.length);
         newToggleButtons.forEach((button, index) => {
@@ -493,17 +493,17 @@ function initAiPlatformModule() {
       }
     }, 300);
     
-    // 确保AI Platform模块区域可见
+    // Ensure AI Platform module area is visible
     const aiPlatformSection = document.getElementById('ai-platforms-section');
     if (aiPlatformSection) {
-      // 移除其他模块的active类
+      // Remove active class from other modules
       const allSections = document.querySelectorAll('.settings-section');
       allSections.forEach(section => section.classList.remove('active'));
       
-      // 添加active类到AI Platform模块
+      // Add active class to AI Platform module
       aiPlatformSection.classList.add('active');
       
-      // 更新导航链接状态
+      // Update navigation link status
       const allNavLinks = document.querySelectorAll('.settings-nav .nav-link');
       allNavLinks.forEach(link => link.classList.remove('active'));
       

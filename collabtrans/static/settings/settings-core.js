@@ -1,12 +1,12 @@
 // Settings Core JavaScript
-// 核心设置管理功能
+// Core settings management functionality
 
-// 全局变量
+// Global variables
 let i18nData = null;
 let currentLang = 'zh';
 let loadedModules = new Set();
 let settingsUserPermissions = null; // cached permissions for settings page
-let isInitialized = false; // 防止重复初始化
+let isInitialized = false; // Prevent duplicate initialization
 
 // --- I18N System ---
 class I18nManager {
@@ -38,8 +38,8 @@ class I18nManager {
   getFallbackData() {
     return {
       zh: {
-        init_i18n_failed_alert: '加载界面翻译资源失败，请检查网络连接或联系管理员。',
-        init_failed_alert: '初始化失败，无法连接到后端服务。请检查服务是否运行或刷新页面。'
+        init_i18n_failed_alert: 'Failed to load interface translation resources. Please check your network connection or contact an administrator.',
+        init_failed_alert: 'Initialization failed, could not connect to the backend service. Please ensure the service is running and refresh the page.'
       },
       en: {
         init_i18n_failed_alert: 'Failed to load interface translations. Please check your network connection or contact an administrator.',
@@ -113,10 +113,10 @@ class I18nManager {
   }
 }
 
-// 创建全局i18n管理器实例
+// Create global i18n manager instance
 const i18n = new I18nManager();
 
-// 兼容性函数
+// Compatibility functions
 const getText = (key, fallback = '') => i18n.getText(key, fallback);
 
 // --- Theme Helper Functions ---
@@ -375,7 +375,7 @@ async function initSettings() {
     
   } catch (error) {
     console.error('[Settings] Failed to initialize settings:', error);
-    showNotification('初始化设置页面失败', 'error');
+    showNotification('Failed to initialize settings page', 'error');
   }
 }
 

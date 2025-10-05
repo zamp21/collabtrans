@@ -34,67 +34,67 @@ def get_font_for_language(target_language: str) -> str:
     # Language to font mapping
     language_font_map = {
         # Chinese
-        "中文": "Microsoft YaHei",  # Microsoft YaHei
-        "简体中文": "Microsoft YaHei",
-        "繁体中文": "Microsoft JhengHei",  # Microsoft JhengHei
+        "Chinese": "Microsoft YaHei",  # Microsoft YaHei
+        "Simplified Chinese": "Microsoft YaHei",
+        "Traditional Chinese": "Microsoft JhengHei",  # Microsoft JhengHei
         
         # English
         "English": "Calibri",
         
         # Japanese
-        "日文": "Yu Gothic",  # Yu Gothic
-        "日本語": "Yu Gothic",
+        "Japanese": "Yu Gothic",  # Yu Gothic
+        "Japanese": "Yu Gothic",
         "Japanese": "Yu Gothic",
         
         # Korean
-        "韩文": "Malgun Gothic",  # Malgun Gothic
+        "Korean": "Malgun Gothic",  # Malgun Gothic
         "한국어": "Malgun Gothic",
         "Korean": "Malgun Gothic",
         
         # Russian
-        "俄文": "Times New Roman",  # Common Russian font
+        "Russian": "Times New Roman",  # Common Russian font
         "Русский": "Times New Roman",
         "Russian": "Times New Roman",
         
         # Arabic
-        "阿拉伯文": "Arial Unicode MS",  # Supports Arabic characters
+        "Arabic": "Arial Unicode MS",  # Supports Arabic characters
         "العَرَبِيَّة": "Arial Unicode MS",
         "Arabic": "Arial Unicode MS",
         
         # Other European languages
-        "西班牙文": "Calibri",
+        "Spanish": "Calibri",
         "Español": "Calibri",
         "Spanish": "Calibri",
         
-        "法文": "Calibri",
+        "French": "Calibri",
         "Français": "Calibri",
         "French": "Calibri",
         
-        "德文": "Calibri",
+        "German": "Calibri",
         "Deutsch": "Calibri",
         "German": "Calibri",
         
-        "葡萄牙文": "Calibri",
+        "Portuguese": "Calibri",
         "Português": "Calibri",
         "Portuguese": "Calibri",
         
         # Vietnamese
-        "越南文": "Arial Unicode MS",  # Supports Vietnamese characters
+        "Vietnamese": "Arial Unicode MS",  # Supports Vietnamese characters
         "tiếng Việt": "Arial Unicode MS",
         "Vietnamese": "Arial Unicode MS",
         
         # Hebrew
-        "希伯来文": "Arial Unicode MS",  # Supports Hebrew characters
+        "Hebrew": "Arial Unicode MS",  # Supports Hebrew characters
         "Hebrew": "Arial Unicode MS",
         "עברית": "Arial Unicode MS",
         
         # Thai
-        "泰文": "Arial Unicode MS",  # Supports Thai characters
+        "Thai": "Arial Unicode MS",  # Supports Thai characters
         "Thai": "Arial Unicode MS",
         "ไทย": "Arial Unicode MS",
         
         # Hindi
-        "印地文": "Arial Unicode MS",  # Supports Hindi characters
+        "Hindi": "Arial Unicode MS",  # Supports Hindi characters
         "Hindi": "Arial Unicode MS",
         "हिन्दी": "Arial Unicode MS",
     }
@@ -105,23 +105,23 @@ def get_font_for_language(target_language: str) -> str:
     # If no matching font found, return default font
     if not font:
         # Intelligent selection based on language characteristics
-        if any(char in target_language for char in ['中文', 'Chinese', '简体', '繁体']):
+        if any(char in target_language for char in ['Chinese', 'Chinese', 'Simplified', 'Traditional']):
             font = "Microsoft YaHei"
-        elif any(char in target_language for char in ['日文', 'Japanese', '日本語']):
+        elif any(char in target_language for char in ['Japanese', 'Japanese', 'Japanese']):
             font = "Yu Gothic"
-        elif any(char in target_language for char in ['韩文', 'Korean', '한국어']):
+        elif any(char in target_language for char in ['Korean', 'Korean', '한국어']):
             font = "Malgun Gothic"
-        elif any(char in target_language for char in ['俄文', 'Russian', 'Русский']):
+        elif any(char in target_language for char in ['Russian', 'Russian', 'Русский']):
             font = "Times New Roman"
-        elif any(char in target_language for char in ['阿拉伯文', 'Arabic', 'العَرَبِيَّة']):
+        elif any(char in target_language for char in ['Arabic', 'Arabic', 'العَرَبِيَّة']):
             font = "Arial Unicode MS"
-        elif any(char in target_language for char in ['越南文', 'Vietnamese', 'tiếng Việt']):
+        elif any(char in target_language for char in ['Vietnamese', 'Vietnamese', 'tiếng Việt']):
             font = "Arial Unicode MS"
-        elif any(char in target_language for char in ['希伯来文', 'Hebrew', 'עברית']):
+        elif any(char in target_language for char in ['Hebrew', 'Hebrew', 'עברית']):
             font = "Arial Unicode MS"
-        elif any(char in target_language for char in ['泰文', 'Thai', 'ไทย']):
+        elif any(char in target_language for char in ['Thai', 'Thai', 'ไทย']):
             font = "Arial Unicode MS"
-        elif any(char in target_language for char in ['印地文', 'Hindi', 'हिन्दी']):
+        elif any(char in target_language for char in ['Hindi', 'Hindi', 'हिन्दी']):
             font = "Arial Unicode MS"
         else:
             # Default to Calibri (suitable for most Latin alphabet languages)
@@ -133,7 +133,7 @@ def get_font_for_language(target_language: str) -> str:
 @dataclass
 class DocxTranslatorConfig(AiTranslatorConfig):
     """
-    DocxTranslator 的配置类。
+    Configuration class for DocxTranslator.
     """
     insert_mode: Literal["replace", "append", "prepend"] = "replace"
     separator: str = "\n"
@@ -141,8 +141,8 @@ class DocxTranslatorConfig(AiTranslatorConfig):
 
 class DocxTranslator(AiTranslator):
     """
-    用于翻译 .docx 文件的翻译器。
-    此版本经过优化，可以处理图文混排的段落而不会丢失图片。
+    Translator for .docx files.
+    This version is optimized to handle mixed text and image paragraphs without losing images.
     """
 
     def __init__(self, config: DocxTranslatorConfig):
@@ -170,12 +170,12 @@ class DocxTranslator(AiTranslator):
 
     def _pre_translate(self, document: Document) -> Tuple[DocumentObject, List[Dict[str, Any]], List[str]]:
         """
-        [已重构] 预处理 .docx 文件，在 Run 级别上提取文本，以避免破坏图片。
-        :param document: 包含 .docx 文件内容的 Document 对象。
-        :return: 一个元组，包含：
-                 - docx.Document 对象
-                 - 一个包含文本块信息的列表 (每个元素代表一组连续的文本 run)
-                 - 一个包含所有待翻译原文的列表
+        [Refactored] Preprocess .docx file, extract text at Run level to avoid breaking images.
+        :param document: Document object containing .docx file content.
+        :return: A tuple containing:
+                 - docx.Document object
+                 - A list containing text block information (each element represents a group of consecutive text runs)
+                 - A list containing all original texts to be translated
         """
         doc = docx.Document(BytesIO(document.content))
         elements_to_translate = []
@@ -188,28 +188,28 @@ class DocxTranslator(AiTranslator):
 
             for run in para.runs:
                 if is_image_run(run):
-                    # 遇到图片，将之前累积的文本作为一个翻译单元
+                    # Encounter image, treat previously accumulated text as a translation unit
                     if current_text_segment.strip():
                         elements_to_translate.append({"type": "text_runs", "runs": current_runs})
                         original_texts.append(current_text_segment)
-                    # 重置累加器
+                    # Reset accumulator
                     current_text_segment = ""
                     current_runs = []
                 else:
-                    # 累积文本 run
+                    # Accumulate text run
                     current_runs.append(run)
                     current_text_segment += run.text
 
-            # 处理段落末尾的最后一个文本块
+            # Process the last text block at the end of the paragraph
             if current_text_segment.strip():
                 elements_to_translate.append({"type": "text_runs", "runs": current_runs})
                 original_texts.append(current_text_segment)
 
-        # 遍历所有段落
+        # Traverse all paragraphs
         for para in doc.paragraphs:
             process_paragraph(para)
 
-        # 遍历所有表格
+        # Traverse all tables
         for table in doc.tables:
             for row in table.rows:
                 for cell in row.cells:
@@ -221,7 +221,7 @@ class DocxTranslator(AiTranslator):
     def _after_translate(self, doc: DocumentObject, elements_to_translate: List[Dict[str, Any]],
                          translated_texts: List[str], original_texts: List[str]) -> bytes:
         """
-        [已重构] 将翻译后的文本写回到对应的 text runs 中，保留图片和样式。
+        [Refactored] Write translated text back to corresponding text runs, preserving images and styles.
         """
         translation_map = dict(zip(original_texts, translated_texts))
 
@@ -258,19 +258,19 @@ class DocxTranslator(AiTranslator):
                 # If primary font is not available, try fallback fonts
                 if not first_run.font.name:
                     # Select fallback fonts based on language type
-                    if any(char in self.config.to_lang for char in ['中文', 'Chinese', '简体', '繁体']):
+                    if any(char in self.config.to_lang for char in ['Chinese', 'Chinese', 'Simplified', 'Traditional']):
                         # Chinese fallback fonts
                         fallback_fonts = ['SimSun', 'SimHei', 'Arial Unicode MS', 'Times New Roman']
-                    elif any(char in self.config.to_lang for char in ['日文', 'Japanese', '日本語']):
+                    elif any(char in self.config.to_lang for char in ['Japanese', 'Japanese', 'Japanese']):
                         # Japanese fallback fonts
                         fallback_fonts = ['MS Gothic', 'Arial Unicode MS', 'Times New Roman']
-                    elif any(char in self.config.to_lang for char in ['韩文', 'Korean', '한국어']):
+                    elif any(char in self.config.to_lang for char in ['Korean', 'Korean', '한국어']):
                         # Korean fallback fonts
                         fallback_fonts = ['Gulim', 'Arial Unicode MS', 'Times New Roman']
-                    elif any(char in self.config.to_lang for char in ['俄文', 'Russian', 'Русский']):
+                    elif any(char in self.config.to_lang for char in ['Russian', 'Russian', 'Русский']):
                         # Russian fallback fonts
                         fallback_fonts = ['Times New Roman', 'Arial', 'Calibri']
-                    elif any(char in self.config.to_lang for char in ['阿拉伯文', 'Arabic', 'العَرَبِيَّة']):
+                    elif any(char in self.config.to_lang for char in ['Arabic', 'Arabic', 'العَرَبِيَّة']):
                         # Arabic fallback fonts
                         fallback_fonts = ['Arial Unicode MS', 'Times New Roman', 'Arial']
                     else:

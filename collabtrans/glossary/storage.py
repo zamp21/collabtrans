@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class GlossaryStorage:
-    """术语表存储管理器"""
+    """Glossary storage manager"""
     
     def __init__(self, base_dir: str = "glossaries"):
         self.base_dir = Path(base_dir)
@@ -24,100 +24,100 @@ class GlossaryStorage:
         self.users_dir = self.base_dir / "users"
         self.metadata_dir = self.base_dir / "metadata"
         
-        # 元数据文件
+        # Metadata files
         self.global_glossaries_file = self.metadata_dir / "global_glossaries.json"
         self.user_selections_file = self.metadata_dir / "user_selections.json"
         self.versions_file = self.metadata_dir / "versions.json"
         
-        # 创建目录结构
+        # Create directory structure
         self._ensure_directories()
         
-        # 加载元数据
+        # Load metadata
         self.global_glossaries = self._load_global_glossaries()
         self.user_selections = self._load_user_selections()
         self.versions = self._load_versions()
-        # 启动时做一次元数据自检，清理无效项
+        # Perform metadata self-check on startup, clean up invalid items
         try:
             self.reconcile_metadata()
         except Exception as _e:
-            logger.warning(f"启动时术语表元数据自检失败: {_e}")
+            logger.warning(f"Glossary metadata self-check failed on startup: {_e}")
     
     def _ensure_directories(self):
-        """确保目录结构存在"""
+        """Ensure directory structure exists"""
         self.global_dir.mkdir(parents=True, exist_ok=True)
         self.users_dir.mkdir(parents=True, exist_ok=True)
         self.metadata_dir.mkdir(parents=True, exist_ok=True)
     
     def _load_global_glossaries(self) -> Dict[str, dict]:
-        """加载全局术语表元数据"""
+        """Load global glossary metadata"""
         if self.global_glossaries_file.exists():
             try:
                 with open(self.global_glossaries_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
             except Exception as e:
-                logger.error(f"加载全局术语表元数据失败: {e}")
+                logger.error(f"Failed to load global glossary metadata: {e}")
         return {}
     
     def _save_global_glossaries(self):
-        """保存全局术语表元数据"""
+        """Save global glossary metadata"""
         try:
             with open(self.global_glossaries_file, 'w', encoding='utf-8') as f:
                 json.dump(self.global_glossaries, f, indent=2, ensure_ascii=False, default=str)
         except Exception as e:
-            logger.error(f"保存全局术语表元数据失败: {e}")
+            logger.error(f"Failed to save global glossary metadata: {e}")
     
     def _load_user_selections(self) -> Dict[str, dict]:
-        """加载用户选择元数据"""
+        """Load user selection metadata"""
         if self.user_selections_file.exists():
             try:
                 with open(self.user_selections_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
             except Exception as e:
-                logger.error(f"加载用户选择元数据失败: {e}")
+                logger.error(f"Failed to load user selection metadata: {e}")
         return {}
     
     def _save_user_selections(self):
-        """保存用户选择元数据"""
+        """Save user selection metadata"""
         try:
             with open(self.user_selections_file, 'w', encoding='utf-8') as f:
                 json.dump(self.user_selections, f, indent=2, ensure_ascii=False, default=str)
         except Exception as e:
-            logger.error(f"保存用户选择元数据失败: {e}")
+            logger.error(f"Failed to save user selection metadata: {e}")
     
     def _load_versions(self) -> Dict[str, float]:
-        """加载版本信息"""
+        """Load version information"""
         if self.versions_file.exists():
             try:
                 with open(self.versions_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
             except Exception as e:
-                logger.error(f"加载版本信息失败: {e}")
+                logger.error(f"Failed to load version information: {e}")
         return {}
     
     def _save_versions(self):
-        """保存版本信息"""
+        """Save version information"""
         try:
             with open(self.versions_file, 'w', encoding='utf-8') as f:
                 json.dump(self.versions, f, indent=2)
         except Exception as e:
-            logger.error(f"保存版本信息失败: {e}")
+            logger.error(f"Failed to save version information: {e}")
     
     def update_glossary_version(self, glossary_id: str, updated_by: str):
-        """更新术语表版本"""
+        """Update glossary version"""
         self.versions[glossary_id] = time.time()
         self._save_versions()
-        logger.info(f"术语表 {glossary_id} 版本已更新，更新者: {updated_by}")
+        logger.info(f"Glossary {glossary_id} version updated, updated by: {updated_by}")
     
     def get_glossary_version(self, glossary_id: str) -> float:
-        """获取术语表版本"""
+        """Get glossary version"""
         return self.versions.get(glossary_id, 0)
     
     def get_all_versions(self) -> Dict[str, float]:
-        """获取所有术语表版本"""
+        """Get all glossary versions"""
         return self.versions.copy()
     
     def load_glossary_from_csv(self, file_path: Path) -> Dict[str, str]:
-        """从CSV文件加载术语表"""
+        """Load glossary from CSV file"""
         glossary_dict = {}
         try:
             with open(file_path, 'r', encoding='utf-8-sig') as f:
@@ -128,12 +128,12 @@ class GlossaryStorage:
                     if src and dst:
                         glossary_dict[src] = dst
         except Exception as e:
-            logger.error(f"加载CSV文件失败 {file_path}: {e}")
+            logger.error(f"Failed to load CSV file {file_path}: {e}")
             raise
         return glossary_dict
     
     def save_glossary_to_csv(self, glossary_dict: Dict[str, str], file_path: Path):
-        """保存术语表到CSV文件"""
+        """Save glossary to CSV file"""
         try:
             with open(file_path, 'w', encoding='utf-8-sig', newline='') as f:
                 writer = csv.writer(f)
@@ -141,16 +141,16 @@ class GlossaryStorage:
                 for src, dst in glossary_dict.items():
                     writer.writerow([src, dst])
         except Exception as e:
-            logger.error(f"保存CSV文件失败 {file_path}: {e}")
+            logger.error(f"Failed to save CSV file {file_path}: {e}")
             raise
     
     def get_global_glossaries(self) -> List[GlossaryFile]:
-        """获取全局术语表列表"""
+        """Get global glossary list"""
         glossaries = []
         for glossary_id, metadata in self.global_glossaries.items():
             file_path = self.global_dir / metadata['file_path']
             if file_path.exists():
-                # 计算术语数量
+                # Calculate term count
                 try:
                     glossary_dict = self.load_glossary_from_csv(file_path)
                     item_count = len(glossary_dict)
@@ -172,7 +172,7 @@ class GlossaryStorage:
         return glossaries
     
     def get_user_personal_glossary(self, username: str) -> Optional[GlossaryFile]:
-        """获取用户个人术语表"""
+        """Get user personal glossary"""
         user_dir = self.users_dir / username
         personal_file = user_dir / "personal_glossary.csv"
         
@@ -181,21 +181,21 @@ class GlossaryStorage:
                 glossary_dict = self.load_glossary_from_csv(personal_file)
                 return GlossaryFile(
                     id=f"personal_{username}",
-                    name="个人术语表",
+                    name="Personal Glossary",
                     file_path=str(personal_file),
                     owner=username,
                     is_global=False,
                     created_at=datetime.fromtimestamp(personal_file.stat().st_ctime),
                     updated_at=datetime.fromtimestamp(personal_file.stat().st_mtime),
                     item_count=len(glossary_dict),
-                    description="用户个人术语表"
+                    description="User personal glossary"
                 )
             except Exception as e:
-                logger.error(f"获取用户个人术语表失败 {username}: {e}")
+                logger.error(f"Failed to get user personal glossary {username}: {e}")
         return None
     
     def get_user_selection(self, username: str) -> UserGlossarySelection:
-        """获取用户术语表选择"""
+        """Get user glossary selection"""
         selection_data = self.user_selections.get(username, {})
         return UserGlossarySelection(
             username=username,
@@ -204,7 +204,7 @@ class GlossaryStorage:
         )
     
     def save_user_selection(self, selection: UserGlossarySelection):
-        """保存用户术语表选择"""
+        """Save user glossary selection"""
         self.user_selections[selection.username] = {
             'selected_global_glossaries': selection.selected_global_glossaries,
             'personal_glossary': selection.personal_glossary
@@ -218,23 +218,23 @@ class GlossaryStorage:
         owner: str,
         description: Optional[str] = None
     ) -> GlossaryFile:
-        """创建全局术语表"""
-        # 生成唯一文件名（避免同名覆盖）：名称_时间戳[(_短UID)].csv
+        """Create global glossary"""
+        # Generate unique filename (avoid overwriting with same name): name_timestamp[(_shortUID)].csv
         safe_name = "".join(c for c in name if c.isalnum() or c in (' ', '-', '_')).rstrip()
         safe_name = safe_name.replace(' ', '_')
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         file_path = f"{safe_name}_{timestamp}.csv"
         full_path = self.global_dir / file_path
-        # 若极端情况下仍冲突，则追加短UID
+        # If still conflicting in extreme cases, append short UID
         if full_path.exists():
             short_uid = uuid.uuid4().hex[:6]
             file_path = f"{safe_name}_{timestamp}_{short_uid}.csv"
             full_path = self.global_dir / file_path
         
-        # 保存文件
+        # Save file
         self.save_glossary_to_csv(glossary_dict, full_path)
         
-        # 创建元数据
+        # Create metadata
         glossary_id = f"global_{int(time.time())}"
         now = datetime.now()
         
@@ -250,7 +250,7 @@ class GlossaryStorage:
         self.global_glossaries[glossary_id] = glossary_metadata
         self._save_global_glossaries()
         
-        # 更新版本
+        # Update version
         self.update_glossary_version(glossary_id, owner)
         
         return GlossaryFile(
@@ -271,60 +271,60 @@ class GlossaryStorage:
         glossary_dict: Dict[str, str], 
         updated_by: str
     ) -> bool:
-        """更新全局术语表"""
+        """Update global glossary"""
         if glossary_id not in self.global_glossaries:
             return False
         
         metadata = self.global_glossaries[glossary_id]
         file_path = self.global_dir / metadata['file_path']
         
-        # 保存文件
+        # Save file
         self.save_glossary_to_csv(glossary_dict, file_path)
         
-        # 更新元数据
+        # Update metadata
         metadata['updated_at'] = datetime.now().isoformat()
         self._save_global_glossaries()
         
-        # 更新版本
+        # Update version
         self.update_glossary_version(glossary_id, updated_by)
         
         return True
     
     def delete_global_glossary(self, glossary_id: str) -> bool:
-        """删除全局术语表"""
+        """Delete global glossary"""
         if glossary_id not in self.global_glossaries:
             return False
         
         metadata = self.global_glossaries[glossary_id]
         file_path = self.global_dir / metadata['file_path']
         
-        # 删除文件
+        # Delete file
         if file_path.exists():
             file_path.unlink()
         
-        # 删除元数据
+        # Delete metadata
         del self.global_glossaries[glossary_id]
         self._save_global_glossaries()
         
-        # 删除版本信息
+        # Delete version information
         if glossary_id in self.versions:
             del self.versions[glossary_id]
             self._save_versions()
         
-        # 再次校验并清理残留
+        # Re-verify and clean up residues
         try:
             self.reconcile_metadata()
         except Exception as _e:
-            logger.warning(f"删除后术语表元数据自检失败: {_e}")
+            logger.warning(f"Glossary metadata self-check failed after deletion: {_e}")
         
         return True
 
     def reconcile_metadata(self):
-        """对齐元数据与实际文件：
-        - 移除global_glossaries中指向不存在文件的项
-        - 移除versions中不存在的glossary_id
+        """Align metadata with actual files:
+        - Remove items in global_glossaries that point to non-existent files
+        - Remove non-existent glossary_id in versions
         """
-        # 清理全局术语表元数据
+        # Clean up global glossary metadata
         removed_ids: List[str] = []
         for glossary_id, meta in list(self.global_glossaries.items()):
             file_path = self.global_dir / meta.get('file_path', '')
@@ -332,17 +332,17 @@ class GlossaryStorage:
                 removed_ids.append(glossary_id)
                 del self.global_glossaries[glossary_id]
         if removed_ids:
-            logger.info(f"清理无效术语表元数据: {removed_ids}")
+            logger.info(f"Cleaned up invalid glossary metadata: {removed_ids}")
             self._save_global_glossaries()
         
-        # 清理版本信息
+        # Clean up version information
         removed_version_ids: List[str] = []
         for glossary_id in list(self.versions.keys()):
             if glossary_id not in self.global_glossaries and not glossary_id.startswith('personal_'):
                 removed_version_ids.append(glossary_id)
                 del self.versions[glossary_id]
         if removed_version_ids:
-            logger.info(f"清理无效术语表版本信息: {removed_version_ids}")
+            logger.info(f"Cleaned up invalid glossary version information: {removed_version_ids}")
             self._save_versions()
     
     def save_user_personal_glossary(
@@ -350,26 +350,26 @@ class GlossaryStorage:
         username: str, 
         glossary_dict: Dict[str, str]
     ) -> bool:
-        """保存用户个人术语表"""
+        """Save user personal glossary"""
         user_dir = self.users_dir / username
         user_dir.mkdir(parents=True, exist_ok=True)
         
         personal_file = user_dir / "personal_glossary.csv"
         self.save_glossary_to_csv(glossary_dict, personal_file)
         
-        # 更新版本
+        # Update version
         personal_id = f"personal_{username}"
         self.update_glossary_version(personal_id, username)
         
         return True
 
 
-# 全局存储实例
+# Global storage instance
 _glossary_storage = None
 
 
 def get_glossary_storage() -> GlossaryStorage:
-    """获取术语表存储实例"""
+    """Get glossary storage instance"""
     global _glossary_storage
     if _glossary_storage is None:
         _glossary_storage = GlossaryStorage()

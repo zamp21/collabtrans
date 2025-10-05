@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from io import BytesIO, StringIO
 from typing import Hashable
 
-# 引入 chardet 用于编码检测
+# Import chardet for encoding detection
 import chardet
 import openpyxl
 
@@ -15,7 +15,7 @@ from collabtrans.converter.x2xlsx.base import X2XlsxConverter, X2XlsxConverterCo
 from collabtrans.ir.document import Document
 
 
-# 配置一个基本的日志记录器（如果您的项目尚未配置）
+# Configure a basic logger (if your project hasn't configured one yet)
 # logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 @dataclass(kw_only=True)
 class ConverterCsv2XlsxConfig(X2XlsxConverterConfig):
@@ -26,13 +26,13 @@ class ConverterCsv2XlsxConfig(X2XlsxConverterConfig):
 
 class ConverterCsv2Xlsx(X2XlsxConverter):
     """
-    一个经过改进的、健壮的 CSV 到 XLSX 转换器。
+    An improved and robust CSV to XLSX converter.
 
-    特性:
-    - 内存高效：使用流式写入模式处理大型文件。
-    - 自动编码检测：避免乱码问题。
-    - 自动 CSV 格式识别：支持不同的分隔符。
-    - 完善的错误处理和日志记录。
+    Features:
+    - Memory efficient: Uses streaming write mode to handle large files.
+    - Automatic encoding detection: Avoids garbled text issues.
+    - Automatic CSV format recognition: Supports different delimiters.
+    - Comprehensive error handling and logging.
     """
 
     def __init__(self, config: ConverterCsv2XlsxConfig):
@@ -40,58 +40,58 @@ class ConverterCsv2Xlsx(X2XlsxConverter):
 
     def convert(self, document: Document) -> Document:
         """
-        将 CSV Document 对象同步转换为 XLSX Document 对象。
+        Synchronously convert CSV Document object to XLSX Document object.
         """
-        self.logger.info(f"开始转换文件 {document.name} (大小: {len(document.content)} bytes)")
+        self.logger.info(f"Starting file conversion {document.name} (size: {len(document.content)} bytes)")
 
         try:
-            # --- 1. 自动检测文件编码 ---
-            # 为提高性能，只取文件头部一部分进行检测
+            # --- 1. Auto-detect file encoding ---
+            # For better performance, only detect using file header portion
             detection_result = chardet.detect(document.content[:4096])
-            encoding = detection_result['encoding'] or 'utf-8'  # 提供一个默认值
+            encoding = detection_result['encoding'] or 'utf-8'  # Provide a default value
             confidence = detection_result['confidence']
-            self.logger.info(f"检测到文件编码为: {encoding} (置信度: {confidence:.2%})")
+            self.logger.info(f"Detected file encoding: {encoding} (confidence: {confidence:.2%})")
 
-            # --- 2. 解码并创建文本流 ---
+            # --- 2. Decode and create text stream ---
             try:
                 decoded_content = document.content.decode(encoding)
             except UnicodeDecodeError:
-                self.logger.warning(f"使用检测到的编码 '{encoding}' 解码失败，尝试使用 'utf-8'。")
+                self.logger.warning(f"Failed to decode with detected encoding '{encoding}', trying 'utf-8'.")
                 decoded_content = document.content.decode('utf-8', errors='replace')
 
             csv_text_stream = StringIO(decoded_content)
 
-            # --- 3. 自动识别CSV方言（如分隔符） ---
+            # --- 3. Auto-detect CSV dialect (such as delimiter) ---
             try:
-                # Sniffer需要一些数据来嗅探，如果文件太小可能失败
+                # Sniffer needs some data to sniff, may fail if file is too small
                 dialect = csv.Sniffer().sniff(csv_text_stream.read(2048))
-                csv_text_stream.seek(0)  # 将流指针重置回文件开头
-                self.logger.info(f"检测到CSV分隔符为: '{dialect.delimiter}'")
+                csv_text_stream.seek(0)  # Reset stream pointer back to file beginning
+                self.logger.info(f"Detected CSV delimiter: '{dialect.delimiter}'")
             except csv.Error:
-                self.logger.warning("无法自动识别CSV方言，将使用默认的逗号分隔符。")
-                dialect = 'excel'  # 使用默认方言
+                self.logger.warning("Unable to auto-detect CSV dialect, will use default comma delimiter.")
+                dialect = 'excel'  # Use default dialect
                 csv_text_stream.seek(0)
 
             csv_reader = csv.reader(csv_text_stream, dialect)
 
-            # --- 4. 使用内存优化的`write_only`模式创建XLSX ---
+            # --- 4. Create XLSX using memory-optimized `write_only` mode ---
             wb = openpyxl.Workbook(write_only=True)
             ws = wb.create_sheet()
 
-            # --- 5. 逐行读取CSV并写入XLSX ---
+            # --- 5. Read CSV line by line and write to XLSX ---
             row_count = 0
             for row_data in csv_reader:
-                ws.append(row_data)  # append() 是 write_only 模式下的高效写入方法
+                ws.append(row_data)  # append() is efficient write method in write_only mode
                 row_count += 1
 
-            self.logger.info(f"共处理 {row_count} 行数据。")
+            self.logger.info(f"Processed {row_count} rows of data.")
 
-            # --- 6. 将生成的XLSX保存到内存中的字节流 ---
+            # --- 6. Save generated XLSX to in-memory byte stream ---
             output_buffer = BytesIO()
             wb.save(output_buffer)
-            output_buffer.seek(0)  # 将指针移到开头，以便getvalue()读取完整内容
+            output_buffer.seek(0)  # Move pointer to beginning for getvalue() to read complete content
 
-            self.logger.info(f"文件 {document.name} 已成功转换为 XLSX 格式。")
+            self.logger.info(f"File {document.name} successfully converted to XLSX format.")
 
             return Document.from_bytes(
                 content=output_buffer.getvalue(),
@@ -100,23 +100,23 @@ class ConverterCsv2Xlsx(X2XlsxConverter):
             )
 
         except Exception as e:
-            self.logger.error(f"转换文件 {document.name} 时发生严重错误: {e}", exc_info=True)
-            # 根据您的业务逻辑，这里可以抛出异常或返回一个表示失败的特定对象
+            self.logger.error(f"Serious error occurred while converting file {document.name}: {e}", exc_info=True)
+            # According to your business logic, you can throw an exception or return a specific object indicating failure
             raise
 
     async def convert_async(self, document: Document) -> Document:
         """
-        异步执行转换操作。
-        由于核心转换逻辑是CPU密集型和阻塞IO，使用 to_thread 是正确的选择，
-        它可以防止阻塞asyncio事件循环。
+        Asynchronously execute conversion operation.
+        Since core conversion logic is CPU intensive and blocking IO, using to_thread is the correct choice,
+        it prevents blocking the asyncio event loop.
         """
-        self.logger.info(f"为文件 {document.name} 的转换任务创建新线程。")
-        # 我们已经优化了 `convert` 方法，所以 `to_thread` 的方式非常适合
+        self.logger.info(f"Creating new thread for conversion task of file {document.name}.")
+        # We have optimized the `convert` method, so `to_thread` approach is very suitable
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self.convert, document)
 
     def support_format(self) -> list[str]:
         """
-        声明此转换器支持的源文件格式。
+        Declare source file formats supported by this converter.
         """
         return [".csv"]

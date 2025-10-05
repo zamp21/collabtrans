@@ -14,20 +14,20 @@ class Xlsx2CsvExporter(XlsxExporter):
         workbook = openpyxl.load_workbook(BytesIO(document.content))
         sheet = workbook.active
 
-        # 2. 使用 StringIO 作为文本缓冲区
+        # 2. Use StringIO as text buffer
         text_buffer = StringIO()
 
-        # 3. 直接将缓冲区传递给 csv.writer
+        # 3. Pass buffer directly to csv.writer
         writer = csv.writer(text_buffer)
 
-        # 遍历工作表中的每一行
+        # Iterate through each row in the worksheet
         for row in sheet.rows:
             writer.writerow([cell.value for cell in row])
 
-        # 4. 将文本缓冲区的内容编码为 bytes
+        # 4. Encode text buffer content as bytes
         output_bytes = text_buffer.getvalue().encode('utf-8')
 
-        # 5. 返回一个后缀为 .csv 的 Document
+        # 5. Return a Document with .csv suffix
         return Document.from_bytes(content=output_bytes, suffix=".csv", stem=document.stem)
 
 

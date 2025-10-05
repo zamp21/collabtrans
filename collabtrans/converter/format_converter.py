@@ -72,14 +72,14 @@ class FormatConverter:
         
         try:
             logger.info(f"Starting PDF to DOCX conversion: {pdf_path} -> {output_path}")
-            await self._send_log(log_queue, "开始PDF到DOCX转换...")
+            await self._send_log(log_queue, "Starting PDF to DOCX conversion...")
             
             # Create output directory if it doesn't exist
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
             
             # Initialize converter with optimized settings
             cv = Converter(pdf_path)
-            await self._send_log(log_queue, "正在分析PDF文档...")
+            await self._send_log(log_queue, "Analyzing PDF document...")
             
             # Set conversion parameters for better performance
             # These parameters can help optimize the conversion process
@@ -91,12 +91,12 @@ class FormatConverter:
                 pass  # Ignore if not supported
             
             # Convert with quality settings
-            await self._send_log(log_queue, "正在转换文档格式...")
+            await self._send_log(log_queue, "Converting document format...")
             
             # Log CPU configuration before starting conversion
             total_cores = os.cpu_count()
             cpu_count = max(4, total_cores // 2)
-            await self._send_log(log_queue, f"系统检测到 {total_cores} 个CPU核心，使用 {cpu_count} 个核心进行转换")
+            await self._send_log(log_queue, f"System detected {total_cores} CPU cores, using {cpu_count} cores for conversion")
             
             # Start conversion in a separate thread to avoid blocking
             
@@ -125,7 +125,7 @@ class FormatConverter:
             while not conversion_completed.is_set():
                 elapsed = time.time() - start_time
                 if elapsed > 30:  # After 30 seconds, show progress
-                    await self._send_log(log_queue, f"转换进行中... 已用时 {int(elapsed)} 秒")
+                    await self._send_log(log_queue, f"Conversion in progress... {int(elapsed)} seconds elapsed")
                     start_time = time.time()  # Reset to avoid spam
                 time.sleep(5)  # Check every 5 seconds
             
@@ -139,7 +139,7 @@ class FormatConverter:
             cv.close()
             
             logger.info(f"PDF to DOCX conversion completed: {output_path}")
-            await self._send_log(log_queue, "转换完成！")
+            await self._send_log(log_queue, "Conversion completed!")
             
         except Exception as e:
             logger.error(f"PDF to DOCX conversion failed: {e}")
@@ -220,7 +220,7 @@ class FormatConverter:
                     pass
             
             logger.error(f"Conversion failed: {convert_id}, error: {e}")
-            await self._send_log(log_queue, f"转换失败: {str(e)}")
+            await self._send_log(log_queue, f"Conversion failed: {str(e)}")
             raise
     
     def get_conversion_status(self, convert_id: str) -> Dict[str, Any]:

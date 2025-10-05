@@ -9,7 +9,7 @@ from typing import Optional, Dict, Any
 from pathlib import Path
 from .secrets_manager import get_secrets_manager
 
-# 创建日志记录器
+# Create logger
 logger = logging.getLogger(__name__)
 
 
@@ -84,10 +84,10 @@ class GlobalConfig:
     def load_from_file(cls, config_file: str = "global_config.json") -> "GlobalConfig":
         """Load global configuration from JSON file and API keys from secrets file"""
         try:
-            # 配置文件优先级：
-            # 1. /etc/collabtrans/global_config.json (系统配置)
-            # 2. 可执行程序目录下的 global_config.json (打包的配置)
-            # 3. 当前目录下的 global_config.json (开发环境)
+            # Configuration file priority:
+            # 1. /etc/collabtrans/global_config.json (system configuration)
+            # 2. global_config.json in executable directory (packaged configuration)
+            # 3. global_config.json in current directory (development environment)
             
             system_config_file = "/etc/collabtrans/global_config.json"
             system_dir_exists = os.path.exists("/etc/collabtrans")
@@ -100,10 +100,10 @@ class GlobalConfig:
                     config.update_from_dict(data)
                     logger.info("Global configuration loaded successfully from system config")
             else:
-                # 尝试从可执行程序目录加载配置文件
+                # Try to load configuration file from executable directory
                 import sys
                 if getattr(sys, 'frozen', False):
-                    # PyInstaller打包环境
+                    # PyInstaller packaged environment
                     exe_dir = os.path.dirname(sys.executable)
                     exe_config_file = os.path.join(exe_dir, "global_config.json")
                     if os.path.exists(exe_config_file):
@@ -124,7 +124,7 @@ class GlobalConfig:
                         logger.warning(f"Global config file not found in {exe_config_file} or {config_file}, using empty configuration")
                         config = cls()
                 else:
-                    # 开发环境
+                    # Development environment
                     if os.path.exists(config_file):
                         logger.info(f"Loading global configuration from: {config_file}")
                         with open(config_file, 'r', encoding='utf-8') as f:

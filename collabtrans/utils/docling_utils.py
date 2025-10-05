@@ -5,7 +5,7 @@ import docling.utils.model_downloader
 def get_docling_artifacts():
     # path = StandardPdfPipeline.download_models_hf()
     path=docling.utils.model_downloader.download_models()
-    print(f"docling模型包已经下载到{path.resolve()}")
+    print(f"Docling model package has been downloaded to {path.resolve()}")
     return path
 #
 if __name__ == '__main__':

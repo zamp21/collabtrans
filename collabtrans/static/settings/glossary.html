@@ -1,60 +1,60 @@
 <div class="border rounded p-4">
     <div class="row g-3">
         
-        <!-- <span data-i18n="glossaryManagementArea">术语表管理区域</span> -->
+        <!-- <span data-i18n="glossaryManagementArea">Glossary Management Area</span> -->
         <div class="col-12">
-            <h5 class="mb-3" data-i18n="glossaryManagementTitle">术语表管理</h5>
+            <h5 class="mb-3" data-i18n="glossaryManagementTitle">Glossary Management</h5>
             
-            <!-- <span data-i18n="adminOperationsArea">管理员操作区域</span> -->
+            <!-- <span data-i18n="adminOperationsArea">Admin Operations Area</span> -->
             <div id="adminGlossarySection" class="mb-4">
-                <h6 data-i18n="adminGlossaryTitle">管理员操作</h6>
+                <h6 data-i18n="adminGlossaryTitle">Admin Operations</h6>
                 
-                <!-- <span data-i18n="uploadGlobalGlossary">上传全局术语表</span> -->
+                <!-- <span data-i18n="uploadGlobalGlossary">Upload Global Glossary</span> -->
                 <div class="card mb-3">
                     <div class="card-header">
-                        <h6 class="mb-0" data-i18n="uploadGlobalGlossaryTitle"><span data-i18n="uploadGlobalGlossary">上传全局术语表</span></h6>
+                        <h6 class="mb-0" data-i18n="uploadGlobalGlossaryTitle"><span data-i18n="uploadGlobalGlossary">Upload Global Glossary</span></h6>
                     </div>
                     <div class="card-body">
                         <form id="uploadGlobalGlossaryForm">
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="mb-3">
-                                        <label for="globalGlossaryName" class="form-label" data-i18n="glossaryNameLabel">术语表名称</label>
+                                        <label for="globalGlossaryName" class="form-label" data-i18n="glossaryNameLabel">Glossary Name</label>
                                         <input type="text" class="form-control" id="globalGlossaryName" required>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="mb-3">
-                                        <label for="globalGlossaryFile" class="form-label" data-i18n="glossaryFileLabel">CSV文件</label>
+                                        <label for="globalGlossaryFile" class="form-label" data-i18n="glossaryFileLabel">CSV File</label>
                                         <input type="file" class="form-control" id="globalGlossaryFile" accept=".csv" required>
                                     </div>
                                 </div>
                             </div>
                             <div class="mb-3">
-                                <label for="globalGlossaryDescription" class="form-label" data-i18n="glossaryDescriptionLabel">描述</label>
+                                <label for="globalGlossaryDescription" class="form-label" data-i18n="glossaryDescriptionLabel">Description</label>
                                 <textarea class="form-control" id="globalGlossaryDescription" rows="2"></textarea>
                             </div>
-                            <button type="submit" class="btn btn-primary" data-i18n="uploadGlossaryBtn">上传术语表</button>
+                            <button type="submit" class="btn btn-primary" data-i18n="uploadGlossaryBtn">Upload Glossary</button>
                         </form>
                     </div>
                 </div>
             </div>
             
-            <!-- <span data-i18n="globalGlossaryList">全局术语表列表</span> -->
+            <!-- <span data-i18n="globalGlossaryList">Global Glossary List</span> -->
             <div class="mb-4">
-                <h6 data-i18n="globalGlossariesTitle">全局术语表</h6>
+                <h6 data-i18n="globalGlossariesTitle">Global Glossaries</h6>
                 <div id="globalGlossariesList" class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
-                    <p class="text-muted mb-0" data-i18n="loadingGlossaries">加载中...</p>
+                    <p class="text-muted mb-0" data-i18n="loadingGlossaries">Loading...</p>
                 </div>
                 <div class="form-text mt-2">
-                    <i class="bi bi-info-circle"></i> <span data-i18n="personalGlossaryManageInfo">个人术语表请在外层的"My Glossary"中管理</span>
+                    <i class="bi bi-info-circle"></i> <span data-i18n="personalGlossaryManageInfo">Personal glossaries can be managed in the outer 'My Glossary'</span>
                 </div>
             </div>
             
-            <!-- <span data-i18n="actionButtons">操作按钮</span> -->
+            <!-- <span data-i18n="actionButtons">Action Buttons</span> -->
             <div class="d-flex flex-wrap gap-2">
                 <button type="button" class="btn btn-outline-secondary" onclick="saveGlossarySelection()" data-i18n="saveGlossarySelectionBtn">
-                    <i class="bi bi-check-circle me-1"></i><span data-i18n="saveGlossarySelectionBtn">保存选择</span>
+                    <i class="bi bi-check-circle me-1"></i><span data-i18n="saveGlossarySelectionBtn">Save Selection</span>
                 </button>
             </div>
         </div>

@@ -14,7 +14,7 @@ from ..utils.redis_manager import get_redis_client
 
 
 class AuthSessionManager:
-    """会话管理器"""
+    """Session manager"""
     
     def __init__(self, config: AuthConfig):
         self.config = config
@@ -22,9 +22,9 @@ class AuthSessionManager:
         self._init_redis_client()
     
     def _init_redis_client(self):
-        """初始化Redis客户端"""
+        """Initialize Redis client"""
         try:
-            # 首先尝试使用本地Redis管理器
+            # First try to use local Redis manager
             self.redis_client = get_redis_client()
             if self.redis_client:
                 print("✅ Using local Redis service for session management")
@@ -32,7 +32,7 @@ class AuthSessionManager:
         except Exception as e:
             print(f"⚠️  Local Redis startup failed: {e}")
         
-        # 如果本地Redis不可用，尝试连接外部Redis
+        # If local Redis is unavailable, try connecting to external Redis
         try:
             self.redis_client = redis.Redis(
                 host=self.config.redis_host,
@@ -43,7 +43,7 @@ class AuthSessionManager:
                 socket_connect_timeout=2,
                 socket_timeout=2
             )
-            # 测试连接
+            # Test connection
             self.redis_client.ping()
             print("✅ Using external Redis service for session management")
         except Exception as e:
@@ -52,26 +52,26 @@ class AuthSessionManager:
             self.redis_client = None
     
     def create_session_id(self) -> str:
-        """创建会话ID"""
+        """Create session ID"""
         return str(uuid.uuid4())
     
     def set_session_cookie(self, response: Response, session_id: str):
-        """设置会话Cookie"""
+        """Set session cookie"""
         response.set_cookie(
             key=self.config.session_cookie_name,
             value=session_id,
             max_age=self.config.session_max_age,
             httponly=True,
             samesite="lax",
-            secure=False  # 开发环境设为False，生产环境应设为True
+            secure=False  # Set to False for development, should be True for production
         )
     
     def get_session_id(self, request: Request) -> Optional[str]:
-        """从请求中获取会话ID"""
+        """Get session ID from request"""
         return request.cookies.get(self.config.session_cookie_name)
     
     def clear_session_cookie(self, response: Response):
-        """清除会话Cookie"""
+        """Clear session cookie"""
         response.delete_cookie(
             key=self.config.session_cookie_name,
             httponly=True,
@@ -79,16 +79,16 @@ class AuthSessionManager:
         )
     
     async def create_session(self, request: Request, response: Response, user: User) -> str:
-        """创建用户会话"""
+        """Create user session"""
         session_id = self.create_session_id()
         
-        # 存储用户信息到Redis
+        # Store user information to Redis
         user_data = {
             "username": user.username,
             "display_name": user.display_name,
             "email": user.email,
             "is_authenticated": user.is_authenticated,
-            "role": user.role.value,  # 保存用户角色
+            "role": user.role.value,  # Save user role
             "created_at": time.time()
         }
         
@@ -102,13 +102,13 @@ class AuthSessionManager:
             except Exception as e:
                 print(f"⚠️  Failed to store session to Redis: {e}")
         
-        # 设置Cookie
+        # Set Cookie
         self.set_session_cookie(response, session_id)
         
         return session_id
     
     async def get_user(self, request: Request) -> Optional[User]:
-        """从会话中获取用户信息"""
+        """Get user information from session"""
         session_id = self.get_session_id(request)
         if not session_id:
             return None
@@ -117,7 +117,7 @@ class AuthSessionManager:
             return None
         
         try:
-            # 从Redis获取用户数据
+            # Get user data from Redis
             user_data_str = self.redis_client.get(f"session:{session_id}")
             if not user_data_str:
                 return None
@@ -129,37 +129,37 @@ class AuthSessionManager:
                 display_name=user_data.get("display_name"),
                 email=user_data.get("email"),
                 is_authenticated=user_data.get("is_authenticated", True),
-                role=UserRole(user_data.get("role", "ldap_user"))  # 恢复用户角色，默认为ldap_user
+                role=UserRole(user_data.get("role", "ldap_user"))  # Restore user role, default to ldap_user
             )
         except (json.JSONDecodeError, KeyError, Exception) as e:
             print(f"⚠️  Failed to get user session: {e}")
             return None
     
     async def destroy_session(self, request: Request, response: Response) -> bool:
-        """销毁用户会话"""
+        """Destroy user session"""
         session_id = self.get_session_id(request)
         if not session_id:
             return False
         
-        # 从Redis删除会话数据
+        # Delete session data from Redis
         if self.redis_client:
             try:
                 self.redis_client.delete(f"session:{session_id}")
             except Exception as e:
                 print(f"⚠️  Failed to delete session: {e}")
         
-        # 清除Cookie
+        # Clear Cookie
         self.clear_session_cookie(response)
         
         return True
     
     async def is_authenticated(self, request: Request) -> bool:
-        """检查用户是否已认证"""
+        """Check if user is authenticated"""
         user = await self.get_user(request)
         return user is not None and user.is_authenticated
     
     def get_login_attempts(self, ip_address: str) -> int:
-        """获取IP地址的登录尝试次数"""
+        """Get login attempt count for IP address"""
         if not self.redis_client:
             return 0
         
@@ -172,7 +172,7 @@ class AuthSessionManager:
             return 0
     
     def increment_login_attempts(self, ip_address: str) -> int:
-        """增加IP地址的登录尝试次数"""
+        """Increment login attempt count for IP address"""
         if not self.redis_client:
             return 1
         
@@ -186,7 +186,7 @@ class AuthSessionManager:
             return 1
     
     def reset_login_attempts(self, ip_address: str):
-        """重置IP地址的登录尝试次数"""
+        """Reset login attempt count for IP address"""
         if not self.redis_client:
             return
         

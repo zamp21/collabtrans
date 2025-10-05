@@ -13,15 +13,15 @@ from collabtrans.translator.base import Translator, TranslatorConfig
 @dataclass(kw_only=True)
 class AiTranslatorConfig(TranslatorConfig, AgentConfig):
     base_url: str | None = field(default=None,
-                                 metadata={"description": "OpenAI兼容地址，当skip_translate为False时为必填项"})
-    model_id: str | None = field(default=None, metadata={"description": "当skip_translate为False时为必填项"})
-    to_lang: str = "简体中文"
+                                 metadata={"description": "OpenAI compatible address, required when skip_translate is False"})
+    model_id: str | None = field(default=None, metadata={"description": "Required when skip_translate is False"})
+    to_lang: str = "Chinese"
     custom_prompt: str | None = None
     chunk_size: int = 3000
     glossary_dict: dict[str:str] | None = field(default=None)
     glossary_generate_enable: bool = False
     glossary_agent_config: GlossaryAgentConfig | None = None
-    skip_translate: bool = False  # 当skip_translate为False时base_url、model_id为必填项
+    skip_translate: bool = False  # When skip_translate is False, base_url and model_id are required
 
 
 T = TypeVar('T', bound=Document)
@@ -29,7 +29,7 @@ T = TypeVar('T', bound=Document)
 
 class AiTranslator(Translator[T]):
     """
-    翻译中间文本（原地替换），Translator不做格式转换
+    Translate intermediate text (in-place replacement), Translator does not perform format conversion
     """
 
     def __init__(self, config: AiTranslatorConfig):
@@ -38,7 +38,7 @@ class AiTranslator(Translator[T]):
         self.glossary_agent = None
         self.glossary_dict_gen = None
         if not self.skip_translate and (config.base_url is None or config.api_key is None or config.model_id is None):
-            raise ValueError("skip_translate不为false时，base_url、api_key、model_id为必填项")
+            raise ValueError("When skip_translate is not false, base_url, api_key, and model_id are required")
 
         if config.glossary_generate_enable:
             if config.glossary_agent_config:

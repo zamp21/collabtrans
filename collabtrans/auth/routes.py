@@ -21,10 +21,10 @@ from ..config import get_app_config, save_app_config
 from ..config.secrets_manager import get_secrets_manager
 from .local_users import get_local_user_store, LocalUserRole
 
-# 创建认证专用的日志记录器
+# Create authentication-specific logger
 logger = logging.getLogger(__name__)
 
-# 用户名脱敏：保留首尾字符，中间用×
+# Username masking: keep first and last characters, replace middle with ×
 def _mask_username(name: str) -> str:
     try:
         if not name:
@@ -35,24 +35,24 @@ def _mask_username(name: str) -> str:
     except Exception:
         return "***"
 
-# 创建路由器
+# Create router
 auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-# 创建不带前缀的兼容性路由器
+# Create compatibility router without prefix
 auth_compat_router = APIRouter(tags=["Authentication"])
 
-# 模板目录：使用资源路径解析，兼容开发与PyInstaller
+# Template directory: use resource path resolution, compatible with development and PyInstaller
 from ..utils.resource_utils import resource_path
 templates = Jinja2Templates(directory=str(resource_path("template")))
 
-# 全局变量（在实际应用中应该通过依赖注入）
+# Global variables (should be injected via dependency injection in actual applications)
 _auth_config: Optional[AuthConfig] = None
 _session_manager: Optional[AuthSessionManager] = None
 _ldap_client: Optional[LDAPClient] = None
 
 
 def init_auth(config: AuthConfig):
-    """初始化认证模块"""
+    """Initialize authentication module"""
     global _auth_config, _session_manager, _ldap_client
     _auth_config = config
     _session_manager = AuthSessionManager(config)
@@ -61,26 +61,26 @@ def init_auth(config: AuthConfig):
 
 
 def get_auth_config() -> AuthConfig:
-    """获取认证配置"""
+    """Get authentication configuration"""
     if _auth_config is None:
         raise HTTPException(status_code=500, detail="Authentication not initialized")
     return _auth_config
 
 
 def get_session_manager() -> AuthSessionManager:
-    """获取会话管理器"""
+    """Get session manager"""
     if _session_manager is None:
         raise HTTPException(status_code=500, detail="Session manager not initialized")
     return _session_manager
 
 
 def get_ldap_client() -> Optional[LDAPClient]:
-    """获取LDAP客户端"""
+    """Get LDAP client"""
     return _ldap_client
 
 
 def _refresh_ldap_client_if_endpoint_changed(old_cfg: "AuthConfig", new_cfg: "AuthConfig") -> None:
-    """当LDAP端点相关配置发生变化时，安全地重建LDAP客户端。"""
+    """Safely rebuild LDAP client when LDAP endpoint-related configuration changes."""
     try:
         endpoint_fields = [
             'ldap_enabled', 'ldap_protocol', 'ldap_host', 'ldap_port',
@@ -94,7 +94,7 @@ def _refresh_ldap_client_if_endpoint_changed(old_cfg: "AuthConfig", new_cfg: "Au
                     _ldap_client.close()
                 except Exception:
                     pass
-            # 仅当启用了LDAP时才重建
+            # Only rebuild when LDAP is enabled
             if new_cfg.ldap_enabled:
                 _ldap_client = LDAPClient(new_cfg)
                 logger.info("[LDAP] Endpoint changed, LDAP client rebuilt")
@@ -106,7 +106,7 @@ def _refresh_ldap_client_if_endpoint_changed(old_cfg: "AuthConfig", new_cfg: "Au
 
 
 async def get_current_user(request: Request) -> Optional[User]:
-    """获取当前用户"""
+    """Get current user"""
     session_manager = get_session_manager()
     return await session_manager.get_user(request)
 
@@ -262,22 +262,22 @@ async def login(
         
     except InvalidCredentials as e:
         logger.warning(f"Authentication failed - invalid credentials: {_mask_username(username)}, error: {e}")
-        # 增加登录尝试次数
+        # Increment login attempts
         session_manager.increment_login_attempts(client_ip)
         logger.info(f"Incremented login attempts for IP {client_ip}")
         raise HTTPException(status_code=401, detail="Invalid username or password")
     except Exception as e:
         logger.error(f"Exception during authentication: {_mask_username(username)}, error: {e}")
         logger.error(f"Exception type: {type(e)}")
-        # 增加登录尝试次数
+        # Increment login attempts
         session_manager.increment_login_attempts(client_ip)
-        logger.info(f"增加IP {client_ip} 的登录尝试次数")
+        logger.info(f"Increased login attempts for IP {client_ip}")
         raise HTTPException(status_code=500, detail=f"Authentication error: {str(e)}")
 
 
 @auth_router.post("/logout", response_class=JSONResponse)
 async def logout(request: Request, response: Response):
-    """处理登出请求"""
+    """Handle logout request"""
     session_manager = get_session_manager()
     
     await session_manager.destroy_session(request, response)
@@ -290,7 +290,7 @@ async def logout(request: Request, response: Response):
 
 @auth_router.get("/logout", response_class=RedirectResponse)
 async def logout_get(request: Request, response: Response):
-    """GET方式登出，重定向到登录页"""
+    """GET logout, redirect to login page"""
     session_manager = get_session_manager()
     
     await session_manager.destroy_session(request, response)
@@ -300,7 +300,7 @@ async def logout_get(request: Request, response: Response):
 
 @auth_router.get("/user", response_model=UserInfo)
 async def get_user_info(request: Request):
-    """获取当前用户信息"""
+    """Get current user information"""
     user = await get_current_user(request)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -314,14 +314,14 @@ async def get_user_info(request: Request):
 
 @auth_router.get("/config")
 async def get_auth_config_api(request: Request):
-    """获取认证配置"""
+    """Get authentication configuration"""
     user = await get_current_user(request)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
     
     config = get_auth_config()
     
-    # 返回配置，但不包含敏感信息如密码
+    # Return configuration but exclude sensitive information like passwords
     return {
         "ldap_enabled": config.ldap_enabled,
         "ldap_protocol": config.ldap_protocol,
@@ -333,7 +333,7 @@ async def get_auth_config_api(request: Request):
         "ldap_tls_cacertfile": config.ldap_tls_cacertfile,
         "ldap_tls_verify": config.ldap_tls_verify,
         "default_username": config.default_username,
-        "default_password": "***",  # 不返回真实密码
+        "default_password": "***",  # Do not return real password
         "session_max_age": config.session_max_age,
         "max_login_attempts": config.max_login_attempts,
         "login_attempt_window": config.login_attempt_window,
@@ -342,39 +342,39 @@ async def get_auth_config_api(request: Request):
 
 @auth_router.post("/config")
 async def update_auth_config_api(request: Request, config_data: dict):
-    """更新认证配置"""
+    """Update authentication configuration"""
     user = await get_current_user(request)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
     
-    logger.info(f"收到配置更新请求: {config_data}")
+        logger.info(f"Received configuration update request: {config_data}")
     
     try:
-        # 获取当前配置
+        # Get current configuration
         config = get_auth_config()
         
-        # 更新配置
+        # Update configuration
         config.update_from_dict(config_data)
         
         # Save to grouped local_config.json
         config_file = "local_config.json"
         if config.save_to_file(config_file):
-            logger.info("配置保存成功")
+            logger.info("Configuration saved successfully")
             return {"message": "Configuration updated successfully. Please restart the application to take effect."}
         else:
-            logger.error("配置保存失败")
+            logger.error("Configuration save failed")
             raise HTTPException(status_code=500, detail="Failed to save configuration")
             
     except Exception as e:
-        logger.error(f"更新配置时发生错误: {e}")
+        logger.error(f"Error occurred while updating configuration: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to update configuration: {str(e)}")
 
 
 @auth_router.post("/test-ldap")
 async def test_ldap_connection(request: Request, payload: dict):
-    """测试LDAP/LDAPS连接（仅管理员可用）
-    入参：{"username": "testuser", "password": "***"}
-    使用当前认证配置执行一次简单绑定与检索。
+    """Test LDAP/LDAPS connection (admin only)
+    Input: {"username": "testuser", "password": "***"}
+    Execute a simple bind and search using current authentication configuration.
     """
     user = await get_current_user(request)
     if not user:
@@ -390,7 +390,7 @@ async def test_ldap_connection(request: Request, payload: dict):
     base_config = get_auth_config()
     # Remove LDAP enabled check - allow testing regardless of current enabled state
 
-    # 允许用当前UI中的值临时覆盖（不持久化）
+    # Allow temporary override with current UI values (not persisted)
     try:
         from dataclasses import asdict
         override = payload or {}
@@ -402,7 +402,7 @@ async def test_ldap_connection(request: Request, payload: dict):
             'ldap_tls_cacertfile', 'ldap_tls_verify'
         ]:
             if key in override and override[key] not in (None, ""):
-                # 类型处理
+                # Type handling
                 if key == 'ldap_port':
                     try:
                         cfg_dict[key] = int(override[key])
@@ -418,21 +418,21 @@ async def test_ldap_connection(request: Request, payload: dict):
                     cfg_dict[key] = override[key]
 
         
-        # 构造临时配置，强制启用LDAP用于测试
+        # Construct temporary configuration, force enable LDAP for testing
         cfg_dict['ldap_enabled'] = True
         temp_config = AuthConfig(**cfg_dict)
 
         client = LDAPClient(temp_config)
         user = client.authenticate(username, password)
         
-        # 构建结构化调试信息（前端用i18n渲染）
+        # Build structured debug information (rendered by frontend i18n)
         groups_enabled = bool(temp_config.ldap_admin_group_enabled or temp_config.ldap_glossary_group_enabled)
         groups_codes = []  # ['admin', 'glossary']
         
-        # 检查组查询状态
+        # Check group query status
         if groups_enabled:
             
-            # 获取用户的组成员信息（统一使用 ldap3，避免与 python-ldap API 混用）
+            # Get user's group membership information (unified use of ldap3, avoid mixing with python-ldap API)
             try:
                 from ldap3 import SUBTREE as _LDAP3_SUBTREE
                 conn = client._get_connection()
@@ -449,11 +449,11 @@ async def test_ldap_connection(request: Request, payload: dict):
                     is_admin_member = False
                     is_glossary_member = False
 
-                    # 检查管理员组
+                    # Check admin group
                     if temp_config.ldap_admin_group_enabled:
                         is_admin_member = client._check_admin_group_membership(conn, user_entry)
 
-                    # 检查术语表组
+                    # Check glossary group
                     if temp_config.ldap_glossary_group_enabled:
                         is_glossary_member = client._check_user_group_membership(conn, user_entry)
 
@@ -463,7 +463,7 @@ async def test_ldap_connection(request: Request, payload: dict):
                         groups_codes.append('glossary')
 
             except Exception as e:
-                logger.warning(f"获取组成员信息时发生错误: {e}")
+                logger.warning(f"Error occurred while getting group membership information: {e}")
         
         return JSONResponse(content={
             "ok": True,
@@ -483,7 +483,7 @@ async def test_ldap_connection(request: Request, payload: dict):
 async def get_user_permissions(
     user: User = Depends(get_current_user)
 ):
-    """获取用户权限信息"""
+    """Get user permission information"""
     return {
         "is_admin": user.is_admin(),
         "is_super_admin": user.is_super_admin(),
@@ -498,33 +498,33 @@ async def get_user_permissions(
 async def get_app_config_api(
     user: User = Depends(get_current_user)
 ):
-    """获取应用配置（需要登录）"""
+    """Get application configuration (login required)"""
     from .user_profile import get_user_profile_manager
     from ..config.global_config import get_global_config
     
-    # 获取用户个人配置
+    # Get user personal configuration
     profile_manager = get_user_profile_manager()
     user_profile = profile_manager.get_user_profile(user.username)
     user_config = user_profile.get_config_dict()
     
-    # 获取全局配置
+    # Get global configuration
     global_config = get_global_config()
     global_config_dict = global_config.get_config_dict(include_api_keys=False, flatten=True)
     
-    # 获取LDAP配置（使用本模块中的全局配置访问器）
+    # Get LDAP configuration (using global configuration accessor in this module)
     auth_config = get_auth_config()
     auth_config_dict = auth_config.__dict__
     
-    # 合并配置：用户配置 + 全局配置 + LDAP配置
+    # Merge configurations: user config + global config + LDAP config
     config_dict = {**global_config_dict, **user_config, **auth_config_dict}
     
-    # 输出时仅保留新键名（不处理已废弃旧键）
+    # Only keep new key names in output (do not handle deprecated old keys)
     
-    # 根据用户权限过滤敏感配置
+    # Filter sensitive configuration based on user permissions
     if not user.is_admin():
-        # 非管理员用户，只返回基础配置
+        # Non-admin users, only return basic configuration
         filtered_config = {}
-        # 允许的基础设置
+        # Allowed basic settings
         allowed_keys = [
             'ui_language', 'translator_last_workflow', 'translator_auto_workflow_enabled',
             'translator_txt_insert_mode', 'translator_txt_separator',
@@ -542,11 +542,11 @@ async def get_app_config_api(
             'glossary_agent_platform_type', 'glossary_agent_temperature', 'glossary_agent_max_tokens', 'glossary_agent_top_p',
             'glossary_agent_frequency_penalty', 'glossary_agent_presence_penalty', 'glossary_agent_to_lang',
             'glossary_agent_chunk_size', 'glossary_agent_concurrent',
-            # 全局配置中的非敏感设置
+            # Non-sensitive settings in global configuration
             'ai_platforms', 'translator_settings', 'default_language',
-            # 用户维度模型覆盖
+            # User dimension model override
             'translator_platform_models', 'glossary_agent_platform_models',
-            # LDAP配置（非敏感部分）
+            # LDAP configuration (non-sensitive part)
             'ldap_enabled', 'ldap_protocol', 'ldap_host', 'ldap_port'
         ]
         for key in allowed_keys:
@@ -554,8 +554,8 @@ async def get_app_config_api(
                 filtered_config[key] = config_dict[key]
         return filtered_config
     else:
-        # 管理员用户，返回所有配置，但隐藏敏感信息
-        # 脱敏API密钥（从ai_platforms中）
+        # Admin users, return all configuration but hide sensitive information
+        # Mask API keys (from ai_platforms)
         if 'ai_platforms' in config_dict:
             for platform_key, platform_data in config_dict['ai_platforms'].items():
                 if isinstance(platform_data, dict) and 'api_key' in platform_data:
@@ -566,7 +566,7 @@ async def get_app_config_api(
                         platform_data['api_key'] = ""
         
         
-        # 脱敏Mineru Token（从敏感配置加载）
+        # Mask Mineru Token (loaded from sensitive configuration)
         from ..config.secrets_manager import get_secrets_manager
         secrets_manager = get_secrets_manager()
         mineru_token = secrets_manager.get_mineru_token()
@@ -582,17 +582,17 @@ async def get_app_config_api(
 async def get_raw_secrets_api(
     user: User = Depends(get_current_user)
 ):
-    """获取完整的敏感配置（仅管理员可用）"""
+    """Get complete sensitive configuration (admin only)"""
     if not user.is_admin():
         raise HTTPException(status_code=403, detail="Access denied")
     
     from ..config.secrets_manager import get_secrets_manager
     secrets_manager = get_secrets_manager()
     
-    # 获取完整的API密钥及元信息（不脱敏）
+    # Get complete API keys and metadata (not masked)
     api_keys_meta = secrets_manager.get_api_keys_meta()
     mineru_meta = secrets_manager.get_mineru_token_meta()
-    # 保持向后兼容：同时提供旧字段
+    # Maintain backward compatibility: provide old fields as well
     api_keys_plain = {k: v.get("key", "") for k, v in api_keys_meta.items()}
     return {
         "platform_api_keys": api_keys_plain,
@@ -646,7 +646,7 @@ async def upload_web_cert(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"上传证书失败: {e}")
+        logger.error(f"Certificate upload failed: {e}")
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
@@ -656,12 +656,12 @@ async def test_https_available(
     payload: dict,
     user: User = Depends(get_current_user)
 ):
-    """测试当前证书与HTTPS可用性（仅管理员）
-    逻辑：
-    1) 读取传入的证书/私钥路径（若未传入则使用全局配置）
-    2) 校验证书/私钥文件存在与可读
-    3) 尝试加载到 SSLContext（等同于Uvicorn使用）
-    4) 对自身发起一次 HTTPS 请求（verify=False），返回状态码
+    """Test current certificate and HTTPS availability (admin only)
+    Logic:
+    1) Read passed certificate/private key paths (use global config if not passed)
+    2) Verify certificate/private key files exist and are readable
+    3) Try to load into SSLContext (equivalent to Uvicorn usage)
+    4) Make one HTTPS request to self (verify=False), return status code
     """
     if not user.is_admin():
         raise HTTPException(status_code=403, detail="Access denied")
@@ -681,7 +681,7 @@ async def test_https_available(
             "key_exists": bool(key_file and os.path.exists(key_file)),
         }
 
-        # 检查 openssl 是否可用（用于自动生成或用户排障）
+        # Check if openssl is available (for auto-generation or user troubleshooting)
         try:
             import shutil
             details["openssl_available"] = bool(shutil.which("openssl"))
@@ -695,10 +695,10 @@ async def test_https_available(
                 **details
             })
 
-        # 3) 加载到 SSLContext
+        # 3) Load into SSLContext
         try:
             ctx = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
-            # 允许无密码
+            # Allow no password
             ctx.load_cert_chain(certfile=cert_file, keyfile=key_file, password=key_password)
             details["load_sslcontext_ok"] = True
         except Exception as e:
@@ -710,7 +710,7 @@ async def test_https_available(
                 **details
             })
 
-        # 4) 自测：对自身发起一次HTTPS请求（关闭验证，以兼容自签名）
+        # 4) Self-test: make one HTTPS request to self (disable verification to support self-signed)
         port = getattr(request.app.state, 'port_to_use', 8010)
         try:
             async with httpx.AsyncClient(verify=False, timeout=2.5) as client:
@@ -722,31 +722,31 @@ async def test_https_available(
 
         return {"ok": True, "message": "HTTPS test completed", **details}
     except Exception as e:
-        logger.error(f"测试HTTPS失败: {e}")
+        logger.error(f"HTTPS test failed: {e}")
         return JSONResponse(status_code=500, content={"ok": False, "message": str(e)})
 
 
-# === 术语表管理API ===
+# === Glossary Management API ===
 
 @auth_router.get("/glossaries")
 async def get_glossaries_list(
     user: User = Depends(get_current_user)
 ):
-    """获取术语表列表"""
+    """Get glossary list"""
     from ..glossary.manager import get_glossary_manager
     
     manager = get_glossary_manager()
     
-    # 获取全局术语表
+    # Get global glossaries
     global_glossaries = manager.get_global_glossaries()
     
-    # 获取用户个人术语表
+    # Get user personal glossary
     personal_glossary = manager.get_user_personal_glossary(user.username)
     
-    # 获取用户选择
+    # Get user selection
     user_selection = manager.get_user_selection(user.username)
     
-    # 获取版本信息
+    # Get version information
     versions = manager.get_all_versions()
     
     return {
@@ -787,20 +787,20 @@ async def check_glossaries_updates(
     request: Request,
     user: User = Depends(get_current_user)
 ):
-    """检查术语表更新"""
+    """Check glossary updates"""
     from ..glossary.manager import get_glossary_manager
     
     manager = get_glossary_manager()
     current_versions = manager.get_all_versions()
     
-    # 获取用户上次检查的版本
+    # Get user's last checked version
     last_check = request.cookies.get('glossaries_last_check', '{}')
     try:
         last_versions = json.loads(last_check)
     except:
         last_versions = {}
     
-    # 检查是否有更新
+    # Check if there are updates
     has_updates = False
     for glossary_id, current_version in current_versions.items():
         last_version = last_versions.get(glossary_id, 0)
@@ -819,7 +819,7 @@ async def upload_glossary(
     request: Request,
     user: User = Depends(get_current_user)
 ):
-    """上传术语表"""
+    """Upload glossary"""
     from ..glossary.manager import get_glossary_manager
     
     manager = get_glossary_manager()
@@ -832,17 +832,17 @@ async def upload_glossary(
         is_global = form.get("is_global", "false").lower() == "true"
         
         if not file or not name:
-            raise HTTPException(status_code=400, detail="文件名和术语表名称不能为空")
+            raise HTTPException(status_code=400, detail="File name and glossary name cannot be empty")
         
-        # 检查权限
+        # Check permissions
         if is_global and not user.is_admin():
-            raise HTTPException(status_code=403, detail="只有管理员可以上传全局术语表")
+            raise HTTPException(status_code=403, detail="Only administrators can upload global glossaries")
         
-        # 读取文件内容
+        # Read file content
         content = await file.read()
         content_str = content.decode('utf-8-sig')
         
-        # 解析CSV
+        # Parse CSV
         import csv
         from io import StringIO
         
@@ -855,35 +855,35 @@ async def upload_glossary(
                 glossary_dict[src] = dst
         
         if not glossary_dict:
-            raise HTTPException(status_code=400, detail="术语表不能为空")
+            raise HTTPException(status_code=400, detail="Glossary cannot be empty")
         
-        # 验证术语表
+        # Validate glossary
         is_valid, message = manager.validate_glossary_dict(glossary_dict)
         if not is_valid:
             raise HTTPException(status_code=400, detail=message)
         
-        # 保存术语表
+        # Save glossary
         if is_global:
             glossary = manager.create_global_glossary(name, glossary_dict, user.username, description)
-            logger.info(f"管理员 {user.username} 创建了全局术语表: {name}")
+            logger.info(f"Administrator {user.username} created global glossary: {name}")
         else:
-            # 个人术语表
+            # Personal glossary
             success = manager.save_user_personal_glossary(user.username, glossary_dict)
             if not success:
-                raise HTTPException(status_code=500, detail="保存个人术语表失败")
-            logger.info(f"用户 {user.username} 更新了个人术语表")
+                raise HTTPException(status_code=500, detail="Failed to save personal glossary")
+            logger.info(f"User {user.username} updated personal glossary")
         
         return {
             "success": True,
-            "message": "术语表上传成功",
+            "message": "Glossary uploaded successfully",
             "item_count": len(glossary_dict)
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"上传术语表失败: {e}")
-        raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}")
+        logger.error(f"Glossary upload failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
 @auth_router.get("/glossaries/{glossary_id}/download")
@@ -891,18 +891,18 @@ async def download_glossary(
     glossary_id: str,
     user: User = Depends(get_current_user)
 ):
-    """下载术语表"""
+    """Download glossary"""
     from ..glossary.manager import get_glossary_manager
     from fastapi.responses import FileResponse
     
     manager = get_glossary_manager()
     
-    # 获取术语表内容
+    # Get glossary content
     glossary_dict = manager.get_glossary_content(glossary_id)
     if not glossary_dict:
-        raise HTTPException(status_code=404, detail="术语表不存在")
+        raise HTTPException(status_code=404, detail="Glossary not found")
     
-    # 生成临时CSV文件
+    # Generate temporary CSV file
     import tempfile
     import csv
     
@@ -913,7 +913,7 @@ async def download_glossary(
         writer.writerow([src, dst])
     temp_file.close()
     
-    # 确定文件名
+    # Determine filename
     if glossary_id.startswith('global_'):
         global_glossaries = manager.get_global_glossaries()
         for g in global_glossaries:
@@ -937,7 +937,7 @@ async def update_glossary_selection(
     request: Request,
     user: User = Depends(get_current_user)
 ):
-    """更新用户术语表选择"""
+    """Update user glossary selection"""
     from ..glossary.manager import get_glossary_manager
     from ..glossary.models import UserGlossarySelection
     
@@ -945,23 +945,23 @@ async def update_glossary_selection(
     
     try:
         data = await request.json()
-        logger.info(f"[LDAP-API] 收到更新请求: {data}")
+        logger.info(f"[LDAP-API] Received update request: {data}")
         selected_global_glossaries = data.get("selected_global_glossaries", [])
         personal_glossary = data.get("personal_glossary")
         
-        # 验证选择的全局术语表是否存在
+        # Verify selected global glossaries exist
         global_glossaries = manager.get_global_glossaries()
         valid_global_ids = [g.id for g in global_glossaries]
         
         for glossary_id in selected_global_glossaries:
             if glossary_id not in valid_global_ids:
-                raise HTTPException(status_code=400, detail=f"术语表 {glossary_id} 不存在")
+                raise HTTPException(status_code=400, detail=f"Glossary {glossary_id} not found")
         
-        # 验证个人术语表
+        # Verify personal glossary
         if personal_glossary and personal_glossary != f"personal_{user.username}":
-            raise HTTPException(status_code=400, detail="无效的个人术语表ID")
+            raise HTTPException(status_code=400, detail="Invalid personal glossary ID")
         
-        # 保存选择
+        # Save selection
         selection = UserGlossarySelection(
             username=user.username,
             selected_global_glossaries=selected_global_glossaries,
@@ -969,15 +969,15 @@ async def update_glossary_selection(
         )
         manager.save_user_selection(selection)
         
-        logger.info(f"用户 {user.username} 更新了术语表选择")
+        logger.info(f"User {user.username} updated glossary selection")
         
-        return {"success": True, "message": "术语表选择已更新"}
+        return {"success": True, "message": "Glossary selection updated"}
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"更新术语表选择失败: {e}")
-        raise HTTPException(status_code=500, detail=f"更新失败: {str(e)}")
+        logger.error(f"Failed to update glossary selection: {e}")
+        raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
 
 
 @auth_router.delete("/glossaries/{glossary_id}")
@@ -985,57 +985,57 @@ async def delete_glossary(
     glossary_id: str,
     user: User = Depends(get_current_user)
 ):
-    """删除术语表"""
+    """Delete glossary"""
     from ..glossary.manager import get_glossary_manager
     
     manager = get_glossary_manager()
     
-    # 检查权限
+    # Check permissions
     if glossary_id.startswith('global_'):
         if not user.is_admin():
-            raise HTTPException(status_code=403, detail="只有管理员可以删除全局术语表")
+            raise HTTPException(status_code=403, detail="Only administrators can delete global glossaries")
         
         success = manager.delete_global_glossary(glossary_id)
         if success:
-            logger.info(f"管理员 {user.username} 删除了全局术语表: {glossary_id}")
+            logger.info(f"Administrator {user.username} deleted global glossary: {glossary_id}")
         else:
-            raise HTTPException(status_code=404, detail="术语表不存在")
+            raise HTTPException(status_code=404, detail="Glossary not found")
     else:
-        # 个人术语表 - 用户只能删除自己的
+        # Personal glossary - users can only delete their own
         if not glossary_id.startswith(f"personal_{user.username}"):
-            raise HTTPException(status_code=403, detail="只能删除自己的个人术语表")
+            raise HTTPException(status_code=403, detail="Can only delete own personal glossary")
         
-        # 清空个人术语表
+        # Clear personal glossary
         success = manager.save_user_personal_glossary(user.username, {})
         if success:
-            logger.info(f"用户 {user.username} 清空了个人术语表")
+            logger.info(f"User {user.username} cleared personal glossary")
         else:
-            raise HTTPException(status_code=500, detail="删除个人术语表失败")
+            raise HTTPException(status_code=500, detail="Failed to delete personal glossary")
     
-    return {"success": True, "message": "术语表已删除"}
+    return {"success": True, "message": "Glossary deleted"}
 
 
-# === 提示词管理API ===
+# === Prompt Management API ===
 
 @auth_router.get("/prompts")
 async def get_prompts_list(
     user: User = Depends(get_current_user)
 ):
-    """获取提示词列表"""
+    """Get prompt list"""
     from ..prompts.manager import get_prompt_manager
     
     manager = get_prompt_manager()
     
-    # 获取全局提示词
+    # Get global prompts
     global_prompts = manager.get_global_prompts()
     
-    # 获取用户个人提示词
+    # Get user personal prompts
     personal_prompt = manager.get_user_personal_prompt(user.username)
     
-    # 获取用户选择
+    # Get user selection
     user_selection = manager.get_user_selection(user.username)
     
-    # 获取版本信息
+    # Get version information
     versions = manager.get_all_versions()
     
     return {
@@ -1076,25 +1076,25 @@ async def check_prompts_updates(
     request: Request,
     user: User = Depends(get_current_user)
 ):
-    """检查提示词更新"""
+    """Check prompt updates"""
     from ..prompts.manager import get_prompt_manager
     
     manager = get_prompt_manager()
     
     try:
-        # 获取当前版本信息
+        # Get current version information
         current_versions = manager.get_all_versions()
         
-        # 这里可以添加更复杂的更新检查逻辑
-        # 比如检查文件修改时间等
+        # More complex update checking logic can be added here
+        # e.g. checking file modification time, etc.
         
         return {
-            "has_updates": False,  # 简化实现，总是返回无更新
+            "has_updates": False,  # Simplified implementation, always returns no updates
             "current_versions": current_versions
         }
         
     except Exception as e:
-        logger.error(f"检查提示词更新失败: {e}")
+        logger.error(f"Failed to check prompt updates: {e}")
         return {
             "has_updates": False,
             "current_versions": {}
@@ -1106,7 +1106,7 @@ async def upload_prompt(
     request: Request,
     user: User = Depends(get_current_user)
 ):
-    """上传提示词"""
+    """Upload prompt"""
     from ..prompts.manager import get_prompt_manager
     
     manager = get_prompt_manager()
@@ -1119,53 +1119,53 @@ async def upload_prompt(
         is_global = form.get("is_global", "false").lower() == "true"
         
         if not file or not name:
-            raise HTTPException(status_code=400, detail="文件名和提示词名称不能为空")
+            raise HTTPException(status_code=400, detail="File name and prompt name cannot be empty")
         
-        # 检查权限
+        # Check permissions
         if is_global and not user.is_admin():
-            raise HTTPException(status_code=403, detail="只有管理员可以上传全局提示词")
+            raise HTTPException(status_code=403, detail="Only administrators can upload global prompts")
         
-        # 读取文件内容
+        # Read file content
         content = await file.read()
         content_str = content.decode('utf-8-sig')
         
-        # 解析JSON
+        # Parse JSON
         import json
         try:
             prompts_dict = json.loads(content_str)
         except json.JSONDecodeError as e:
-            raise HTTPException(status_code=400, detail=f"JSON格式错误: {str(e)}")
+            raise HTTPException(status_code=400, detail=f"JSON format error: {str(e)}")
         
         if not prompts_dict:
-            raise HTTPException(status_code=400, detail="提示词不能为空")
+            raise HTTPException(status_code=400, detail="Prompts cannot be empty")
         
-        # 验证提示词
+        # Validate prompts
         is_valid, message = manager.validate_prompt_dict(prompts_dict)
         if not is_valid:
             raise HTTPException(status_code=400, detail=message)
         
-        # 保存提示词
+        # Save prompts
         if is_global:
             prompt = manager.create_global_prompt(name, prompts_dict, user.username, description)
-            logger.info(f"管理员 {user.username} 创建了全局提示词: {name}")
+            logger.info(f"Administrator {user.username} created global prompt: {name}")
         else:
-            # 个人提示词
+            # Personal prompts
             success = manager.save_user_personal_prompt(user.username, prompts_dict)
             if not success:
-                raise HTTPException(status_code=500, detail="保存个人提示词失败")
-            logger.info(f"用户 {user.username} 更新了个人提示词")
+                raise HTTPException(status_code=500, detail="Failed to save personal prompt")
+            logger.info(f"User {user.username} updated personal prompt")
         
         return {
             "success": True,
-            "message": "提示词上传成功",
+            "message": "Prompts uploaded successfully",
             "item_count": len(prompts_dict)
         }
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"上传提示词失败: {e}")
-        raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}")
+        logger.error(f"Failed to upload prompts: {e}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
 @auth_router.get("/prompts/{prompt_id}/download")
@@ -1173,12 +1173,12 @@ async def download_prompt(
     prompt_id: str,
     user: User = Depends(get_current_user)
 ):
-    """下载提示词"""
+    """Download prompt"""
     from ..prompts.manager import get_prompt_manager
     
     manager = get_prompt_manager()
     
-    # 获取提示词文件
+    # Get prompt file
     if prompt_id.startswith('global_'):
         global_prompts = manager.get_global_prompts()
         prompt_file = None
@@ -1188,9 +1188,9 @@ async def download_prompt(
                 break
         
         if not prompt_file:
-            raise HTTPException(status_code=404, detail="提示词不存在")
+            raise HTTPException(status_code=404, detail="Prompt not found")
         
-        # 读取提示词内容
+        # Read prompt content
         prompts_dict = manager.storage.load_prompts_from_json(
             manager.storage.global_dir / manager.storage.global_prompts[prompt_id]['file_path']
         )
@@ -1198,10 +1198,10 @@ async def download_prompt(
         filename = f"{prompt_file.name}.json"
         
     elif prompt_id.startswith(f"personal_{user.username}"):
-        # 个人提示词
+        # Personal prompt
         personal_prompt = manager.get_user_personal_prompt(user.username)
         if not personal_prompt:
-            raise HTTPException(status_code=404, detail="个人提示词不存在")
+            raise HTTPException(status_code=404, detail="Personal prompt not found")
         
         prompts_dict = manager.storage.load_prompts_from_json(
             manager.storage.users_dir / f"{user.username}_prompts.json"
@@ -1209,9 +1209,9 @@ async def download_prompt(
         filename = f"{user.username}_personal_prompts.json"
         
     else:
-        raise HTTPException(status_code=404, detail="提示词不存在")
+        raise HTTPException(status_code=404, detail="Prompt not found")
     
-    # 生成JSON内容
+    # Generate JSON content
     import json
     content = json.dumps(prompts_dict, ensure_ascii=False, indent=2)
     
@@ -1227,7 +1227,7 @@ async def update_prompt_selection(
     request: Request,
     user: User = Depends(get_current_user)
 ):
-    """更新用户提示词选择"""
+    """Update user prompt selection"""
     from ..prompts.manager import get_prompt_manager
     from ..prompts.models import UserPromptSelection
     
@@ -1235,23 +1235,23 @@ async def update_prompt_selection(
     
     try:
         data = await request.json()
-        logger.info(f"[PROMPT-API] 收到更新请求: {data}")
+        logger.info(f"[PROMPT-API] Received update request: {data}")
         selected_global_prompts = data.get("selected_global_prompts", [])
         personal_prompt = data.get("personal_prompt")
         
-        # 验证选择的全局提示词是否存在
+        # Verify selected global prompts exist
         global_prompts = manager.get_global_prompts()
         valid_global_ids = [p.id for p in global_prompts]
         
         for prompt_id in selected_global_prompts:
             if prompt_id not in valid_global_ids:
-                raise HTTPException(status_code=400, detail=f"提示词 {prompt_id} 不存在")
+                raise HTTPException(status_code=400, detail=f"Prompt {prompt_id} not found")
         
-        # 验证个人提示词
+        # Verify personal prompt
         if personal_prompt and personal_prompt != f"personal_{user.username}":
-            raise HTTPException(status_code=400, detail="无效的个人提示词ID")
+            raise HTTPException(status_code=400, detail="Invalid personal prompt ID")
         
-        # 保存选择
+        # Save selection
         selection = UserPromptSelection(
             username=user.username,
             selected_global_prompts=selected_global_prompts,
@@ -1259,46 +1259,46 @@ async def update_prompt_selection(
         )
         manager.save_user_selection(selection)
         
-        logger.info(f"用户 {user.username} 更新了提示词选择")
+        logger.info(f"User {user.username} updated prompt selection")
         
-        return {"success": True, "message": "提示词选择已更新"}
+        return {"success": True, "message": "Prompt selection updated"}
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"更新提示词选择失败: {e}")
-        raise HTTPException(status_code=500, detail=f"更新失败: {str(e)}")
+        logger.error(f"Failed to update prompt selection: {e}")
+        raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
 
 
 @auth_router.delete("/prompts/personal")
 async def delete_personal_prompt(
     user: User = Depends(get_current_user)
 ):
-    """删除用户个人提示词"""
+    """Delete user personal prompt"""
     from ..prompts.manager import get_prompt_manager
     
     manager = get_prompt_manager()
     
     try:
-        # 检查是否存在个人提示词
+        # Check if personal prompt exists
         personal_prompt = manager.get_user_personal_prompt(user.username)
         if not personal_prompt:
-            raise HTTPException(status_code=404, detail="个人提示词不存在")
+            raise HTTPException(status_code=404, detail="Personal prompt not found")
         
-        # 删除个人提示词文件
+        # Delete personal prompt file
         success = manager.storage.delete_user_personal_prompt(user.username)
         if not success:
-            raise HTTPException(status_code=500, detail="删除个人提示词失败")
+            raise HTTPException(status_code=500, detail="Failed to delete personal prompt")
         
-        logger.info(f"用户 {user.username} 删除了个人提示词")
+        logger.info(f"User {user.username} deleted personal prompt")
         
-        return {"success": True, "message": "个人提示词已删除"}
+        return {"success": True, "message": "Personal prompt deleted"}
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"删除个人提示词失败: {e}")
-        raise HTTPException(status_code=500, detail=f"删除失败: {str(e)}")
+        logger.error(f"Failed to delete personal prompt: {e}")
+        raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}")
 
 
 @auth_router.delete("/prompts/{prompt_id}")
@@ -1306,41 +1306,41 @@ async def delete_prompt(
     prompt_id: str,
     user: User = Depends(get_current_user)
 ):
-    """删除提示词"""
+    """Delete prompt"""
     from ..prompts.manager import get_prompt_manager
     
     manager = get_prompt_manager()
     
-    # 检查权限
+    # Check permissions
     if prompt_id.startswith('global_'):
         if not user.is_admin():
-            raise HTTPException(status_code=403, detail="只有管理员可以删除全局提示词")
+            raise HTTPException(status_code=403, detail="Only administrators can delete global prompts")
         
         success = manager.delete_global_prompt(prompt_id)
         if success:
-            logger.info(f"管理员 {user.username} 删除了全局提示词: {prompt_id}")
+            logger.info(f"Administrator {user.username} deleted global prompt: {prompt_id}")
         else:
-            raise HTTPException(status_code=404, detail="提示词不存在")
+            raise HTTPException(status_code=404, detail="Prompt not found")
     else:
-        # 个人提示词 - 用户只能删除自己的
+        # Personal prompt - users can only delete their own
         if not prompt_id.startswith(f"personal_{user.username}"):
-            raise HTTPException(status_code=403, detail="只能删除自己的个人提示词")
+            raise HTTPException(status_code=403, detail="Can only delete own personal prompt")
         
-        # 清空个人提示词
+        # Clear personal prompt
         success = manager.save_user_personal_prompt(user.username, {})
         if success:
-            logger.info(f"用户 {user.username} 清空了个人提示词")
+            logger.info(f"User {user.username} cleared personal prompt")
         else:
-            raise HTTPException(status_code=500, detail="删除个人提示词失败")
+            raise HTTPException(status_code=500, detail="Failed to delete personal prompt")
     
-    return {"success": True, "message": "提示词已删除"}
+    return {"success": True, "message": "Prompt deleted"}
 
 
 @auth_router.get("/prompts/merged")
 async def get_merged_prompts(
     user: User = Depends(get_current_user)
 ):
-    """获取用户合并后的提示词"""
+    """Get user merged prompts"""
     from ..prompts.manager import get_prompt_manager
     
     manager = get_prompt_manager()
@@ -1352,21 +1352,21 @@ async def get_merged_prompts(
     }
 
 
-# === 简化的提示词管理API ===
+# === Simplified Prompt Management API ===
 
 @auth_router.get("/prompts/simple")
 async def get_simple_prompts(
     user: User = Depends(get_current_user)
 ):
-    """获取简化的全局提示词列表"""
+    """Get simplified global prompt list"""
     from ..prompts.manager import get_prompt_manager
     
     manager = get_prompt_manager()
     
-    # 获取全局提示词集合
+    # Get global prompts collection
     global_prompts = manager.get_global_prompts()
     
-    # 查找名为"Simple Prompts"的全局提示词集合
+    # Find global prompt collection named "Simple Prompts"
     simple_prompts_collection = None
     for prompt_file in global_prompts:
         if prompt_file.name == "Simple Prompts":
@@ -1374,12 +1374,12 @@ async def get_simple_prompts(
             break
     
     if simple_prompts_collection:
-        # 加载提示词内容
+        # Load prompt content
         prompts_dict = manager.storage.load_prompts_from_json(
             Path(simple_prompts_collection.file_path)
         )
         
-        # 转换为简化的格式
+        # Convert to simplified format
         simple_prompts = [
             {"id": f"global_{i}", "name": name, "content": content}
             for i, (name, content) in enumerate(prompts_dict.items())
@@ -1395,7 +1395,7 @@ async def add_simple_prompt(
     request: Request,
     user: User = Depends(get_current_user)
 ):
-    """添加简化的全局提示词"""
+    """Add simplified global prompt"""
     from ..prompts.manager import get_prompt_manager
     
     manager = get_prompt_manager()
@@ -1406,12 +1406,12 @@ async def add_simple_prompt(
         content = data.get("content", "").strip()
         
         if not name or not content:
-            raise HTTPException(status_code=400, detail="提示词描述和内容不能为空")
+            raise HTTPException(status_code=400, detail="Prompt description and content cannot be empty")
         
-        # 获取全局提示词集合
+        # Get global prompts collection
         global_prompts = manager.get_global_prompts()
         
-        # 查找名为"Simple Prompts"的全局提示词集合
+        # Find global prompt collection named "Simple Prompts"
         simple_prompts_collection = None
         for prompt_file in global_prompts:
             if prompt_file.name == "Simple Prompts":
@@ -1419,41 +1419,41 @@ async def add_simple_prompt(
                 break
         
         if simple_prompts_collection:
-            # 加载现有提示词
+            # Load existing prompts
             prompts_dict = manager.storage.load_prompts_from_json(
                 Path(simple_prompts_collection.file_path)
             )
         else:
-            # 创建新的全局提示词集合
+            # Create new global prompt collection
             prompts_dict = {}
             simple_prompts_collection = manager.create_global_prompt(
                 name="Simple Prompts",
                 prompts_dict={},
                 owner=user.username,
-                description="简化的全局提示词集合"
+                description="Simplified global prompt collection"
             )
         
-        # 添加新提示词
+        # Add new prompt
         prompts_dict[name] = content
         
-        # 更新全局提示词
+        # Update global prompt
         success = manager.update_global_prompt(
             simple_prompts_collection.id,
             prompts_dict,
             user.username
         )
         if not success:
-            raise HTTPException(status_code=500, detail="保存提示词失败")
+            raise HTTPException(status_code=500, detail="Failed to save prompt")
         
-        logger.info(f"用户 {user.username} 添加了全局提示词: {name}")
+        logger.info(f"User {user.username} added global prompt: {name}")
         
-        return {"success": True, "message": "提示词添加成功"}
+        return {"success": True, "message": "Prompt added successfully"}
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"添加提示词失败: {e}")
-        raise HTTPException(status_code=500, detail=f"添加失败: {str(e)}")
+        logger.error(f"Failed to add prompt: {e}")
+        raise HTTPException(status_code=500, detail=f"Add failed: {str(e)}")
 
 
 @auth_router.delete("/prompts/simple/{prompt_id}")
@@ -1461,22 +1461,22 @@ async def delete_simple_prompt(
     prompt_id: str,
     user: User = Depends(get_current_user)
 ):
-    """删除简化的全局提示词"""
+    """Delete simplified global prompt"""
     from ..prompts.manager import get_prompt_manager
     
     manager = get_prompt_manager()
     
     try:
-        # 解析提示词ID
+        # Parse prompt ID
         if not prompt_id.startswith("global_"):
-            raise HTTPException(status_code=400, detail="无效的提示词ID")
+            raise HTTPException(status_code=400, detail="Invalid prompt ID")
         
         index = int(prompt_id.replace("global_", ""))
         
-        # 获取全局提示词集合
+        # Get global prompts collection
         global_prompts = manager.get_global_prompts()
         
-        # 查找名为"Simple Prompts"的全局提示词集合
+        # Find global prompt collection named "Simple Prompts"
         simple_prompts_collection = None
         for prompt_file in global_prompts:
             if prompt_file.name == "Simple Prompts":
@@ -1484,41 +1484,41 @@ async def delete_simple_prompt(
                 break
         
         if not simple_prompts_collection:
-            raise HTTPException(status_code=404, detail="全局提示词集合不存在")
+            raise HTTPException(status_code=404, detail="Global prompt collection not found")
         
-        # 加载提示词
+        # Load prompts
         prompts_dict = manager.storage.load_prompts_from_json(
             Path(simple_prompts_collection.file_path)
         )
         
-        # 获取要删除的提示词名称
+        # Get prompt name to delete
         prompt_names = list(prompts_dict.keys())
         if index >= len(prompt_names):
-            raise HTTPException(status_code=404, detail="提示词不存在")
+            raise HTTPException(status_code=404, detail="Prompt not found")
         
         prompt_name = prompt_names[index]
         
-        # 删除提示词
+        # Delete prompt
         del prompts_dict[prompt_name]
         
-        # 更新全局提示词
+        # Update global prompt
         success = manager.update_global_prompt(
             simple_prompts_collection.id,
             prompts_dict,
             user.username
         )
         if not success:
-            raise HTTPException(status_code=500, detail="保存提示词失败")
+            raise HTTPException(status_code=500, detail="Failed to save prompt")
         
-        logger.info(f"用户 {user.username} 删除了全局提示词: {prompt_name}")
+        logger.info(f"User {user.username} deleted global prompt: {prompt_name}")
         
-        return {"success": True, "message": "提示词删除成功"}
+        return {"success": True, "message": "Prompt deleted successfully"}
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"删除提示词失败: {e}")
-        raise HTTPException(status_code=500, detail=f"删除失败: {str(e)}")
+        logger.error(f"Failed to delete prompt: {e}")
+        raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}")
 
 
 @auth_router.post("/app-config")
@@ -1526,14 +1526,14 @@ async def update_app_config_api(
     request: Request,
     user: User = Depends(get_current_user)
 ):
-    """更新应用配置（需要管理员或管理组权限；仅超级管理员可改默认密码）"""
+    """Update application configuration (requires administrator or management group permissions; only super administrator can change default password)"""
     if not user.is_admin():
         raise HTTPException(status_code=403, detail="Access denied: Admin privileges required")
     
     try:
         config_data = await request.json()
         
-        # 将LDAP相关键与App配置键分离处理，避免LDAP键误入app_config
+        # Separate LDAP-related keys from App configuration keys to avoid LDAP keys being mistakenly included in app_config
         ldap_keys = {
             'ldap_enabled','ldap_protocol','ldap_host','ldap_port','ldap_bind_dn_template','ldap_base_dn',
             'ldap_user_filter','ldap_tls_cacertfile','ldap_tls_verify','ldap_admin_group_enabled','ldap_admin_group',
@@ -1542,40 +1542,40 @@ async def update_app_config_api(
         ldap_updates = {k: v for k, v in config_data.items() if k in ldap_keys}
         config_data = {k: v for k, v in config_data.items() if k not in ldap_keys}
         
-        # 先处理LDAP更新（统一到新键），并写入auth_config
+        # First handle LDAP updates (unified to new keys) and write to auth_config
         if ldap_updates:
             try:
                 from .config import get_auth_config as _get_auth_cfg, save_auth_config as _save_auth_cfg
                 auth_cfg = _get_auth_cfg()
-                # 保存前备份端点相关旧值
+                # Backup old endpoint-related values before saving
                 import copy
                 old_for_endpoint = copy.deepcopy(auth_cfg)
                 auth_cfg.update_from_dict(ldap_updates)
                 if _save_auth_cfg():
-                    logger.info(f"[APP-CONFIG] 同步保存LDAP配置成功: {list(ldap_updates.keys())}")
-                    # 同步刷新本模块内的内存实例，确保后续GET读取最新值
+                    logger.info(f"[APP-CONFIG] Successfully synchronized LDAP configuration: {list(ldap_updates.keys())}")
+                    # Synchronously refresh in-memory instance in this module to ensure subsequent GET reads latest values
                     try:
                         global _auth_config
                         if _auth_config is not None:
                             _auth_config.update_from_dict(ldap_updates)
-                            logger.info("[APP-CONFIG] 已同步更新模块内_auth_config")
-                        # 热重载LDAP客户端（若端点变化）
+                            logger.info("[APP-CONFIG] Successfully synchronized _auth_config in module")
+                        # Hot reload LDAP client (if endpoint changes)
                         _refresh_ldap_client_if_endpoint_changed(old_for_endpoint, auth_cfg)
                     except Exception as _e:
-                        logger.warning(f"[APP-CONFIG] 同步模块内内存失败: {_e}")
+                        logger.warning(f"[APP-CONFIG] Failed to synchronize in-memory module: {_e}")
                 else:
-                    logger.warning("[APP-CONFIG] 同步保存LDAP配置失败")
+                    logger.warning("[APP-CONFIG] Failed to synchronize LDAP configuration")
             except Exception as _e:
-                logger.error(f"[APP-CONFIG] 处理LDAP配置时异常: {_e}")
+                logger.error(f"[APP-CONFIG] Exception when processing LDAP configuration: {_e}")
 
         app_config = get_app_config()
         
-        # 移除任何来自前端的 platform_api_keys（敏感信息不保存在应用配置）
+        # Remove any platform_api_keys from frontend (sensitive information not saved in application configuration)
         if 'platform_api_keys' in config_data:
             del config_data['platform_api_keys']
         
         
-        # 处理Mineru Token（保存到敏感配置） - 支持 {key, configured}
+        # Handle MinerU Token (save to sensitive configuration) - supports {key, configured}
         if 'translator_mineru_token' in config_data:
             token_val = config_data['translator_mineru_token']
             from ..config.secrets_manager import get_secrets_manager
@@ -1591,11 +1591,11 @@ async def update_app_config_api(
                     secrets_manager.update_mineru_token(str(raw))
             del config_data['translator_mineru_token']
         
-        # 禁止非超级管理员修改默认密码
+        # Prohibit non-super administrators from modifying default password
         if not user.is_super_admin() and 'default_password' in config_data:
             del config_data['default_password']
         
-        # 处理Web/HTTPS相关字段写入全局配置
+        # Handle Web/HTTPS related fields and write to global configuration
         from ..config.global_config import get_global_config, save_global_config
         global_cfg = get_global_config()
 
@@ -1605,7 +1605,7 @@ async def update_app_config_api(
 
         https_updates = {k: v for k, v in config_data.items() if k in https_keys}
 
-        # 证书路径与私钥路径放入全局配置（作为普通字段存储路径字符串）
+        # Certificate path and private key path stored in global configuration (as regular fields storing path strings)
         if 'https_cert_file' in config_data:
             global_cfg.https_cert_file = config_data['https_cert_file'] or None
         if 'https_key_file' in config_data:
@@ -1613,7 +1613,7 @@ async def update_app_config_api(
         for k, v in https_updates.items():
             setattr(global_cfg, k, v)
 
-        # 若请求启用HTTPS，则在保存前进行强校验（保证已通过测试）
+        # If HTTPS is requested to be enabled, perform strong validation before saving (ensure it has passed testing)
         try:
             if bool(global_cfg.https_enabled):
                 cert_file = global_cfg.https_cert_file
@@ -1654,26 +1654,26 @@ async def update_app_config_api(
         if ai_platform_updates or translator_settings_updates:
             global_cfg.update_from_dict({**ai_platform_updates, **translator_settings_updates})
         
-        # 处理默认语言，写入全局配置根字段
+        # Handle default language, write to global configuration root fields
         if 'default_language' in config_data:
             try:
                 dl = str(config_data.get('default_language') or '').lower()
                 if dl in ('zh', 'en'):
                     setattr(global_cfg, 'default_language', dl)
                 else:
-                    # 简单兜底：非预期值一律按en
+                    # Simple fallback: unexpected values default to en
                     setattr(global_cfg, 'default_language', 'en')
             except Exception as _e:
-                logger.warning(f"[APP-CONFIG] 更新默认语言失败: {_e}")
+                logger.warning(f"[APP-CONFIG] Failed to update default language: {_e}")
             finally:
-                # 避免同时写入用户级App配置
+                # Avoid writing to user-level App configuration simultaneously
                 del config_data['default_language']
 
-        # 更新其他配置（用户级App配置）
+        # Update other configurations (user-level App configuration)
         app_config.update_from_dict({k: v for k, v in config_data.items() if k not in https_keys and k not in ['https_cert_file','https_key_file']})
         
-        # 保存配置
-        # 保存HTTPS私钥密码到敏感配置
+        # Save configuration
+        # Save HTTPS private key password to sensitive configuration
         from ..config.secrets_manager import get_secrets_manager
         secrets_manager = get_secrets_manager()
         if 'https_key_password' in config_data:
@@ -1682,12 +1682,12 @@ async def update_app_config_api(
         ok1 = save_app_config()
         ok2 = save_global_config()
         if ok1 and ok2:
-            logger.info(f"应用配置已由用户 {_mask_username(user.username)} 更新")
+            logger.info(f"Application configuration updated by user {_mask_username(user.username)}")
             return {"success": True, "message": "Configuration updated successfully"}
         else:
             raise HTTPException(status_code=500, detail="Failed to save configuration")
     except Exception as e:
-        logger.error(f"更新应用配置失败: {e}")
+        logger.error(f"Failed to update application configuration: {e}")
         raise HTTPException(status_code=400, detail=f"Failed to update configuration: {str(e)}")
 
 
@@ -1696,7 +1696,7 @@ async def update_single_setting(
     request: Request,
     user: User = Depends(get_current_user)
 ):
-    """更新单个设置项"""
+    """Update single setting item"""
     try:
         data = await request.json()
         key = data.get('key')
@@ -1712,7 +1712,7 @@ async def update_single_setting(
         profile_manager = get_user_profile_manager()
         global_config = get_global_config()
 
-        # 定义敏感配置键（只有管理员可以修改，保存到local_secrets.json）
+        # Define sensitive configuration keys (only administrators can modify, saved to local_secrets.json)
         sensitive_config_keys = [
             'translator_mineru_token',
             'platform_api_keys',
@@ -1721,19 +1721,19 @@ async def update_single_setting(
             'redis_password'
         ]
         
-        # 定义全局配置键（只有管理员可以修改）
+        # Define global configuration keys (only administrators can modify)
         global_config_keys = [
             'translator_convert_engine', 'translator_mineru_model_version',
             'translator_formula_ocr', 'translator_code_ocr', 'translator_skip_translate',
             'platform_urls', 'platform_models', 'active_task_ids',
-            # Web/HTTPS 设置
+            # Web/HTTPS settings
             'https_enabled', 'https_force_redirect', 'https_cert_file', 'https_key_file',
-            # LDAP配置键
+            # LDAP configuration keys
             'ldap_enabled', 'ldap_protocol', 'ldap_host', 'ldap_port', 'ldap_bind_dn_template',
             'ldap_base_dn', 'ldap_user_filter', 'ldap_tls_cacertfile', 'ldap_tls_verify'
         ]
 
-        # 定义用户配置键（所有用户都可以修改）
+        # Define user configuration keys (all users can modify)
         user_config_keys = [
             'ui_language', 'translator_last_workflow', 'translator_auto_workflow_enabled',
             'translator_txt_insert_mode', 'translator_txt_separator',
@@ -1751,59 +1751,59 @@ async def update_single_setting(
             'glossary_agent_platform_type', 'glossary_agent_temperature', 'glossary_agent_max_tokens', 'glossary_agent_top_p',
             'glossary_agent_frequency_penalty', 'glossary_agent_presence_penalty', 'glossary_agent_to_lang',
             'glossary_agent_chunk_size', 'glossary_agent_concurrent',
-            # 用户维度模型覆盖字典键
+            # User dimension model override dictionary keys
             'translator_platform_models', 'glossary_agent_platform_models'
         ]
         
-        # 权限检查
+        # Permission check
         if key in sensitive_config_keys:
-            # 敏感配置，只有管理员可以修改
+            # Sensitive configuration, only administrators can modify
             if not user.is_admin():
-                logger.warning(f"LDAP用户 {_mask_username(user.username)} 尝试修改敏感配置: {key}")
+                logger.warning(f"LDAP user {_mask_username(user.username)} attempted to modify sensitive configuration: {key}")
                 raise HTTPException(status_code=403, detail="Access denied: Only admin can modify sensitive settings")
-            # 默认密码仅超级管理员可改
+            # Default password can only be changed by super administrator
             if key == 'default_password' and not user.is_super_admin():
-                logger.warning(f"非超级管理员 {_mask_username(user.username)} 试图修改默认密码")
+                logger.warning(f"Non-super administrator {_mask_username(user.username)} attempted to modify default password")
                 raise HTTPException(status_code=403, detail="Only super admin can change default password")
         elif key in global_config_keys:
-            # 全局配置，只有管理员可以修改
+            # Global configuration, only administrators can modify
             if not user.is_admin():
-                logger.warning(f"LDAP用户 {_mask_username(user.username)} 尝试修改全局配置: {key}")
+                logger.warning(f"LDAP user {_mask_username(user.username)} attempted to modify global configuration: {key}")
                 raise HTTPException(status_code=403, detail="Access denied: Only admin can modify global settings")
         elif key in user_config_keys:
-            # 用户配置，所有用户都可以修改
+            # User configuration, all users can modify
             pass
         else:
-            # 未知配置键
-            logger.warning(f"用户 {_mask_username(user.username)} 尝试修改未知配置: {key}")
+            # Unknown configuration key
+            logger.warning(f"User {_mask_username(user.username)} attempted to modify unknown configuration: {key}")
             raise HTTPException(status_code=400, detail=f"Unknown setting key: {key}")
         
-        # 根据配置类型进行更新
+        # Update based on configuration type
         if key in sensitive_config_keys:
-            # 更新敏感配置（保存到local_secrets.json）
+            # Update sensitive configuration (save to local_secrets.json)
             secrets_manager = get_secrets_manager()
             
             if key == 'translator_mineru_token':
                 if secrets_manager.update_mineru_token(value):
-                    logger.info(f"MinerU令牌已由用户 {_mask_username(user.username)} 更新")
+                    logger.info(f"MinerU token updated by user {_mask_username(user.username)}")
                     return {"success": True, "message": "MinerU token updated successfully"}
                 else:
                     raise HTTPException(status_code=500, detail="Failed to save MinerU token")
             
             elif key == 'platform_api_keys':
-                # 处理平台API密钥字典
+                # Handle platform API keys dictionary
                 if isinstance(value, dict):
                     updated_any = False
                     for platform, api_key in value.items():
-                        # 兼容：value可能是 {platform: str} 或 {platform: {key, configured}}
+                        # Compatibility: value might be {platform: str} or {platform: {key, configured}}
                         configured_flag = None
                         if isinstance(api_key, dict):
                             configured_flag = api_key.get('configured')
                             api_key = api_key.get('key', '')
-                        if api_key and str(api_key).strip():  # 只保存非空密钥
+                        if api_key and str(api_key).strip():  # Only save non-empty keys
                             if secrets_manager.update_api_key(platform, str(api_key), configured_flag):
                                 updated_any = True
-                    # 同步刷新内存中的全局配置，确保刷新页面即可看到最新脱敏密钥
+                    # Synchronously refresh in-memory global configuration to ensure latest masked keys are visible after page refresh
                     if updated_any:
                         try:
                             from ..config.global_config import get_global_config
@@ -1816,15 +1816,15 @@ async def update_single_setting(
                                 if raw_key and raw_key.strip():
                                     global_config.update_platform_api_key(platform, raw_key)
                         except Exception as _e:
-                            logger.warning(f"刷新内存全局API密钥失败: {_e}")
-                    logger.info(f"平台API密钥已由用户 {_mask_username(user.username)} 更新")
+                            logger.warning(f"Failed to refresh in-memory global API keys: {_e}")
+                    logger.info(f"Platform API keys updated by user {_mask_username(user.username)}")
                     return {"success": True, "message": "Platform API keys updated successfully"}
                 else:
                     raise HTTPException(status_code=400, detail="Platform API keys must be a dictionary")
             
             elif key in ['default_password', 'session_secret_key', 'redis_password']:
                 if secrets_manager.update_auth_secret(key, value):
-                    logger.info(f"认证敏感配置 {key} 已由用户 {_mask_username(user.username)} 更新")
+                    logger.info(f"Authentication sensitive configuration {key} updated by user {_mask_username(user.username)}")
                     return {"success": True, "message": f"Auth secret {key} updated successfully"}
                 else:
                     raise HTTPException(status_code=500, detail=f"Failed to save auth secret {key}")
@@ -1832,7 +1832,7 @@ async def update_single_setting(
             elif key == 'docling_auth':
                 if isinstance(value, dict):
                     if get_secrets_manager().update_docling_auth(value):
-                        logger.info(f"Docling鉴权已由用户 {_mask_username(user.username)} 更新")
+                        logger.info(f"Docling authentication updated by user {_mask_username(user.username)}")
                         return {"success": True, "message": "Docling auth updated successfully"}
                     else:
                         raise HTTPException(status_code=500, detail="Failed to save Docling auth")
@@ -1842,34 +1842,34 @@ async def update_single_setting(
                 raise HTTPException(status_code=400, detail=f"Unknown sensitive setting key: {key}")
         
         elif key in global_config_keys:
-            # 更新全局配置
+            # Update global configuration
             if key.startswith('platform_') and key.endswith('_model_id'):
-                # 处理平台模型
+                # Handle platform models
                 platform = key.replace('translator_platform_', '').replace('_model_id', '')
                 global_config.update_platform_model(platform, value)
             elif key.startswith('glossary_agent_platform_') and key.endswith('_model_id'):
-                # 处理术语表平台模型
+                # Handle glossary platform models
                 platform = key.replace('glossary_agent_platform_', '').replace('_model_id', '')
                 global_config.update_glossary_platform_model(platform, value)
             elif key.startswith('ldap_'):
-                # 处理LDAP配置
+                # Handle LDAP configuration
                 from .config import get_auth_config, save_auth_config
                 auth_config = get_auth_config()
                 if hasattr(auth_config, key):
                     setattr(auth_config, key, value)
                     if save_auth_config():
-                        logger.info(f"LDAP设置项 {key} 已由用户 {_mask_username(user.username)} 更新")
+                        logger.info(f"LDAP setting {key} updated by user {_mask_username(user.username)}")
                         return {"success": True, "message": f"LDAP setting {key} updated successfully"}
                     else:
                         raise HTTPException(status_code=500, detail="Failed to save LDAP configuration")
                 else:
                     raise HTTPException(status_code=400, detail=f"Unknown LDAP setting key: {key}")
             else:
-                # 处理普通全局配置项
+                # Handle regular global configuration items
                 if hasattr(global_config, key):
                     setattr(global_config, key, value)
                 elif key in ['translator_convert_engine', 'translator_mineru_model_version', 'translator_formula_ocr', 'translator_code_ocr', 'translator_skip_translate']:
-                    # 处理 translator_settings 中的字段
+                    # Handle fields in translator_settings
                     if key == 'translator_convert_engine':
                         global_config.translator_settings.convert_engine = value
                     elif key == 'translator_mineru_model_version':
@@ -1883,7 +1883,7 @@ async def update_single_setting(
                 else:
                     raise HTTPException(status_code=400, detail=f"Unknown global setting key: {key}")
             
-            # 保存全局配置
+            # Save global configuration
             if save_global_config():
                 logger.info(f"Global setting {key} updated by user {_mask_username(user.username)}")
                 return {"success": True, "message": f"Global setting {key} updated successfully"}
@@ -1891,7 +1891,7 @@ async def update_single_setting(
                 raise HTTPException(status_code=500, detail="Failed to save global configuration")
         
         else:
-            # 更新用户配置（包括按用户维度的模型键）
+            # Update user configuration (including user-dimension model keys)
             if profile_manager.update_user_setting(user.username, key, value):
                 logger.info(f"User setting {key} updated by user {_mask_username(user.username)}")
                 return {"success": True, "message": f"User setting {key} updated successfully"}
@@ -1901,14 +1901,14 @@ async def update_single_setting(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"更新设置项失败: {e}")
+        logger.error(f"Failed to update setting: {e}")
         raise HTTPException(status_code=400, detail=f"Failed to update setting: {str(e)}")
 
 
-# === LDAP 配置专用读写接口（统一入口）===
+# === LDAP Configuration Dedicated Read/Write Interface (Unified Entry Point) ===
 @auth_router.get("/ldap-config")
 async def get_ldap_config_api(user: User = Depends(get_current_user)):
-    """读取LDAP相关配置（登录即可读取；敏感信息不返回）"""
+    """Read LDAP-related configuration (readable after login; sensitive information not returned)"""
     config = get_auth_config()
     return {
         "ldap_enabled": config.ldap_enabled,
@@ -1930,16 +1930,16 @@ async def get_ldap_config_api(user: User = Depends(get_current_user)):
 
 @auth_router.post("/ldap-config")
 async def update_ldap_config_api(request: Request, user: User = Depends(get_current_user)):
-    """统一更新LDAP相关配置（需要管理员或管理组权限）。"""
+    """Unified update of LDAP-related configuration (requires administrator or management group permissions)."""
     if not user.is_admin():
         raise HTTPException(status_code=403, detail="Access denied: Admin privileges required")
 
     try:
         data = await request.json()
 
-        # 仅处理新键名
+        # Only handle new key names
 
-        # 仅提取LDAP相关字段
+        # Only extract LDAP-related fields
         allowed = {
             'ldap_enabled', 'ldap_protocol', 'ldap_host', 'ldap_port', 'ldap_bind_dn_template', 'ldap_base_dn',
             'ldap_user_filter', 'ldap_tls_cacertfile', 'ldap_tls_verify', 'ldap_admin_group_enabled', 'ldap_admin_group',
@@ -1947,7 +1947,7 @@ async def update_ldap_config_api(request: Request, user: User = Depends(get_curr
         }
         update_payload = {k: v for k, v in data.items() if k in allowed}
 
-        # 类型处理
+        # Type processing
         if 'ldap_port' in update_payload:
             try:
                 update_payload['ldap_port'] = int(update_payload['ldap_port'])
@@ -1970,43 +1970,43 @@ async def update_ldap_config_api(request: Request, user: User = Depends(get_curr
                     }
                 )
 
-        # 更新并保存
+        # Update and save
         from .config import get_auth_config as _get_auth_cfg, save_auth_config as _save_auth_cfg
         auth_cfg = _get_auth_cfg()
-        logger.info(f"[LDAP-API] 规范化后的更新字段: {update_payload}")
+        logger.info(f"[LDAP-API] Normalized update fields: {update_payload}")
         auth_cfg.update_from_dict(update_payload)
         saved = _save_auth_cfg()
-        # 同步更新本模块内存中的全局配置，避免重启才生效
+        # Synchronously update in-memory global configuration in this module to avoid requiring restart
         try:
             local_cfg = get_auth_config()
             local_cfg.update_from_dict(update_payload)
-            logger.info("[LDAP-API] 已同步更新内存配置")
+            logger.info("[LDAP-API] Successfully synchronized in-memory configuration")
         except Exception:
             pass
         if saved:
-            logger.info(f"LDAP配置已由用户 {_mask_username(user.username)} 更新")
-            # 同步刷新本模块内的内存实例，避免刷新页仍读旧值
+            logger.info(f"LDAP configuration updated by user {_mask_username(user.username)}")
+            # Synchronously refresh in-memory instance in this module to avoid reading old values after page refresh
             try:
                 global _auth_config
                 if _auth_config is not None:
                     _auth_config.update_from_dict(update_payload)
-                    logger.info("[LDAP-API] 已同步更新模块内_auth_config")
+                    logger.info("[LDAP-API] Successfully synchronized _auth_config in module")
             except Exception as _e:
-                logger.warning(f"[LDAP-API] 同步内存配置失败: {_e}")
+                logger.warning(f"[LDAP-API] Failed to synchronize in-memory configuration: {_e}")
             return {"success": True, "message": "LDAP configuration updated"}
         else:
             raise HTTPException(status_code=500, detail="Failed to save LDAP configuration")
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"更新LDAP配置失败: {e}")
+        logger.error(f"Failed to update LDAP configuration: {e}")
         raise HTTPException(status_code=400, detail=f"Failed to update LDAP configuration: {str(e)}")
 
 
-# === Message 配置专用读写接口 ===
+# === Message Configuration Dedicated Read/Write Interface ===
 @auth_router.get("/message-config")
 async def get_message_config_api():
-    """读取消息相关配置（公开接口，无需认证）"""
+    """Read message-related configuration (public interface, no authentication required)"""
     from .config import AuthConfig
     config = AuthConfig.get_config()
     return {
@@ -2017,47 +2017,47 @@ async def get_message_config_api():
 
 @auth_router.post("/message-config")
 async def update_message_config_api(request: Request, user: User = Depends(get_current_user)):
-    """更新消息相关配置（需要管理员权限）"""
+    """Update message-related configuration (requires administrator privileges)"""
     if not user.is_admin():
         raise HTTPException(status_code=403, detail="Access denied: Admin privileges required")
 
     try:
         data = await request.json()
 
-        # 仅提取消息相关字段
+        # Only extract message-related fields
         allowed = {'login_banner', 'usage_message'}
         update_payload = {k: v for k, v in data.items() if k in allowed}
 
-        # 更新并保存
+        # Update and save
         from .config import AuthConfig
         auth_cfg = AuthConfig.get_config()
-        logger.info(f"[Message-API] 更新字段: {update_payload}")
+        logger.info(f"[Message-API] Update fields: {update_payload}")
         auth_cfg.update_from_dict(update_payload)
         saved = auth_cfg.save_to_file()
         
-        # 同步更新本模块内存中的全局配置
+        # Synchronously update in-memory global configuration in this module
         try:
             local_cfg = get_auth_config()
             local_cfg.update_from_dict(update_payload)
-            logger.info("[Message-API] 已同步更新内存配置")
+            logger.info("[Message-API] Successfully synchronized in-memory configuration")
         except Exception:
             pass
             
         if saved:
-            logger.info(f"消息配置已由用户 {_mask_username(user.username)} 更新")
+            logger.info(f"Message configuration updated by user {_mask_username(user.username)}")
             return {"success": True, "message": "Message configuration updated"}
         else:
             raise HTTPException(status_code=500, detail="Failed to save message configuration")
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"更新消息配置失败: {e}")
+        logger.error(f"Failed to update message configuration: {e}")
         raise HTTPException(status_code=400, detail=f"Failed to update message configuration: {str(e)}")
 
-# 兼容性路由（不使用/auth前缀）
+# Compatibility routes (without /auth prefix)
 @auth_compat_router.get("/login")
 async def login_page_compat(request: Request, next_url: Optional[str] = None):
-    """兼容性登录页面（不带/auth前缀）"""
+    """Compatibility login page (without /auth prefix)"""
     return await login_page(request, next_url)
 
 
@@ -2069,13 +2069,13 @@ async def login_compat(
     password: str = Form(...),
     next_url: Optional[str] = Form(None)
 ):
-    """兼容性登录处理（不带/auth前缀）"""
+    """Compatibility login handling (without /auth prefix)"""
     return await login(request, response, username, password, next_url)
 
 
 @auth_compat_router.get("/logout")
 async def logout_get_compat(request: Request, response: Response):
-    """兼容性登出（不带/auth前缀）"""
+    """Compatibility logout (without /auth prefix)"""
     return await logout_get(request, response)
 
 
@@ -2084,7 +2084,7 @@ async def test_ai_platform(
     request: Request,
     user: User = Depends(get_current_user)
 ):
-    """测试AI平台连接"""
+    """Test AI platform connection"""
     try:
         data = await request.json()
         platform_type = data.get('platform_type')
@@ -2094,7 +2094,7 @@ async def test_ai_platform(
         if not platform_type or not base_url or not model_name:
             raise HTTPException(status_code=400, detail="Missing required parameters: platform_type, base_url, model_name")
         
-        # 获取API key
+        # Get API key
         from ..config.secrets_manager import get_secrets_manager
         secrets_manager = get_secrets_manager()
         api_keys = secrets_manager.get_api_keys()
@@ -2103,7 +2103,7 @@ async def test_ai_platform(
         if not api_key:
             raise HTTPException(status_code=400, detail=f"No API key found for platform: {platform_type}")
         
-        # 根据平台类型构建测试请求
+        # Build test request based on platform type
         test_payload = {
             "model": model_name,
             "messages": [
@@ -2117,10 +2117,10 @@ async def test_ai_platform(
             "Authorization": f"Bearer {api_key}"
         }
         
-        # 发送测试请求
+        # Send test request
         async with httpx.AsyncClient(timeout=30.0) as client:
             if platform_type == "anthropic":
-                # Anthropic 使用不同的API格式
+                # Anthropic uses different API format
                 test_payload = {
                     "model": model_name,
                     "max_tokens": 10,
@@ -2135,7 +2135,7 @@ async def test_ai_platform(
                 }
                 response = await client.post(f"{base_url}/messages", json=test_payload, headers=headers)
             elif platform_type == "google":
-                # Google 使用不同的API格式
+                # Google uses different API format
                 test_payload = {
                     "contents": [
                         {"parts": [{"text": "Hello, this is a connection test."}]}
@@ -2149,7 +2149,7 @@ async def test_ai_platform(
                 }
                 response = await client.post(f"{base_url}/models/{model_name}:generateContent?key={api_key}", json=test_payload, headers=headers)
             else:
-                # 标准OpenAI格式
+                # Standard OpenAI format
                 response = await client.post(f"{base_url}/chat/completions", json=test_payload, headers=headers)
             
             if response.status_code == 200:
@@ -2169,38 +2169,38 @@ async def test_ai_platform(
 
 @auth_router.post("/mineru/test-connection")
 async def test_mineru_connection(request: Request):
-    """测试MinerU连接"""
+    """Test MinerU connection"""
     try:
-        # 检查用户权限
+        # Check user permissions
         if not _session_manager:
-            raise HTTPException(status_code=401, detail="会话管理器未初始化")
+            raise HTTPException(status_code=401, detail="Session manager not initialized")
         
         user = await _session_manager.get_user(request)
         if not user:
-            raise HTTPException(status_code=401, detail="未登录或会话已过期")
+            raise HTTPException(status_code=401, detail="Not logged in or session expired")
         
-        # 获取MinerU token
+        # Get MinerU token
         try:
             sm = get_secrets_manager()
             mineru_token = sm.get_mineru_token()
             
             if not mineru_token:
-                return {"success": False, "message": "MinerU API Key未配置"}
+                return {"success": False, "message": "MinerU API Key not configured"}
             
-            # 测试MinerU API连接
+            # Test MinerU API connection
             headers = {
                 'Content-Type': 'application/json',
                 'Authorization': f'Bearer {mineru_token}'
             }
             
-            # 使用一个简单的测试请求 - 使用PDF文件类型
+            # Use a simple test request - using PDF file type
             test_data = {
                 "files": [
                     {"name": "test.pdf", "is_ocr": True}
                 ]
             }
             
-            logger.info("MinerU连接测试: 开始测试API连接")
+            logger.info("MinerU connection test: Starting API connection test")
             
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.post(
@@ -2209,36 +2209,36 @@ async def test_mineru_connection(request: Request):
                     json=test_data
                 )
                 
-                logger.info(f"MinerU连接测试: API响应状态 {response.status_code}")
+                logger.info(f"MinerU connection test: API response status {response.status_code}")
                 if response.status_code != 200:
-                    logger.warning(f"MinerU连接测试: API请求失败，状态码 {response.status_code}")
+                    logger.warning(f"MinerU connection test: API request failed, status code {response.status_code}")
                 
                 if response.status_code == 200:
                     result = response.json()
                     if result.get("code") == 0:
-                        return {"success": True, "message": "MinerU连接测试成功"}
+                        return {"success": True, "message": "MinerU connection test successful"}
                     else:
-                        error_msg = result.get('message', '未知错误')
+                        error_msg = result.get('message', 'Unknown error')
                         error_code = result.get('code', 'N/A')
-                        return {"success": False, "message": f"MinerU API返回错误: {error_msg} (错误代码: {error_code})"}
+                        return {"success": False, "message": f"MinerU API returned error: {error_msg} (Error code: {error_code})"}
                 elif response.status_code == 401:
-                    return {"success": False, "message": "MinerU API Key无效或已过期"}
+                    return {"success": False, "message": "MinerU API Key invalid or expired"}
                 else:
                     try:
                         error_detail = response.text
-                        return {"success": False, "message": f"MinerU API请求失败: {response.status_code} - {error_detail}"}
+                        return {"success": False, "message": f"MinerU API request failed: {response.status_code} - {error_detail}"}
                     except:
-                        return {"success": False, "message": f"MinerU API请求失败: {response.status_code}"}
+                        return {"success": False, "message": f"MinerU API request failed: {response.status_code}"}
                     
         except Exception as e:
-            logger.error(f"MinerU连接测试失败: {e}")
-            return {"success": False, "message": f"连接测试失败: {str(e)}"}
+            logger.error(f"MinerU connection test failed: {e}")
+            return {"success": False, "message": f"Connection test failed: {str(e)}"}
             
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"MinerU测试连接端点错误: {e}")
-        raise HTTPException(status_code=500, detail="服务器内部错误")
+        logger.error(f"MinerU test connection endpoint error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @auth_router.get("/certificate-list")

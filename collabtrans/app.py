@@ -23,15 +23,15 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator, model_validator, AliasChoices
 
 from collabtrans import __version__
-# 初始化项目日志（落盘到 logs/app.log 并输出控制台）
+# Initialize project logging (save to logs/app.log and output to console)
 import collabtrans.logger.logger  # noqa: F401
 
-# 模块日志器
+# Module logger
 logger = logging.getLogger(__name__)
 from collabtrans.agents.agent import ThinkingMode
 from collabtrans.agents.glossary_agent import GlossaryAgentConfig
 from collabtrans.exporter.md.types import ConvertEngineType
-# --- 核心代码 Imports ---
+# --- Core code imports ---
 from collabtrans.global_values.conditional_import import DOCLING_EXIST
 from collabtrans.workflow.base import Workflow
 from collabtrans.workflow.docx_workflow import DocxWorkflow, DocxWorkflowConfig
@@ -54,7 +54,7 @@ from collabtrans.converter.x2md.converter_mineru import ConverterMineruConfig
 from collabtrans.exporter.md.md2html_exporter import MD2HTMLExporterConfig
 from collabtrans.exporter.txt.txt2html_exporter import TXT2HTMLExporterConfig
 
-# --- 认证模块 Imports ---
+# --- Authentication module imports ---
 try:
     from collabtrans.auth import AuthConfig, AuthMiddleware, auth_router, auth_compat_router, init_auth
     AUTH_AVAILABLE = True
@@ -65,7 +65,7 @@ except ImportError as e:
 except Exception as e:
     AUTH_AVAILABLE = False
     print(f"Warning: Authentication module initialization failed, skipping auth features. Error: {e}")
-# --- 认证模块 Imports END ---
+# --- Authentication module imports END ---
 from collabtrans.translator.ai_translator.md_translator import MDTranslatorConfig
 from collabtrans.translator.ai_translator.txt_translator import TXTTranslatorConfig
 from collabtrans.translator.ai_translator.json_translator import JsonTranslatorConfig
@@ -101,7 +101,7 @@ pdf_router = APIRouter()
 class PdfExportRequest(BaseModel):
     html_url: str
     file_name: str | None = None
-    # 页面设置（可选）
+    # Page settings (optional)
     format: str | None = "A4"
     margin_top: str | None = "10mm"
     margin_right: str | None = "10mm"
@@ -112,13 +112,13 @@ class PdfExportRequest(BaseModel):
 @pdf_router.post("/export/pdf")
 async def export_pdf(req: PdfExportRequest, request: Request):
     if not PLAYWRIGHT_AVAILABLE:
-        raise HTTPException(status_code=503, detail="Playwright 未安装，无法生成PDF。请安装可选依赖 'pdf_export'.")
+        raise HTTPException(status_code=503, detail="Playwright not installed, cannot generate PDF. Please install optional dependency 'pdf_export'.")
 
     try:
         async with async_playwright() as p:
             browser = await p.chromium.launch()
             context = await browser.new_context()
-            # 将当前请求的会话 Cookie 注入到无头浏览器，以便访问受保护的页面
+            # Inject current request session cookies into headless browser to access protected pages
             try:
                 host = request.headers.get('host', '')
                 cookie_domain = host.split(':')[0] if host else 'localhost'
@@ -139,24 +139,24 @@ async def export_pdf(req: PdfExportRequest, request: Request):
                 pass
 
             page = await context.new_page()
-            # 规范化 URL：支持前端传入以 "/" 开头的相对路径
+            # Normalize URL: support frontend passing relative paths starting with "/"
             html_url = req.html_url
             if html_url.startswith('/'):
                 origin = f"{request.url.scheme}://{request.headers.get('host')}"
                 html_url = origin + html_url
-            # 若传入的是触发下载的接口（如 /service/download/.../html），直接导航会触发下载而非展示。
-            # 这里改为在后端抓取 HTML 文本，并用 set_content 渲染。
+            # If the passed URL is a download trigger interface (like /service/download/.../html), direct navigation will trigger download instead of display.
+            # Here we change to fetch HTML text on the backend and render with set_content.
             try:
-                # 构造 Cookie 头，沿用请求会话
+                # Construct Cookie header, reuse request session
                 cookie_header = "; ".join([f"{k}={v}" for k, v in request.cookies.items()]) if request.cookies else ""
                 headers = {"Cookie": cookie_header} if cookie_header else {}
                 resp = await httpx_client.get(html_url, headers=headers)
                 resp.raise_for_status()
                 html_text = resp.text
             except Exception as fe:
-                raise HTTPException(status_code=502, detail=f"获取HTML失败: {fe}")
+                raise HTTPException(status_code=502, detail=f"Failed to get HTML: {fe}")
 
-            # 注入 <base>，保证相对资源（CSS/JS/图片）可正确解析
+            # Inject <base> to ensure relative resources (CSS/JS/images) are parsed correctly
             from urllib.parse import urlparse
             parsed = urlparse(html_url)
             origin = f"{parsed.scheme}://{parsed.netloc}"
@@ -167,7 +167,7 @@ async def export_pdf(req: PdfExportRequest, request: Request):
                 html_with_base = f"<head><base href=\"{base_href}\"></head>" + html_text
 
             await page.set_content(html_with_base, wait_until="networkidle")
-            # 生成PDF（无页眉页脚，保留背景，使用CSS页面尺寸）
+            # Generate PDF (no headers/footers, preserve background, use CSS page size)
             pdf_bytes = await page.pdf(
                 format=req.format or "A4",
                 print_background=True,
@@ -189,8 +189,8 @@ async def export_pdf(req: PdfExportRequest, request: Request):
             }
             return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
     except Exception as e:
-        logger.error(f"导出PDF失败: {e}")
-        raise HTTPException(status_code=500, detail=f"导出PDF失败: {e}")
+        logger.error(f"Failed to export PDF: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to export PDF: {e}")
 
 
 class PdfExportHtmlRequest(BaseModel):
@@ -207,7 +207,7 @@ class PdfExportHtmlRequest(BaseModel):
 @pdf_router.post("/export/pdf/from-html")
 async def export_pdf_from_html(req: PdfExportHtmlRequest):
     if not PLAYWRIGHT_AVAILABLE:
-        raise HTTPException(status_code=503, detail="Playwright 未安装，无法生成PDF。请安装可选依赖 'pdf_export'.")
+        raise HTTPException(status_code=503, detail="Playwright not installed, cannot generate PDF. Please install optional dependency 'pdf_export'.")
     try:
         async with async_playwright() as p:
             browser = await p.chromium.launch()
@@ -217,26 +217,26 @@ async def export_pdf_from_html(req: PdfExportHtmlRequest):
             html_text = req.html
             base_href = (req.base_url or '').rstrip('/') + '/'
             
-            # 增强HTML内容，确保图片和表格正确显示
+            # Enhance HTML content to ensure images and tables display correctly
             enhanced_html = html_text
             
-            # 添加base标签确保相对路径正确解析
+            # Add base tag to ensure relative paths are parsed correctly
             if base_href and "<head" in enhanced_html:
                 enhanced_html = enhanced_html.replace("<head>", f"<head><base href=\"{base_href}\">", 1)
             elif base_href:
                 enhanced_html = f"<head><base href=\"{base_href}\"></head>" + enhanced_html
             
-            # 添加CSS确保图片和表格在PDF中正确显示
+            # Add CSS to ensure images and tables display correctly in PDF
             css_enhancement = """
             <style>
-                /* 确保图片在PDF中正确显示 */
+                /* Ensure images display correctly in PDF */
                 img {
                     max-width: 100% !important;
                     height: auto !important;
                     page-break-inside: avoid;
                 }
                 
-                /* 确保表格在PDF中正确显示 */
+                /* Ensure tables display correctly in PDF */
                 table {
                     width: 100% !important;
                     border-collapse: collapse !important;
@@ -247,18 +247,18 @@ async def export_pdf_from_html(req: PdfExportHtmlRequest):
                     border: 1px solid #ccc !important;
                 }
                 
-                /* 确保数学公式正确显示 */
+                /* Ensure mathematical formulas display correctly */
                 .katex, .katex-display {
                     page-break-inside: avoid;
                 }
                 
-                /* 确保代码块正确显示 */
+                /* Ensure code blocks display correctly */
                 pre, code {
                     page-break-inside: avoid;
                     white-space: pre-wrap !important;
                 }
                 
-                /* 确保分页合理 */
+                /* Ensure reasonable pagination */
                 h1, h2, h3, h4, h5, h6 {
                     page-break-after: avoid;
                 }
@@ -276,7 +276,7 @@ async def export_pdf_from_html(req: PdfExportHtmlRequest):
 
             await page.set_content(enhanced_html, wait_until="networkidle")
             
-            # 额外等待确保所有资源加载完成
+            # Additional wait to ensure all resources are loaded
             await page.wait_for_timeout(2000)
             
             pdf_bytes = await page.pdf(
@@ -298,8 +298,8 @@ async def export_pdf_from_html(req: PdfExportHtmlRequest):
             headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"}
             return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
     except Exception as e:
-        logger.error(f"导出PDF失败: {e}")
-        raise HTTPException(status_code=500, detail=f"导出PDF失败: {e}")
+        logger.error(f"Failed to export PDF: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to export PDF: {e}")
 
 
 # --- Document Format Conversion ---
@@ -383,7 +383,7 @@ async def get_convert_status(task_id: str, convert_id: str):
             log_queue = tasks_log_queues.get(task_id)
             if log_queue:
                 try:
-                    await log_queue.put("转换完成！文件已生成，可以下载。")
+                    await log_queue.put("Conversion completed! File has been generated and is ready for download.")
                 except Exception as e:
                     logger.warning(f"Failed to send completion log: {e}")
         
@@ -430,14 +430,14 @@ async def download_converted_file(task_id: str, convert_id: str):
         raise HTTPException(status_code=500, detail=f"Download converted file failed: {e}")
 
 
-# --- 全局配置 ---
+# --- Global Configuration ---
 tasks_state: Dict[str, Dict[str, Any]] = {}
 tasks_log_queues: Dict[str, asyncio.Queue] = {}
 tasks_log_histories: Dict[str, List[str]] = {}
 MAX_LOG_HISTORY = 200
 httpx_client: httpx.AsyncClient
 
-# --- Workflow字典 ---
+# --- Workflow Dictionary ---
 WORKFLOW_DICT: Dict[str, Type[Workflow]] = {
     "markdown_based": MarkdownBasedWorkflow,
     "txt": TXTWorkflow,
@@ -449,7 +449,7 @@ WORKFLOW_DICT: Dict[str, Type[Workflow]] = {
     "html": HtmlWorkflow,
 }
 
-# --- 媒体类型映射 ---
+# --- Media Type Mapping ---
 MEDIA_TYPES = {
     "html": "text/html; charset=utf-8",
     "markdown": "text/markdown; charset=utf-8",
@@ -464,23 +464,23 @@ MEDIA_TYPES = {
 }
 
 
-# --- 辅助函数 ---
+# --- Helper Functions ---
 def _create_default_task_state() -> Dict[str, Any]:
-    """创建新的默认任务状态，存储 workflow 实例而不是具体内容"""
+    """Create new default task state, storing workflow instance instead of specific content"""
     return {
         "is_processing": False, "status_message": "Idle", "error_flag": False,
         "download_ready": False,
-        "workflow_instance": None,  # 仅在处理期间使用
+        "workflow_instance": None,  # Only used during processing
         "original_filename_stem": None, "task_start_time": 0,
         "task_end_time": 0, "current_task_ref": None,
         "original_filename": None,
-        "temp_dir": None,  # 用于存储临时文件的目录
-        "downloadable_files": {},  # 存储可下载文件的路径和名称
-        "attachment_files": {},  # 存储附件文件的路径和标识符
+        "temp_dir": None,  # Directory for storing temporary files
+        "downloadable_files": {},  # Store paths and names of downloadable files
+        "attachment_files": {},  # Store paths and identifiers of attachment files
     }
 
 
-# --- 日志处理器 ---
+# --- Log Handler ---
 class QueueAndHistoryHandler(logging.Handler):
     def __init__(self, queue_ref: asyncio.Queue, history_list_ref: List[str], max_history_items: int, task_id: str):
         super().__init__()
@@ -508,7 +508,7 @@ class QueueAndHistoryHandler(logging.Handler):
                 print(f"[{self.task_id}] Error putting log to queue: {e}. Log: {log_entry}")
 
 
-# --- 应用生命周期事件 ---
+# --- Application Lifecycle Events ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global httpx_client, AUTH_AVAILABLE
@@ -566,19 +566,19 @@ async def lifespan(app: FastAPI):
     print("Application shutdown, resources cleaned up.")
 
 
-# --- FastAPI 应用和路由设置 ---
+# --- FastAPI Application and Route Setup ---
 tags_metadata = [
     {
         "name": "Service API",
-        "description": "核心的服务API，用于提交、管理和下载翻译任务。",
+        "description": "Core service API for submitting, managing, and downloading translation tasks.",
     },
     {
         "name": "Application",
-        "description": "应用本身的相关端点，如元信息和默认参数。",
+        "description": "Application-related endpoints such as metadata and default parameters.",
     },
     {
         "name": "Temp",
-        "description": "测试用接口。",
+        "description": "Test interfaces.",
     },
 
 ]
@@ -589,21 +589,21 @@ app = FastAPI(
     lifespan=lifespan,
     title="DocuTranslate API",
     description=f"""
-DocuTranslate 后端服务 API，提供文档翻译、状态查询、结果下载等功能。
+DocuTranslate backend service API, providing document translation, status query, result download and other functions.
 
-**注意**: 所有任务状态都保存在服务进程的内存中，服务重启将导致所有任务信息丢失。
+**Note**: All task states are stored in the service process memory, service restart will cause all task information to be lost.
 
-### 主要工作流程:
-1.  **`POST /service/translate`**: 提交文件和包含`workflow_type`的翻译参数，启动一个后台任务。服务会自动生成并返回一个唯一的 `task_id`。
-2.  **`GET /service/status/{{task_id}}`**: 使用获取到的 `task_id` 轮询此端点，获取任务的实时状态。
-3.  **`GET /service/logs/{{task_id}}`**: (可选) 获取实时的翻译日志。
-4.  **`GET /service/download/{{task_id}}/{{file_type}}`**: 任务完成后 (当 `download_ready` 为 `true` 时)，通过此端点下载结果文件。
-5.  **`GET /service/attachment/{{task_id}}/{{identifier}}`**: (可选) 如果任务生成了附件（如术语表），通过此端点下载。
-6.  **`GET /service/content/{{task_id}}/{{file_type}}`**: 任务完成后(当 `download_ready` 为 `true` 时)，以JSON格式获取文件内容。
-7.  **`POST /service/cancel/{{task_id}}`**: (可选) 取消一个正在进行的任务。
-8.  **`POST /service/release/{{task_id}}`**: (可选) 当任务不再需要时，释放其在服务器上占用的所有资源，包括临时文件。
+### Main workflow:
+1.  **`POST /service/translate`**: Submit files and translation parameters containing `workflow_type` to start a background task. The service will automatically generate and return a unique `task_id`.
+2.  **`GET /service/status/{{task_id}}`**: Use the obtained `task_id` to poll this endpoint to get real-time task status.
+3.  **`GET /service/logs/{{task_id}}`**: (Optional) Get real-time translation logs.
+4.  **`GET /service/download/{{task_id}}/{{file_type}}`**: After task completion (when `download_ready` is `true`), download result files through this endpoint.
+5.  **`GET /service/attachment/{{task_id}}/{{identifier}}`**: (Optional) If the task generates attachments (such as glossaries), download through this endpoint.
+6.  **`GET /service/content/{{task_id}}/{{file_type}}`**: After task completion (when `download_ready` is `true`), get file content in JSON format.
+7.  **`POST /service/cancel/{{task_id}}`**: (Optional) Cancel an ongoing task.
+8.  **`POST /service/release/{{task_id}}`**: (Optional) When the task is no longer needed, release all resources it occupies on the server, including temporary files.
 
-**版本**: {__version__}
+**Version**: {__version__}
 """,
     version=__version__,
     openapi_tags=tags_metadata,
@@ -616,24 +616,24 @@ I18N_DIR = resource_path("i18n")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/i18n", StaticFiles(directory=I18N_DIR), name="i18n")
 
-# 初始化认证模块并添加中间件和路由
+# Initialize authentication module and add middleware and routes
 if AUTH_AVAILABLE:
     try:
-        # 初始化认证模块
+        # Initialize authentication module
         auth_config = AuthConfig.get_config()
         init_auth(auth_config)
         ldap_status = "enabled" if auth_config.ldap_enabled else "disabled"
         print(f"Authentication module initialized - LDAP: {ldap_status}")
         
-        # 获取会话管理器和配置
+        # Get session manager and configuration
         from collabtrans.auth import get_session_manager, get_auth_config
         session_manager = get_session_manager()
         auth_config = get_auth_config()
         
-        # 添加认证中间件
+        # Add authentication middleware
         app.add_middleware(AuthMiddleware, session_manager=session_manager, config=auth_config)
         
-        # 添加认证路由
+        # Add authentication routes
         app.include_router(auth_router)
         app.include_router(auth_compat_router)
         
@@ -649,168 +649,168 @@ if AUTH_AVAILABLE:
 
 class GlossaryAgentConfigPayload(BaseModel):
     base_url: str = Field(..., validation_alias=AliasChoices('base_url', 'baseurl'),
-                          description="用于术语表生成的Agent的LLM API基础URL。", examples=["https://api.openai.com/v1"])
+                          description="Base URL for the LLM API used by the Agent for glossary generation.", examples=["https://api.openai.com/v1"])
     api_key: str = Field(..., validation_alias=AliasChoices('api_key', 'key'),
-                         description="用于术语表生成的Agent的LLM API密钥。", examples=["sk-agent-api-key"])
-    model_id: str = Field(..., description="用于术语表生成的Agent的模型ID。", examples=["gpt-4-turbo"])
-    to_lang: str = Field(..., description="术语表生成的目标语言。", examples=["简体中文", "English"])
-    temperature: float = Field(default=0.7, description="用于术语表生成的Agent的温度参数。")
-    concurrent: int = Field(default=30, description="Agent的最大并发请求数。")
-    timeout: int = Field(default=default_params["timeout"], description="等待API回复的时间（秒）。")
-    thinking: ThinkingMode = Field(default="default", description="Agent的思考模式。")
-    retry: int = Field(default=default_params["retry"], description="分块失败后的最大重试次数。")
+                         description="LLM API key for the Agent used for glossary generation.", examples=["sk-agent-api-key"])
+    model_id: str = Field(..., description="Model ID for the Agent used for glossary generation.", examples=["gpt-4-turbo"])
+    to_lang: str = Field(..., description="Target language for glossary generation.", examples=["Chinese", "English"])
+    temperature: float = Field(default=0.7, description="Temperature parameter for the Agent used for glossary generation.")
+    concurrent: int = Field(default=30, description="Maximum concurrent requests for the Agent.")
+    timeout: int = Field(default=default_params["timeout"], description="Time to wait for API response (seconds).")
+    thinking: ThinkingMode = Field(default="default", description="Thinking mode for the Agent.")
+    retry: int = Field(default=default_params["retry"], description="Maximum retry count after chunk failure.")
 
 
-# 1. 定义所有工作流共享的基础参数
+# 1. Define base parameters shared by all workflows
 class BaseWorkflowParams(BaseModel):
-    skip_translate: bool = Field(default=False, description="是否跳过翻译步骤。如果为True，则仅执行文档解析和格式转换。")
+    skip_translate: bool = Field(default=False, description="Whether to skip translation step. If True, only document parsing and format conversion will be performed.")
     base_url: Optional[str] = Field(default=None, validation_alias=AliasChoices('base_url', 'baseurl'),
-                                    description="LLM API的基础URL。当 `skip_translate` 为 `False` 时必填。",
+                                    description="Base URL for LLM API. Required when `skip_translate` is `False`.",
                                     examples=["https://api.openai.com/v1"])
     api_key: Optional[str] = Field(default=None, validation_alias=AliasChoices('api_key', 'key'),
-                                   description="LLM API的密钥（可选）。",
+                                   description="LLM API key (optional).",
                                    examples=["sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"])
     model_id: Optional[str] = Field(default=None,
-                                    description="要使用的LLM模型ID。当 `skip_translate` 为 `False` 时必填。",
+                                    description="LLM model ID to use. Required when `skip_translate` is `False`.",
                                     examples=["gpt-4o"])
-    to_lang: str = Field(default="中文", description="目标翻译语言。", examples=["简体中文", "English"])
-    chunk_size: int = Field(default=default_params["chunk_size"], description="文本分割的块大小（字符）。")
-    concurrent: int = Field(default=default_params["concurrent"], description="并发请求数。")
-    temperature: float = Field(default=default_params["temperature"], description="LLM温度参数。")
-    timeout: int = Field(default=default_params["timeout"], description="等待API回复的时间（秒）。")
-    thinking: ThinkingMode = Field(default=default_params["thinking"], description="Agent的思考模式。",
+    to_lang: str = Field(default="Chinese", description="Target translation language.", examples=["Chinese", "English"])
+    chunk_size: int = Field(default=default_params["chunk_size"], description="Chunk size for text splitting (characters).")
+    concurrent: int = Field(default=default_params["concurrent"], description="Number of concurrent requests.")
+    temperature: float = Field(default=default_params["temperature"], description="LLM temperature parameter.")
+    timeout: int = Field(default=default_params["timeout"], description="Time to wait for API response (seconds).")
+    thinking: ThinkingMode = Field(default=default_params["thinking"], description="Thinking mode for the Agent.",
                                    examples=["default", "enable", "disable"])
-    retry: int = Field(default=default_params["retry"], description="某个分块翻译失败后的最大重试次数。")
-    custom_prompt: Optional[str] = Field(None, description="用户自定义的翻译Prompt。", alias="custom_prompt")
-    glossary_dict: Optional[Dict[str, str]] = Field(None, description="术语表字典，key为原文，value为译文。")
-    glossary_generate_enable: bool = Field(default=False, description="是否开启术语表自动生成。")
+    retry: int = Field(default=default_params["retry"], description="Maximum retry count after a chunk translation fails.")
+    custom_prompt: Optional[str] = Field(None, description="User-defined translation prompt.", alias="custom_prompt")
+    glossary_dict: Optional[Dict[str, str]] = Field(None, description="Glossary dictionary, key is original text, value is translated text.")
+    glossary_generate_enable: bool = Field(default=False, description="Whether to enable automatic glossary generation.")
     glossary_agent_config: Optional[GlossaryAgentConfigPayload] = Field(None,
-                                                                        description="用于术语表生成的Agent的配置。如果 `glossary_generate_enable` 为 `True`，此项必填。")
+                                                                        description="Configuration for the Agent used for glossary generation. Required when `glossary_generate_enable` is `True`.")
 
     @model_validator(mode='before')
     @classmethod
     def check_translation_fields(cls, values):
-        # 如果不跳过翻译 (值为False或字段不存在)，则验证相关字段必须存在且不为空
+        # If not skipping translation (value is False or field doesn't exist), validate that related fields must exist and not be empty
         if not values.get('skip_translate'):
             # Check for standard keys or their aliases
             if not (values.get('base_url') or values.get('baseurl')):
-                raise ValueError("当 `skip_translate` 为 `False` 时, `base_url` 或 `baseurl` 字段是必须的。")
+                raise ValueError("When `skip_translate` is `False`, `base_url` or `baseurl` field is required.")
             if not values.get('model_id'):
-                raise ValueError("当 `skip_translate` 为 `False` 时, `model_id` 字段是必须的。")
-        # 如果跳过翻译，则不进行任何检查，允许 base_url 等字段为空
+                raise ValueError("When `skip_translate` is `False`, `model_id` field is required.")
+        # If skipping translation, no validation is performed, allowing base_url and other fields to be empty
         return values
 
 
-# 2. 为每个工作流创建独立的参数模型
+# 2. Create independent parameter models for each workflow
 class MarkdownWorkflowParams(BaseWorkflowParams):
-    workflow_type: Literal['markdown_based'] = Field(..., description="指定使用基于Markdown的翻译工作流。")
+    workflow_type: Literal['markdown_based'] = Field(..., description="Specify to use Markdown-based translation workflow.")
     convert_engine: ConvertEngineType = Field(
         "identity",
-        description="选择将文件解析为markdown的引擎。如果输入文件是.md，此项可为`null`或不传。",
+        description="Select the engine to parse files into markdown. If input file is .md, this can be `null` or not passed.",
         examples=["identity", "mineru", "docling"]
     )
-    mineru_token: Optional[str] = Field(None, description="当 `convert_engine` 为 'mineru' 时必填的API令牌。")
-    formula_ocr: bool = Field(True, description="是否对公式进行OCR识别。对 `mineru` 和 `docling` 均有效。")
-    code_ocr: bool = Field(True, description="是否对代码块进行OCR识别。仅 `docling` 引擎有效。")
+    mineru_token: Optional[str] = Field(None, description="Required API token when `convert_engine` is 'mineru'.")
+    formula_ocr: bool = Field(True, description="Whether to perform OCR recognition on formulas. Effective for both `mineru` and `docling`.")
+    code_ocr: bool = Field(True, description="Whether to perform OCR recognition on code blocks. Only effective for `docling` engine.")
     model_version: Literal["pipeline", "vlm"] = Field("vlm",
-                                                      description="Mineru模型的版本，'vlm'是更新的版本。仅 `mineru` 引擎有效。")
+                                                      description="Version of Mineru model, 'vlm' is the newer version. Only effective for `mineru` engine.")
 
     @field_validator('mineru_token')
     def check_mineru_token(cls, v, values):
-        # 放宽校验：如果未提供，将在服务端从本地敏感配置中注入
+        # Relaxed validation: if not provided, will be injected from local sensitive configuration on server side
         return v
 
 
 class TextWorkflowParams(BaseWorkflowParams):
-    workflow_type: Literal['txt'] = Field(..., description="指定使用纯文本的翻译工作流。")
+    workflow_type: Literal['txt'] = Field(..., description="Specify to use plain text translation workflow.")
     insert_mode: Literal["replace", "append", "prepend"] = Field(
         "replace",
-        description="翻译文本的插入模式。'replace'：替换原文，'append'：附加到原文后，'prepend'：附加到原文前。"
+        description="Insert mode for translated text. 'replace': replace original text, 'append': append after original text, 'prepend': prepend before original text."
     )
     separator: str = Field(
         "\n",
-        description="当 insert_mode 为 'append' 或 'prepend' 时，用于分隔原文和译文的分隔符。"
+        description="Separator used to separate original text and translated text when insert_mode is 'append' or 'prepend'."
     )
 
 
 class JsonWorkflowParams(BaseWorkflowParams):
-    workflow_type: Literal['json'] = Field(..., description="指定使用JSON的翻译工作流。")
+    workflow_type: Literal['json'] = Field(..., description="Specify to use JSON translation workflow.")
     json_paths: List[str] = Field(
         ...,
-        description="一个jsonpath-ng表达式列表，用于指定需要翻译的JSON字段。",
+        description="A list of jsonpath-ng expressions to specify JSON fields to be translated.",
         examples=[["$.product.name", "$.product.description", "$.features[*]"]]
     )
 
 
 class XlsxWorkflowParams(BaseWorkflowParams):
-    workflow_type: Literal['xlsx'] = Field(..., description="指定使用XLSX的翻译工作流。")
+    workflow_type: Literal['xlsx'] = Field(..., description="Specify to use XLSX translation workflow.")
     insert_mode: Literal["replace", "append", "prepend"] = Field(
         "replace",
-        description="翻译文本的插入模式。'replace'：替换原文，'append'：附加到原文后，'prepend'：附加到原文前。"
+        description="Insert mode for translated text. 'replace': replace original text, 'append': append after original text, 'prepend': prepend before original text."
     )
     separator: str = Field(
         "\n",
-        description="当 insert_mode 为 'append' 或 'prepend' 时，用于分隔原文和译文的分隔符。"
+        description="Separator used to separate original text and translated text when insert_mode is 'append' or 'prepend'."
     )
     translate_regions: Optional[List[str]] = Field(
         None,
-        description="指定翻译区域列表。示例: ['Sheet1!A1:B10', 'C:D', 'E5']。如果不指定表名 (如 'C:D')，则应用于所有表。如果为 None，则翻译整个文件中的所有文本。"
+        description="Specify translation range list. Example: ['Sheet1!A1:B10', 'C:D', 'E5']. If sheet name is not specified (like 'C:D'), applies to all sheets. If None, translates all text in the entire file."
     )
 
 
 class DocxWorkflowParams(BaseWorkflowParams):
-    workflow_type: Literal['docx'] = Field(..., description="指定使用DOCX的翻译工作流。")
+    workflow_type: Literal['docx'] = Field(..., description="Specify to use DOCX translation workflow.")
     insert_mode: Literal["replace", "append", "prepend"] = Field(
         "replace",
-        description="翻译文本的插入模式。'replace'：替换原文，'append'：附加到原文后，'prepend'：附加到原文前。"
+        description="Insert mode for translated text. 'replace': replace original text, 'append': append after original text, 'prepend': prepend before original text."
     )
     separator: str = Field(
         "\n",
-        description="当 insert_mode 为 'append' 或 'prepend' 时，用于分隔原文和译文的分隔符。"
+        description="Separator used to separate original text and translated text when insert_mode is 'append' or 'prepend'."
     )
 
 
 class SrtWorkflowParams(BaseWorkflowParams):
-    workflow_type: Literal['srt'] = Field(..., description="指定使用SRT字幕的翻译工作流。")
+    workflow_type: Literal['srt'] = Field(..., description="Specify to use SRT subtitle translation workflow.")
     insert_mode: Literal["replace", "append", "prepend"] = Field(
         "replace",
-        description="翻译文本的插入模式。'replace'：替换原文，'append'：附加到原文后，'prepend'：附加到原文前。"
+        description="Insert mode for translated text. 'replace': replace original text, 'append': append after original text, 'prepend': prepend before original text."
     )
     separator: str = Field(
         "\n",
-        description="当 insert_mode 为 'append' 或 'prepend' 时，用于分隔原文和译文的分隔符。"
+        description="Separator used to separate original text and translated text when insert_mode is 'append' or 'prepend'."
     )
 
 
 class EpubWorkflowParams(BaseWorkflowParams):
-    workflow_type: Literal['epub'] = Field(..., description="指定使用EPUB的翻译工作流。")
+    workflow_type: Literal['epub'] = Field(..., description="Specify to use EPUB translation workflow.")
     insert_mode: Literal["replace", "append", "prepend"] = Field(
         "replace",
-        description="翻译文本的插入模式。'replace'：替换原文，'append'：附加到原文后，'prepend'：附加到原文前。"
+        description="Insert mode for translated text. 'replace': replace original text, 'append': append after original text, 'prepend': prepend before original text."
     )
     separator: str = Field(
         "\n",
-        description="当 insert_mode 为 'append' 或 'prepend' 时，用于分隔原文和译文的分隔符。"
+        description="Separator used to separate original text and translated text when insert_mode is 'append' or 'prepend'."
     )
 
 
 # --- HTML WORKFLOW PARAMS START ---
 class HtmlWorkflowParams(BaseWorkflowParams):
-    workflow_type: Literal['html'] = Field(..., description="指定使用HTML的翻译工作流。")
+    workflow_type: Literal['html'] = Field(..., description="Specify to use HTML translation workflow.")
     insert_mode: Literal["replace", "append", "prepend"] = Field(
         "replace",
-        description="翻译文本的插入模式。'replace'：替换原文，'append'：附加到原文后，'prepend'：附加到原文前。"
+        description="Insert mode for translated text. 'replace': replace original text, 'append': append after original text, 'prepend': prepend before original text."
     )
     separator: str = Field(
         " ",
-        description="当 insert_mode 为 'append' 或 'prepend' 时，用于分隔原文和译文的分隔符。"
+        description="Separator used to separate original text and translated text when insert_mode is 'append' or 'prepend'."
     )
 
 
 # --- HTML WORKFLOW PARAMS END ---
 
 
-# 3. 使用可辨识联合类型（Discriminated Union）将它们组合起来
+# 3. Combine them using Discriminated Union
 TranslatePayload = Annotated[
     Union[
         MarkdownWorkflowParams, TextWorkflowParams, JsonWorkflowParams, XlsxWorkflowParams, DocxWorkflowParams, SrtWorkflowParams, EpubWorkflowParams, HtmlWorkflowParams],
@@ -818,13 +818,13 @@ TranslatePayload = Annotated[
 ]
 
 
-# 4. 创建最终的请求体模型
+# 4. Create final request body model
 class TranslateServiceRequest(BaseModel):
-    file_name: str = Field(..., description="上传的原始文件名，含扩展名。",
+    file_name: str = Field(..., description="Original uploaded filename with extension.",
                            examples=["my_paper.pdf", "chapter1.txt", "data.xlsx", "video.srt", "my_book.epub",
                                      "index.html"])
-    file_content: str = Field(..., description="Base64编码的文件内容。", examples=["JVBERi0xLjQK..."])
-    payload: TranslatePayload = Field(..., description="包含工作流类型和相应参数的载荷。")
+    file_content: str = Field(..., description="Base64 encoded file content.", examples=["JVBERi0xLjQK..."])
+    payload: TranslatePayload = Field(..., description="Payload containing workflow type and corresponding parameters.")
 
     class Config:
         json_schema_extra = {
@@ -838,7 +838,7 @@ class TranslateServiceRequest(BaseModel):
                         "base_url": "https://api.openai.com/v1",
                         "api_key": "sk-your-api-key-here",
                         "model_id": "gpt-4o",
-                        "to_lang": "中文",
+                        "to_lang": "Chinese",
                         "chunk_size": default_params["chunk_size"],
                         "concurrent": default_params["concurrent"],
                         "temperature": default_params["temperature"],
@@ -861,7 +861,7 @@ class TranslateServiceRequest(BaseModel):
                         "base_url": "https://api.openai.com/v1",
                         "api_key": "sk-your-api-key-here",
                         "model_id": "gpt-4o",
-                        "to_lang": "中文",
+                        "to_lang": "Chinese",
                         "chunk_size": default_params["chunk_size"],
                         "concurrent": default_params["concurrent"],
                         "temperature": default_params["temperature"],
@@ -881,7 +881,7 @@ class TranslateServiceRequest(BaseModel):
                         "base_url": "https://api.openai.com/v1",
                         "api_key": "sk-your-api-key-here",
                         "model_id": "gpt-4o",
-                        "to_lang": "中文",
+                        "to_lang": "Chinese",
                         "chunk_size": default_params["chunk_size"],
                         "concurrent": default_params["concurrent"],
                         "temperature": default_params["temperature"],
@@ -893,8 +893,8 @@ class TranslateServiceRequest(BaseModel):
                         "separator": "\n",
                         "translate_regions": ["Sheet1!A1:B10", "C:D"],
                         "glossary_dict": {
-                            "OpenAI": "开放人工智能",
-                            "LLM": "大语言模型"
+                            "OpenAI": "Open Artificial Intelligence",
+                            "LLM": "Large Language Model"
                         }
                     }
                 },
@@ -906,14 +906,14 @@ class TranslateServiceRequest(BaseModel):
                         "base_url": "https://api.openai.com/v1",
                         "api_key": "sk-your-main-translator-key",
                         "model_id": "gpt-4o",
-                        "to_lang": "中文",
+                        "to_lang": "Chinese",
                         "retry": default_params["retry"],
                         "glossary_generate_enable": True,
                         "glossary_agent_config": {
                             "base_url": "https://api.openai.com/v1",
                             "api_key": "sk-your-agent-key-for-glossary",
                             "model_id": "gpt-4-turbo",
-                            "to_lang": "中文",
+                            "to_lang": "Chinese",
                             "temperature": 0.7,
                             "concurrent": 30,
                             "timeout": default_params["timeout"],
@@ -931,7 +931,7 @@ class TranslateServiceRequest(BaseModel):
                         "base_url": "https://api.openai.com/v1",
                         "api_key": "sk-your-api-key-here",
                         "model_id": "gpt-4o",
-                        "to_lang": "中文",
+                        "to_lang": "Chinese",
                         "insert_mode": "replace",
                         "separator": "\n",
                         "chunk_size": default_params["chunk_size"],
@@ -951,7 +951,7 @@ class TranslateServiceRequest(BaseModel):
                         "base_url": "https://api.openai.com/v1",
                         "api_key": "sk-your-api-key-here",
                         "model_id": "gpt-4o",
-                        "to_lang": "中文",
+                        "to_lang": "Chinese",
                         "insert_mode": "replace",
                         "separator": "\n",
                         "chunk_size": default_params["chunk_size"],
@@ -971,7 +971,7 @@ class TranslateServiceRequest(BaseModel):
                         "base_url": "https://api.openai.com/v1",
                         "api_key": "sk-your-api-key-here",
                         "model_id": "gpt-4o",
-                        "to_lang": "中文",
+                        "to_lang": "Chinese",
                         "insert_mode": "replace",
                         "separator": "\n",
                         "chunk_size": default_params["chunk_size"],
@@ -991,7 +991,7 @@ class TranslateServiceRequest(BaseModel):
                         "base_url": "https://api.openai.com/v1",
                         "api_key": "sk-your-api-key-here",
                         "model_id": "gpt-4o",
-                        "to_lang": "中文",
+                        "to_lang": "Chinese",
                         "insert_mode": "replace",
                         "separator": " ",
                         "chunk_size": default_params["chunk_size"],
@@ -1035,20 +1035,20 @@ async def _perform_translation(
     try:
         # Handle convert_only tasks
         if task_state.get('convert_only', False):
-            task_logger.info("转换专用任务，跳过翻译处理")
+            task_logger.info("Conversion-only task, skipping translation processing")
             task_state["status_message"] = "Conversion task ready"
             task_state["download_ready"] = True
             task_state["is_processing"] = False
             task_state["task_end_time"] = time.time()
             return
-        # 1. 根据工作流类型选择合适的 Workflow Class
+        # 1. Select appropriate Workflow Class based on workflow type
         workflow_class = WORKFLOW_DICT.get(payload.workflow_type)
         if not workflow_class:
-            raise ValueError(f"不支持的工作流类型: '{payload.workflow_type}'")
+            raise ValueError(f"Unsupported workflow type: '{payload.workflow_type}'")
 
         workflow: Workflow
 
-        # 注入全局API Key的辅助函数：当未提供api_key时，从全局敏感配置回退
+        # Helper function to inject global API Key: fallback to global sensitive configuration when api_key is not provided
         def inject_global_api_key(args: dict) -> dict:
             try:
                 if args.get('skip_translate'):
@@ -1066,7 +1066,7 @@ async def _perform_translation(
                 logger.info(f"[DEBUG] inject_global_api_key - args: {args}")
                 
                 platform_key = None
-                # 基于base_url的粗略平台识别
+                # Rough platform identification based on base_url
                 if 'deepseek' in base_url:
                     platform_key = 'deepseek'
                 elif 'openai' in base_url:
@@ -1082,19 +1082,19 @@ async def _perform_translation(
 
                 logger.info(f"[DEBUG] inject_global_api_key - detected platform_key: {platform_key}")
 
-                # 仅从敏感配置读取 API Key
+                # Only read API Key from sensitive configuration
                 api_keys = secrets.get_api_keys() or {}
                 key = api_keys.get(platform_key) if platform_key else None
                 if key:
                     args['api_key'] = key
                     logger.info(f"[DEBUG] inject_global_api_key - injected API key for platform: {platform_key}")
                 else:
-                    logger.warning(f"未找到平台 {platform_key or 'unknown'} 的API Key，请在管理员界面保存对应平台的Key")
+                    logger.warning(f"API Key for platform {platform_key or 'unknown'} not found, please save the corresponding platform Key in the admin interface")
             except Exception as e:
                 logger.error(f"[DEBUG] inject_global_api_key - error: {e}")
             return args
 
-        # 辅助函数：构建术语表生成配置
+        # Helper function: build glossary generation configuration
         def build_glossary_agent_config():
             if payload.glossary_generate_enable and payload.glossary_agent_config:
                 agent_payload = payload.glossary_agent_config
@@ -1104,9 +1104,9 @@ async def _perform_translation(
                 )
             return None
         
-        # 辅助函数：获取用户选择的术语表
+        # Helper function: get user-selected glossary
         def get_user_glossary():
-            """获取用户选择的术语表"""
+            """Get user-selected glossary"""
             try:
                 from .glossary.manager import get_glossary_manager
                 manager = get_glossary_manager()
@@ -1115,7 +1115,7 @@ async def _perform_translation(
                 logger.warning(f"Failed to get user glossary: {e}")
                 return {}
 
-        # 2. 根据 payload 的具体类型构建配置并实例化 workflow
+        # 2. Build configuration and instantiate workflow based on payload type
         if isinstance(payload, MarkdownWorkflowParams):
             task_logger.info("Building MarkdownBasedWorkflow configuration")
             translator_args = payload.model_dump(include={
@@ -1125,32 +1125,32 @@ async def _perform_translation(
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
             
-            # 合并用户选择的术语表
+            # Merge user-selected glossary
             user_glossary = get_user_glossary()
             if user_glossary:
                 if 'glossary_dict' in translator_args and translator_args['glossary_dict']:
-                    # 合并术语表，用户选择的术语表优先级更高
+                    # Merge glossaries, user-selected glossary has higher priority
                     translator_args['glossary_dict'] = {**translator_args['glossary_dict'], **user_glossary}
                 else:
                     translator_args['glossary_dict'] = user_glossary
-                task_logger.info(f"已加载用户术语表，包含 {len(user_glossary)} 条术语")
+                task_logger.info(f"User glossary loaded with {len(user_glossary)} terms")
             
             translator_args = inject_global_api_key(translator_args)
             translator_config = MDTranslatorConfig(**translator_args)
 
             converter_config = None
             if payload.convert_engine == 'mineru':
-                # 若前端未传入 MinerU Token，则从本地敏感配置注入
+                # If MinerU Token is not provided by frontend, inject from local sensitive configuration
                 mineru_token = payload.mineru_token
                 
-                # 检查token是否为空或长度不足（正常的JWT token应该有400+字符）
+                # Check if token is empty or too short (normal JWT token should have 400+ characters)
                 if not mineru_token or len(mineru_token) < 100:
                     try:
                         from collabtrans.config.secrets_manager import get_secrets_manager
                         sm = get_secrets_manager()
                         mineru_token = sm.get_mineru_token() or ""
                     except Exception as e:
-                        task_logger.error(f"[MinerU] 获取token失败: {e}")
+                        task_logger.error(f"[MinerU] Failed to get token: {e}")
                         mineru_token = ""
                 
                 converter_config = ConverterMineruConfig(
@@ -1160,7 +1160,7 @@ async def _perform_translation(
                     model_version=payload.model_version
                 )
             elif payload.convert_engine == 'docling' and DOCLING_EXIST:
-                # Docling 远程模式已移除，仅使用本地模式
+                # Docling remote mode has been removed, only use local mode
                 converter_config = ConverterDoclingConfig(
                     logger=task_logger,
                     code_ocr=payload.code_ocr,
@@ -1185,14 +1185,14 @@ async def _perform_translation(
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
             
-            # 合并用户选择的术语表
+            # Merge user-selected glossary
             user_glossary = get_user_glossary()
             if user_glossary:
                 if 'glossary_dict' in translator_args and translator_args['glossary_dict']:
                     translator_args['glossary_dict'] = {**translator_args['glossary_dict'], **user_glossary}
                 else:
                     translator_args['glossary_dict'] = user_glossary
-                task_logger.info(f"已加载用户术语表，包含 {len(user_glossary)} 条术语")
+                task_logger.info(f"User glossary loaded with {len(user_glossary)} terms")
             
             translator_args = inject_global_api_key(translator_args)
             translator_config = TXTTranslatorConfig(**translator_args)
@@ -1214,14 +1214,14 @@ async def _perform_translation(
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
             
-            # 合并用户选择的术语表
+            # Merge user-selected glossary
             user_glossary = get_user_glossary()
             if user_glossary:
                 if 'glossary_dict' in translator_args and translator_args['glossary_dict']:
                     translator_args['glossary_dict'] = {**translator_args['glossary_dict'], **user_glossary}
                 else:
                     translator_args['glossary_dict'] = user_glossary
-                task_logger.info(f"已加载用户术语表，包含 {len(user_glossary)} 条术语")
+                task_logger.info(f"User glossary loaded with {len(user_glossary)} terms")
             
             translator_args = inject_global_api_key(translator_args)
             translator_config = JsonTranslatorConfig(**translator_args)
@@ -1243,14 +1243,14 @@ async def _perform_translation(
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
             
-            # 合并用户选择的术语表
+            # Merge user-selected glossary
             user_glossary = get_user_glossary()
             if user_glossary:
                 if 'glossary_dict' in translator_args and translator_args['glossary_dict']:
                     translator_args['glossary_dict'] = {**translator_args['glossary_dict'], **user_glossary}
                 else:
                     translator_args['glossary_dict'] = user_glossary
-                task_logger.info(f"已加载用户术语表，包含 {len(user_glossary)} 条术语")
+                task_logger.info(f"User glossary loaded with {len(user_glossary)} terms")
             
             translator_args = inject_global_api_key(translator_args)
             translator_config = XlsxTranslatorConfig(**translator_args)
@@ -1273,14 +1273,14 @@ async def _perform_translation(
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
             
-            # 合并用户选择的术语表
+            # Merge user-selected glossary
             user_glossary = get_user_glossary()
             if user_glossary:
                 if 'glossary_dict' in translator_args and translator_args['glossary_dict']:
                     translator_args['glossary_dict'] = {**translator_args['glossary_dict'], **user_glossary}
                 else:
                     translator_args['glossary_dict'] = user_glossary
-                task_logger.info(f"已加载用户术语表，包含 {len(user_glossary)} 条术语")
+                task_logger.info(f"User glossary loaded with {len(user_glossary)} terms")
             
             translator_args = inject_global_api_key(translator_args)
             translator_config = DocxTranslatorConfig(**translator_args)
@@ -1303,14 +1303,14 @@ async def _perform_translation(
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
             
-            # 合并用户选择的术语表
+            # Merge user-selected glossary
             user_glossary = get_user_glossary()
             if user_glossary:
                 if 'glossary_dict' in translator_args and translator_args['glossary_dict']:
                     translator_args['glossary_dict'] = {**translator_args['glossary_dict'], **user_glossary}
                 else:
                     translator_args['glossary_dict'] = user_glossary
-                task_logger.info(f"已加载用户术语表，包含 {len(user_glossary)} 条术语")
+                task_logger.info(f"User glossary loaded with {len(user_glossary)} terms")
             
             translator_args = inject_global_api_key(translator_args)
             translator_config = SrtTranslatorConfig(**translator_args)
@@ -1333,14 +1333,14 @@ async def _perform_translation(
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
             
-            # 合并用户选择的术语表
+            # Merge user-selected glossary
             user_glossary = get_user_glossary()
             if user_glossary:
                 if 'glossary_dict' in translator_args and translator_args['glossary_dict']:
                     translator_args['glossary_dict'] = {**translator_args['glossary_dict'], **user_glossary}
                 else:
                     translator_args['glossary_dict'] = user_glossary
-                task_logger.info(f"已加载用户术语表，包含 {len(user_glossary)} 条术语")
+                task_logger.info(f"User glossary loaded with {len(user_glossary)} terms")
             
             translator_args = inject_global_api_key(translator_args)
             translator_config = EpubTranslatorConfig(**translator_args)
@@ -1364,14 +1364,14 @@ async def _perform_translation(
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
             
-            # 合并用户选择的术语表
+            # Merge user-selected glossary
             user_glossary = get_user_glossary()
             if user_glossary:
                 if 'glossary_dict' in translator_args and translator_args['glossary_dict']:
                     translator_args['glossary_dict'] = {**translator_args['glossary_dict'], **user_glossary}
                 else:
                     translator_args['glossary_dict'] = user_glossary
-                task_logger.info(f"已加载用户术语表，包含 {len(user_glossary)} 条术语")
+                task_logger.info(f"User glossary loaded with {len(user_glossary)} terms")
             
             translator_args = inject_global_api_key(translator_args)
             translator_config = HtmlTranslatorConfig(**translator_args)
@@ -1384,34 +1384,34 @@ async def _perform_translation(
         # --- HTML WORKFLOW LOGIC END ---
 
         else:
-            raise TypeError(f"工作流类型 '{payload.workflow_type}' 的处理逻辑未实现。")
+            raise TypeError(f"Processing logic for workflow type '{payload.workflow_type}' not implemented.")
 
-        # 3. 读取文件内容并执行翻译
+        # 3. Read file content and execute translation
         file_stem = Path(original_filename).stem
         file_suffix = Path(original_filename).suffix
         workflow.read_bytes(content=file_contents, stem=file_stem, suffix=file_suffix)
         await workflow.translate_async()
 
-        # 4. 任务成功，生成所有可下载文件并存储
+        # 4. Task successful, generate all downloadable files and store
         task_logger.info("Translation completed, generating temporary result files...")
         temp_dir = tempfile.mkdtemp(prefix=f"collabtrans_{task_id}_")
         task_state["temp_dir"] = temp_dir
         downloadable_files = {}
         filename_stem = task_state['original_filename_stem']
 
-        # 检查CDN可用性
+        # Check CDN availability
         is_cdn_available = True
         try:
             await httpx_client.head("https://s4.zstatic.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js",
                                     timeout=3)
         except (httpx.TimeoutException, httpx.RequestError):
             is_cdn_available = False
-            task_logger.warning("CDN连接失败，将使用本地JS进行渲染。")
+            task_logger.warning("CDN connection failed, will use local JS for rendering.")
 
-        # 定义导出函数映射
+        # Define export function mapping
         export_map = {}
 
-        # 根据 workflow 的类型填充导出映射
+        # Fill export mapping based on workflow type
         if isinstance(workflow, HTMLExportable):
             html_config = None
             if isinstance(workflow, MarkdownBasedWorkflow):
@@ -1448,7 +1448,7 @@ async def _perform_translation(
         if isinstance(workflow, EpubExportable):
             export_map['epub'] = (workflow.export_to_epub, f"{filename_stem}_translated.epub", False)
 
-        # 循环生成文件
+        # Loop to generate files
         for file_type, (export_func, filename, is_string_output) in export_map.items():
             try:
                 content = await asyncio.to_thread(export_func)
@@ -1459,9 +1459,9 @@ async def _perform_translation(
                 downloadable_files[file_type] = {"path": file_path, "filename": filename}
                 task_logger.info(f"Successfully generated {file_type} file")
             except Exception as export_error:
-                task_logger.error(f"生成 {file_type} 文件时出错: {export_error}", exc_info=True)
+                task_logger.error(f"Error generating {file_type} file: {export_error}", exc_info=True)
 
-        # 处理附件文件
+        # Process attachment files
         attachment_files = {}
         attachment_object = workflow.get_attachment()
         if attachment_object and attachment_object.attachment_dict:
@@ -1476,15 +1476,15 @@ async def _perform_translation(
                     attachment_files[identifier] = {"path": attachment_path, "filename": attachment_filename}
                     task_logger.info(f"Successfully generated attachment '{identifier}' file: {attachment_filename}")
                 except Exception as attachment_error:
-                    task_logger.error(f"生成附件 '{identifier}' 文件时出错: {attachment_error}", exc_info=True)
+                    task_logger.error(f"Error generating attachment '{identifier}' file: {attachment_error}", exc_info=True)
 
-        # 5. 任务成功，更新最终状态
+        # 5. Task successful, update final status
         end_time = time.time()
         duration = end_time - task_state["task_start_time"]
         # --- Attach token stats if available ---
         token_stats_obj = None
         try:
-            # 1) 优先从 workflow.translator.agent.token_counter 提取
+            # 1) Priority: extract from workflow.translator.agent.token_counter
             _translator = getattr(workflow, 'translator', None)
             _agent_via_translator = getattr(_translator, 'agent', None) if _translator is not None else None
             _tc_via_translator = getattr(_agent_via_translator, 'token_counter', None) if _agent_via_translator is not None else None
@@ -1499,7 +1499,7 @@ async def _perform_translation(
                 else:
                     task_logger.info("[TokenStats] workflow.translator.agent.token_counter is None")
 
-                # 2) 备用：从 workflow.agent.token_counter 提取
+                # 2) Fallback: extract from workflow.agent.token_counter
                 _agent = getattr(workflow, 'agent', None)
                 _tc = getattr(_agent, 'token_counter', None) if _agent is not None else None
                 if _tc is not None:
@@ -1520,8 +1520,8 @@ async def _perform_translation(
                 log_history = tasks_log_histories.get(task_id, [])
                 # Find last line containing token stats
                 for line in reversed(log_history):
-                    if "Token使用统计" in line:
-                        # Example: 输入: 1.23K(含cached: 0.45K), 输出: 2.34K(含reasoning: 0.10K), 总计: 3.67K
+                    if "Token usage statistics" in line:
+                        # Example: Input: 1.23K(including cached: 0.45K), Output: 2.34K(including reasoning: 0.10K), Total: 3.67K
                         def _extract(pattern):
                             m = re.search(pattern, line)
                             if not m:
@@ -1532,11 +1532,11 @@ async def _perform_translation(
                             except Exception:
                                 return None
                         token_stats_obj = {
-                            "input_tokens": _extract(r"输入:\s*([0-9.]+)K"),
-                            "cached_tokens": _extract(r"含cached:\s*([0-9.]+)K"),
-                            "output_tokens": _extract(r"输出:\s*([0-9.]+)K"),
-                            "reasoning_tokens": _extract(r"含reasoning:\s*([0-9.]+)K"),
-                            "total_tokens": _extract(r"总计:\s*([0-9.]+)K"),
+                            "input_tokens": _extract(r"Input:\s*([0-9.]+)K"),
+                            "cached_tokens": _extract(r"including cached:\s*([0-9.]+)K"),
+                            "output_tokens": _extract(r"Output:\s*([0-9.]+)K"),
+                            "reasoning_tokens": _extract(r"including reasoning:\s*([0-9.]+)K"),
+                            "total_tokens": _extract(r"Total:\s*([0-9.]+)K"),
                         }
                         task_logger.info(f"[TokenStats] extracted from logs: {token_stats_obj}")
                         break
@@ -1558,7 +1558,7 @@ async def _perform_translation(
     except asyncio.CancelledError:
         end_time = time.time()
         duration = end_time - task_state["task_start_time"]
-        task_logger.info(f"翻译任务 '{original_filename}' 已被取消 (用时 {duration:.2f} 秒).")
+        task_logger.info(f"Translation task '{original_filename}' has been cancelled (took {duration:.2f} seconds).")
         task_state.update({
             "status_message": f"Translation task cancelled (took {duration:.2f} seconds)", "error_flag": False, "download_ready": False,
             "task_end_time": end_time,
@@ -1566,7 +1566,7 @@ async def _perform_translation(
     except Exception as e:
         end_time = time.time()
         duration = end_time - task_state["task_start_time"]
-        error_message = f"翻译失败: {e}"
+        error_message = f"Translation failed: {e}"
         task_logger.error(error_message, exc_info=True)
         task_state.update({
             "status_message": f"Translation failed (took {duration:.2f} seconds): {e}", "error_flag": True,
@@ -1574,21 +1574,21 @@ async def _perform_translation(
             "task_end_time": end_time,
         })
     finally:
-        # 无论成功失败，都清理内存中的 workflow 实例和临时目录（如果失败）
+        # Regardless of success or failure, clean up workflow instance in memory and temporary directory (if failed)
         task_state["workflow_instance"] = None
         task_state["is_processing"] = False
         task_state["current_task_ref"] = None
 
         if task_state["error_flag"] and temp_dir and os.path.isdir(temp_dir):
             shutil.rmtree(temp_dir)
-            task_logger.info(f"因任务失败，已清理临时目录")
+            task_logger.info(f"Temporary directory cleaned up due to task failure")
             task_state["temp_dir"] = None
 
         task_logger.info(f"Background translation task '{original_filename}' processing completed")
         task_logger.removeHandler(task_handler)
 
 
-# --- 核心任务启动逻辑 ---
+# --- Core task startup logic ---
 async def _start_translation_task(
         task_id: str,
         payload: TranslatePayload,
@@ -1602,9 +1602,9 @@ async def _start_translation_task(
     task_state = tasks_state[task_id]
 
     if task_state["is_processing"] and task_state["current_task_ref"] and not task_state["current_task_ref"].done():
-        raise HTTPException(status_code=429, detail=f"任务ID '{task_id}' 正在进行中，请稍后再试。")
+        raise HTTPException(status_code=429, detail=f"Task ID '{task_id}' is in progress, please try again later.")
 
-    # 如果存在旧的临时文件，先清理
+    # If old temporary files exist, clean them up first
     if task_state.get("temp_dir") and os.path.isdir(task_state["temp_dir"]):
         shutil.rmtree(task_state["temp_dir"])
 
@@ -1646,31 +1646,31 @@ async def _start_translation_task(
         loop = asyncio.get_running_loop()
         task = loop.create_task(_perform_translation(task_id, payload, file_contents, original_filename))
         task_state["current_task_ref"] = task
-        return {"task_started": True, "task_id": task_id, "message": "翻译任务已成功启动，请稍候..."}
+        return {"task_started": True, "task_id": task_id, "message": "Translation task started successfully, please wait..."}
     except Exception as e:
         task_state.update({"is_processing": False, "status_message": f"Failed to start task: {e}", "error_flag": True,
                            "current_task_ref": None})
-        raise HTTPException(status_code=500, detail=f"启动翻译任务时出错: {e}")
+        raise HTTPException(status_code=500, detail=f"Error starting translation task: {e}")
 
 
-# --- 取消任务逻辑 ---
+# --- Cancel task logic ---
 def _cancel_translation_logic(task_id: str):
     task_state = tasks_state.get(task_id)
     if not task_state:
-        raise HTTPException(status_code=404, detail=f"找不到任务ID '{task_id}'。")
+        raise HTTPException(status_code=404, detail=f"Task ID '{task_id}' not found.")
     if not task_state or not task_state["is_processing"] or not task_state["current_task_ref"]:
-        raise HTTPException(status_code=400, detail=f"任务ID '{task_id}' 没有正在进行的翻译任务可取消。")
+        raise HTTPException(status_code=400, detail=f"Task ID '{task_id}' has no ongoing translation task to cancel.")
 
     task_to_cancel: Optional[asyncio.Task] = task_state["current_task_ref"]
     if not task_to_cancel or task_to_cancel.done():
         task_state["is_processing"] = False
         task_state["current_task_ref"] = None
-        raise HTTPException(status_code=400, detail="任务已完成或已被取消。")
+        raise HTTPException(status_code=400, detail="Task has been completed or cancelled.")
 
-    print(f"[{task_id}] 收到取消翻译任务的请求。")
+    print(f"[{task_id}] Received request to cancel translation task.")
     task_to_cancel.cancel()
     task_state["status_message"] = "Cancelling task..."
-    return {"cancelled": True, "message": "取消请求已发送。请等待状态更新。"}
+    return {"cancelled": True, "message": "Cancel request sent. Please wait for status update."}
 
 
 # ===================================================================
@@ -1679,32 +1679,32 @@ def _cancel_translation_logic(task_id: str):
 
 @service_router.post(
     "/translate",
-    summary="提交翻译任务 (统一入口)",
+    summary="Submit translation task (unified entry point)",
     description="""
-接收一个包含文件内容（Base64编码）和工作流参数的JSON请求，启动一个后台翻译任务。
+Receive a JSON request containing file content (Base64 encoded) and workflow parameters to start a background translation task.
 
-- **工作流选择**: 请求体中的 `payload.workflow_type` 字段决定了本次任务的类型（如 `markdown_based`, `txt`, `json`, `xlsx`, `docx`, `srt`, `epub`, `html`）。
-- **动态参数**: 根据所选工作流，API需要不同的参数集。请参考下面的Schema或示例。
-- **异步处理**: 此端点会立即返回任务ID，客户端需轮询状态接口获取进度。
+- **Workflow Selection**: The `payload.workflow_type` field in the request body determines the type of this task (such as `markdown_based`, `txt`, `json`, `xlsx`, `docx`, `srt`, `epub`, `html`).
+- **Dynamic Parameters**: Depending on the selected workflow, the API requires different parameter sets. Please refer to the Schema or examples below.
+- **Asynchronous Processing**: This endpoint returns a task ID immediately, and the client needs to poll the status interface to get progress.
 """,
     responses={
         200: {
-            "description": "翻译任务已成功启动。",
+            "description": "Translation task started successfully.",
             "content": {"application/json": {
-                "example": {"task_started": True, "task_id": "a1b2c3d4", "message": "翻译任务已成功启动，请稍候..."}}}
+                "example": {"task_started": True, "task_id": "a1b2c3d4", "message": "Translation task started successfully, please wait..."}}}
         },
-        400: {"description": "请求体无效，例如Base64解码失败。"},
-        429: {"description": "服务器已有一个同ID的任务在处理中（理论上不应发生，因为ID是新生成的）。"},
-        500: {"description": "启动后台任务时发生未知错误。"},
+        400: {"description": "Invalid request body, e.g., Base64 decoding failed."},
+        429: {"description": "Server already has a task with the same ID being processed (theoretically should not happen since ID is newly generated)."},
+        500: {"description": "Unknown error occurred while starting background task."},
     }
 )
-async def service_translate(request: TranslateServiceRequest = Body(..., description="翻译任务的详细参数和文件内容。")):
+async def service_translate(request: TranslateServiceRequest = Body(..., description="Detailed parameters and file content for translation task.")):
     task_id = uuid.uuid4().hex[:8]
 
     try:
         file_contents = base64.b64decode(request.file_content)
     except (binascii.Error, TypeError) as e:
-        raise HTTPException(status_code=400, detail=f"无效的Base64文件内容: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid Base64 file content: {e}")
 
     try:
         response_data = await _start_translation_task(
@@ -1724,8 +1724,8 @@ async def service_translate(request: TranslateServiceRequest = Body(..., descrip
 
 @service_router.post(
     "/cancel/{task_id}",
-    summary="取消翻译任务",
-    description="""根据任务ID取消一个正在进行中的翻译任务。如果任务已经完成、失败或已经被取消，则会返回错误。"""
+    summary="Cancel translation task",
+    description="""Cancel an ongoing translation task based on task ID. If the task has been completed, failed, or already cancelled, an error will be returned."""
 )
 async def service_cancel_translate(task_id: str):
     return _cancel_translation_logic(task_id)
@@ -1733,54 +1733,54 @@ async def service_cancel_translate(task_id: str):
 
 @service_router.post(
     "/release/{task_id}",
-    summary="释放任务资源",
-    description="""根据任务ID释放其在服务器上占用的所有资源，包括状态、日志和缓存的翻译结果文件。如果任务正在进行，会先尝试取消该任务。此操作不可逆。"""
+    summary="Release task resources",
+    description="""Release all resources occupied by the task on the server based on task ID, including status, logs, and cached translation result files. If the task is in progress, it will first try to cancel the task. This operation is irreversible."""
 )
 async def service_release_task(task_id: str):
     if task_id not in tasks_state:
-        return JSONResponse(status_code=404, content={"released": False, "message": f"找不到任务ID '{task_id}'。"})
+        return JSONResponse(status_code=404, content={"released": False, "message": f"Task ID '{task_id}' not found."})
     task_state = tasks_state.get(task_id)
     message_parts = []
     if task_state and task_state.get("is_processing") and task_state.get("current_task_ref"):
         try:
-            print(f"[{task_id}] 任务正在进行中，将在释放前尝试取消。")
+            print(f"[{task_id}] Task is in progress, will try to cancel before release.")
             _cancel_translation_logic(task_id)
-            message_parts.append("任务已被取消。")
+            message_parts.append("Task has been cancelled.")
         except HTTPException as e:
-            print(f"[{task_id}] 取消任务时出现预期中的情况（可能已完成）: {e.detail}")
-            message_parts.append(f"任务取消步骤已跳过（可能已完成或取消）。")
+            print(f"[{task_id}] Expected situation when cancelling task (may have been completed): {e.detail}")
+            message_parts.append(f"Task cancellation step skipped (may have been completed or cancelled).")
 
     if task_state:
         temp_dir = task_state.get("temp_dir")
         if temp_dir and os.path.isdir(temp_dir):
             try:
                 shutil.rmtree(temp_dir)
-                message_parts.append("临时文件已清理。")
-                print(f"[{task_id}] 临时目录 '{temp_dir}' 已被删除。")
+                message_parts.append("Temporary files cleaned up.")
+                print(f"[{task_id}] Temporary directory '{temp_dir}' has been deleted.")
             except Exception as e:
-                message_parts.append(f"清理临时文件时出错: {e}。")
-                print(f"[{task_id}] 删除临时目录 '{temp_dir}' 时出错: {e}")
+                message_parts.append(f"Error cleaning up temporary files: {e}.")
+                print(f"[{task_id}] Error deleting temporary directory '{temp_dir}': {e}")
 
     tasks_state.pop(task_id, None)
     tasks_log_queues.pop(task_id, None)
     tasks_log_histories.pop(task_id, None)
-    print(f"[{task_id}] 资源已成功释放。")
-    message_parts.append(f"任务 '{task_id}' 的资源已释放。")
+    print(f"[{task_id}] Resources successfully released.")
+    message_parts.append(f"Resources for task '{task_id}' have been released.")
     return JSONResponse(content={"released": True, "message": " ".join(message_parts)})
 
 
 @service_router.get(
     "/status/{task_id}",
-    summary="获取任务状态",
-    description="根据任务ID获取任务的当前状态。当 `download_ready` 为 `true` 时，`downloads` 和 `attachment` 对象中会包含可用的下载链接。",
+    summary="Get task status",
+    description="Get the current status of a task based on task ID. When `download_ready` is `true`, the `downloads` and `attachment` objects will contain available download links.",
     responses={
         200: {
-            "description": "成功获取任务状态。",
+            "description": "Successfully retrieved task status.",
             "content": {
                 "application/json": {
                     "examples": {
                         "processing": {
-                            "summary": "进行中",
+                            "summary": "In Progress",
                             "value": {
                                 "task_id": "a1b2c3d4", "is_processing": True,
                                 "status_message": "Processing 'annual_report.pdf'...",
@@ -1790,7 +1790,7 @@ async def service_release_task(task_id: str):
                             }
                         },
                         "completed_markdown": {
-                            "summary": "已完成 (Markdown)",
+                            "summary": "Completed (Markdown)",
                             "value": {
                                 "task_id": "b2865b93", "is_processing": False,
                                 "status_message": "Translation completed successfully in 123.45 seconds",
@@ -1806,7 +1806,7 @@ async def service_release_task(task_id: str):
                             }
                         },
                         "completed_with_attachment": {
-                            "summary": "已完成 (带附件)",
+                            "summary": "Completed (with attachments)",
                             "value": {
                                 "task_id": "g1h2i3j4", "is_processing": False,
                                 "status_message": "Translation completed successfully in 125.00 seconds",
@@ -1825,7 +1825,7 @@ async def service_release_task(task_id: str):
                             }
                         },
                         "completed_xlsx": {
-                            "summary": "已完成 (XLSX)",
+                            "summary": "Completed (XLSX)",
                             "value": {
                                 "task_id": "d7e8f9a0",
                                 "is_processing": False,
@@ -1845,7 +1845,7 @@ async def service_release_task(task_id: str):
                             }
                         },
                         "completed_docx": {
-                            "summary": "已完成 (DOCX)",
+                            "summary": "Completed (DOCX)",
                             "value": {
                                 "task_id": "f8a9c1b2", "is_processing": False,
                                 "status_message": "Translation completed successfully in 25.10 seconds",
@@ -1860,7 +1860,7 @@ async def service_release_task(task_id: str):
                             }
                         },
                         "completed_epub": {
-                            "summary": "已完成 (EPUB)",
+                            "summary": "Completed (EPUB)",
                             "value": {
                                 "task_id": "e9b8d7c6", "is_processing": False,
                                 "status_message": "Translation completed successfully in 45.32 seconds",
@@ -1876,7 +1876,7 @@ async def service_release_task(task_id: str):
                         },
                         # --- HTML STATUS EXAMPLE START ---
                         "completed_html": {
-                            "summary": "已完成 (HTML)",
+                            "summary": "Completed (HTML)",
                             "value": {
                                 "task_id": "a1b2c3d4", "is_processing": False,
                                 "status_message": "Translation completed successfully in 15.78 seconds",
@@ -1891,7 +1891,7 @@ async def service_release_task(task_id: str):
                         },
                         # --- HTML STATUS EXAMPLE END ---
                         "error": {
-                            "summary": "失败",
+                            "summary": "Failed",
                             "value": {
                                 "task_id": "c3d4e5f6", "is_processing": False,
                                 "status_message": "Translation failed: LLM API key is invalid",
@@ -1904,14 +1904,14 @@ async def service_release_task(task_id: str):
                 }
             }
         },
-        404: {"description": "指定的任务ID不存在。"},
+        404: {"description": "Specified task ID does not exist."},
     }
 )
 async def service_get_status(
-        task_id: str = FastApiPath(..., description="要查询状态的任务的ID", examples=["b2865b93"])):
+        task_id: str = FastApiPath(..., description="ID of the task to query status for", examples=["b2865b93"])):
     task_state = tasks_state.get(task_id)
     if not task_state:
-        raise HTTPException(status_code=404, detail=f"找不到任务ID '{task_id}'。")
+        raise HTTPException(status_code=404, detail=f"Task ID '{task_id}' not found.")
 
     downloads = {}
     if task_state.get("download_ready") and task_state.get("downloadable_files"):
@@ -1942,12 +1942,12 @@ async def service_get_status(
 
 @service_router.get(
     "/logs/{task_id}",
-    summary="获取任务增量日志",
-    description="""以流式方式获取任务的增量日志。客户端每次调用此接口，都会返回自上次调用以来产生的新日志行。这对于实时展示翻译进度非常有用。如果任务ID不存在，则返回404。"""
+    summary="Get task incremental logs",
+    description="""Get task incremental logs in streaming mode. Each time the client calls this interface, it returns new log lines generated since the last call. This is very useful for real-time display of translation progress. If the task ID does not exist, 404 is returned."""
 )
 async def service_get_logs(task_id: str):
     if task_id not in tasks_log_queues:
-        raise HTTPException(status_code=404, detail=f"找不到任务ID '{task_id}' 的日志队列。")
+        raise HTTPException(status_code=404, detail=f"Log queue for task ID '{task_id}' not found.")
     log_queue = tasks_log_queues[task_id]
     new_logs = []
     while not log_queue.empty():
@@ -1964,10 +1964,10 @@ FileType = Literal["markdown", "markdown_zip", "html", "txt", "json", "xlsx", "c
 
 @service_router.get(
     "/download/{task_id}/{file_type}",
-    summary="下载翻译结果文件",
+    summary="Download translation result files",
     responses={
         200: {
-            "description": "成功返回文件流。文件名通过 Content-Disposition 头指定。",
+            "description": "Successfully returned file stream. Filename is specified via Content-Disposition header.",
             "content": {
                 "text/html; charset=utf-8": {"schema": {"type": "string"}},
                 "text/markdown; charset=utf-8": {"schema": {"type": "string"}},
@@ -1983,23 +1983,23 @@ FileType = Literal["markdown", "markdown_zip", "html", "txt", "json", "xlsx", "c
                     "schema": {"type": "string", "format": "binary"}},
             }
         },
-        404: {"description": "任务ID不存在，或该任务不支持所请求的文件类型，或临时文件已丢失。"},
-        500: {"description": "在服务器上读取文件时发生内部错误。"}
+        404: {"description": "Task ID does not exist, or the task does not support the requested file type, or temporary files have been lost."},
+        500: {"description": "Internal error occurred while reading file on server."}
     }
 )
 async def service_download_file(
-        task_id: str = FastApiPath(..., description="已完成任务的ID", examples=["b2865b93"]),
-        file_type: FileType = FastApiPath(..., description="要下载的文件类型。",
+        task_id: str = FastApiPath(..., description="ID of completed task", examples=["b2865b93"]),
+        file_type: FileType = FastApiPath(..., description="File type to download.",
                                           examples=["html", "json", "csv", "docx", "srt", "epub"])
 ):
     task_state = tasks_state.get(task_id)
     if not task_state:
-        raise HTTPException(status_code=404, detail=f"找不到任务ID '{task_id}'。")
+        raise HTTPException(status_code=404, detail=f"Task ID '{task_id}' not found.")
 
     file_info = task_state.get("downloadable_files", {}).get(file_type)
     if not file_info or not os.path.exists(file_info.get("path")):
         raise HTTPException(status_code=404,
-                            detail=f"任务 '{task_id}' 不支持下载 '{file_type}' 类型的文件，或文件已丢失。")
+                            detail=f"Task '{task_id}' does not support downloading '{file_type}' type files, or files have been lost.")
 
     file_path = file_info["path"]
     filename = file_info["filename"]
@@ -2010,30 +2010,30 @@ async def service_download_file(
 
 @service_router.get(
     "/attachment/{task_id}/{identifier}",
-    summary="下载附件文件",
-    description="根据任务ID和附件标识符下载在翻译过程中生成的附加文件，例如自动生成的术语表。",
+    summary="Download attachment files",
+    description="Download additional files generated during translation based on task ID and attachment identifier, such as automatically generated glossaries.",
     responses={
         200: {
-            "description": "成功返回文件流。文件名通过 Content-Disposition 头指定。",
+            "description": "Successfully returned file stream. Filename is specified via Content-Disposition header.",
             "content": {
                 "application/octet-stream": {"schema": {"type": "string", "format": "binary"}},
             }
         },
-        404: {"description": "任务ID不存在，或该任务没有指定的附件，或临时文件已丢失。"},
+        404: {"description": "Task ID does not exist, or the task has no specified attachment, or temporary files have been lost."},
     }
 )
 async def service_download_attachment(
-        task_id: str = FastApiPath(..., description="已完成任务的ID", examples=["g1h2i3j4"]),
-        identifier: str = FastApiPath(..., description="要下载的附件的标识符。", examples=["glossary"])
+        task_id: str = FastApiPath(..., description="ID of completed task", examples=["g1h2i3j4"]),
+        identifier: str = FastApiPath(..., description="Identifier of the attachment to download.", examples=["glossary"])
 ):
     task_state = tasks_state.get(task_id)
     if not task_state:
-        raise HTTPException(status_code=404, detail=f"找不到任务ID '{task_id}'。")
+        raise HTTPException(status_code=404, detail=f"Task ID '{task_id}' not found.")
 
     attachment_info = task_state.get("attachment_files", {}).get(identifier)
     if not attachment_info or not os.path.exists(attachment_info.get("path")):
         raise HTTPException(status_code=404,
-                            detail=f"任务 '{task_id}' 不存在标识符为 '{identifier}' 的附件，或文件已丢失。")
+                            detail=f"Task '{task_id}' has no attachment with identifier '{identifier}', or files have been lost.")
 
     file_path = attachment_info["path"]
     filename = attachment_info["filename"]
@@ -2046,19 +2046,19 @@ async def service_download_attachment(
 
 @service_router.get(
     "/content/{task_id}/{file_type}",
-    summary="下载翻译结果内容 (JSON)",
+    summary="Download translation result content (JSON)",
     description="""
-以JSON格式获取指定文件类型的内容，而不是直接下载文件。
+Get content of specified file type in JSON format instead of downloading files directly.
 
-- **返回结构**: 返回一个JSON对象，包含文件名、文件类型和文件内容的Base64编码字符串。
-- **内容编码**: 文件内容总是以 **Base64** 编码，客户端需要自行解码才能使用。
+- **Return Structure**: Returns a JSON object containing filename, file type, and Base64-encoded string of file content.
+- **Content Encoding**: File content is always **Base64** encoded, and the client needs to decode it to use.
 """,
     responses={
         200: {
-            "description": "成功返回文件内容。",
+            "description": "Successfully returned file content.",
             "content": {"application/json": {"examples": {
                 "html_base64": {
-                    "summary": "HTML 内容 (Base64)",
+                    "summary": "HTML Content (Base64)",
                     "value": {
                         "file_type": "html",
                         "filename": "my_doc_translated.html",
@@ -2066,7 +2066,7 @@ async def service_download_attachment(
                     }
                 },
                 "docx_base64": {
-                    "summary": "DOCX 内容 (Base64)",
+                    "summary": "DOCX Content (Base64)",
                     "value": {
                         "file_type": "docx",
                         "filename": "my_doc_translated.docx",
@@ -2074,7 +2074,7 @@ async def service_download_attachment(
                     }
                 },
                 "epub_base64": {
-                    "summary": "EPUB 内容 (Base64)",
+                    "summary": "EPUB Content (Base64)",
                     "value": {
                         "file_type": "epub",
                         "filename": "my_book_translated.epub",
@@ -2083,23 +2083,23 @@ async def service_download_attachment(
                 }
             }}}
         },
-        404: {"description": "任务ID不存在，或该任务不支持所请求的文件类型，或临时文件已丢失。"},
-        500: {"description": "在服务器上读取文件时发生内部错误。"}
+        404: {"description": "Task ID does not exist, or the task does not support the requested file type, or temporary files have been lost."},
+        500: {"description": "Internal error occurred while reading file on server."}
     }
 )
 async def service_content(
-        task_id: str = FastApiPath(..., description="已完成任务的ID", examples=["b2865b93"]),
-        file_type: FileType = FastApiPath(..., description="要获取内容的文件类型。",
+        task_id: str = FastApiPath(..., description="ID of completed task", examples=["b2865b93"]),
+        file_type: FileType = FastApiPath(..., description="File type to get content for.",
                                           examples=["html", "json", "csv", "docx", "srt", "epub"])
 ):
     task_state = tasks_state.get(task_id)
     if not task_state:
-        raise HTTPException(status_code=404, detail=f"找不到任务ID '{task_id}'。")
+        raise HTTPException(status_code=404, detail=f"Task ID '{task_id}' not found.")
 
     file_info = task_state.get("downloadable_files", {}).get(file_type)
     if not file_info or not os.path.exists(file_info.get("path")):
         raise HTTPException(status_code=404,
-                            detail=f"任务 '{task_id}' 不支持获取 '{file_type}' 类型の内容，或文件已丢失。")
+                            detail=f"Task '{task_id}' does not support getting '{file_type}' type content, or files have been lost.")
 
     file_path = file_info["path"]
     filename = file_info["filename"]
@@ -2114,41 +2114,41 @@ async def service_content(
             "content": final_content
         })
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"读取文件时发生内部错误: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal error occurred while reading file: {e}")
 
 
 # ===================================================================
-# --- 应用主路由和启动 ---
+# --- Application main routes and startup ---
 # ===================================================================
-@service_router.get("/engin-list", tags=["Application"], description="返回正在进行的可用的转换引擎")
+@service_router.get("/engin-list", tags=["Application"], description="Return available conversion engines")
 async def service_get_engin_list():
     engin_list = ["mineru"]
     if DOCLING_EXIST: engin_list.append("docling")
     return JSONResponse(content=engin_list)
 
 
-@service_router.get("/task-list", tags=["Application"], description="返回正在进行的task_id列表")
+@service_router.get("/task-list", tags=["Application"], description="Return list of ongoing task_ids")
 async def service_get_task_list(): return JSONResponse(content=list(tasks_state.keys()))
 
 
-@service_router.get("/default-params", tags=["Application"], description="返回一些默认参数")
+@service_router.get("/default-params", tags=["Application"], description="Return some default parameters")
 def service_get_default_params(): return JSONResponse(content=default_params)
 
 
-@service_router.get("/meta", tags=["Application"], description="返回软件版本号")
+@service_router.get("/meta", tags=["Application"], description="Return software version number")
 async def service_get_app_version(): return JSONResponse(content={"version": __version__})
 
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def main_page(request: Request):
-    # 未认证则跳转到登录页
+    # Redirect to login page if not authenticated
     try:
         from collabtrans.auth import get_session_manager
         session_manager = get_session_manager()
         if not await session_manager.is_authenticated(request):
             return RedirectResponse(url="/login?next=/", status_code=302)
     except Exception:
-        # 认证模块不可用时，直接继续
+        # Continue directly when authentication module is unavailable
         pass
 
     index_path = Path(STATIC_DIR) / "index.html"
@@ -2160,13 +2160,13 @@ async def main_page(request: Request):
 
 @app.get("/settings", response_class=HTMLResponse, include_in_schema=False)
 async def settings_page(request: Request):
-    # 未认证则跳转到登录页
+    # Redirect to login page if not authenticated
     try:
         from collabtrans.auth import get_session_manager
         session_manager = get_session_manager()
         if not await session_manager.is_authenticated(request):
             return RedirectResponse(url="/login?next=/settings", status_code=302)
-        # 仅允许超级管理员或管理员组成员访问
+        # Only allow super admin or admin group members to access
         try:
             user = await session_manager.get_user(request)
             if not user or not (user.is_super_admin() or user.is_admin()):
@@ -2174,7 +2174,7 @@ async def settings_page(request: Request):
         except Exception:
             return RedirectResponse(url="/", status_code=302)
     except Exception:
-        # 认证模块不可用时，直接继续
+        # Continue directly when authentication module is unavailable
         pass
 
     index_path = Path(STATIC_DIR) / "settings.html"
@@ -2185,7 +2185,7 @@ async def settings_page(request: Request):
 
 @app.get("/admin", response_class=HTMLResponse, include_in_schema=False)
 async def main_page_admin(request: Request):
-    # 未认证则跳转到登录页
+    # Redirect to login page if not authenticated
     try:
         from collabtrans.auth import get_session_manager
         session_manager = get_session_manager()
@@ -2245,7 +2245,7 @@ async def redoc_html():
 async def temp_translate(
         base_url: str = Body(...), api_key: str = Body(...), model_id: str = Body(...),
         mineru_token: Optional[str] = Body(None), file_name: str = Body(...), file_content: str = Body(...),
-        to_lang: str = Body("中文"), concurrent: int = Body(default_params["concurrent"]),
+        to_lang: str = Body("Chinese"), concurrent: int = Body(default_params["concurrent"]),
         temperature: float = Body(default_params["temperature"]),
         thinking: ThinkingMode = Body(default_params["thinking"]),
         chunk_size: int = Body(default_params["chunk_size"]), custom_prompt: Optional[str] = Body(None),
@@ -2272,7 +2272,7 @@ async def temp_translate(
         await workflow.translate_async()
         return {"success": True, "content": workflow.export_to_markdown()}
     except Exception as e:
-        global_logger.error(f"临时翻译接口出现错误：{e.__repr__()}", exc_info=True)
+        global_logger.error(f"Temporary translation interface error: {e.__repr__()}", exc_info=True)
         return {"success": False, "reason": e.__repr__()}
 
 
@@ -2289,24 +2289,24 @@ def find_free_port(start_port):
 
 
 def run_app(port: int | None = None):
-    # 首次部署时自动创建local_secrets.json文件
-    # 配置文件优先级：
-    # 1. /etc/collabtrans/local_secrets.json (系统配置)
-    # 2. 可执行程序目录下的 local_secrets.json (打包的配置)
-    # 3. 当前目录下的 local_secrets.json (开发环境)
+    # Automatically create local_secrets.json file on first deployment
+    # Configuration file priority:
+    # 1. /etc/collabtrans/local_secrets.json (system configuration)
+    # 2. local_secrets.json in executable program directory (packaged configuration)
+    # 3. local_secrets.json in current directory (development environment)
     
     system_secrets_path = "/etc/collabtrans/local_secrets.json"
     system_dir_exists = os.path.exists("/etc/collabtrans")
     
-    # 确定配置文件路径
+    # Determine configuration file path
     if system_dir_exists and os.path.exists(system_secrets_path):
         secrets_path = system_secrets_path
         print(f"Using system secrets config: {secrets_path}")
     else:
-        # 尝试从可执行程序目录加载配置文件
+        # Try to load configuration file from executable program directory
         import sys
         if getattr(sys, 'frozen', False):
-            # PyInstaller打包环境
+            # PyInstaller packaged environment
             exe_dir = os.path.dirname(sys.executable)
             exe_secrets_path = os.path.join(exe_dir, "local_secrets.json")
             if os.path.exists(exe_secrets_path):
@@ -2316,18 +2316,18 @@ def run_app(port: int | None = None):
                 secrets_path = os.path.join(os.getcwd(), "local_secrets.json")
                 print(f"Using local secrets config: {secrets_path}")
         else:
-            # 开发环境
+            # Development environment
             secrets_path = os.path.join(os.getcwd(), "local_secrets.json")
             print(f"Using local secrets config: {secrets_path}")
     
-    # 检查是否需要创建配置文件
+    # Check if configuration file needs to be created
     if not os.path.exists(secrets_path):
-        # 确定模板文件路径
+        # Determine template file path
         system_template_path = "/etc/collabtrans/local_secrets.json.template"
         exe_template_path = os.path.join(os.path.dirname(sys.executable), "local_secrets.json.template") if getattr(sys, 'frozen', False) else None
         local_template_path = os.path.join(os.getcwd(), "local_secrets.json.template")
         
-        # 按优先级选择模板文件
+        # Select template file by priority
         template_path = None
         if system_dir_exists and os.path.exists(system_template_path):
             template_path = system_template_path
@@ -2354,7 +2354,7 @@ def run_app(port: int | None = None):
         print(f"Starting DocuTranslate WebUI version: {__version__}")
         app.state.port_to_use = port_to_use
 
-        # 读取全局与敏感配置，按需启用内置 TLS
+        # Read global and sensitive configuration, enable built-in TLS as needed
         ssl_kwargs = {}
         try:
             from collabtrans.config.global_config import get_global_config
@@ -2365,7 +2365,7 @@ def run_app(port: int | None = None):
                 cert_file = getattr(global_config, "https_cert_file", "") or ""
                 key_file = getattr(global_config, "https_key_file", "") or ""
 
-                # 若启用HTTPS但证书缺失，尝试自动生成自签名证书
+                # If HTTPS is enabled but certificates are missing, try to auto-generate self-signed certificates
                 if not (cert_file and key_file and os.path.exists(cert_file) and os.path.exists(key_file)):
                     try:
                         certs_dir = os.path.join(os.getcwd(), "certs")
@@ -2382,16 +2382,16 @@ def run_app(port: int | None = None):
                                 "-out", default_crt,
                                 "-subj", "/CN=localhost"
                             ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                            print("已自动生成自签名HTTPS证书(开发环境): certs/dev.local.crt, certs/dev.local.key")
+                            print("Auto-generated self-signed HTTPS certificate (development environment): certs/dev.local.crt, certs/dev.local.key")
 
                         cert_file = default_crt
                         key_file = default_key
-                        # 回写到全局配置，便于下次启动直接使用
+                        # Write back to global configuration for direct use on next startup
                         global_config.https_cert_file = cert_file
                         global_config.https_key_file = key_file
                         save_global_config()
                     except Exception as gen_err:
-                        print(f"自动生成开发用自签名证书失败，将以HTTP方式启动: {gen_err}")
+                        print(f"Failed to auto-generate development self-signed certificate, will start with HTTP: {gen_err}")
 
                 if cert_file and key_file and os.path.exists(cert_file) and os.path.exists(key_file):
                     secrets_manager = get_secrets_manager()
@@ -2407,9 +2407,9 @@ def run_app(port: int | None = None):
                     if key_password:
                         ssl_kwargs["ssl_keyfile_password"] = key_password
                 else:
-                    print("HTTPS已启用，但证书或私钥文件不存在，将以HTTP方式启动。")
+                    print("HTTPS is enabled, but certificate or private key file does not exist, will start with HTTP.")
         except Exception as _e:
-            print(f"读取HTTPS配置失败，将以HTTP方式启动: {_e}")
+            print(f"Failed to read HTTPS configuration, will start with HTTP: {_e}")
 
         uvicorn.run(app, host="0.0.0.0", port=port_to_use, workers=1, log_level="debug", access_log=False, **ssl_kwargs)
     except Exception as e:

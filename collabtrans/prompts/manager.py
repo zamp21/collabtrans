@@ -12,25 +12,25 @@ logger = logging.getLogger(__name__)
 
 
 class PromptManager:
-    """提示词管理器"""
+    """Prompt manager"""
     
     def __init__(self):
         self.storage = get_prompt_storage()
     
     def get_global_prompts(self) -> List[PromptFile]:
-        """获取全局提示词列表"""
+        """Get global prompt list"""
         return self.storage.get_global_prompts()
     
     def get_user_personal_prompt(self, username: str) -> Optional[PromptFile]:
-        """获取用户个人提示词"""
+        """Get user personal prompt"""
         return self.storage.get_user_personal_prompt(username)
     
     def get_user_selection(self, username: str) -> UserPromptSelection:
-        """获取用户提示词选择"""
+        """Get user prompt selection"""
         return self.storage.get_user_selection(username)
     
     def save_user_selection(self, selection: UserPromptSelection):
-        """保存用户提示词选择"""
+        """Save user prompt selection"""
         self.storage.save_user_selection(selection)
     
     def create_global_prompt(
@@ -40,7 +40,7 @@ class PromptManager:
         owner: str,
         description: Optional[str] = None
     ) -> PromptFile:
-        """创建全局提示词"""
+        """Create global prompt"""
         return self.storage.create_global_prompt(name, prompts_dict, owner, description)
     
     def update_global_prompt(
@@ -49,11 +49,11 @@ class PromptManager:
         prompts_dict: Dict[str, str], 
         updated_by: str
     ) -> bool:
-        """更新全局提示词"""
+        """Update global prompt"""
         return self.storage.update_global_prompt(prompt_id, prompts_dict, updated_by)
     
     def delete_global_prompt(self, prompt_id: str) -> bool:
-        """删除全局提示词"""
+        """Delete global prompt"""
         return self.storage.delete_global_prompt(prompt_id)
     
     def save_user_personal_prompt(
@@ -61,50 +61,50 @@ class PromptManager:
         username: str, 
         prompts_dict: Dict[str, str]
     ) -> bool:
-        """保存用户个人提示词"""
+        """Save user personal prompt"""
         return self.storage.save_user_personal_prompt(username, prompts_dict)
     
     def get_all_versions(self) -> Dict[str, List[dict]]:
-        """获取所有版本信息"""
+        """Get all version information"""
         return self.storage.get_all_versions()
     
     def get_prompt_versions(self, prompt_id: str) -> List:
-        """获取提示词版本列表"""
+        """Get prompt version list"""
         return self.storage.get_prompt_versions(prompt_id)
     
     def validate_prompt_dict(self, prompts_dict: Dict[str, str]) -> Tuple[bool, str]:
-        """验证提示词字典"""
+        """Validate prompt dictionary"""
         if not prompts_dict:
-            return False, "提示词不能为空"
+            return False, "Prompts cannot be empty"
         
-        # 检查是否有重复的提示词名称
+        # Check for duplicate prompt names
         names = list(prompts_dict.keys())
         if len(names) != len(set(names)):
-            return False, "提示词名称不能重复"
+            return False, "Prompt names cannot be duplicated"
         
-        # 检查提示词名称和内容
+        # Check prompt names and content
         for name, content in prompts_dict.items():
             if not name or not name.strip():
-                return False, "提示词名称不能为空"
+                return False, "Prompt name cannot be empty"
             if not content or not content.strip():
-                return False, f"提示词 '{name}' 的内容不能为空"
+                return False, f"Prompt '{name}' content cannot be empty"
             
-            # 检查名称长度
+            # Check name length
             if len(name.strip()) > 100:
-                return False, f"提示词名称 '{name}' 过长（最大100字符）"
+                return False, f"Prompt name '{name}' is too long (max 100 characters)"
             
-            # 检查内容长度
+            # Check content length
             if len(content.strip()) > 10000:
-                return False, f"提示词 '{name}' 的内容过长（最大10000字符）"
+                return False, f"Prompt '{name}' content is too long (max 10000 characters)"
         
-        return True, "验证通过"
+        return True, "Validation passed"
     
     def get_merged_prompts(self, username: str) -> Dict[str, str]:
-        """获取用户合并后的提示词（包括选择的全局提示词和个人提示词）"""
+        """Get user merged prompts (including selected global prompts and personal prompts)"""
         user_selection = self.get_user_selection(username)
         merged_prompts = {}
         
-        # 添加选择的全局提示词
+        # Add selected global prompts
         for prompt_id in user_selection.selected_global_prompts:
             global_prompts = self.get_global_prompts()
             for prompt_file in global_prompts:
@@ -112,13 +112,13 @@ class PromptManager:
                     prompts_dict = self.storage.load_prompts_from_json(
                         self.storage.global_dir / self.storage.global_prompts[prompt_id]['file_path']
                     )
-                    # 添加前缀以避免冲突
+                    # Add prefix to avoid conflicts
                     for name, content in prompts_dict.items():
                         prefixed_name = f"[{prompt_file.name}] {name}"
                         merged_prompts[prefixed_name] = content
                     break
         
-        # 添加个人提示词（优先级更高，会覆盖同名的全局提示词）
+        # Add personal prompts (higher priority, will override global prompts with same name)
         if user_selection.personal_prompt:
             personal_prompt = self.get_user_personal_prompt(username)
             if personal_prompt:
@@ -130,7 +130,7 @@ class PromptManager:
         return merged_prompts
     
     def get_prompt_statistics(self) -> Dict[str, int]:
-        """获取提示词统计信息"""
+        """Get prompt statistics"""
         global_prompts = self.get_global_prompts()
         total_global_items = sum(p.item_count for p in global_prompts)
         
@@ -141,12 +141,12 @@ class PromptManager:
         }
 
 
-# 全局管理器实例
+# Global manager instance
 _prompt_manager = None
 
 
 def get_prompt_manager() -> PromptManager:
-    """获取提示词管理器实例"""
+    """Get prompt manager instance"""
     global _prompt_manager
     if _prompt_manager is None:
         _prompt_manager = PromptManager()

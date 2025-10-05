@@ -8,22 +8,22 @@ from dataclasses import dataclass, asdict, field
 from typing import Optional, Dict, Any, List
 from pathlib import Path
 
-# 创建日志记录器
+# Create logger
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class AppConfig:
-    """应用配置类，管理所有UI设置"""
+    """Application configuration class, manages all UI settings"""
     
-    # 基础设置
+    # Basic settings
     ui_language: str = "zh"
     
-    # 工作流设置
+    # Workflow settings
     translator_last_workflow: str = "markdown_based"
     translator_auto_workflow_enabled: bool = True
     
-    # 格式特定设置
+    # Format-specific settings
     translator_txt_insert_mode: str = "replace"
     translator_txt_separator: str = "\\n"
     translator_xlsx_insert_mode: str = "replace"
@@ -39,19 +39,19 @@ class AppConfig:
     translator_html_separator: str = " "
     translator_json_paths: str = ""
     
-    # 解析设置
+    # Parsing settings
     translator_convert_engine: str = ""
     translator_mineru_token: str = ""
     translator_mineru_model_version: str = "vlm"
     translator_formula_ocr: bool = False
     translator_code_ocr: bool = False
     
-    # AI翻译设置
+    # AI translation settings
     translator_skip_translate: bool = False
     translator_platform_last_platform: str = "https://api.openai.com/v1"
     translator_platform_custom_base_url: str = ""
     translator_thinking_mode: str = "disable"
-    translator_target_language: str = "中文"
+    translator_target_language: str = "Chinese"
     translator_custom_language: str = ""
     translator_custom_prompt: str = ""
     translator_temperature: float = 0.3
@@ -60,11 +60,11 @@ class AppConfig:
     translator_frequency_penalty: float = 0.0
     translator_presence_penalty: float = 0.0
     
-    # 平台特定API设置 (动态保存不同平台的key和model)
+    # Platform-specific API settings (dynamically save keys and models for different platforms)
     platform_api_keys: Dict[str, str] = field(default_factory=dict)
     platform_models: Dict[str, str] = field(default_factory=dict)
     
-    # 术语表设置
+    # Glossary settings
     glossary_agent_last_platform: str = "https://api.openai.com/v1"
     glossary_agent_platform_custom_baseurl: str = ""
     glossary_agent_config_choice: str = "same"
@@ -74,37 +74,37 @@ class AppConfig:
     glossary_agent_top_p: float = 1.0
     glossary_agent_frequency_penalty: float = 0.0
     glossary_agent_presence_penalty: float = 0.0
-    glossary_agent_to_lang: str = "中文"
+    glossary_agent_to_lang: str = "Chinese"
     
-    # 术语表平台特定API设置
+    # Glossary platform-specific API settings
     glossary_platform_api_keys: Dict[str, str] = field(default_factory=dict)
     glossary_platform_models: Dict[str, str] = field(default_factory=dict)
     
-    # 系统设置
+    # System settings
     active_task_ids: List[str] = field(default_factory=list)
     theme: str = "auto"
     
     @classmethod
     def _resolve_app_config_path(cls, config_file: str = "app_config.json") -> Path:
-        """解析 app_config.json 的实际读取路径，按优先级：
+        """Resolve the actual read path for app_config.json, by priority:
         1) /etc/collabtrans/app_config.json
-        2) 可执行目录（PyInstaller）或当前工作目录
-        3) 项目根目录（开发环境）
-        如果传入的是绝对路径，直接返回。
+        2) Executable directory (PyInstaller) or current working directory
+        3) Project root directory (development environment)
+        If an absolute path is passed, return it directly.
         """
         p = Path(config_file)
         if p.is_absolute():
             logger.info(f"[AppConfig] Using absolute path: {p}")
             return p
 
-        # 1) 系统目录优先
+        # 1) System directory priority
         system_dir = Path("/etc/collabtrans")
         system_cfg = system_dir / "app_config.json"
         if system_dir.exists() and system_cfg.exists():
             logger.info(f"[AppConfig] Using system config: {system_cfg}")
             return system_cfg
 
-        # 2) 可执行目录（PyInstaller）或当前工作目录
+        # 2) Executable directory (PyInstaller) or current working directory
         try:
             if getattr(__import__('sys'), 'frozen', False):
                 import sys as _sys
@@ -117,48 +117,48 @@ class AppConfig:
                 if cwd_cfg.exists():
                     logger.info(f"[AppConfig] Using working directory config: {cwd_cfg}")
                     return cwd_cfg
-                # 默认返回可执行目录的预期路径（可能用于后续写入）
+                # Default return to expected path in executable directory (may be used for subsequent writes)
                 return exe_cfg
         except Exception:
             pass
 
-        # 3) 项目根目录（开发环境）
+        # 3) Project root directory (development environment)
         project_root = Path(__file__).resolve().parents[2]
         return project_root / "app_config.json"
 
     @classmethod
     def load_from_file(cls, config_file: str = "app_config.json") -> "AppConfig":
-        """从文件加载配置，遵循系统优先路径解析"""
+        """Load configuration from file, following system priority path resolution"""
         try:
             cfg_path = cls._resolve_app_config_path(config_file)
             if cfg_path.exists():
-                logger.info(f"正在从文件加载应用配置: {cfg_path}")
+                logger.info(f"Loading application configuration from file: {cfg_path}")
                 with open(cfg_path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     config = cls()
                     config.update_from_dict(data)
-                    logger.info("应用配置加载成功")
+                    logger.info("Application configuration loaded successfully")
                     return config
             else:
-                logger.info(f"配置文件 {cfg_path} 不存在，使用默认配置")
+                logger.info(f"Configuration file {cfg_path} does not exist, using default configuration")
                 return cls()
         except Exception as e:
-            logger.error(f"加载应用配置失败: {e}")
+            logger.error(f"Failed to load application configuration: {e}")
             return cls()
     
     def save_to_file(self, config_file: str = "app_config.json") -> bool:
-        """保存配置到文件（系统目录优先，失败则回退到工作目录）"""
+        """Save configuration to file (system directory priority, fallback to working directory on failure)"""
         config_data = asdict(self)
         candidates = []
         system_dir = Path("/etc/collabtrans")
-        # 1) 系统目录优先
+        # 1) System directory priority
         candidates.append(system_dir / "app_config.json")
-        # 2) 解析得到的路径（可能是可执行目录或工作目录）
+        # 2) Resolved path (may be executable directory or working directory)
         try:
             candidates.append(self._resolve_app_config_path(config_file))
         except Exception:
             pass
-        # 3) 明确工作目录回退
+        # 3) Explicit working directory fallback
         candidates.append(Path.cwd() / "app_config.json")
 
         last_error = None
@@ -173,86 +173,86 @@ class AppConfig:
                         os.chmod(path, 0o660)
                 except Exception:
                     pass
-                logger.info(f"应用配置保存成功: {path}")
+                logger.info(f"Application configuration saved successfully: {path}")
                 return True
             except Exception as e:
                 last_error = e
-                logger.warning(f"写入失败，尝试下一个位置: {path} -> {e}")
+                logger.warning(f"Write failed, trying next location: {path} -> {e}")
                 continue
 
-        logger.error(f"保存应用配置失败: {last_error}")
+        logger.error(f"Failed to save application configuration: {last_error}")
         return False
     
     def update_from_dict(self, data: Dict[str, Any]) -> None:
-        """从字典更新配置"""
+        """Update configuration from dictionary"""
         for key, value in data.items():
             if hasattr(self, key):
                 if key in ['platform_api_keys', 'platform_models', 'glossary_platform_api_keys', 'glossary_platform_models']:
-                    # 处理字典类型字段
+                    # Handle dictionary type fields
                     if isinstance(value, dict):
                         setattr(self, key, value)
                 elif key == 'active_task_ids':
-                    # 处理列表类型字段
+                    # Handle list type fields
                     if isinstance(value, list):
                         setattr(self, key, value)
                 else:
-                    # 处理其他字段
+                    # Handle other fields
                     setattr(self, key, value)
     
     def get_config_dict(self) -> Dict[str, Any]:
-        """获取配置字典"""
+        """Get configuration dictionary"""
         return asdict(self)
     
     def update_platform_api_key(self, platform: str, api_key: str) -> None:
-        """更新平台API密钥"""
+        """Update platform API key"""
         self.platform_api_keys[platform] = api_key
     
     def update_platform_model(self, platform: str, model: str) -> None:
-        """更新平台模型"""
+        """Update platform model"""
         self.platform_models[platform] = model
     
     def get_platform_api_key(self, platform: str) -> str:
-        """获取平台API密钥"""
+        """Get platform API key"""
         return self.platform_api_keys.get(platform, "")
     
     def get_platform_model(self, platform: str) -> str:
-        """获取平台模型"""
+        """Get platform model"""
         return self.platform_models.get(platform, "")
     
     def update_glossary_platform_api_key(self, platform: str, api_key: str) -> None:
-        """更新术语表平台API密钥"""
+        """Update glossary platform API key"""
         self.glossary_platform_api_keys[platform] = api_key
     
     def update_glossary_platform_model(self, platform: str, model: str) -> None:
-        """更新术语表平台模型"""
+        """Update glossary platform model"""
         self.glossary_platform_models[platform] = model
     
     def get_glossary_platform_api_key(self, platform: str) -> str:
-        """获取术语表平台API密钥"""
+        """Get glossary platform API key"""
         return self.glossary_platform_api_keys.get(platform, "")
     
     def get_glossary_platform_model(self, platform: str) -> str:
-        """获取术语表平台模型"""
+        """Get glossary platform model"""
         return self.glossary_platform_models.get(platform, "")
 
     @classmethod
     def get_config(cls, config_file: str = "app_config.json") -> "AppConfig":
-        """获取配置，按优先级解析路径并加载"""
+        """Get configuration, resolve path by priority and load"""
         return cls.load_from_file(config_file)
 
 
-# 全局配置实例
+# Global configuration instance
 _app_config = None
 
 def get_app_config() -> AppConfig:
-    """获取全局应用配置"""
+    """Get global application configuration"""
     global _app_config
     if _app_config is None:
         _app_config = AppConfig.get_config()
     return _app_config
 
 def save_app_config() -> bool:
-    """保存全局应用配置"""
+    """Save global application configuration"""
     global _app_config
     if _app_config is not None:
         return _app_config.save_to_file()

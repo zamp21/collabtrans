@@ -1,5 +1,5 @@
 // Banner Settings Module
-// 横幅设置模块
+// Banner settings module
 
 // Load banner configuration
 async function loadBannerConfig() {

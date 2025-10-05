@@ -17,7 +17,7 @@ class X2XlsxConverterConfig(ConverterConfig):
 
 class X2XlsxConverter(Converter):
     """
-    负责将其它格式的文件转换为xlsx
+    Responsible for converting files from other formats to xlsx
     """
 
     @abstractmethod

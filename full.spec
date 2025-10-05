@@ -5,13 +5,13 @@ from pathlib import Path
 from PyInstaller.utils.hooks import collect_all
 import collabtrans
 
-# 初始化列表
+# Initialize lists
 datas = []
 binaries = []
 hiddenimports = ['markdown.extensions.tables', 'pymdownx.arithmatex',
                 'pymdownx.superfences', 'pymdownx.highlight', 'pygments']
 
-# 先收集第三方包的资源（存在即收集）
+# First collect third-party package resources (collect if exists)
 for package in ['easyocr', 'docling', 'pygments']:
     try:
         tmp_ret = collect_all(package)
@@ -22,8 +22,8 @@ for package in ['easyocr', 'docling', 'pygments']:
         print(f"Warning: Failed to collect resources for {package}: {e}")
 
 """
-尽可能以跨平台方式定位 docling_parse/pdf_resources_v2。
-Windows 的 .venv/Lib 路径在 Linux/macOS 上不可用，因此改为动态发现。
+Locate docling_parse/pdf_resources_v2 in a cross-platform way as much as possible.
+Windows .venv/Lib path is not available on Linux/macOS, so changed to dynamic discovery.
 """
 try:
     import importlib.util
@@ -36,27 +36,27 @@ try:
 except Exception as _e:
     print(f"Warning: Failed to detect docling_parse resources dynamically: {_e}")
 
-# 然后添加您的自定义资源（避免重复）
+# Then add your custom resources (avoid duplicates)
 custom_datas = [
     ('./collabtrans/static', 'collabtrans/static'),
     ('./collabtrans/template', 'collabtrans/template'),
-    ('./collabtrans/i18n', 'collabtrans/i18n'),  # 添加i18n目录
+    ('./collabtrans/i18n', 'collabtrans/i18n'),  # Add i18n directory
     ('./collabtrans/static/favicon.ico', 'collabtrans/favicon.ico'),
-    ('./global_config.json', '.'),  # 全局配置文件
-    ('./app_config.json', '.'),  # 应用配置文件（默认，运行时优先 /etc）
-    ('./local_secrets.json.template', '.'),  # 本地密钥模板文件
-    ('./setup_secrets.py', '.'),  # 敏感配置初始化脚本
-    ('./setup_first_deploy.py', '.')  # 首次部署设置脚本
+    ('./global_config.json', '.'),  # Global configuration file
+    ('./app_config.json', '.'),  # Application configuration file (default, runtime priority /etc)
+    ('./local_secrets.json.template', '.'),  # Local secrets template file
+    ('./setup_secrets.py', '.'),  # Sensitive configuration initialization script
+    ('./setup_first_deploy.py', '.')  # First deployment setup script
 ]
 
-# 避免添加重复的数据
+# Avoid adding duplicate data
 for data in custom_datas:
     if data not in datas:
         datas.append(data)
 
-# —— 同步 balance 版的 NumPy 兼容处理 ——
+# —— Sync balance version NumPy compatibility handling ——
 try:
-    # 为确保冻结环境兼容性，补充 numpy 关键模块为隐藏导入
+    # To ensure frozen environment compatibility, supplement numpy key modules as hidden imports
     numpy_essential = [
         'numpy._core.multiarray',
         'numpy._core.umath',
@@ -72,23 +72,23 @@ except Exception as _e:
     print(f"Warning: failed to add numpy essential hiddenimports: {_e}")
 
 a = Analysis(
-    ['collabtrans/app.py'],  # 使用正斜杠
-    pathex=[os.getcwd()],  # 添加当前工作目录到 pathex，提高资源发现成功率
+    ['collabtrans/app.py'],  # Use forward slash
+    pathex=[os.getcwd()],  # Add current working directory to pathex, improve resource discovery success rate
     binaries=binaries,
     datas=datas,
-    hiddenimports=list(set(hiddenimports)),  # 去重
+    hiddenimports=list(set(hiddenimports)),  # Remove duplicates
     hookspath=[],
     hooksconfig={},
     runtime_hooks=['hook-numpy-fix.py'],
-    # 同步 balance 的 numpy 排除策略，避免已知崩溃点
+    # Sync balance numpy exclusion strategy, avoid known crash points
     excludes=[
-        # numpy 测试/打包辅助
+        # numpy testing/packaging assistance
         'numpy.tests','numpy.testing','numpy._pyinstaller','numpy.f2py.tests',
         'numpy.ma.tests','numpy.lib.tests','numpy.core.tests','numpy.random.tests',
         'numpy.linalg.tests','numpy.fft.tests','numpy.polynomial.tests',
         'numpy.matrixlib.tests','numpy.typing.tests','numpy.compat.tests',
         'numpy._core.tests','numpy._typing.tests',
-        # 有问题的 numpy 核心模块
+        # Problematic numpy core modules
         'numpy.core._add_newdocs','numpy.core.machar','numpy.core.umath_tests',
         'numpy._core._add_newdocs','numpy.core._multiarray_umath','numpy.core._multiarray_tests',
     ],

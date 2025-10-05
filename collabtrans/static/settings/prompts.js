@@ -1,21 +1,21 @@
 // Prompts Settings JavaScript
-// 简化的提示词管理功能
+// Simplified prompt management function
 
-// 全局变量
+// Global variables
 let promptsData = [];
 
-// 初始化提示词设置模块
+// Initialize prompts settings module
 async function initPromptsModule() {
     console.log('[Prompts] Initializing prompts module...');
     
     try {
-        // 设置事件监听器
+        // Set up event listeners
         setupEventListeners();
         
-        // 加载提示词列表
+        // Load prompts list
         await loadPrompts();
         
-        // 渲染提示词列表
+        // Render prompts list
         renderPromptList();
         
         console.log('[Prompts] Prompts module initialized successfully');
@@ -25,9 +25,9 @@ async function initPromptsModule() {
     }
 }
 
-// 设置事件监听器
+// Set up event listeners
 function setupEventListeners() {
-    // 添加提示词表单事件
+    // Add prompt form events
     const addPromptForm = document.getElementById('addPromptForm');
     if (addPromptForm) {
         addPromptForm.addEventListener('submit', async (e) => {
@@ -37,7 +37,7 @@ function setupEventListeners() {
     }
 }
 
-// 加载提示词列表
+// Load prompts list
 async function loadPrompts() {
     try {
         const response = await fetch('/auth/prompts/simple', {
@@ -58,21 +58,21 @@ async function loadPrompts() {
     }
 }
 
-// 刷新提示词列表
+// Refresh prompts list
 async function refreshPromptList() {
     try {
-        // 重新加载提示词数据
+        // Reload prompts data
         await loadPrompts();
         
-        // 渲染提示词列表
+        // Render prompts list
         renderPromptList();
     } catch (error) {
-        console.error('刷新提示词列表失败:', error);
+        console.error('Failed to refresh prompts list:', error);
         showError('Failed to refresh prompts');
     }
 }
 
-// 渲染提示词列表
+// Render prompts list
 function renderPromptList() {
     const container = document.getElementById('promptList');
     if (!container) return;
@@ -102,7 +102,7 @@ function renderPromptList() {
     });
 }
 
-// 添加新提示词
+// Add new prompt
 async function addPrompt() {
     const description = document.getElementById('newPromptDescription').value.trim();
     const content = document.getElementById('newPromptText').value.trim();
@@ -129,22 +129,22 @@ async function addPrompt() {
             const result = await response.json();
             showSuccess(result.message || 'Prompt added successfully');
             
-            // 清空表单
+            // Clear form
             document.getElementById('addPromptForm').reset();
             
-            // 刷新提示词列表
+            // Refresh prompts list
             await refreshPromptList();
         } else {
             const error = await response.json();
             showError(error.detail || 'Failed to add prompt');
         }
     } catch (error) {
-        console.error('添加提示词失败:', error);
+        console.error('Failed to add prompt:', error);
         showError('Failed to add prompt');
     }
 }
 
-// 删除提示词
+// Delete prompt
 async function deletePrompt(index) {
     if (!confirm('Are you sure you want to delete this prompt?')) {
         return;
@@ -166,21 +166,21 @@ async function deletePrompt(index) {
             const result = await response.json();
             showSuccess(result.message || 'Prompt deleted successfully');
             
-            // 刷新提示词列表
+            // Refresh prompts list
             await refreshPromptList();
         } else {
             const error = await response.json();
             showError(error.detail || 'Failed to delete prompt');
         }
     } catch (error) {
-        console.error('删除提示词失败:', error);
+        console.error('Failed to delete prompt:', error);
         showError('Failed to delete prompt');
     }
 }
 
-// 显示成功消息
+// Show success message
 function showSuccess(message) {
-    // 使用Bootstrap toast或简单的alert
+    // Use Bootstrap toast or simple alert
     if (typeof showNotification === 'function') {
         showNotification(message, 'success');
     } else {
@@ -188,9 +188,9 @@ function showSuccess(message) {
     }
 }
 
-// 显示错误消息
+// Show error message
 function showError(message) {
-    // 使用Bootstrap toast或简单的alert
+    // Use Bootstrap toast or simple alert
     if (typeof showNotification === 'function') {
         showNotification(message, 'error');
     } else {
@@ -198,7 +198,7 @@ function showError(message) {
     }
 }
 
-// 导出函数供全局使用
+// Export functions for global use
 window.initPromptsModule = initPromptsModule;
 window.addPrompt = addPrompt;
 window.deletePrompt = deletePrompt;

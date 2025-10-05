@@ -9,44 +9,44 @@ import uuid
 
 @dataclass
 class GlossaryItem:
-    """术语表项"""
-    src: str  # 原文
-    dst: str  # 译文
+    """Glossary item"""
+    src: str  # Source text
+    dst: str  # Target text
 
 
 @dataclass
 class GlossaryFile:
-    """术语表文件"""
-    id: str  # 唯一标识
-    name: str  # 显示名称
-    file_path: str  # 文件路径
-    owner: str  # 所有者（用户名）
-    is_global: bool  # 是否为全局术语表
+    """Glossary file"""
+    id: str  # Unique identifier
+    name: str  # Display name
+    file_path: str  # File path
+    owner: str  # Owner (username)
+    is_global: bool  # Whether it's a global glossary
     created_at: datetime
     updated_at: datetime
-    item_count: int  # 术语数量
-    description: Optional[str] = None  # 描述
+    item_count: int  # Term count
+    description: Optional[str] = None  # Description
 
 
 @dataclass
 class UserGlossarySelection:
-    """用户术语表选择"""
+    """User glossary selection"""
     username: str
-    selected_global_glossaries: List[str]  # 选中的全局术语表ID列表
-    personal_glossary: Optional[str] = None  # 个人术语表ID
+    selected_global_glossaries: List[str]  # Selected global glossary ID list
+    personal_glossary: Optional[str] = None  # Personal glossary ID
 
 
 @dataclass
 class GlossaryVersion:
-    """术语表版本信息"""
+    """Glossary version information"""
     glossary_id: str
-    version: float  # 时间戳
-    updated_by: str  # 更新者
+    version: float  # Timestamp
+    updated_by: str  # Updated by
     updated_at: datetime
 
 
 def generate_glossary_id() -> str:
-    """生成术语表ID"""
+    """Generate glossary ID"""
     return str(uuid.uuid4())
 
 
@@ -57,7 +57,7 @@ def create_glossary_file(
     is_global: bool = False,
     description: Optional[str] = None
 ) -> GlossaryFile:
-    """创建术语表文件对象"""
+    """Create glossary file object"""
     now = datetime.now()
     return GlossaryFile(
         id=generate_glossary_id(),

@@ -1,26 +1,26 @@
 // Glossary Settings JavaScript
-// 术语表管理功能
+// Glossary management function
 
-// 全局变量
+// Global variables
 let glossariesData = null;
 let updateCheckInterval = null;
 let lastVersions = {};
 
-// 初始化术语表设置模块
+// Initialize glossary settings module
 async function initGlossaryModule() {
     console.log('[Glossary] Initializing glossary module...');
     
     try {
-        // 设置事件监听器
+        // Set up event listeners
         setupEventListeners();
         
-        // 加载术语表数据
+        // Load glossary data
         await loadGlossaries();
         
-        // 渲染术语表列表
+        // Render glossary list
         updateGlossariesUI();
         
-        // 开始更新检查
+        // Start update check
         startUpdateCheck();
         
         console.log('[Glossary] Glossary module initialized successfully');
@@ -30,9 +30,9 @@ async function initGlossaryModule() {
     }
 }
 
-// 设置事件监听器
+// Set up event listeners
 function setupEventListeners() {
-    // 上传全局术语表表单
+    // Upload global glossary form
     const uploadGlobalForm = document.getElementById('uploadGlobalGlossaryForm');
     if (uploadGlobalForm) {
         uploadGlobalForm.addEventListener('submit', (e) => {
@@ -42,15 +42,15 @@ function setupEventListeners() {
     }
 }
 
-// 开始更新检查
+// Start update check
 function startUpdateCheck() {
-    // 每30秒检查一次更新
+    // Check for updates every 30 seconds
     updateCheckInterval = setInterval(() => {
         checkForUpdates();
     }, 30000);
 }
 
-// 检查更新
+// Check for updates
 async function checkForUpdates() {
     try {
         const response = await fetch('/auth/glossaries/check-updates', {
@@ -67,11 +67,11 @@ async function checkForUpdates() {
             }
         }
     } catch (error) {
-        console.warn('检查术语表更新失败:', error);
+        console.warn('Failed to check glossary updates:', error);
     }
 }
 
-// 加载术语表数据
+// Load glossary data
 async function loadGlossaries() {
     try {
         const response = await fetch('/auth/glossaries', {
@@ -93,7 +93,7 @@ async function loadGlossaries() {
     }
 }
 
-// 更新术语表UI
+// Update glossary UI
 function updateGlossariesUI() {
     const container = document.getElementById('globalGlossariesList');
     if (!container) return;
@@ -101,7 +101,7 @@ function updateGlossariesUI() {
     container.innerHTML = '';
     
     if (!glossariesData || !glossariesData.global_glossaries || glossariesData.global_glossaries.length === 0) {
-        container.innerHTML = '<p class="text-muted mb-0" data-i18n="noGlobalGlossariesAvailable">暂无可用全局术语表</p>';
+        container.innerHTML = '<p class="text-muted mb-0" data-i18n="noGlobalGlossariesAvailable">No global glossaries available</p>';
         return;
     }
     
@@ -117,10 +117,10 @@ function updateGlossariesUI() {
                 </label>
             </div>
             <div class="btn-group btn-group-sm">
-                <button type="button" class="btn btn-outline-info" onclick="downloadGlossary('${glossary.id}')" title="下载">
+                <button type="button" class="btn btn-outline-info" onclick="downloadGlossary('${glossary.id}')" title="Download">
                     <i class="bi bi-download"></i>
                 </button>
-                <button type="button" class="btn btn-outline-danger" onclick="deleteGlossary('${glossary.id}')" title="删除">
+                <button type="button" class="btn btn-outline-danger" onclick="deleteGlossary('${glossary.id}')" title="Delete">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>
@@ -128,7 +128,7 @@ function updateGlossariesUI() {
         container.appendChild(div);
     });
     
-    // 设置选中状态
+    // Set selected state
     if (glossariesData.user_selection && glossariesData.user_selection.global_glossaries) {
         glossariesData.user_selection.global_glossaries.forEach(glossaryId => {
             const checkbox = document.getElementById(`glossary_${glossaryId}`);
@@ -138,22 +138,22 @@ function updateGlossariesUI() {
         });
     }
     
-    // 显示/隐藏管理员区域
+    // Show/hide admin area
     const adminSection = document.getElementById('adminGlossarySection');
     if (adminSection) {
-        // 这里可以根据用户权限来决定是否显示管理员区域
-        // 暂时显示，实际应该根据用户角色判断
+        // Here you can decide whether to show admin area based on user permissions
+        // Temporarily show, should actually be determined by user role
         adminSection.style.display = 'block';
     }
 }
 
-// 术语表管理功能已直接集成到页面中，不再需要模态框
+// Glossary management function has been directly integrated into the page, no longer need modal
 
 
-// 保存术语表选择
+// Save glossary selection
 async function saveGlossarySelection() {
     try {
-        // 获取选中的术语表
+        // Get selected glossaries
         const selectedGlossaries = [];
         const checkboxes = document.querySelectorAll('#globalGlossariesList input[type="checkbox"]:checked');
         checkboxes.forEach(checkbox => {
@@ -174,36 +174,36 @@ async function saveGlossarySelection() {
         
         if (response.ok) {
             const result = await response.json();
-            showSuccess(result.message || '术语表选择已保存');
+            showSuccess(result.message || 'Glossary selection saved');
             
-            // 重新加载数据
+            // Reload data
             await loadGlossaries();
             updateGlossariesUI();
         } else {
             const error = await response.json();
-            showError(error.detail || '保存术语表选择失败');
+            showError(error.detail || 'Failed to save glossary selection');
         }
     } catch (error) {
-        console.error('保存术语表选择失败:', error);
-        showError('保存术语表选择失败');
+        console.error('Failed to save glossary selection:', error);
+        showError('Failed to save glossary selection');
     }
 }
 
-// 上传全局术语表
+// Upload global glossary
 async function uploadGlobalGlossary() {
     const name = document.getElementById('globalGlossaryName').value.trim();
     const file = document.getElementById('globalGlossaryFile').files[0];
     const description = document.getElementById('globalGlossaryDescription').value.trim();
     
     if (!name || !file) {
-        showError('请填写术语表名称并选择文件');
+        showError('Please fill in glossary name and select file');
         return;
     }
     
     const formData = new FormData();
     formData.append('name', name);
     formData.append('file', file);
-    formData.append('is_global', 'true'); // 标记为全局术语表
+    formData.append('is_global', 'true'); // Mark as global glossary
     if (description) {
         formData.append('description', description);
     }
@@ -217,26 +217,26 @@ async function uploadGlobalGlossary() {
         
         if (response.ok) {
             const result = await response.json();
-            showSuccess(result.message || '术语表上传成功');
+            showSuccess(result.message || 'Glossary uploaded successfully');
             
-            // 清空表单
+            // Clear form
             document.getElementById('uploadGlobalGlossaryForm').reset();
             
-            // 重新加载数据
+            // Reload data
             await loadGlossaries();
             updateGlossariesUI();
         } else {
             const error = await response.json();
-            showError(error.detail || '术语表上传失败');
+            showError(error.detail || 'Failed to upload glossary');
         }
     } catch (error) {
-        console.error('上传术语表失败:', error);
-        showError('上传术语表失败');
+        console.error('Failed to upload glossary:', error);
+        showError('Failed to upload glossary');
     }
 }
 
 
-// 下载术语表
+// Download glossary
 async function downloadGlossary(glossaryId) {
     try {
         const response = await fetch(`/auth/glossaries/${glossaryId}/download`, {
@@ -256,17 +256,17 @@ async function downloadGlossary(glossaryId) {
             document.body.removeChild(a);
         } else {
             const error = await response.json();
-            showError(error.detail || '下载术语表失败');
+            showError(error.detail || 'Failed to download glossary');
         }
     } catch (error) {
-        console.error('下载术语表失败:', error);
-        showError('下载术语表失败');
+        console.error('Failed to download glossary:', error);
+        showError('Failed to download glossary');
     }
 }
 
-// 删除术语表
+// Delete glossary
 async function deleteGlossary(glossaryId) {
-    if (!confirm('确定要删除这个术语表吗？')) {
+    if (!confirm('Are you sure you want to delete this glossary?')) {
         return;
     }
     
@@ -278,29 +278,29 @@ async function deleteGlossary(glossaryId) {
         
         if (response.ok) {
             const result = await response.json();
-            showSuccess(result.message || '术语表删除成功');
+            showSuccess(result.message || 'Glossary deleted successfully');
             
-            // 重新加载数据
+            // Reload data
             await loadGlossaries();
             updateGlossariesUI();
         } else {
             const error = await response.json();
-            showError(error.detail || '删除术语表失败');
+            showError(error.detail || 'Failed to delete glossary');
         }
     } catch (error) {
-        console.error('删除术语表失败:', error);
-        showError('删除术语表失败');
+        console.error('Failed to delete glossary:', error);
+        showError('Failed to delete glossary');
     }
 }
 
-// 显示更新通知
+// Show update notification
 function showUpdateNotification() {
     const notification = document.createElement('div');
     notification.className = 'alert alert-info alert-dismissible fade show position-fixed';
     notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999;';
     notification.innerHTML = `
         <i class="bi bi-info-circle me-2"></i>
-        术语表已更新，页面将自动刷新
+        Glossary has been updated, page will refresh automatically
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
     document.body.appendChild(notification);
@@ -310,7 +310,7 @@ function showUpdateNotification() {
     }, 3000);
 }
 
-// 显示成功消息
+// Show success message
 function showSuccess(message) {
     if (typeof showNotification === 'function') {
         showNotification(message, 'success');
@@ -319,7 +319,7 @@ function showSuccess(message) {
     }
 }
 
-// 显示错误消息
+// Show error message
 function showError(message) {
     if (typeof showNotification === 'function') {
         showNotification(message, 'error');
@@ -328,7 +328,7 @@ function showError(message) {
     }
 }
 
-// 导出函数供全局使用
+// Export functions for global use
 window.initGlossaryModule = initGlossaryModule;
 window.saveGlossarySelection = saveGlossarySelection;
 window.uploadGlobalGlossary = uploadGlobalGlossary;

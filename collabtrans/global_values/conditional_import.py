@@ -17,9 +17,9 @@ def conditional_import(packagename,alias=None):
         available_packages[packagename]=False
         return False
 
-# 在PyInstaller环境中，如果docling被排除，直接设置为False
+# In PyInstaller environment, if docling is excluded, set to False directly
 try:
     DOCLING_EXIST=conditional_import("docling")
 except Exception:
-    # 如果导入失败（比如在lite版本中），设置为False
+    # If import fails (e.g., in lite version), set to False
     DOCLING_EXIST=False

@@ -7,24 +7,24 @@ import os
 from pathlib import Path
 from typing import Dict, Any, Optional
 
-# 创建日志记录器
+# Create logger
 logger = logging.getLogger(__name__)
 
 
 class SecretsManager:
-    """敏感配置管理器 - 管理API密钥等敏感信息"""
+    """Sensitive configuration manager - manages API keys and other sensitive information"""
     
     def __init__(self, secrets_file: str = "local_secrets.json"):
         """
-        初始化敏感配置管理器
+        Initialize sensitive configuration manager
         
         Args:
-            secrets_file: 敏感配置文件路径
+            secrets_file: Sensitive configuration file path
         """
-        # 配置文件优先级：
-        # 1. /etc/collabtrans/local_secrets.json (系统配置)
-        # 2. 可执行程序目录下的 local_secrets.json (打包的配置)
-        # 3. 当前目录下的 local_secrets.json (开发环境)
+        # Configuration file priority:
+        # 1. /etc/collabtrans/local_secrets.json (system configuration)
+        # 2. local_secrets.json in executable directory (packaged configuration)
+        # 3. local_secrets.json in current directory (development environment)
         
         system_secrets_file = "/etc/collabtrans/local_secrets.json"
         system_secrets_template = "/etc/collabtrans/local_secrets.json.template"
@@ -55,23 +55,23 @@ class SecretsManager:
                         )
                 # If still not set, fall through to other locations
         else:
-            # 尝试从可执行程序目录加载配置文件
+            # Try to load configuration file from executable directory
             import sys
             if getattr(sys, 'frozen', False):
-                # PyInstaller打包环境
+                # PyInstaller packaged environment
                 exe_dir = os.path.dirname(sys.executable)
                 exe_secrets_file = os.path.join(exe_dir, "local_secrets.json")
                 if os.path.exists(exe_secrets_file):
                     self.secrets_file = Path(exe_secrets_file)
                     logger.info(f"Using executable directory secrets config: {exe_secrets_file}")
                 else:
-                    # 将相对路径固定到仓库根目录，避免工作目录变化导致写入到错误位置
+                    # Fix relative path to repository root directory to avoid writing to wrong location due to working directory changes
                     proj_root = Path(__file__).resolve().parents[2]
                     sf = Path(secrets_file)
                     self.secrets_file = sf if sf.is_absolute() else (proj_root / sf)
                     logger.info(f"Using local secrets config: {self.secrets_file}")
             else:
-                # 开发环境
+                # Development environment
                 proj_root = Path(__file__).resolve().parents[2]
                 sf = Path(secrets_file)
                 self.secrets_file = sf if sf.is_absolute() else (proj_root / sf)
@@ -80,16 +80,16 @@ class SecretsManager:
         
     def load_secrets(self) -> Dict[str, Any]:
         """
-        加载敏感配置
+        Load sensitive configuration
         
         Returns:
-            敏感配置字典，如果文件不存在则返回空字典
+            Sensitive configuration dictionary, returns empty dictionary if file does not exist
         """
         if self._secrets_cache is not None:
             return self._secrets_cache
             
         if not self.secrets_file.exists():
-            # 在PyInstaller环境中，避免指向 /tmp/_MEI* 目录
+            # In PyInstaller environment, avoid pointing to /tmp/_MEI* directory
             try:
                 import sys as _sm_sys
                 if getattr(_sm_sys, 'frozen', False):
@@ -111,10 +111,10 @@ class SecretsManager:
             with open(self.secrets_file, 'r', encoding='utf-8') as f:
                 secrets = json.load(f)
 
-            # 规范化结构：为 api keys 与 mineru token 增加 configured 属性（向后兼容）
+            # Normalize structure: add configured attribute for api keys and mineru token (backward compatibility)
             try:
                 changed = False
-                # 平台API Keys
+                # Platform API Keys
                 pak = secrets.get("platform_api_keys")
                 if isinstance(pak, dict):
                     for platform, val in list(pak.items()):
@@ -122,7 +122,7 @@ class SecretsManager:
                             pak[platform] = {"key": val, "configured": bool(val)}
                             changed = True
                         elif isinstance(val, dict):
-                            # 确保字段存在
+                            # Ensure fields exist
                             if "key" not in val:
                                 val["key"] = ""
                                 changed = True
@@ -146,32 +146,32 @@ class SecretsManager:
                         changed = True
 
                 if changed:
-                    # 立即保存一次，保证文件落盘为新结构
+                    # Save immediately to ensure file is written with new structure
                     self._secrets_cache = secrets
                     self.save_secrets(secrets)
             except Exception:
-                # 规范化失败不影响读取
+                # Normalization failure does not affect reading
                 pass
             
-            logger.info(f"成功加载敏感配置文件: {self.secrets_file}")
+            logger.info(f"Successfully loaded sensitive configuration file: {self.secrets_file}")
             self._secrets_cache = secrets
             return secrets
             
         except Exception as e:
-            logger.error(f"加载敏感配置文件失败: {e}")
+            logger.error(f"Failed to load sensitive configuration file: {e}")
             self._secrets_cache = {}
             return self._secrets_cache
     
     def get_api_keys(self) -> Dict[str, str]:
         """
-        获取API密钥配置
+        Get API key configuration
         
         Returns:
-            API密钥字典
+            API key dictionary
         """
         secrets = self.load_secrets()
         raw = secrets.get("platform_api_keys", {})
-        # 兼容：返回平台->字符串
+        # Compatibility: return platform->string
         result: Dict[str, str] = {}
         if isinstance(raw, dict):
             for platform, val in raw.items():
@@ -183,7 +183,7 @@ class SecretsManager:
 
     def get_api_keys_meta(self) -> Dict[str, Dict[str, Any]]:
         """
-        返回平台API Key的元信息 { platform: { key: str, configured: bool } }
+        Return platform API Key metadata { platform: { key: str, configured: bool } }
         """
         secrets = self.load_secrets()
         pak = secrets.get("platform_api_keys", {})
@@ -202,10 +202,10 @@ class SecretsManager:
     
     def get_mineru_token(self) -> Optional[str]:
         """
-        获取MinerU令牌
+        Get MinerU token
         
         Returns:
-            MinerU令牌，如果不存在则返回None
+            MinerU token, returns None if not exists
         """
         secrets = self.load_secrets()
         val = secrets.get("translator_mineru_token")
@@ -214,7 +214,7 @@ class SecretsManager:
         return val
 
     def get_mineru_token_meta(self) -> Dict[str, Any]:
-        """返回 { key: str, configured: bool }"""
+        """Return { key: str, configured: bool }"""
         secrets = self.load_secrets()
         val = secrets.get("translator_mineru_token")
         if isinstance(val, dict):
@@ -224,89 +224,89 @@ class SecretsManager:
 
     def get_docling_auth(self) -> Dict[str, Any]:
         """
-        获取 Docling 远程鉴权配置
-        返回结构：{"auth_type": "none|bearer|header", "token": str, "header_name": str, "header_value": str}
+        Get Docling remote authentication configuration
+        Return structure: {"auth_type": "none|bearer|header", "token": str, "header_name": str, "header_value": str}
         """
         secrets = self.load_secrets()
         return secrets.get("docling_auth", {})
     
     def get_auth_secrets(self) -> Dict[str, Any]:
         """
-        获取认证相关敏感信息
+        Get authentication-related sensitive information
         
         Returns:
-            认证敏感信息字典
+            Authentication sensitive information dictionary
         """
         secrets = self.load_secrets()
         return secrets.get("auth_secrets", {})
     
     def get_default_password(self) -> Optional[str]:
         """
-        获取默认管理员密码
+        Get default administrator password
         
         Returns:
-            默认密码，如果不存在则返回None
+            Default password, returns None if not exists
         """
         auth_secrets = self.get_auth_secrets()
         return auth_secrets.get("default_password")
     
     def get_session_secret_key(self) -> Optional[str]:
         """
-        获取会话密钥
+        Get session secret key
         
         Returns:
-            会话密钥，如果不存在则返回None
+            Session secret key, returns None if not exists
         """
         auth_secrets = self.get_auth_secrets()
         return auth_secrets.get("session_secret_key")
     
     def get_redis_password(self) -> Optional[str]:
         """
-        获取Redis密码
+        Get Redis password
         
         Returns:
-            Redis密码，如果不存在则返回None
+            Redis password, returns None if not exists
         """
         auth_secrets = self.get_auth_secrets()
         return auth_secrets.get("redis_password")
     
     def save_secrets(self, secrets: Dict[str, Any]) -> bool:
         """
-        保存敏感配置到文件
+        Save sensitive configuration to file
         
         Args:
-            secrets: 要保存的敏感配置
+            secrets: Sensitive configuration to save
             
         Returns:
-            是否保存成功
+            Whether save was successful
         """
         try:
-            # 确保目录存在
+            # Ensure directory exists
             self.secrets_file.parent.mkdir(parents=True, exist_ok=True)
             
             with open(self.secrets_file, 'w', encoding='utf-8') as f:
                 json.dump(secrets, f, indent=2, ensure_ascii=False)
             
-            # 更新缓存
+            # Update cache
             self._secrets_cache = secrets
             
-            logger.info(f"敏感配置已保存到: {self.secrets_file}")
+            logger.info(f"Sensitive configuration saved to: {self.secrets_file}")
             return True
             
         except Exception as e:
-            logger.error(f"保存敏感配置文件失败: {e}")
+            logger.error(f"Failed to save sensitive configuration file: {e}")
             return False
     
     def update_api_key(self, platform: str, api_key: str, configured: Optional[bool] = None) -> bool:
         """
-        更新指定平台的API密钥
+        Update API key for specified platform
         
         Args:
-            platform: 平台名称
-            api_key: API密钥
+            platform: Platform name
+            api_key: API key
             
         Returns:
-            是否更新成功
+            Whether update was successful
         """
         secrets = self.load_secrets()
         if "platform_api_keys" not in secrets:
@@ -324,13 +324,13 @@ class SecretsManager:
     
     def update_mineru_token(self, token: str, configured: Optional[bool] = None) -> bool:
         """
-        更新MinerU令牌
+        Update MinerU token
         
         Args:
-            token: MinerU令牌
+            token: MinerU token
             
         Returns:
-            是否更新成功
+            Whether update was successful
         """
         secrets = self.load_secrets()
         meta = secrets.get("translator_mineru_token")
@@ -343,14 +343,14 @@ class SecretsManager:
     
     def update_auth_secret(self, key: str, value: str) -> bool:
         """
-        更新认证相关敏感信息
+        Update authentication-related sensitive information
         
         Args:
-            key: 配置键
-            value: 配置值
+            key: Configuration key
+            value: Configuration value
             
         Returns:
-            是否更新成功
+            Whether update was successful
         """
         secrets = self.load_secrets()
         
@@ -361,7 +361,7 @@ class SecretsManager:
         
         return self.save_secrets(secrets)
 
-    # ==== Web/HTTPS TLS 私钥密码 ====
+    # ==== Web/HTTPS TLS Private Key Password ====
     def get_web_tls_password(self) -> Optional[str]:
         secrets = self.load_secrets()
         return secrets.get("web_tls", {}).get("key_password")
@@ -373,31 +373,31 @@ class SecretsManager:
         if password:
             secrets["web_tls"]["key_password"] = password
         else:
-            # 清空时移除键以避免残留
+            # Remove key when clearing to avoid residue
             secrets["web_tls"].pop("key_password", None)
         return self.save_secrets(secrets)
     
     def has_secrets_file(self) -> bool:
         """
-        检查敏感配置文件是否存在
+        Check if sensitive configuration file exists
         
         Returns:
-            文件是否存在
+            Whether file exists
         """
         return self.secrets_file.exists()
     
     def create_template_file(self) -> bool:
         """
-        创建配置模板文件
+        Create configuration template file
         
         Returns:
-            是否创建成功
+            Whether creation was successful
         """
         template_file = self.secrets_file.parent / f"{self.secrets_file.stem}.template"
         
         template_content = {
-            "_comment": "本地敏感配置文件模板 - 请复制为 local_secrets.json 并填入真实值",
-            "_warning": "此文件包含敏感信息，请勿提交到git仓库",
+            "_comment": "Local sensitive configuration file template - please copy as local_secrets.json and fill in real values",
+            "_warning": "This file contains sensitive information, do not commit to git repository",
             
             "platform_api_keys": {
                 "openai": "your-openai-api-key-here",
@@ -431,14 +431,14 @@ class SecretsManager:
             with open(template_file, 'w', encoding='utf-8') as f:
                 json.dump(template_content, f, indent=2, ensure_ascii=False)
             
-            logger.info(f"配置模板文件已创建: {template_file}")
+            logger.info(f"Configuration template file created: {template_file}")
             return True
         except Exception as e:
-            logger.error(f"创建配置模板文件失败: {e}")
+            logger.error(f"Failed to create configuration template file: {e}")
             return False
 
     def update_docling_auth(self, auth: Dict[str, Any]) -> bool:
-        """更新 Docling 远程鉴权配置"""
+        """Update Docling remote authentication configuration"""
         secrets = self.load_secrets()
         secrets["docling_auth"] = {
             "auth_type": auth.get("auth_type", "none"),
@@ -451,12 +451,12 @@ class SecretsManager:
         return True
 
 
-# 全局实例
+# Global instance
 _secrets_manager: Optional[SecretsManager] = None
 
 
 def get_secrets_manager() -> SecretsManager:
-    """获取全局敏感配置管理器实例"""
+    """Get global sensitive configuration manager instance"""
     global _secrets_manager
     if _secrets_manager is None:
         _secrets_manager = SecretsManager()

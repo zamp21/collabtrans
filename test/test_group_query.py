@@ -16,7 +16,7 @@ def test_group_query():
     print("=== LDAP组查询逻辑测试 ===")
     
     # 加载配置
-    config = AuthConfig.load_from_file("auth_config.json")
+    config = AuthConfig.load_from_file("local_config.json")
     print(f"配置信息:")
     print(f"  LDAP URI: {config.get_ldap_uri()}")
     print(f"  组搜索基础DN: {config.ldap_group_base_dn}")

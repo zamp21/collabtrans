@@ -29,9 +29,9 @@ class Glossary:
             return ""
 
     def build_append_prompt_with_stats(self, text: str, max_items: int = 100):
-        """根据输入文本构建需要拼接到 system prompt 的术语片段，并返回统计信息。
-        返回: (prompt_text, hit_count, samples[List[Tuple[src, dst]]])
-        仅拼接命中的前 max_items 条。
+        """Build terminology fragments that need to be concatenated to system prompt based on input text, and return statistics.
+        Returns: (prompt_text, hit_count, samples[List[Tuple[src, dst]]])
+        Only concatenate the first max_items hits.
         """
         matches = []
         if not self.glossary_dict:
@@ -48,7 +48,7 @@ class Glossary:
             prompt_lines.append(f"{src}=>{dst}")
         prompt_lines.append("Glossary ends\n")
         prompt_text = "\n".join(prompt_lines)
-        # 返回最多3条作为示例
+        # Return at most 3 as examples
         samples = matches[:3]
         return prompt_text, len(matches), samples
 

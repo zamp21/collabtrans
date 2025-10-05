@@ -3,7 +3,7 @@
 from collabtrans.exporter.base import Exporter
 from collabtrans.ir.document import Document
 
-#TODO:看情况是否需要为json单独写一个document类型
+# TODO: Consider if a separate document type is needed for JSON files
 class JsonExporter(Exporter[Document]):
 
     def export(self,document:Document)->Document:

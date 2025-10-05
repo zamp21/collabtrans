@@ -9,36 +9,36 @@ from dataclasses import dataclass
 
 @dataclass
 class PromptItem:
-    """提示词项"""
-    name: str  # 提示词名称
-    content: str  # 提示词内容
+    """Prompt item"""
+    name: str  # Prompt name
+    content: str  # Prompt content
 
 
 @dataclass
 class PromptFile:
-    """提示词文件"""
-    id: str  # 唯一标识
-    name: str  # 提示词集名称
-    file_path: str  # 文件路径
-    owner: str  # 所有者
-    is_global: bool = False  # 是否为全局提示词集
-    created_at: datetime = None  # 创建时间
-    updated_at: datetime = None  # 更新时间
-    item_count: int = 0  # 提示词数量
-    description: Optional[str] = None  # 描述
+    """Prompt file"""
+    id: str  # Unique identifier
+    name: str  # Prompt set name
+    file_path: str  # File path
+    owner: str  # Owner
+    is_global: bool = False  # Whether it's a global prompt set
+    created_at: datetime = None  # Creation time
+    updated_at: datetime = None  # Update time
+    item_count: int = 0  # Prompt count
+    description: Optional[str] = None  # Description
 
 
 @dataclass
 class UserPromptSelection:
-    """用户提示词选择"""
-    username: str  # 用户名
-    selected_global_prompts: List[str]  # 选择的全局提示词集ID列表
-    personal_prompt: Optional[str] = None  # 个人提示词集ID
+    """User prompt selection"""
+    username: str  # Username
+    selected_global_prompts: List[str]  # Selected global prompt set ID list
+    personal_prompt: Optional[str] = None  # Personal prompt set ID
 
 
 @dataclass
 class PromptVersion:
-    """提示词版本信息"""
+    """Prompt version information"""
     prompt_id: str
     version: int
     updated_by: str
@@ -46,7 +46,7 @@ class PromptVersion:
 
 
 def generate_prompt_id() -> str:
-    """生成提示词ID"""
+    """Generate prompt ID"""
     return str(uuid.uuid4())
 
 
@@ -57,7 +57,7 @@ def create_prompt_file(
     is_global: bool = False,
     description: Optional[str] = None
 ) -> PromptFile:
-    """创建提示词文件对象"""
+    """Create prompt file object"""
     now = datetime.now()
     return PromptFile(
         id=generate_prompt_id(),

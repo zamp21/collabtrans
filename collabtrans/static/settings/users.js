@@ -153,7 +153,7 @@
       const pwd = document.getElementById('editPassword').value;
       const modalEl = document.getElementById('userEditModal');
       const title = modalEl.querySelector('.modal-title').textContent;
-      if(title.includes('Create') || title.includes('新建')){
+      if(title.includes('Create') || title.includes('New')){
         if(!username || !pwd){ window.SettingsCore?.showNotification(window.SettingsCore.getText('usernamePasswordRequired','Username and password required'), 'warning'); return; }
         if(pwd.length < 6){ window.SettingsCore?.showNotification(window.SettingsCore.getText('passwordTooShort','Password too short (>=6)'), 'warning'); return; }
         const resp = await fetch('/auth/local-users',{method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username, password:pwd, role, display_name, email})});

@@ -7,15 +7,15 @@ import collabtrans
 datas = [
     ('collabtrans/static', 'collabtrans/static'),
     ('collabtrans/template', 'collabtrans/template'),
-    ('collabtrans/i18n', 'collabtrans/i18n'),  # 添加i18n目录
+    ('collabtrans/i18n', 'collabtrans/i18n'),  # Add i18n directory
     ('collabtrans/static/favicon.ico', 'collabtrans/favicon.ico'),
-    ('global_config.json', '.'),  # 全局配置文件
-    ('app_config.json', '.'),  # 应用配置文件（默认，运行时优先 /etc）
-    ('local_secrets.json.template', '.'),  # 本地密钥模板文件
-    ('setup_secrets.py', '.'),  # 敏感配置初始化脚本
-    ('setup_first_deploy.py', '.'),  # 首次部署设置脚本
-    # 只包含必要的pygments数据，排除大文件
-    *collect_data_files('pygments', include_py_files=False)  # 只包含数据文件，不包含Python文件
+    ('global_config.json', '.'),  # Global configuration file
+    ('app_config.json', '.'),  # Application configuration file (default, runtime priority /etc)
+    ('local_secrets.json.template', '.'),  # Local secrets template file
+    ('setup_secrets.py', '.'),  # Sensitive configuration initialization script
+    ('setup_first_deploy.py', '.'),  # First deployment setup script
+    # Only include necessary pygments data, exclude large files
+    *collect_data_files('pygments', include_py_files=False)  # Only include data files, not Python files
 ]
 
 hiddenimports = [
@@ -27,7 +27,7 @@ hiddenimports = [
 ]
 
 a = Analysis(
-    ['collabtrans/app.py'],  # 使用正斜杠，Windows 也支持
+    ['collabtrans/app.py'],  # Use forward slash, Windows also supports it
     pathex=[],
     binaries=[],
     datas=datas,
@@ -36,7 +36,7 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=['hook-numpy-fix.py'],
     excludes=[
-        # 大依赖包
+        # Large dependency packages
         "docling", "collabtrans.converter.x2md.converter_docling",
         "torch", "torchvision", "torchaudio",
         "transformers", "tokenizers", "sentencepiece",
@@ -45,20 +45,20 @@ a = Analysis(
         "sklearn", "scikit-learn",
         "nltk", "spacy", "gensim", "jieba",
         "celery", "sqlalchemy",
-        # 可选功能模块
+        # Optional feature modules
         "collabtrans.converter.x2md.converter_docling",
-        # 测试和开发工具
+        # Testing and development tools
         "pytest", "pytest-asyncio", "pytest-cov",
         "black", "flake8", "mypy",
-        # 其他大包
+        # Other large packages
         "jupyter", "ipython", "notebook",
         "tensorflow", "keras",
         "xgboost", "lightgbm",
-        # numpy相关（如果导致兼容性问题）
+        # numpy related (if causing compatibility issues)
         "numpy",
     ],
     noarchive=False,
-    optimize=2,  # 启用Python字节码优化
+    optimize=2,  # Enable Python bytecode optimization
 )
 
 pyz = PYZ(a.pure)
@@ -83,5 +83,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='CollabTrans.ico',  # 修正为字符串
+    icon='CollabTrans.ico',  # Fixed as string
 )

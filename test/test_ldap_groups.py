@@ -17,7 +17,7 @@ def test_ldap_groups():
     print("=== LDAP组查询测试 ===")
     
     # 加载配置
-    config = AuthConfig.load_from_file("auth_config.json")
+    config = AuthConfig.load_from_file("local_config.json")
     print(f"LDAP配置:")
     print(f"  协议: {config.ldap_protocol}")
     print(f"  主机: {config.ldap_host}:{config.ldap_port}")

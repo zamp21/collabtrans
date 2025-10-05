@@ -1,0 +1,106 @@
+name: Build Ubuntu Application
+
+on:
+  workflow_dispatch:
+  release:
+    types: [created]
+
+jobs:
+  build-ubuntu:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Python environment
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Step 3: Install system dependencies
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            libssl-dev \
+            libffi-dev \
+            python3-dev \
+            libxml2-dev \
+            libxslt1-dev \
+            zlib1g-dev \
+            libjpeg-dev \
+            libpng-dev \
+            libfreetype6-dev \
+            liblcms2-dev \
+            libwebp-dev \
+            libharfbuzz-dev \
+            libfribidi-dev \
+            libxcb1-dev
+
+      # Step 4: Install uv
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      # Step 5: Install dependencies
+      - name: Install dependencies with uv
+        run: |
+          rm -f uv.lock
+          uv sync --no-dev
+
+      # Step 6: Install UPX for compression
+      - name: Install UPX
+        run: |
+          sudo apt-get install -y upx-ucl
+
+      # Step 7: Build lite version
+      - name: Build lite application with PyInstaller
+        run: |
+          uv pip install pyinstaller
+          uv run --no-dev pyinstaller lite.spec --noconfirm --clean -y
+
+      # Step 8: Build full version
+      - name: Build full application with PyInstaller
+        run: |
+          uv run --no-dev pyinstaller full.spec --noconfirm --clean -y
+
+      # Step 9: Build balance version
+      - name: Build balance application with PyInstaller
+        run: |
+          uv run --no-dev pyinstaller balance.spec --noconfirm --clean -y
+
+      # Step 10: Get application version
+      - name: Get application version
+        id: get_version
+        run: |
+          VERSION=$(python -c "import collabtrans; print(collabtrans.__version__)")
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      # Step 11: Create compressed archives
+      - name: Create compressed archives
+        run: |
+          # Create lite archive
+          cd dist
+          tar -czf "CollabTrans-lite-${{ env.VERSION }}-linux.tar.gz" CollabTrans-*-linux
+          
+          # Create full archive
+          tar -czf "CollabTrans-full-${{ env.VERSION }}-linux.tar.gz" CollabTrans_full-*-linux
+          
+          # Create balance archive
+          tar -czf "CollabTrans-balance-${{ env.VERSION }}-linux.tar.gz" CollabTrans-balance-*-linux
+
+      # Step 12: Upload artifacts
+      - name: Upload Linux executables
+        uses: actions/upload-artifact@v4
+        with:
+          name: CollabTrans-Linux
+          path: |
+            dist/CollabTrans-lite-${{ env.VERSION }}-linux.tar.gz
+            dist/CollabTrans-full-${{ env.VERSION }}-linux.tar.gz
+            dist/CollabTrans-balance-${{ env.VERSION }}-linux.tar.gz

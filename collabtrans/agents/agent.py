@@ -23,14 +23,14 @@ ThinkingMode = Literal["enable", "disable", "default"]
 
 
 class AgentResultError(ValueError):
-    """一个特殊的异常，用于表示结果由AI正常返回，但返回的结果有问题。该错误不计入总错误数"""
+    """A special exception used to indicate that the result was returned normally by AI, but the returned result has issues. This error is not counted in the total error count"""
 
     def __init__(self, message):
         super().__init__(message)
 
 
 class PartialAgentResultError(ValueError):
-    """一个特殊的异常，用于表示结果不完整但包含了部分成功的数据，以便触发重试。该错误不计入总错误数"""
+    """A special exception used to indicate that the result is incomplete but contains partially successful data to trigger retry. This error is not counted in the total error count"""
 
     def __init__(self, message, partial_result: dict):
         super().__init__(message)
@@ -45,7 +45,7 @@ class AgentConfig:
     model_id: str
     temperature: float = 0.7
     concurrent: int = 30
-    timeout: int = 1200  # 单位(秒)，这个值是httpx.TimeOut中read的值,并非总的超时时间
+    timeout: int = 1200  # Unit (seconds), this value is the read value in httpx.TimeOut, not the total timeout time
     thinking: ThinkingMode = "default"
     retry: int = 2
 
@@ -61,14 +61,14 @@ class TotalErrorCounter:
         with self.lock:
             self.count += 1
             if self.count > self.max_errors_count:
-                self.logger.info(f"错误响应过多")
+                self.logger.info(f"Too many error responses")
             return self.reach_limit()
 
     def reach_limit(self):
         return self.count > self.max_errors_count
 
 
-# 仅使用多线程时用以计数
+# Only used for counting in multi-threading
 class PromptsCounter:
     def __init__(self, total: int, logger: logging.Logger):
         self.lock = Lock()
@@ -79,20 +79,20 @@ class PromptsCounter:
     def add(self):
         with self.lock:
             self.count += 1
-            self.logger.info(f"多线程-已完成：{self.count}/{self.total}")
+            self.logger.info(f"Multi-threading - Completed: {self.count}/{self.total}")
 
 
 def extract_token_info(response_data: dict) -> tuple[int, int, int, int]:
     """
-    从API响应中提取token信息
+    Extract token information from API response
 
-    支持多种response格式:
-    1. 格式1: usage.input_tokens_details.cached_tokens 和 usage.output_tokens_details.reasoning_tokens
-    2. 格式2: usage.prompt_tokens_details.cached_tokens
-    3. 格式3: usage.prompt_cache_hit_tokens 和 usage.completion_tokens_details.reasoning_tokens
+    Supports multiple response formats:
+    1. Format 1: usage.input_tokens_details.cached_tokens and usage.output_tokens_details.reasoning_tokens
+    2. Format 2: usage.prompt_tokens_details.cached_tokens
+    3. Format 3: usage.prompt_cache_hit_tokens and usage.completion_tokens_details.reasoning_tokens
 
     Args:
-        response_data: API响应数据
+        response_data: API response data
 
     Returns:
         tuple: (input_tokens, cached_tokens, output_tokens, reasoning_tokens)
@@ -104,35 +104,35 @@ def extract_token_info(response_data: dict) -> tuple[int, int, int, int]:
     input_tokens = usage.get("prompt_tokens", 0)
     output_tokens = usage.get("completion_tokens", 0)
 
-    # 初始化token详细统计
+    # Initialize token detailed statistics
     cached_tokens = 0
     reasoning_tokens = 0
 
-    # 尝试从不同格式获取cached_tokens
-    # 格式1: input_tokens_details.cached_tokens
+    # Try to get cached_tokens from different formats
+    # Format 1: input_tokens_details.cached_tokens
     if (
             "input_tokens_details" in usage
             and "cached_tokens" in usage["input_tokens_details"]
     ):
         cached_tokens = usage["input_tokens_details"]["cached_tokens"]
-    # 格式2: prompt_tokens_details.cached_tokens
+    # Format 2: prompt_tokens_details.cached_tokens
     elif (
             "prompt_tokens_details" in usage
             and "cached_tokens" in usage["prompt_tokens_details"]
     ):
         cached_tokens = usage["prompt_tokens_details"]["cached_tokens"]
-    # 格式3: prompt_cache_hit_tokens (直接在usage下)
+    # Format 3: prompt_cache_hit_tokens (directly under usage)
     elif "prompt_cache_hit_tokens" in usage:
         cached_tokens = usage["prompt_cache_hit_tokens"]
 
-    # 尝试从不同格式获取reasoning_tokens
-    # 格式1: output_tokens_details.reasoning_tokens
+    # Try to get reasoning_tokens from different formats
+    # Format 1: output_tokens_details.reasoning_tokens
     if (
             "output_tokens_details" in usage
             and "reasoning_tokens" in usage["output_tokens_details"]
     ):
         reasoning_tokens = usage["output_tokens_details"]["reasoning_tokens"]
-    # 格式2: completion_tokens_details.reasoning_tokens
+    # Format 2: completion_tokens_details.reasoning_tokens
     elif (
             "completion_tokens_details" in usage
             and "reasoning_tokens" in usage["completion_tokens_details"]
@@ -166,8 +166,8 @@ class TokenCounter:
             self.reasoning_tokens += reasoning_tokens
             self.total_tokens += input_tokens + output_tokens
             # self.logger.debug(
-            #     f"Token使用统计 - 输入: {self.input_tokens}(含cached: {self.cached_tokens}), "
-            #     f"输出: {self.output_tokens}(含reasoning: {self.reasoning_tokens}), 总计: {self.total_tokens}"
+            #     f"Token usage statistics - Input: {self.input_tokens}(including cached: {self.cached_tokens}), "
+            #     f"Output: {self.output_tokens}(including reasoning: {self.reasoning_tokens}), Total: {self.total_tokens}"
             # )
 
     def get_stats(self):
@@ -238,10 +238,10 @@ class Agent:
         self.thinking = config.thinking
         self.logger = config.logger
         self.total_error_counter = TotalErrorCounter(logger=self.logger)
-        # 新增：用于统计最终未解决的错误
+        # New: for counting final unresolved errors
         self.unresolved_error_lock = Lock()
         self.unresolved_error_count = 0
-        # 新增：用于统计token使用情况
+        # New: for counting token usage
         self.token_counter = TokenCounter(logger=self.logger)
 
         self.retry = config.retry
@@ -294,16 +294,16 @@ class Agent:
         if pre_send_handler:
             system_prompt, prompt = pre_send_handler(system_prompt, prompt)
         
-        # 打印给agent的提示词日志
+        # Print prompt logs for agent
         self.logger.debug("=" * 80)
-        self.logger.debug("🤖 发送给Agent的提示词:")
+        self.logger.debug("🤖 Prompt sent to Agent:")
         self.logger.debug(f"📋 System Prompt:\n{system_prompt}")
         self.logger.debug(f"💬 User Prompt:\n{prompt}")
         self.logger.debug("=" * 80)
 
         headers, data = self._prepare_request_data(prompt, system_prompt)
         should_retry = False
-        is_hard_error = False  # 新增标志，用于区分是否为硬错误
+        is_hard_error = False  # New flag to distinguish whether it's a hard error
         current_partial_result = None
         input_tokens = 0
         output_tokens = 0
@@ -316,29 +316,29 @@ class Agent:
                 timeout=self.timeout,
             )
             response.raise_for_status()
-            # print(f"【测试】resp:\n{response.json()}")
+            # print(f"[Test] resp:\n{response.json()}")
             result = response.json()["choices"][0]["message"]["content"]
             
-            # 打印AI回复日志
+            # Print AI response logs
             self.logger.debug("=" * 80)
-            self.logger.debug("🤖 Agent回复:")
+            self.logger.debug("🤖 Agent Response:")
             self.logger.debug(f"📄 Response Content:\n{result}")
             self.logger.debug("=" * 80)
 
-            # 获取token使用情况
+            # Get token usage information
             response_data = response.json()
             input_tokens, cached_tokens, output_tokens, reasoning_tokens = (
                 extract_token_info(response_data)
             )
 
-            # 更新token计数器
+            # Update token counter
             self.token_counter.add(
                 input_tokens, cached_tokens, output_tokens, reasoning_tokens
             )
 
             if retry_count > 0:
                 self.logger.info(
-                    f"重试成功 (第 {retry_count}/{self.retry} 次尝试)。"
+                    f"Retry successful (attempt {retry_count}/{self.retry})."
                 )
 
             # print(f"result:=============================================================\n{result}\n================\n")
@@ -349,29 +349,29 @@ class Agent:
             )
 
         except AgentResultError as e:
-            self.logger.error(f"AI返回结果有误: {e}")
+            self.logger.error(f"AI returned incorrect result: {e}")
             should_retry = True
-        # 专门捕获部分翻译错误（软错误）
+        # Specifically catch partial translation errors (soft errors)
         except PartialAgentResultError as e:
-            # print(f"【测试】\nprompt:\n{prompt}\nresp:\n{result}")
-            self.logger.error(f"收到部分返回结果，将尝试重试: {e}")
+            # print(f"[Test]\nprompt:\n{prompt}\nresp:\n{result}")
+            self.logger.error(f"Received partial result, will retry: {e}")
             current_partial_result = e.partial_result
             should_retry = True
-            # is_hard_error 保持 False
+            # is_hard_error remains False
 
-        # 捕获硬错误
+        # Catch hard errors
         except httpx.HTTPStatusError as e:
             self.logger.error(
-                f"AI请求HTTP状态错误 (async): {e.response.status_code} - {e.response.text}"
+                f"AI request HTTP status error (async): {e.response.status_code} - {e.response.text}"
             )
             should_retry = True
             is_hard_error = True
         except httpx.RequestError as e:
-            self.logger.error(f"AI请求连接错误 (async): {repr(e)}")
+            self.logger.error(f"AI request connection error (async): {repr(e)}")
             should_retry = True
             is_hard_error = True
         except (KeyError, IndexError, ValueError) as e:
-            self.logger.error(f"AI响应格式或值错误 (async), 将尝试重试: {repr(e)}")
+            self.logger.error(f"AI response format or value error (async), will retry: {repr(e)}")
             should_retry = True
             is_hard_error = True
 
@@ -379,11 +379,11 @@ class Agent:
             best_partial_result = current_partial_result
 
         if should_retry and retry and retry_count < self.retry:
-            # 仅在硬错误时才增加总错误计数
+            # Only increase total error count for hard errors
             if is_hard_error:
                 if retry_count == 0:
                     if self.total_error_counter.add():
-                        self.logger.error("错误次数过多，已达到上限，不再重试。")
+                        self.logger.error("Too many errors, reached limit, no more retries.")
                         return (
                             best_partial_result
                             if best_partial_result
@@ -394,7 +394,7 @@ class Agent:
                             )
                         )
                 elif self.total_error_counter.reach_limit():
-                    self.logger.error("错误次数过多，已达到上限，不再为该请求重试。")
+                    self.logger.error("Too many errors, reached limit, no more retries for this request.")
                     return (
                         best_partial_result
                         if best_partial_result
@@ -405,7 +405,7 @@ class Agent:
                         )
                     )
 
-            self.logger.info(f"正在重试第 {retry_count + 1}/{self.retry} 次...")
+            self.logger.info(f"Retrying attempt {retry_count + 1}/{self.retry}...")
             await asyncio.sleep(0.5)
             return await self.send_async(
                 client,
@@ -420,13 +420,13 @@ class Agent:
             )
         else:
             if should_retry:
-                self.logger.error(f"所有重试均失败，已达到重试次数上限。")
-                # 新增：当所有重试失败后，增加未解决错误计数
+                self.logger.error(f"All retries failed, reached retry limit.")
+                # New: increase unresolved error count after all retries fail
                 with self.unresolved_error_lock:
                     self.unresolved_error_count += 1
 
             if best_partial_result:
-                self.logger.info("所有重试失败，但存在部分翻译结果，将使用该结果。")
+                self.logger.info("All retries failed, but partial translation result exists, will use it.")
                 return best_partial_result
 
             return (
@@ -456,9 +456,9 @@ class Agent:
                 len(prompts) // MAX_REQUESTS_PER_ERROR
         )
 
-        # 新增：在每次批量发送前重置计数器
+        # New: reset counter before each batch send
         self.unresolved_error_count = 0
-        # 重置token计数器
+        # Reset token counter
         self.token_counter.reset()
 
         count = 0
@@ -468,8 +468,8 @@ class Agent:
         proxies = get_httpx_proxies() if USE_PROXY else None
 
         limits = httpx.Limits(
-            max_connections=self.max_concurrent * 2,  # 为重试和并发预留空间
-            max_keepalive_connections=self.max_concurrent,  # 保持活动的连接数
+            max_connections=self.max_concurrent * 2,  # Reserve space for retries and concurrency
+            max_keepalive_connections=self.max_concurrent,  # Keep alive connections
         )
 
         async with httpx.AsyncClient(
@@ -496,12 +496,12 @@ class Agent:
 
             results = await asyncio.gather(*tasks, return_exceptions=False)
 
-            # 新增：在所有任务完成后打印未解决的错误总数
+            # New: print total unresolved errors after all tasks complete
             self.logger.info(
                 f"All requests processed. Total unresolved errors: {self.unresolved_error_count}"
             )
 
-            # 新增：打印token使用统计
+            # New: print token usage statistics
             token_stats = self.token_counter.get_stats()
             self.logger.info(
                 f"Token usage statistics - Input: {token_stats['input_tokens'] / 1000:.2f}K(including cached: {token_stats['cached_tokens'] / 1000:.2f}K), "
@@ -530,7 +530,7 @@ class Agent:
 
         headers, data = self._prepare_request_data(prompt, system_prompt)
         should_retry = False
-        is_hard_error = False  # 新增标志，用于区分是否为硬错误
+        is_hard_error = False  # New flag to distinguish whether it's a hard error
         current_partial_result = None
         input_tokens = 0
         output_tokens = 0
@@ -546,26 +546,26 @@ class Agent:
 
             result = response.json()["choices"][0]["message"]["content"]
             
-            # 打印AI回复日志
+            # Print AI response logs
             self.logger.debug("=" * 80)
-            self.logger.debug("🤖 Agent回复:")
+            self.logger.debug("🤖 Agent Response:")
             self.logger.debug(f"📄 Response Content:\n{result}")
             self.logger.debug("=" * 80)
 
-            # 获取token使用情况
+            # Get token usage information
             response_data = response.json()
             input_tokens, cached_tokens, output_tokens, reasoning_tokens = (
                 extract_token_info(response_data)
             )
 
-            # 更新token计数器
+            # Update token counter
             self.token_counter.add(
                 input_tokens, cached_tokens, output_tokens, reasoning_tokens
             )
 
             if retry_count > 0:
                 self.logger.info(
-                    f"重试成功 (第 {retry_count}/{self.retry} 次尝试)。"
+                    f"Retry successful (attempt {retry_count}/{self.retry})."
                 )
 
             return (
@@ -574,28 +574,28 @@ class Agent:
                 else result_handler(result, prompt, self.logger)
             )
         except AgentResultError as e:
-            self.logger.error(f"AI返回结果有误: {e}")
+            self.logger.error(f"AI returned incorrect result: {e}")
             should_retry = True
-        # 专门捕获部分翻译错误（软错误）
+        # Specifically catch partial translation errors (soft errors)
         except PartialAgentResultError as e:
-            self.logger.error(f"收到部分翻译结果，将尝试重试: {e}")
+            self.logger.error(f"Received partial translation result, will retry: {e}")
             current_partial_result = e.partial_result
             should_retry = True
-            # is_hard_error 保持 False
+            # is_hard_error remains False
 
-        # 捕获硬错误
+        # Catch hard errors
         except httpx.HTTPStatusError as e:
             self.logger.error(
-                f"AI请求HTTP状态错误 (sync): {e.response.status_code} - {e.response.text}"
+                f"AI request HTTP status error (sync): {e.response.status_code} - {e.response.text}"
             )
             should_retry = True
             is_hard_error = True
         except httpx.RequestError as e:
-            self.logger.error(f"AI请求连接错误 (sync): {repr(e)}\nprompt:{prompt}")
+            self.logger.error(f"AI request connection error (sync): {repr(e)}\nprompt:{prompt}")
             should_retry = True
             is_hard_error = True
         except (KeyError, IndexError, ValueError) as e:
-            self.logger.error(f"AI响应格式或值错误 (sync), 将尝试重试: {repr(e)}")
+            self.logger.error(f"AI response format or value error (sync), will retry: {repr(e)}")
             should_retry = True
             is_hard_error = True
 
@@ -603,11 +603,11 @@ class Agent:
             best_partial_result = current_partial_result
 
         if should_retry and retry and retry_count < self.retry:
-            # 仅在硬错误时才增加总错误计数
+            # Only increase total error count for hard errors
             if is_hard_error:
                 if retry_count == 0:
                     if self.total_error_counter.add():
-                        self.logger.error("错误次数过多，已达到上限，不再重试。")
+                        self.logger.error("Too many errors, reached limit, no more retries.")
                         return (
                             best_partial_result
                             if best_partial_result
@@ -618,7 +618,7 @@ class Agent:
                             )
                         )
                 elif self.total_error_counter.reach_limit():
-                    self.logger.error("错误次数过多，已达到上限，不再为该请求重试。")
+                    self.logger.error("Too many errors, reached limit, no more retries for this request.")
                     return (
                         best_partial_result
                         if best_partial_result
@@ -629,7 +629,7 @@ class Agent:
                         )
                     )
 
-            self.logger.info(f"正在重试第 {retry_count + 1}/{self.retry} 次...")
+            self.logger.info(f"Retrying attempt {retry_count + 1}/{self.retry}...")
             time.sleep(0.5)
             return self.send(
                 client,
@@ -644,13 +644,13 @@ class Agent:
             )
         else:
             if should_retry:
-                self.logger.error(f"所有重试均失败，已达到重试次数上限。")
-                # 新增：当所有重试失败后，增加未解决错误计数
+                self.logger.error(f"All retries failed, reached retry limit.")
+                # New: increase unresolved error count after all retries fail
                 with self.unresolved_error_lock:
                     self.unresolved_error_count += 1
 
             if best_partial_result:
-                self.logger.info("所有重试失败，但存在部分翻译结果，将使用该结果。")
+                self.logger.info("All retries failed, but partial translation result exists, will use it.")
                 return best_partial_result
 
             return (
@@ -698,9 +698,9 @@ class Agent:
                 len(prompts) // MAX_REQUESTS_PER_ERROR
         )
 
-        # 新增：在每次批量发送前重置计数器
+        # New: reset counter before each batch send
         self.unresolved_error_count = 0
-        # 重置token计数器
+        # Reset token counter
         self.token_counter.reset()
 
         counter = PromptsCounter(len(prompts), self.logger)
@@ -711,8 +711,8 @@ class Agent:
         result_handlers = itertools.repeat(result_handler, len(prompts))
         error_result_handlers = itertools.repeat(error_result_handler, len(prompts))
         limits = httpx.Limits(
-            max_connections=self.max_concurrent * 2,  # 允许连接复用
-            max_keepalive_connections=self.max_concurrent,  # 保持活跃连接
+            max_connections=self.max_concurrent * 2,  # Allow connection reuse
+            max_keepalive_connections=self.max_concurrent,  # Keep active connections
         )
         proxies = get_httpx_proxies() if USE_PROXY else None
         with httpx.Client(
@@ -732,12 +732,12 @@ class Agent:
                 )
                 output_list = list(results_iterator)
 
-        # 新增：在所有任务完成后打印未解决的错误总数
+        # New: print total unresolved errors after all tasks complete
         self.logger.info(
             f"All requests processed. Total unresolved errors: {self.unresolved_error_count}"
         )
 
-        # 新增：打印token使用统计
+        # New: print token usage statistics
         token_stats = self.token_counter.get_stats()
         self.logger.info(
             f"Token usage statistics - Input: {token_stats['input_tokens'] / 1000:.2f}K(including cached: {token_stats['cached_tokens'] / 1000:.2f}K), "

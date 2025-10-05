@@ -13,11 +13,11 @@ from collabtrans.glossary.glossary import Glossary
 from collabtrans.ir.document import Document
 from collabtrans.ir.markdown_document import MarkdownDocument
 
-# 在lite版本中禁用docling导入，但balance版本需要
+# Disable docling import in lite version, but balance version needs it
 if DOCLING_EXIST:
     from collabtrans.converter.x2md.converter_docling import ConverterDoclingConfig, ConverterDocling
 from collabtrans.converter.converter_identity import ConverterIdentity
-# 在lite版本中禁用MinerU导入，但balance版本需要
+# Disable MinerU import in lite version, but balance version needs it
 from collabtrans.converter.x2md.converter_mineru import ConverterMineruConfig, ConverterMineru
 from collabtrans.converter.x2md.base import X2MarkdownConverterConfig, X2MarkdownConverter
 from collabtrans.exporter.md.md2html_exporter import MD2HTMLExporterConfig, MD2HTMLExporter
@@ -45,7 +45,7 @@ class MarkdownBasedWorkflow(Workflow[MarkdownBasedWorkflowConfig, Document, Mark
         "identity": (ConverterIdentity, None)
     }
     
-    # 添加可选转换器（balance版本需要）
+    # Add optional converters (balance version needs)
     if DOCLING_EXIST:
         _converter_factory["docling"] = (ConverterDocling, ConverterDoclingConfig)
     _converter_factory["mineru"] = (ConverterMineru, ConverterMineruConfig)
@@ -63,14 +63,14 @@ class MarkdownBasedWorkflow(Workflow[MarkdownBasedWorkflowConfig, Document, Mark
         if self.document_original is None:
             raise RuntimeError("File has not been read yet. Call read_path or read_bytes first.")
 
-        # 获取缓存的解析后文件
+        # Get cached parsed file
         document_cached = md_based_convert_cacher.get_cached_result(self.document_original, convert_engin,
                                                                     convert_config)
         if document_cached:
             self.attachment.add_document("md_cached",document_cached)
             return document_cached
 
-        # 未缓存则解析文件
+        # Parse file if not cached
         if convert_engin in self._converter_factory:
             converter_class, config_class = self._converter_factory[convert_engin]
             if config_class and not isinstance(convert_config, config_class):
@@ -78,12 +78,12 @@ class MarkdownBasedWorkflow(Workflow[MarkdownBasedWorkflowConfig, Document, Mark
                     f"The correct convert_config was not passed. It should be of type {config_class.__name__}, but it is currently of type {type(convert_config).__name__}.")
             converter = converter_class(convert_config)
         else:
-            raise ValueError(f"不存在{convert_engin}解析引擎")
+            raise ValueError(f"Parsing engine {convert_engin} does not exist")
         document_md = converter.convert(self.document_original)
         if hasattr(converter,"attachments"):
             for attachment in converter.attachments:
                 self.attachment.add_attachment(attachment)
-        # 获取缓存解析后文件
+        # Get cached parsed file
         md_based_convert_cacher.cache_result(document_md, self.document_original, convert_engin, convert_config)
 
         return document_md

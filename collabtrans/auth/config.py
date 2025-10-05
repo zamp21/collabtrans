@@ -10,7 +10,7 @@ from pathlib import Path
 import sys
 from ..config.secrets_manager import get_secrets_manager
 
-# 创建日志记录器
+# Create logger
 logger = logging.getLogger(__name__)
 
 _AUTH_CONFIG_SINGLETON: Optional["AuthConfig"] = None
@@ -58,53 +58,53 @@ def _resolve_auth_config_path(config_file: str = "local_config.json") -> Path:
 
 @dataclass
 class AuthConfig:
-    """认证配置类"""
+    """Authentication configuration class"""
     
-    # LDAP 配置
+    # LDAP configuration
     ldap_enabled: bool = False
-    ldap_protocol: str = "ldap"  # "ldap" 或 "ldaps"
+    ldap_protocol: str = "ldap"  # "ldap" or "ldaps"
     ldap_host: str = "dc.example.com"
     ldap_port: int = 389
     ldap_bind_dn_template: str = "EXAMPLE\\{username}"
     ldap_base_dn: str = "OU=Users,DC=example,DC=com"
     ldap_user_filter: str = "(sAMAccountName={username})"
     ldap_tls_cacertfile: Optional[str] = None
-    ldap_tls_verify: bool = True  # 是否验证TLS证书
+    ldap_tls_verify: bool = True  # Whether to verify TLS certificate
     
-    # LDAP 组配置
-    ldap_admin_group_enabled: bool = False  # 是否启用管理员组查询
-    ldap_glossary_group_enabled: bool = False   # 是否启用术语表组查询（新名）
-    ldap_admin_group: str = "DocuTranslate-Admins"  # 管理员组名
-    ldap_glossary_group: str = "DocuTranslate-Glossary"    # 术语表组名（新名）
-    ldap_group_base_dn: str = "OU=Groups,DC=example,DC=com"  # 组搜索基础DN
+    # LDAP group configuration
+    ldap_admin_group_enabled: bool = False  # Whether to enable admin group query
+    ldap_glossary_group_enabled: bool = False   # Whether to enable glossary group query (new name)
+    ldap_admin_group: str = "DocuTranslate-Admins"  # Admin group name
+    ldap_glossary_group: str = "DocuTranslate-Glossary"    # Glossary group name (new name)
+    ldap_group_base_dn: str = "OU=Groups,DC=example,DC=com"  # Group search base DN
     
-    # 默认用户配置（LDAP 关闭时使用）
+    # Default user configuration (used when LDAP is disabled)
     default_username: str = "admin"
     default_password: str = "admin123"
     
-    # Session 配置
+    # Session configuration
     session_secret_key: str = "your-secret-key-change-in-production"
     session_cookie_name: str = "collabtrans_session"
-    session_max_age: int = 3600 * 24 * 7  # 7天
+    session_max_age: int = 3600 * 24 * 7  # 7 days
     
-    # Redis 配置
+    # Redis configuration
     redis_host: str = "localhost"
     redis_port: int = 6379
     redis_db: int = 0
     redis_password: Optional[str] = None
     
-    # 安全配置
+    # Security configuration
     max_login_attempts: int = 5
-    login_attempt_window: int = 300  # 5分钟
-    rate_limit_window: int = 300  # 5分钟
+    login_attempt_window: int = 300  # 5 minutes
+    rate_limit_window: int = 300  # 5 minutes
     
-    # 消息配置
+    # Message configuration
     login_banner: str = "Welcome to document translation system."
     usage_message: str = "Please drop your file and click Translate."
     
     @classmethod
     def from_env(cls) -> "AuthConfig":
-        """从环境变量创建配置"""
+        """Create configuration from environment variables"""
         return cls(
             ldap_enabled=os.getenv("LDAP_ENABLED", "false").lower() == "true",
             ldap_protocol=os.getenv("LDAP_PROTOCOL", "ldap"),
@@ -116,7 +116,7 @@ class AuthConfig:
             ldap_tls_cacertfile=os.getenv("LDAP_TLS_CACERTFILE"),
             ldap_tls_verify=os.getenv("LDAP_TLS_VERIFY", "true").lower() == "true",
             ldap_admin_group_enabled=os.getenv("LDAP_ADMIN_GROUP_ENABLED", "false").lower() == "true",
-            # 仅支持新环境变量名
+            # Only support new environment variable names
             ldap_glossary_group_enabled=os.getenv("LDAP_GLOSSARY_GROUP_ENABLED", "false").lower() == "true",
             ldap_admin_group=os.getenv("LDAP_ADMIN_GROUP", "DocuTranslate-Admins"),
             ldap_glossary_group=os.getenv("LDAP_GLOSSARY_GROUP", "DocuTranslate-Users"),
@@ -125,7 +125,7 @@ class AuthConfig:
             default_password=os.getenv("DEFAULT_PASSWORD", "admin123"),
             session_secret_key=os.getenv("SESSION_SECRET_KEY", "your-secret-key-change-in-production"),
             session_cookie_name=os.getenv("SESSION_COOKIE_NAME", "collabtrans_session"),
-            session_max_age=int(os.getenv("SESSION_MAX_AGE", "604800")),  # 7天
+            session_max_age=int(os.getenv("SESSION_MAX_AGE", "604800")),  # 7 days
             redis_host=os.getenv("REDIS_HOST", "localhost"),
             redis_port=int(os.getenv("REDIS_PORT", "6379")),
             redis_db=int(os.getenv("REDIS_DB", "0")),
@@ -138,7 +138,7 @@ class AuthConfig:
         )
     
     def get_ldap_uri(self) -> str:
-        """获取完整的LDAP URI"""
+        """Get complete LDAP URI"""
         return f"{self.ldap_protocol}://{self.ldap_host}:{self.ldap_port}"
     
     @classmethod
@@ -225,7 +225,7 @@ class AuthConfig:
                 logger.error(f"[AuthConfig] Failed to load config file: {e}, using default config")
                 config = cls.from_env()
         
-        # 从敏感配置文件加载敏感信息
+        # Load sensitive information from sensitive configuration file
         config._load_auth_secrets()
         
         return config
@@ -323,27 +323,27 @@ class AuthConfig:
         }
     
     def _load_auth_secrets(self) -> None:
-        """从敏感配置文件加载认证相关敏感信息"""
+        """Load authentication-related sensitive information from sensitive configuration file"""
         try:
             secrets_manager = get_secrets_manager()
             auth_secrets = secrets_manager.get_auth_secrets()
             
             if auth_secrets:
-                # 更新敏感信息
+                # Update sensitive information
                 if "default_password" in auth_secrets and auth_secrets["default_password"]:
                     self.default_password = auth_secrets["default_password"]
-                    logger.info("从敏感配置加载了默认密码")
+                    logger.info("Loaded default password from sensitive configuration")
                 
                 if "session_secret_key" in auth_secrets and auth_secrets["session_secret_key"]:
                     self.session_secret_key = auth_secrets["session_secret_key"]
-                    logger.info("从敏感配置加载了会话密钥")
+                    logger.info("Loaded session secret key from sensitive configuration")
                 
                 if "redis_password" in auth_secrets and auth_secrets["redis_password"]:
                     self.redis_password = auth_secrets["redis_password"]
-                    logger.info("从敏感配置加载了Redis密码")
+                    logger.info("Loaded Redis password from sensitive configuration")
                     
         except Exception as e:
-            logger.warning(f"加载认证敏感配置失败: {e}")
+            logger.warning(f"Failed to load authentication sensitive configuration: {e}")
     
     def save_to_file(self, config_file: str = "local_config.json") -> bool:
         """Save grouped configuration to local_config.json (without secrets).
@@ -390,38 +390,38 @@ class AuthConfig:
         return False
     
     def update_from_dict(self, config_data: dict) -> None:
-        """从字典更新配置"""
+        """Update configuration from dictionary"""
         for key, value in config_data.items():
             if hasattr(self, key):
-                # 跳过密码字段的更新（避免被***覆盖）
+                # Skip password field updates (avoid being overwritten by ***)
                 if key == "default_password" and value == "***":
-                    logger.info(f"跳过密码字段更新，保持原值")
+                    logger.info(f"Skipping password field update, keeping original value")
                     continue
                 
-                # 特殊处理布尔值
+                # Special handling for boolean values
                 if key == "ldap_enabled" and isinstance(value, str):
                     value = value.lower() in ("true", "1", "yes", "on")
-                # 特殊处理整数
+                # Special handling for integers
                 elif key in ["session_max_age", "max_login_attempts", "login_attempt_window", "rate_limit_window"]:
                     value = int(value)
-                # 特殊处理空字符串
+                # Special handling for empty strings
                 elif key == "ldap_tls_cacertfile" and value == "":
                     value = None
                 
                 setattr(self, key, value)
-                logger.info(f"更新配置 {key} = {value}")
+                logger.info(f"Updated configuration {key} = {value}")
     
     @classmethod
     def get_config(cls, config_file: str = "local_config.json") -> "AuthConfig":
-        """获取配置（优先从文件，然后从环境变量）"""
-        # 首先尝试从文件加载
+        """Get configuration (prioritize file, then environment variables)"""
+        # First try to load from file
         config = cls.load_from_file(config_file)
         
-        # 如果文件中的配置是默认值，则检查环境变量是否有覆盖
+        # If configuration in file is default value, check if environment variables have overrides
         env_config = cls.from_env()
         
-        # 合并策略：仅当对应环境变量显式设置时才覆盖文件值
-        # 建立字段到环境变量名的映射（含兼容旧名）
+        # Merge strategy: only override file values when corresponding environment variables are explicitly set
+        # Build field to environment variable name mapping (including compatibility with old names)
         field_env_map = {
             'ldap_enabled': ['LDAP_ENABLED'],
             'ldap_protocol': ['LDAP_PROTOCOL'],
@@ -434,7 +434,7 @@ class AuthConfig:
             'ldap_tls_verify': ['LDAP_TLS_VERIFY'],
             'ldap_admin_group_enabled': ['LDAP_ADMIN_GROUP_ENABLED'],
             'ldap_admin_group': ['LDAP_ADMIN_GROUP'],
-            # 仅支持新环境变量名
+            # Only support new environment variable names
             'ldap_glossary_group_enabled': ['LDAP_GLOSSARY_GROUP_ENABLED'],
             'ldap_glossary_group': ['LDAP_GLOSSARY_GROUP'],
             'ldap_group_base_dn': ['LDAP_GROUP_BASE_DN'],
@@ -457,21 +457,21 @@ class AuthConfig:
                 if any(os.getenv(var) is not None for var in env_vars):
                     env_value = getattr(env_config, field_name)
                     setattr(config, field_name, env_value)
-                    logger.info(f"使用环境变量覆盖 {field_name} = {env_value}")
+                    logger.info(f"Using environment variable override {field_name} = {env_value}")
             except Exception:
                 continue
         
         return config
 
 
-# 模块级单例访问器，供路由的单项保存调用
+# Module-level singleton accessor for route single-item save calls
 def get_auth_config(config_file: str = "local_config.json") -> "AuthConfig":
     global _AUTH_CONFIG_SINGLETON
     if _AUTH_CONFIG_SINGLETON is None:
         try:
             _AUTH_CONFIG_SINGLETON = AuthConfig.load_from_file(config_file)
         except Exception as e:
-            logger.warning(f"[AuthConfig] 初始化认证配置单例失败，使用默认值: {e}")
+            logger.warning(f"[AuthConfig] Failed to initialize authentication configuration singleton, using default values: {e}")
             _AUTH_CONFIG_SINGLETON = AuthConfig.from_env()
     return _AUTH_CONFIG_SINGLETON
 
@@ -490,11 +490,11 @@ def save_auth_config(config_file: str = "local_config.json") -> bool:
 
 
 def reload_auth_config(config_file: str = "local_config.json") -> "AuthConfig":
-    """强制从磁盘重新加载认证配置，并刷新单例。"""
+    """Force reload authentication configuration from disk and refresh singleton."""
     global _AUTH_CONFIG_SINGLETON
     try:
         _AUTH_CONFIG_SINGLETON = AuthConfig.load_from_file(config_file)
-        logger.info("[AuthConfig] 已从磁盘重新加载认证配置")
+        logger.info("[AuthConfig] Reloaded authentication configuration from disk")
     except Exception as e:
-        logger.error(f"[AuthConfig] 重新加载认证配置失败: {e}")
+        logger.error(f"[AuthConfig] Failed to reload authentication configuration: {e}")
     return _AUTH_CONFIG_SINGLETON

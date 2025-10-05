@@ -13,7 +13,7 @@ import redis
 
 
 class LocalRedisManager:
-    """本地Redis管理器 - 自动启动和管理Redis服务"""
+    """Local Redis manager - automatically start and manage Redis service"""
     
     def __init__(self):
         self.redis_process: Optional[subprocess.Popen] = None
@@ -21,23 +21,23 @@ class LocalRedisManager:
         self.redis_port = 6379
         self.redis_host = "127.0.0.1"
         
-        # 注册退出时清理函数
+        # Register cleanup function on exit
         atexit.register(self.cleanup)
         
-        # 设置信号处理器
+        # Set signal handler
         if hasattr(signal, 'SIGTERM'):
             signal.signal(signal.SIGTERM, self._signal_handler)
         if hasattr(signal, 'SIGINT'):
             signal.signal(signal.SIGINT, self._signal_handler)
     
     def _signal_handler(self, signum, frame):
-        """信号处理器"""
+        """Signal handler"""
         print(f"\nReceived signal {signum}, shutting down Redis service...")
         self.cleanup()
         sys.exit(0)
     
     def _get_redis_path(self) -> Optional[Path]:
-        """获取Redis可执行文件路径"""
+        """Get Redis executable file path"""
         if sys.platform == "win32":
             # Windows
             redis_dir = Path(__file__).parent.parent.parent / "3rdParty" / "windows" / "Redis-x64-3.0.504"
@@ -49,7 +49,7 @@ class LocalRedisManager:
             redis_server = Path("/usr/local/bin/redis-server")
             if redis_server.exists():
                 return redis_server
-            # 或者通过Homebrew安装的路径
+            # Or through Homebrew installation path
             redis_server = Path("/opt/homebrew/bin/redis-server")
             if redis_server.exists():
                 return redis_server
@@ -62,7 +62,7 @@ class LocalRedisManager:
         return None
     
     def _is_redis_running(self) -> bool:
-        """检查Redis是否已经在运行"""
+        """Check if Redis is already running"""
         try:
             client = redis.Redis(host=self.redis_host, port=self.redis_port, socket_connect_timeout=1)
             client.ping()
@@ -71,13 +71,13 @@ class LocalRedisManager:
             return False
     
     def start_redis(self) -> bool:
-        """启动Redis服务"""
-        # 如果Redis已经在运行，直接返回成功
+        """Start Redis service"""
+        # If Redis is already running, return success directly
         if self._is_redis_running():
             print("✅ Redis service is already running")
             return True
         
-        # 获取Redis可执行文件路径
+        # Get Redis executable file path
         redis_server_path = self._get_redis_path()
         if not redis_server_path:
             print("❌ Redis executable file not found")
@@ -86,9 +86,9 @@ class LocalRedisManager:
         try:
             print(f"🚀 Starting local Redis service: {redis_server_path}")
             
-            # 启动Redis服务
+            # Start Redis service
             if sys.platform == "win32":
-                # Windows: 使用配置文件启动
+                # Windows: start with configuration file
                 config_file = redis_server_path.parent / "redis.windows.conf"
                 if config_file.exists():
                     self.redis_process = subprocess.Popen(
@@ -112,8 +112,8 @@ class LocalRedisManager:
                     stderr=subprocess.PIPE
                 )
             
-            # 等待Redis启动
-            for i in range(10):  # 最多等待10秒
+            # Wait for Redis to start
+            for i in range(10):  # Wait up to 10 seconds
                 time.sleep(1)
                 if self._is_redis_running():
                     print("✅ Redis service started successfully")
@@ -128,7 +128,7 @@ class LocalRedisManager:
             return False
     
     def get_redis_client(self) -> Optional[redis.Redis]:
-        """获取Redis客户端"""
+        """Get Redis client"""
         if not self._is_redis_running():
             if not self.start_redis():
                 return None
@@ -142,7 +142,7 @@ class LocalRedisManager:
                     socket_connect_timeout=5,
                     socket_timeout=5
                 )
-                # 测试连接
+                # Test connection
                 self.redis_client.ping()
             except Exception as e:
                 print(f"❌ Failed to connect to Redis: {e}")
@@ -151,22 +151,22 @@ class LocalRedisManager:
         return self.redis_client
     
     def cleanup(self):
-        """清理资源"""
+        """Clean up resources"""
         if self.redis_process and self.redis_process.poll() is None:
             print("🛑 Shutting down Redis service...")
             try:
                 if sys.platform == "win32":
-                    # Windows: 发送终止信号
+                    # Windows: send termination signal
                     self.redis_process.terminate()
                 else:
-                    # Linux/macOS: 发送SIGTERM信号
+                    # Linux/macOS: send SIGTERM signal
                     self.redis_process.terminate()
                 
-                # 等待进程结束
+                # Wait for process to end
                 try:
                     self.redis_process.wait(timeout=5)
                 except subprocess.TimeoutExpired:
-                    # 强制杀死进程
+                    # Force kill process
                     self.redis_process.kill()
                     self.redis_process.wait()
                 
@@ -178,12 +178,12 @@ class LocalRedisManager:
         self.redis_client = None
 
 
-# 全局Redis管理器实例
+# Global Redis manager instance
 _redis_manager: Optional[LocalRedisManager] = None
 
 
 def get_redis_manager() -> LocalRedisManager:
-    """获取全局Redis管理器实例"""
+    """Get global Redis manager instance"""
     global _redis_manager
     if _redis_manager is None:
         _redis_manager = LocalRedisManager()
@@ -191,6 +191,6 @@ def get_redis_manager() -> LocalRedisManager:
 
 
 def get_redis_client() -> Optional[redis.Redis]:
-    """获取Redis客户端（自动启动Redis服务）"""
+    """Get Redis client (automatically start Redis service)"""
     manager = get_redis_manager()
     return manager.get_redis_client()

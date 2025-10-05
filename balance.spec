@@ -1,26 +1,26 @@
 # -*- mode: python ; coding: utf-8 -*-
-# Balance版本：基于lite版本，但包含docling及其关联库
+# Balance version: Based on lite version, but includes docling and its associated libraries
 import os
 import sys
 from PyInstaller.utils.hooks import collect_data_files, collect_all
 import collabtrans
 
-# 收集docling相关数据
+# Collect docling related data
 datas = [
     ('collabtrans/static', 'collabtrans/static'),
     ('collabtrans/template', 'collabtrans/template'),
-    ('collabtrans/i18n', 'collabtrans/i18n'),  # 添加i18n目录
+    ('collabtrans/i18n', 'collabtrans/i18n'),  # Add i18n directory
     ('collabtrans/static/favicon.ico', 'collabtrans/favicon.ico'),
-    ('global_config.json', '.'),  # 全局配置文件
-    ('app_config.json', '.'),  # 应用配置文件（默认，运行时优先 /etc）
-    ('local_secrets.json.template', '.'),  # 本地密钥模板文件
-    ('setup_secrets.py', '.'),  # 敏感配置初始化脚本
-    ('setup_first_deploy.py', '.'),  # 首次部署设置脚本
-    # 包含pygments数据
+    ('global_config.json', '.'),  # Global configuration file
+    ('app_config.json', '.'),  # Application configuration file (default, runtime priority /etc)
+    ('local_secrets.json.template', '.'),  # Local secrets template file
+    ('setup_secrets.py', '.'),  # Sensitive configuration initialization script
+    ('setup_first_deploy.py', '.'),  # First deployment setup script
+    # Include pygments data
     *collect_data_files('pygments', include_py_files=False)
 ]
 
-# 收集docling相关资源
+# Collect docling related resources
 binaries = []
 hiddenimports = [
     'markdown.extensions.tables',
@@ -30,23 +30,23 @@ hiddenimports = [
     'pygments'
 ]
 
-# 收集docling相关依赖
+# Collect docling related dependencies
 try:
     docling_data, docling_binaries, docling_hidden = collect_all('docling')
     datas += docling_data
     binaries += docling_binaries
     hiddenimports += docling_hidden
-    print("✅ 成功收集docling相关资源")
+    print("✅ Successfully collected docling related resources")
 except Exception as e:
-    print(f"⚠️ 收集docling资源时出错: {e}")
+    print(f"⚠️ Error collecting docling resources: {e}")
 
-# 收集numpy相关资源（docling依赖）- 使用更安全的方式
+# Collect numpy related resources (docling dependency) - use safer approach
 try:
     import numpy
     numpy_data, numpy_binaries, numpy_hidden = collect_all('numpy')
     datas += numpy_data
     binaries += numpy_binaries
-    # 添加更完整的numpy模块，确保兼容性
+    # Add more complete numpy modules to ensure compatibility
     numpy_essential = [
         'numpy._core.multiarray',
         'numpy._core.umath',
@@ -73,32 +73,32 @@ try:
         'numpy.core.umath_tests'
     ]
     hiddenimports += numpy_essential
-    print("✅ 成功收集numpy相关资源")
+    print("✅ Successfully collected numpy related resources")
 except Exception as e:
-    print(f"⚠️ 收集numpy资源时出错: {e}")
+    print(f"⚠️ Error collecting numpy resources: {e}")
 
-# 收集scipy相关资源（docling依赖）
+# Collect scipy related resources (docling dependency)
 try:
     scipy_data, scipy_binaries, scipy_hidden = collect_all('scipy')
     datas += scipy_data
     binaries += scipy_binaries
     hiddenimports += scipy_hidden
-    print("✅ 成功收集scipy相关资源")
+    print("✅ Successfully collected scipy related resources")
 except Exception as e:
-    print(f"⚠️ 收集scipy资源时出错: {e}")
+    print(f"⚠️ Error collecting scipy resources: {e}")
 
 a = Analysis(
     ['collabtrans/app.py'],
     pathex=[],
     binaries=binaries,
     datas=datas,
-    hiddenimports=list(set(hiddenimports)),  # 去重
+    hiddenimports=list(set(hiddenimports)),  # Remove duplicates
     hookspath=[],
     hooksconfig={},
     runtime_hooks=['hook-numpy-fix.py'],
     excludes=[
-        # 排除最大的依赖包，但保留docling和MinerU相关
-        # 注意：docling-ibm-models需要torch、transformers等，所以不能排除
+        # Exclude largest dependency packages, but keep docling and MinerU related
+        # Note: docling-ibm-models requires torch, transformers, etc., so cannot exclude
         # "torch", "torchvision", "torchaudio",
         # "transformers", "tokenizers", "sentencepiece",
         "easyocr", "cv2", "opencv-python",
@@ -106,14 +106,14 @@ a = Analysis(
         "sklearn", "scikit-learn",
         "nltk", "spacy", "gensim", "jieba",
         "celery", "sqlalchemy",
-        # 测试和开发工具
+        # Testing and development tools
         "pytest", "pytest-asyncio", "pytest-cov",
         "black", "flake8", "mypy",
-        # 其他大包
+        # Other large packages
         "jupyter", "ipython", "notebook",
         "tensorflow", "keras",
         "xgboost", "lightgbm",
-        # 排除有问题的numpy测试模块和核心模块
+        # Exclude problematic numpy test modules and core modules
         "numpy.tests", "numpy.testing",
         "numpy._pyinstaller", "numpy.f2py.tests",
         "numpy.ma.tests", "numpy.lib.tests",
@@ -122,7 +122,7 @@ a = Analysis(
         "numpy.polynomial.tests", "numpy.matrixlib.tests",
         "numpy.typing.tests", "numpy.compat.tests",
         "numpy._core.tests", "numpy._typing.tests",
-        # 排除有问题的numpy核心模块
+        # Exclude problematic numpy core modules
         "numpy.core._add_newdocs",
         "numpy.core.machar",
         "numpy.core.umath_tests",
@@ -131,7 +131,7 @@ a = Analysis(
         "numpy.core._multiarray_tests",
     ],
     noarchive=False,
-    optimize=2,  # 启用Python字节码优化
+    optimize=2,  # Enable Python bytecode optimization
 )
 
 pyz = PYZ(a.pure)

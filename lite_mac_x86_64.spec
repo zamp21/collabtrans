@@ -7,7 +7,7 @@ datas = [
     ('./collabtrans/template', 'collabtrans/template')
 ]
 
-# 只收集 pygments 的数据文件
+# Only collect pygments data files
 datas += collect_data_files('pygments')
 
 hiddenimports = [
