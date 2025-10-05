@@ -129,8 +129,8 @@ function updateGlossariesUI() {
     });
     
     // Set selected state
-    if (glossariesData.user_selection && glossariesData.user_selection.global_glossaries) {
-        glossariesData.user_selection.global_glossaries.forEach(glossaryId => {
+    if (glossariesData.user_selection && glossariesData.user_selection.selected_global_glossaries) {
+        glossariesData.user_selection.selected_global_glossaries.forEach(glossaryId => {
             const checkbox = document.getElementById(`glossary_${glossaryId}`);
             if (checkbox) {
                 checkbox.checked = true;

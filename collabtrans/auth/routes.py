@@ -2496,3 +2496,37 @@ async def delete_local_user(username: str, current_user: Optional[User] = Depend
     store = get_local_user_store()
     ok = store.delete_user(username)
     return {"ok": ok}
+
+
+# Self-service change password for local users
+@auth_router.post("/local-users/me/change-password", response_class=JSONResponse)
+async def change_own_local_password(request: Request, current_user: Optional[User] = Depends(get_current_user)):
+    """Allow authenticated local users to change their own password by providing current password.
+
+    Rules:
+    - Only works for users that exist in local user store.
+    - Require current password verification against local store.
+    - LDAP users (no entry in local store) are not allowed here.
+    """
+    if current_user is None:
+        raise HTTPException(status_code=401, detail="not authenticated")
+
+    payload = await request.json()
+    current_password = payload.get("current_password")
+    new_password = payload.get("new_password")
+
+    if not current_password or not new_password:
+        raise HTTPException(status_code=400, detail="current_password and new_password are required")
+
+    store = get_local_user_store()
+    # Ensure user exists in local user store
+    local_user = store.get_user(current_user.username)
+    if not local_user:
+        raise HTTPException(status_code=403, detail="not a local user")
+
+    ok, _ = store.verify_credentials(current_user.username, current_password)
+    if not ok:
+        raise HTTPException(status_code=403, detail="current password incorrect")
+
+    store.reset_password(current_user.username, new_password)
+    return {"ok": True}

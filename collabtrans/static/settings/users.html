@@ -73,3 +73,30 @@
     </div>
   </div>
 </div>
+
+<!-- Reset Password Modal (moved out to be a sibling of userEditModal) -->
+<div class="modal fade" id="userResetPwdModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="resetPwdModalTitle">Reset Password</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2 text-muted" id="resetPwdForUser"></div>
+        <label class="form-label" data-i18n="newPassword">New password</label>
+        <div class="input-group">
+          <input type="password" class="form-control" id="resetPasswordInput" data-i18n-placeholder="passwordPlaceholder" placeholder="Enter new password">
+          <button class="btn btn-outline-secondary toggle-password" type="button" data-target="resetPasswordInput" data-i18n-title="showHidePassword" title="Show/Hide">
+            <i class="bi bi-eye-slash"></i>
+          </button>
+        </div>
+        <div class="form-text" data-i18n="passwordTooShort">Password too short (>=6)</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="cancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="confirmResetPasswordBtn" data-i18n="save">Save</button>
+      </div>
+    </div>
+  </div>
+</div>

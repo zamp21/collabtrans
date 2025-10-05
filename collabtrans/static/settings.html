@@ -78,7 +78,53 @@
         [data-bs-theme="dark"] table thead th {
             color: var(--bs-emphasis-color);
         }
+        /* Fix close button conflicting styles (e.g., Pico.css) making it a white block */
+        .btn-close {
+            background-color: transparent !important;
+            box-shadow: none !important;
+            border: 0 !important;
+            width: 1em;
+            height: 1em;
+            padding: .25rem;
+            background-repeat: no-repeat !important;
+            background-position: center !important;
+        }
     </style>
+    <script>
+        // Frontend log level control for Settings page (default INFO)
+        (function(){
+            try{
+                const originalDebug = console.debug.bind(console);
+                const originalLog = console.log.bind(console);
+                const setLevel = (level)=>{
+                    const lvl = (level||'INFO').toUpperCase();
+                    if(lvl === 'DEBUG'){
+                        console.debug = originalDebug;
+                        console.log = originalLog;
+                    }else{
+                        console.debug = function(){}; // suppress console.debug
+                        // filter out [DEBUG] tagged console.log
+                        console.log = function(){
+                            try{
+                                if(arguments.length>0 && typeof arguments[0]==='string' && arguments[0].startsWith('[DEBUG]')){
+                                    return;
+                                }
+                            }catch(_){/* ignore */}
+                            return originalLog.apply(console, arguments);
+                        };
+                    }
+                };
+                const saved = localStorage.getItem('frontend_log_level');
+                if(saved){ setLevel(saved); } else { setLevel('INFO'); }
+                fetch('/auth/app-config', {credentials:'include'}).then(r=>r.ok?r.json():null).then(cfg=>{
+                    if(!cfg) return;
+                    const lvl = (cfg.logging && cfg.logging.level) || cfg.logging_level || cfg['logging.level'] || cfg.frontend_log_level;
+                    if(lvl){ setLevel(lvl); }
+                }).catch(()=>{});
+                window.setFrontendLogLevel = (lvl)=>{ localStorage.setItem('frontend_log_level', lvl); setLevel(lvl); };
+            }catch(_){/* no-op */}
+        })();
+    </script>
 </head>
 <body>
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -103,17 +149,17 @@
           <a class="nav-link active" href="#" data-section="general">
             <i class="bi bi-gear me-2"></i><span data-i18n="generalTitle">General</span>
           </a>
-          <a class="nav-link" href="#" data-section="ai-platforms">
-            <i class="bi bi-robot me-2"></i><span data-i18n="aiPlatformTitle">AI Platforms</span>
-          </a>
-          <a class="nav-link" href="#" data-section="parsing-engines">
-            <i class="bi bi-cpu me-2"></i><span data-i18n="parsingEngineTitle">Parsing Engine</span>
-          </a>
           <a class="nav-link" href="#" data-section="prompts">
             <i class="bi bi-chat-text me-2"></i><span data-i18n="promptsTitle">Prompts</span>
           </a>
           <a class="nav-link" href="#" data-section="glossary">
             <i class="bi bi-book me-2"></i><span data-i18n="glossaryTitle">Glossary</span>
+          </a>
+          <a class="nav-link" href="#" data-section="ai-platforms">
+            <i class="bi bi-robot me-2"></i><span data-i18n="aiPlatformTitle">AI Platforms</span>
+          </a>
+          <a class="nav-link" href="#" data-section="parsing-engines">
+            <i class="bi bi-cpu me-2"></i><span data-i18n="parsingEngineTitle">Parsing Engine</span>
           </a>
           <a class="nav-link" href="#" data-section="login-settings">
             <i class="bi bi-shield-lock me-2"></i><span data-i18n="ldapTitle">LDAP</span>
@@ -291,7 +337,7 @@
 </main>
 
 <script src="/static/bootstrap.bundle.min.js"></script>
-<script src="/static/settings/settings-core.js"></script>
+<script src="/static/settings/settings-core.js?v=20251005"></script>
 <script>
   // Initialize everything when page loads
   document.addEventListener('DOMContentLoaded', () => {

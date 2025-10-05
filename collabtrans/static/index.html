@@ -251,6 +251,44 @@
             }
         }
     </style>
+    <script>
+        // Frontend log level control (default INFO). Levels: DEBUG, INFO, WARNING, ERROR.
+        (function(){
+            try{
+                const originalDebug = console.debug.bind(console);
+                const originalLog = console.log.bind(console);
+                const setLevel = (level)=>{
+                    const lvl = (level||'INFO').toUpperCase();
+                    if(lvl === 'DEBUG'){
+                        console.debug = originalDebug;
+                        console.log = originalLog;
+                    }else{
+                        console.debug = function(){}; // suppress debug when not DEBUG
+                        // filter out console.log lines that are explicitly tagged as [DEBUG]
+                        console.log = function(){
+                            try{
+                                if(arguments.length>0 && typeof arguments[0]==='string' && arguments[0].startsWith('[DEBUG]')){
+                                    return; // skip debug-tagged logs at INFO or higher
+                                }
+                            }catch(_){/* ignore */}
+                            return originalLog.apply(console, arguments);
+                        };
+                    }
+                };
+                // 1) local override
+                const saved = localStorage.getItem('frontend_log_level');
+                if(saved){ setLevel(saved); } else { setLevel('INFO'); }
+                // 2) try backend config (async update)
+                fetch('/auth/app-config', {credentials:'include'}).then(r=>r.ok?r.json():null).then(cfg=>{
+                    if(!cfg) return;
+                    const lvl = (cfg.logging && cfg.logging.level) || cfg.logging_level || cfg['logging.level'] || cfg.frontend_log_level;
+                    if(lvl){ setLevel(lvl); }
+                }).catch(()=>{});
+                // expose for runtime change
+                window.setFrontendLogLevel = (lvl)=>{ localStorage.setItem('frontend_log_level', lvl); setLevel(lvl); };
+            }catch(_){/* no-op */}
+        })();
+    </script>
 </head>
 <body>
 
@@ -261,7 +299,11 @@
             <div class="settings-panel">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <div class="d-flex align-items-center">
-                        <h4 class="mb-0 me-3 fw-bold">CollabTrans</h4>
+                        <img src="/static/favicon.ico" alt="CollabTrans Logo" style="width: 96px; height: 96px; margin-right: 20px;">
+                        <div style="height: 96px; display: flex; flex-direction: column; justify-content: center;">
+                            <h1 class="mb-1 fw-bold" style="font-size: 2.5rem;">CollabTrans</h1>
+                            <p class="mb-0 text-muted" style="font-size: 1.25rem;">Document Translation Agent</p>
+                        </div>
                     </div>
                 </div>
                 
@@ -1124,7 +1166,6 @@ $.*"></textarea>
                 -->
             </div>
         </div>
-
         <!-- Right: Task Area -->
         <div class="col-lg-8">
             <div class="task-area" id="task-area-container">
@@ -1132,13 +1173,13 @@ $.*"></textarea>
                     <h4 class="mb-0"><i class="bi bi-list-task me-2"></i><span data-i18n="taskListTitle">Task List</span></h4>
                     <div class="d-flex align-items-center gap-2">
                         <button class="btn btn-outline-secondary" id="addNewTaskBtn"><i class="bi bi-plus-circle-fill me-2"></i><span data-i18n="newTaskBtn">New Task</span></button>
-                        <a href="/settings" class="btn btn-outline-secondary" id="settingsBtn" style="display:none;">
+                        <a href="/settings" class="btn btn-outline-secondary" id="settingsBtn" style="display:none;" title="Settings" data-i18n-title="settingsTitle">
                             <i class="bi bi-gear me-1"></i><span data-i18n="settingsTitle">Settings</span>
                         </a>
                         
                         <!-- User Dropdown Menu -->
                         <div class="dropdown">
-                            <button class="btn btn-outline-secondary dropdown-toggle d-flex align-items-center" type="button" id="userDropdownMenu" data-bs-toggle="dropdown" aria-expanded="false">
+                            <button class="btn btn-outline-secondary dropdown-toggle d-flex align-items-center" type="button" id="userDropdownMenu" data-bs-toggle="dropdown" aria-expanded="false" title="User" data-i18n-title="userMenuTitle">
                                 <i class="bi bi-person-circle me-2"></i>
                                 <span id="currentUserName">--</span>
                     </button>
@@ -1148,7 +1189,7 @@ $.*"></textarea>
                                     <span class="dropdown-item-text d-flex align-items-center" style="cursor: pointer;" id="userThemeBtn">
                                         <i class="bi bi-circle-half me-2"></i>
                                         <span data-i18n="themeBtn">Theme</span>
-                                        <span class="text-muted ms-auto" id="userCurrentThemeText">(Auto)</span>
+                                        <span class="text-muted ms-auto" id="userCurrentThemeText" data-i18n="currentThemeAuto">(Auto)</span>
                                     </span>
                                 </li>
                                 
@@ -1157,7 +1198,7 @@ $.*"></textarea>
                                     <span class="dropdown-item-text d-flex align-items-center" style="cursor: pointer;" id="userLanguageBtn">
                                         <i class="bi bi-translate me-2"></i>
                                         <span data-i18n="languageBtn">Language</span>
-                                        <span class="text-muted ms-auto" id="userCurrentLangText">(English)</span>
+                                        <span class="text-muted ms-auto" id="userCurrentLangText" data-i18n="currentLangEnglish">(English)</span>
                                     </span>
                                 </li>
                                 
@@ -1182,7 +1223,18 @@ $.*"></textarea>
                                 
                                 <!-- Divider -->
                                 <li><hr class="dropdown-divider"></li>
-                                
+
+                                <!-- Change Password (Local users) -->
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center" href="#changePasswordModal" data-bs-toggle="modal" id="openChangePassword">
+                                        <i class="bi bi-key me-2"></i>
+                                        <span data-i18n="changePassword">Change Password</span>
+                                    </a>
+                                </li>
+
+                                <!-- Divider -->
+                                <li><hr class="dropdown-divider"></li>
+
                                 <!-- Logout -->
                                 <li>
                                     <a class="dropdown-item d-flex align-items-center text-danger" href="#" id="logoutBtn">
@@ -1195,6 +1247,51 @@ $.*"></textarea>
                     </div>
                 </div>
                 
+                <!-- Change Password Modal -->
+                <div class="modal fade" id="changePasswordModal" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" data-i18n="changePassword">Change Password</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <label class="form-label" data-i18n="currentPassword">Current Password</label>
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="currentPasswordInput" data-i18n-placeholder="passwordPlaceholder" placeholder="Current password">
+                                        <button class="btn btn-outline-secondary toggle-password" type="button" data-target="currentPasswordInput" data-i18n-title="showHidePassword" title="Show/Hide">
+                                            <i class="bi bi-eye-slash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" data-i18n="newPassword">New Password</label>
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="newPasswordInput" data-i18n-placeholder="passwordPlaceholder" placeholder="New password">
+                                        <button class="btn btn-outline-secondary toggle-password" type="button" data-target="newPasswordInput" data-i18n-title="showHidePassword" title="Show/Hide">
+                                            <i class="bi bi-eye-slash"></i>
+                                        </button>
+                                    </div>
+                                    <div class="form-text" data-i18n="passwordTooShort">Password too short (>=6)</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" data-i18n="confirmNewPassword">Confirm New Password</label>
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="newPasswordConfirmInput" data-i18n-placeholder="passwordPlaceholder" placeholder="Confirm new password">
+                                        <button class="btn btn-outline-secondary toggle-password" type="button" data-target="newPasswordConfirmInput" data-i18n-title="showHidePassword" title="Show/Hide">
+                                            <i class="bi bi-eye-slash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-i18n="cancel">Cancel</button>
+                                <button type="button" class="btn btn-primary" id="confirmChangePasswordBtn" data-i18n="save">Save</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 
                 <div id="task-container">
                     <!-- Task cards will be injected here -->
@@ -1620,7 +1717,6 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="/static/split.min.js"></script>
 <!-- [NEW] PapaParse for CSV parsing -->
 <script src="/static/papaparse.min.js"></script>
-
 <script type="module">
     // --- I18N Data ---
     // Initialize with a minimal fallback for critical error messages.
@@ -2263,7 +2359,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         return false;
     };
-    
     // Get value from configuration
     const getFromConfig = (key, defaultValue = '') => {
         try {
@@ -2373,7 +2468,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // AUTH Settings has been migrated to /settings page, no need to hide
         
-        // 2. Hide MinerU Token in parsing settings
+        // 2. Hide Mineru Token in parsing settings
         const mineruTokenGroup = document.getElementById('mineruTokenGroup');
         if (mineruTokenGroup) {
             mineruTokenGroup.style.display = 'none';
@@ -2471,7 +2566,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
-        // 6. Hide parsing engine selection (because Mineru requires Token)
+        // 6. Hide parsing engine selection (because MinerU requires Token)
         const convertEngineSelect = document.getElementById('convert_engine');
         if (convertEngineSelect) {
             const options = convertEngineSelect.querySelectorAll('option');
@@ -2883,7 +2978,6 @@ document.addEventListener('DOMContentLoaded', function() {
             currentApiKeyStatus.textContent = 'Load Failed';
         }
     }
-
     /**
      * Handle platform selection change on index page
      */
@@ -3506,7 +3600,6 @@ document.addEventListener('DOMContentLoaded', function() {
             showNotification(`Conversion failed: ${error.message}`, 'error');
         }
     }
-
     // Update convert status in UI
     function updateConvertStatus(cardId, status, message = '') {
         const {elements, state} = tasks[cardId];
@@ -4130,8 +4223,6 @@ document.addEventListener('DOMContentLoaded', function() {
             downloadButtons.style.display = 'none';
         }
     }
-
-
     function setupPreview(cardId) {
         const {state} = tasks[cardId];
         if (!state.htmlUrl) return;
@@ -4409,8 +4500,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         const isAdmin = window.userPermissions.is_super_admin || window.userPermissions.is_admin;
+        // Treat app admin consistently for local and LDAP (role: ldap_app)
+        const isAppAdmin = !!(window.userPermissions && (window.userPermissions.is_local_app_admin || window.userPermissions.can_access_glossary_management || ['ldap_app'].includes((window.userPermissions.role||'').toLowerCase())));
         
-        if (isAdmin) {
+        if (isAdmin || isAppAdmin) {
             settingsBtn.style.display = '';
             settingsBtn.classList.remove('hidden-by-permission');
             console.log('[DEBUG] Settings button shown for admin user');
@@ -4630,14 +4723,12 @@ document.addEventListener('DOMContentLoaded', function() {
             config.element.addEventListener(config.event, handler);
         });
     }
-
-
     async function init() {
         // Step 1: Fetch i18n data
         try {
             // Add cache busting parameter to force reload
             const timestamp = new Date().getTime();
-            const response = await fetch(`/i18n/i18nData.json?t=${timestamp}`);
+            const response = await fetch(`/i18n/i18nMain.json?t=${timestamp}`);
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             i18nData = await response.json();
         } catch (error) {
@@ -4995,6 +5086,33 @@ document.addEventListener('DOMContentLoaded', function() {
 
         document.querySelectorAll('.toggle-password').forEach(setupPasswordToggle);
 
+        // Change password (local users)
+        const changePwdBtn = document.getElementById('confirmChangePasswordBtn');
+        if (changePwdBtn) {
+            changePwdBtn.addEventListener('click', async () => {
+                try{
+                    const currentPassword = document.getElementById('currentPasswordInput').value.trim();
+                    const newPassword = document.getElementById('newPasswordInput').value.trim();
+                    const newPasswordConfirm = document.getElementById('newPasswordConfirmInput').value.trim();
+                    if(!currentPassword || !newPassword){ alert(getText ? getText('fillPasswords','Please fill passwords') : 'Please fill passwords'); return; }
+                    if(newPassword.length < 6){ alert(getText ? getText('passwordTooShort','Password too short (>=6)') : 'Password too short (>=6)'); return; }
+                    if(newPassword !== newPasswordConfirm){ alert(getText ? getText('passwordNotMatch','Two passwords do not match') : 'Two passwords do not match'); return; }
+                    const resp = await fetch('/auth/local-users/me/change-password', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({current_password: currentPassword, new_password: newPassword}) });
+                    if(resp.ok){
+                        alert(getText ? getText('passwordUpdated','Password updated') : 'Password updated');
+                        const modalEl = document.getElementById('changePasswordModal');
+                        bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+                    } else {
+                        const t = await resp.text();
+                        alert((getText ? getText('passwordUpdateFailed','Failed') : 'Failed')+': '+t);
+                    }
+                }catch(err){
+                    console.error('change-password error', err);
+                    alert(getText ? getText('unknownError','Error') : 'Error');
+                }
+            });
+        }
+
         // Restore tasks
         if (isAdminMode) {
             document.title = "DocuTranslate - Admin Panel";
@@ -5104,7 +5222,6 @@ document.addEventListener('DOMContentLoaded', function() {
             testBtn.innerHTML = '<i class="bi bi-wifi me-1"></i>Test Connection';
         }
     }
-    
     // Prompt management function
     class PromptManager {
         constructor() {
@@ -5730,7 +5847,6 @@ document.addEventListener('DOMContentLoaded', function() {
     window.openPromptsSettings = function() {
         window.open('/settings#prompts', '_blank');
     };
-    
     window.showPromptDetail = function(name, content) {
         // Create modal
         const modalHtml = `
@@ -6376,10 +6492,8 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch (_) {}
   })();
 </script>
-
 <!-- Log i18n support -->
 <script src="/static/log/log-i18n.js"></script>
-
 <!-- Hidden Theme and Language Submenus -->
 <ul class="dropdown-menu" id="userThemeMenu" style="display: none;">
     <li><a class="dropdown-item" href="#" data-theme="light"><i class="bi bi-sun-fill me-2"></i><span data-i18n="themeLight">Light</span></a></li>

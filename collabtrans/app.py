@@ -616,6 +616,19 @@ I18N_DIR = resource_path("i18n")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 app.mount("/i18n", StaticFiles(directory=I18N_DIR), name="i18n")
 
+# Add favicon route to handle browser requests
+@app.get("/favicon.ico")
+async def favicon():
+    from fastapi.responses import FileResponse
+    import os
+    favicon_path = os.path.join(STATIC_DIR, "favicon.ico")
+    if os.path.exists(favicon_path):
+        return FileResponse(favicon_path, media_type="image/x-icon")
+    else:
+        # Return a 204 No Content response if favicon doesn't exist
+        from fastapi.responses import Response
+        return Response(status_code=204)
+
 # Initialize authentication module and add middleware and routes
 if AUTH_AVAILABLE:
     try:
@@ -2166,10 +2179,18 @@ async def settings_page(request: Request):
         session_manager = get_session_manager()
         if not await session_manager.is_authenticated(request):
             return RedirectResponse(url="/login?next=/settings", status_code=302)
-        # Only allow super admin or admin group members to access
+        # Allow super admin, admin group members, or app admin (glossary management role) to access
         try:
             user = await session_manager.get_user(request)
-            if not user or not (user.is_super_admin() or user.is_admin()):
+            # app admin: ldap_glossary / ldap_app roles are allowed
+            can_app_admin = False
+            try:
+                role_val = getattr(user, 'role', None).value if getattr(user, 'role', None) is not None else ''
+                role_val_lc = role_val.lower()
+                can_app_admin = (role_val_lc == 'ldap_glossary' or role_val_lc == 'ldap_app') or (hasattr(user, 'can_access_glossary_management') and user.can_access_glossary_management())
+            except Exception:
+                can_app_admin = False
+            if not user or not (user.is_super_admin() or user.is_admin() or can_app_admin):
                 return RedirectResponse(url="/", status_code=302)
         except Exception:
             return RedirectResponse(url="/", status_code=302)

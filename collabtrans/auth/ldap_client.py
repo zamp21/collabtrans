@@ -202,9 +202,9 @@ class LDAPClient:
         """Determine user role based on LDAP groups"""
         logger.info("Starting to determine user role...")
         logger.info(f"Admin group query enabled: {self.config.ldap_admin_group_enabled}")
-        logger.info(f"Glossary group query enabled: {self.config.ldap_glossary_group_enabled}")
+        logger.info(f"App group (formerly glossary) query enabled: {self.config.ldap_glossary_group_enabled}")
         logger.info(f"Admin group: {self.config.ldap_admin_group}")
-        logger.info(f"Glossary group: {self.config.ldap_glossary_group}")
+        logger.info(f"App group (formerly glossary): {self.config.ldap_glossary_group}")
         logger.info(f"Group search base DN: {self.config.ldap_group_base_dn}")
         
         # If both group queries are not enabled, return regular user directly
@@ -231,8 +231,8 @@ class LDAPClient:
         if self.config.ldap_glossary_group_enabled:
             is_user_group_member = self._check_user_group_membership(conn, user_entry)
             if is_user_group_member:
-                logger.info("User belongs to glossary group, assigning ldap_glossary role")
-                return UserRole.LDAP_GLOSSARY
+                logger.info("User belongs to app group, assigning ldap_app role")
+                return UserRole.LDAP_APP
 
         # Default regular user
         logger.info("User assigned as regular user role")

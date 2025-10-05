@@ -60,7 +60,7 @@
         <td><span data-i18n="userRole${info.role?.replace('_', '') || 'User'}" data-role="${info.role||'user'}">${info.role||'user'}</span></td>
         <td>
           <div class="btn-group btn-group-sm">
-            <button class="btn btn-outline-primary" data-action="edit" data-user="${username}"><i class="bi bi-pencil-square"></i></button>
+            <button class="btn btn-outline-primary" data-action="edit" data-user="${username}" ${isSuperAdmin?'disabled':''}><i class="bi bi-pencil-square"></i></button>
             <button class="btn btn-outline-warning" data-action="reset" data-user="${username}" ${isSuperAdmin?'disabled':''}><i class="bi bi-key"></i></button>
             <button class="btn btn-outline-danger" data-action="delete" data-user="${username}" ${isSuperAdmin?'disabled':''}><i class="bi bi-trash3"></i></button>
           </div>
@@ -113,6 +113,9 @@
       if(!target) return;
       const action = target.getAttribute('data-action');
       const username = target.getAttribute('data-user');
+      // Guard: super admin is immutable in Users settings
+      if(target.disabled){ return; }
+      if(username && username === superAdminUsername && (action==='edit' || action==='reset' || action==='delete')){ return; }
       if(action==='edit'){
         // Load row info
         const row = target.closest('tr');
@@ -124,16 +127,30 @@
         };
         openEditModal('edit', username, info);
       }else if(action==='reset'){
-        const label = (window.SettingsCore?.getText('newPassword','New password'));
-        const newPwd = prompt(label);
-        if(!newPwd) return;
-        if(newPwd.length < 6){ window.SettingsCore?.showNotification(window.SettingsCore.getText('passwordTooShort','Password too short (>=6)'), 'warning'); return; }
-        const resp = await fetch(`/auth/local-users/${encodeURIComponent(username)}/reset-password`,{
-          method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({password:newPwd})
-        });
-        if(resp.ok){ window.SettingsCore?.showNotification(window.SettingsCore.getText('passwordResetOk','Password reset'), 'success'); }
-        else { window.SettingsCore?.showNotification(window.SettingsCore.getText('passwordResetFail','Failed to reset password'), 'error'); }
-        if(resp.ok) await initUsersModule(true);
+        // Open reset password modal with eye toggle
+        const modalEl = document.getElementById('userResetPwdModal');
+        if(!modalEl){ return; }
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        document.getElementById('resetPwdForUser').textContent = username;
+        const input = document.getElementById('resetPasswordInput');
+        input.value = '';
+        window.SettingsCore?.initTogglePasswordButtons();
+        const confirmBtn = document.getElementById('confirmResetPasswordBtn');
+        const onConfirm = async () => {
+          const newPwd = input.value.trim();
+          if(!newPwd){ window.SettingsCore?.showNotification(window.SettingsCore.getText('fillPasswords','Please fill passwords'), 'warning'); return; }
+          if(newPwd.length < 6){ window.SettingsCore?.showNotification(window.SettingsCore.getText('passwordTooShort','Password too short (>=6)'), 'warning'); return; }
+          const resp = await fetch(`/auth/local-users/${encodeURIComponent(username)}/reset-password`,{
+            method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({password:newPwd})
+          });
+          if(resp.ok){ window.SettingsCore?.showNotification(window.SettingsCore.getText('passwordResetOk','Password reset'), 'success'); }
+          else { window.SettingsCore?.showNotification(window.SettingsCore.getText('passwordResetFail','Failed to reset password'), 'error'); }
+          if(resp.ok) await initUsersModule(true);
+          confirmBtn.removeEventListener('click', onConfirm);
+          modal.hide();
+        };
+        confirmBtn.addEventListener('click', onConfirm);
+        modal.show();
       }else if(action==='delete'){
         const msg = (window.SettingsCore?.getText('confirmDeleteUser','Delete this user?'));
         if(!confirm(msg)) return;

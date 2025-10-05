@@ -255,6 +255,10 @@ async function loadModuleContent(moduleName) {
           window.initLoginSettingsModule();
         } else if (moduleName === 'web-settings' && window.initWebSettingsModule) {
           window.initWebSettingsModule();
+        } else if (moduleName === 'glossary' && window.initGlossaryModule) {
+          window.initGlossaryModule();
+        } else if (moduleName === 'prompts' && window.initPromptsModule) {
+          window.initPromptsModule();
         }
       }, 50);
     };
@@ -278,17 +282,47 @@ async function loadModuleContent(moduleName) {
 // --- User Permissions ---
 async function loadUserPermissionsForSettings() {
   try {
-    const response = await fetch('/auth/user-permissions', { credentials: 'include' });
+    const response = await fetch('/auth/user/permissions', { credentials: 'include' });
     if (response.ok) {
       settingsUserPermissions = await response.json();
       
-      // Control Users tab visibility based on permissions
-      const usersTab = document.querySelector('[data-target="users-content"]');
-      if (usersTab && settingsUserPermissions) {
-        const canManageUsers = settingsUserPermissions.is_admin || 
-                              settingsUserPermissions.is_local_admin || 
-                              settingsUserPermissions.is_local_app_admin;
-        usersTab.style.display = canManageUsers ? 'block' : 'none';
+      // Determine allowed sections
+      const navLinks = document.querySelectorAll('.nav-link[data-section]');
+      const allSections = Array.from(navLinks).map(l => l.getAttribute('data-section'));
+      let allowedSections = allSections;
+      if (settingsUserPermissions && !settingsUserPermissions.is_admin) {
+        const role = (settingsUserPermissions.role || '').toLowerCase();
+        // app_admin 对应 ldap_app 角色；仅允许 general/prompts/glossary
+        if (role === 'ldap_app' || settingsUserPermissions.can_access_glossary_management) {
+          allowedSections = ['general','prompts','glossary'];
+        } else {
+          // 其他普通用户：仅允许 General（保守）
+          allowedSections = ['general'];
+        }
+      }
+
+      // Apply visibility
+      navLinks.forEach(link => {
+        const section = link.getAttribute('data-section');
+        link.style.display = allowedSections.includes(section) ? 'block' : 'none';
+      });
+      // Also hide corresponding content containers initially
+      const contentSections = document.querySelectorAll('.settings-section');
+      contentSections.forEach(sec => {
+        const id = sec.id.replace('-section','');
+        if (!allowedSections.includes(id)) {
+          sec.style.display = 'none';
+          sec.classList.remove('active');
+        }
+      });
+      // Ensure an allowed tab is active
+      const firstAllowed = allowedSections[0];
+      if (firstAllowed) {
+        document.querySelectorAll('.nav-link[data-section]').forEach(l=>l.classList.remove('active'));
+        const activeLink = document.querySelector(`.nav-link[data-section="${firstAllowed}"]`);
+        if (activeLink) activeLink.classList.add('active');
+        const targetSection = document.getElementById(`${firstAllowed}-section`);
+        if (targetSection) { targetSection.style.display = 'block'; targetSection.classList.add('active'); }
       }
     }
   } catch (error) {

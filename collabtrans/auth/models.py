@@ -11,7 +11,7 @@ class UserRole(str, Enum):
     """User role enumeration"""
     ADMIN = "admin"
     LDAP_ADMIN = "ldap_admin"
-    LDAP_GLOSSARY = "ldap_glossary"
+    LDAP_APP = "ldap_app"            # app admin (LDAP)
     LDAP_USER = "ldap_user"
 
 
@@ -37,8 +37,8 @@ class User:
         return self.is_admin()
     
     def can_access_glossary_management(self) -> bool:
-        """Check if user can access glossary management"""
-        return self.role in [UserRole.ADMIN, UserRole.LDAP_ADMIN, UserRole.LDAP_GLOSSARY]
+        """Check if user can access glossary (app admin) management"""
+        return self.role in [UserRole.ADMIN, UserRole.LDAP_ADMIN, UserRole.LDAP_APP]
     
     def get_allowed_settings(self) -> List[str]:
         """Get allowed settings items"""
@@ -52,8 +52,8 @@ class User:
                 "system_settings",
                 "glossary_settings"
             ]
-        elif self.role == UserRole.LDAP_GLOSSARY:
-            # Glossary Group users can access glossary management
+        elif self.role in [UserRole.LDAP_APP]:
+            # App admin users can access glossary/prompts related settings
             return [
                 "workflow_settings",
                 "translation_settings",

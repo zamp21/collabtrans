@@ -105,14 +105,19 @@
                                 <label for="password" class="form-label text-white">
                                     <i class="bi bi-lock-fill me-2"></i><span data-i18n="loginPasswordLabel">Password</span>
                                 </label>
-                                <input type="password" 
-                                       class="form-control" 
-                                       id="password" 
-                                       name="password" 
-                                       data-i18n-placeholder="loginPasswordPlaceholder"
-                                       placeholder="Please enter password"
-                                       required
-                                       autocomplete="current-password">
+                                <div class="input-group">
+                                    <input type="password" 
+                                           class="form-control" 
+                                           id="password" 
+                                           name="password" 
+                                           data-i18n-placeholder="loginPasswordPlaceholder"
+                                           placeholder="Please enter password"
+                                           required
+                                           autocomplete="current-password">
+                                    <button class="btn btn-outline-light" type="button" id="toggleLoginPassword">
+                                        <i class="bi bi-eye-slash"></i>
+                                    </button>
+                                </div>
                             </div>
 
                             <div class="d-grid mb-3">
@@ -127,6 +132,27 @@
                                 </a>
                             </div>
                         </form>
+
+                        <script>
+                        (function(){
+                          try{
+                            var btn = document.getElementById('toggleLoginPassword');
+                            var input = document.getElementById('password');
+                            if(btn && input){
+                              btn.addEventListener('click', function(){
+                                var icon = this.querySelector('i');
+                                if(input.type === 'password'){
+                                  input.type = 'text';
+                                  if(icon){ icon.className = 'bi bi-eye'; }
+                                }else{
+                                  input.type = 'password';
+                                  if(icon){ icon.className = 'bi bi-eye-slash'; }
+                                }
+                              });
+                            }
+                          }catch(_){/* no-op */}
+                        })();
+                        </script>
 
                         <!-- LDAP Status Hint -->
                         {% if ldap_enabled %}
@@ -171,8 +197,8 @@
                     lang = browserLang.startsWith('zh') ? 'zh' : 'en';
                 }
 
-                // 2) Load i18nData.json
-                const res = await fetch('/i18n/i18nData.json', { cache: 'no-store' });
+                // 2) Load i18nLogin.json (login-specific)
+                const res = await fetch('/i18n/i18nLogin.json', { cache: 'no-store' });
                 const all = await res.json();
                 const dict = all[lang] || all['en'];
 
@@ -228,8 +254,8 @@
                     window.location.href = result.next_url || '/';
                 } else {
                     // Login failed, show error
-                    try {
-                        const res = await fetch('/i18n/i18nData.json', { cache: 'no-store' });
+                try {
+                    const res = await fetch('/i18n/i18nLogin.json', { cache: 'no-store' });
                         const dictAll = await res.json();
                         const lang = localStorage.getItem('ui_language') || 'en';
                         const dict = dictAll[lang] || dictAll['en'];
@@ -240,7 +266,7 @@
                 }
             } catch (error) {
                 try {
-                    const res = await fetch('/i18n/i18nData.json', { cache: 'no-store' });
+                    const res = await fetch('/i18n/i18nLogin.json', { cache: 'no-store' });
                     const dictAll = await res.json();
                     const lang = localStorage.getItem('ui_language') || 'en';
                     const dict = dictAll[lang] || dictAll['en'];

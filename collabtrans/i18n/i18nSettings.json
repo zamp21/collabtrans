@@ -1,10 +1,6 @@
 {
   "zh": {
-    "superAdminConfigTitle": "超级管理员配置",
-    "defaultUsernameLabel": "默认用户名",
-    "defaultUsernameHelp": "系统默认管理员的用户名",
-    "defaultPasswordLabel": "默认密码",
-    "defaultPasswordHelp": "系统默认管理员的密码",
+    
     "ldapEnabledLabel": "启用LDAP登录",
     "ldapHostLabel": "LDAP服务器（与证书CN/SAN匹配）",
     "portLabel": "端口",
@@ -246,8 +242,7 @@
     "promptFileHelp": "请选择包含提示词名称-内容对的JSON文件",
     "noGlobalPromptsAvailable": "暂无可用全局提示词",
     "personalPromptPreviewInfo": "个人提示词通过单独管理，预览时会自动合并",
-    "defaultPasswordPlaceholder": "********",
-    "defaultUsernamePlaceholder": "admin",
+    
     "actions": "操作",
     "apiUrlPlaceholder": "https://...",
     "bannerDescription": "配置登录横幅和用户消息",
@@ -348,7 +343,15 @@
     "globalGlossaryList": "全局术语表列表",
     "actionButtons": "操作按钮",
     "addNewPrompt": "添加新提示词",
-    "promptList": "提示词列表"
+    "promptList": "提示词列表",
+    "changePassword": "修改密码",
+    "currentPassword": "当前密码",
+    "newPassword": "新密码",
+    "confirmNewPassword": "确认新密码",
+    "fillPasswords": "请填写密码",
+    "passwordNotMatch": "两次输入的密码不一致",
+    "passwordUpdated": "密码已更新",
+    "passwordUpdateFailed": "更新失败"
   },
   "en": {
     "ldapEnabledLabel": "Enable LDAP Login",
@@ -371,11 +374,7 @@
     "temperatureLabel": "Temperature",
     "apiKeyLabel": "API Key",
     "apiKeyHelp": "API Key will be securely saved and not displayed in plain text",
-    "superAdminConfigTitle": "Super Admin Settings",
-    "defaultUsernameLabel": "Default Username",
-    "defaultUsernameHelp": "System default admin username",
-    "defaultPasswordLabel": "Default Password",
-    "defaultPasswordHelp": "System default admin password",
+    
     "statusConfigured": "Configured",
     "statusNotConfigured": "Not configured",
     "ldapUserFilterExample": "(sAMAccountName={username})",
@@ -597,8 +596,7 @@
     "promptFileHelp": "Please select a JSON file with prompt name-content pairs",
     "noGlobalPromptsAvailable": "No global prompts available",
     "personalPromptPreviewInfo": "Personal prompts are managed separately and will be merged during preview",
-    "defaultPasswordPlaceholder": "********",
-    "defaultUsernamePlaceholder": "admin",
+    
     "actions": "Actions",
     "apiUrlPlaceholder": "https://...",
     "bannerDescription": "Configure login banner and user messages",
@@ -699,6 +697,14 @@
     "globalGlossaryList": "Global Glossary List",
     "actionButtons": "Action Buttons",
     "addNewPrompt": "Add New Prompt",
-    "promptList": "Prompt List"
+    "promptList": "Prompt List",
+    "changePassword": "Change Password",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password",
+    "confirmNewPassword": "Confirm New Password",
+    "fillPasswords": "Please fill passwords",
+    "passwordNotMatch": "Two passwords do not match",
+    "passwordUpdated": "Password updated",
+    "passwordUpdateFailed": "Failed to update password"
   }
 }

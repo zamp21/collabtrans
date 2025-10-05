@@ -17,16 +17,9 @@ async function loadGeneralSettings() {
       console.log('[General][load] set select#defaultLanguage.value =', defaultLangSelect.value);
     }
     
-    // Load default user settings (super admin)
-    const defaultUsernameInput = document.getElementById('defaultUsernameInput');
-    if (defaultUsernameInput) {
-      defaultUsernameInput.value = cfg.default_username || 'admin';
-    }
+    // Removed default username from General settings
     
-    const defaultPasswordInput = document.getElementById('defaultPasswordInput');
-    if (defaultPasswordInput) {
-      defaultPasswordInput.value = cfg.default_password || 'admin123';
-    }
+    // Removed super admin password field from General settings
     return cfg;
   } catch (e) {
     console.error('Load general settings error:', e);
@@ -37,13 +30,9 @@ async function loadGeneralSettings() {
 async function saveGeneralSettings() {
   try {
     const defaultLang = document.getElementById('defaultLanguage').value;
-    const defaultUsername = document.getElementById('defaultUsernameInput').value;
-    const defaultPassword = document.getElementById('defaultPasswordInput').value;
-    
     const payload = {
       default_language: defaultLang,
-      default_username: defaultUsername,
-      default_password: defaultPassword
+    // Only keeping default_language in General; other admin fields removed
     };
 
     const resp = await fetch('/auth/app-config', {
