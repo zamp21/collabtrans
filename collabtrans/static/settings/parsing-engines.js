@@ -225,44 +225,6 @@ async function saveParsingEngineConfig() {
   }
 }
 
-// Initialize parsing engine settings module
-document.addEventListener('DOMContentLoaded', () => {
-  // Load engine configurations
-  loadEngineConfigs().then(() => {
-    // Delay refresh MinerU Key status again to avoid being overridden by other rendering
-    setTimeout(() => { try { loadMineruApiKey(); } catch (e) {} }, 150);
-  });
-  
-  // Setup event listeners
-  const sel = document.getElementById('engineSelect');
-  if (sel) sel.addEventListener('change', () => updateEngineFields());
-  
-  const saveBtn = document.getElementById('saveEngineBtn');
-  if (saveBtn) saveBtn.addEventListener('click', saveParsingEngineConfig);
-  
-  // Initialize password toggle buttons
-  if (window.SettingsCore) {
-    window.SettingsCore.initTogglePasswordButtons();
-  }
-});
-
-// Initialize parsing engine module
-async function initParsingEngineModule() {
-  await loadEngineConfigs();
-  
-  // Setup event listeners
-  const sel = document.getElementById('engineSelect');
-  if (sel) sel.addEventListener('change', () => updateEngineFields());
-  
-  const saveBtn = document.getElementById('saveEngineBtn');
-  if (saveBtn) saveBtn.addEventListener('click', saveParsingEngineConfig);
-  
-  // Initialize password toggle buttons
-  if (window.SettingsCore) {
-    window.SettingsCore.initTogglePasswordButtons();
-  }
-}
-
 // Initialize parsing engines settings module
 function initParsingEngineModule() {
   console.log('Initializing parsing engines settings module');
@@ -277,13 +239,17 @@ function initParsingEngineModule() {
   }
   
   // Load engine configurations
-  loadEngineConfigs();
+  loadEngineConfigs().then(() => {
+    // Delay refresh MinerU Key status again to avoid being overridden by other rendering
+    setTimeout(() => { try { loadMineruApiKey(); } catch (e) {} }, 150);
+  });
   
   // Setup event listeners
-  const saveParsingEngineBtn = document.getElementById('saveParsingEngineBtn');
-  if (saveParsingEngineBtn) {
-    saveParsingEngineBtn.addEventListener('click', () => saveParsingEngineConfig(false));
-  }
+  const sel = document.getElementById('engineSelect');
+  if (sel) sel.addEventListener('change', () => updateEngineFields());
+  
+  const saveBtn = document.getElementById('saveEngineBtn');
+  if (saveBtn) saveBtn.addEventListener('click', saveParsingEngineConfig);
   
   // Initialize password toggle buttons
   if (window.SettingsCore) {
