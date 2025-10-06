@@ -202,7 +202,7 @@
     "globalGlossariesTitle": "全局术语表",
     "loadingGlossaries": "加载中...",
     "personalGlossaryManageInfo": "个人术语表请在外层的\"My Glossary\"中管理",
-    "saveGlossarySelectionBtn": "保存选择",
+    
     "noGlobalGlossariesAvailable": "暂无可用全局术语表",
     "promptsTitle": "提示词",
     "glossaryTitle": "术语表",
@@ -556,7 +556,7 @@
     "globalGlossariesTitle": "Global Glossaries",
     "loadingGlossaries": "Loading...",
     "personalGlossaryManageInfo": "Personal glossaries are managed in the outer \"My Glossary\" section",
-    "saveGlossarySelectionBtn": "Save Selection",
+    
     "noGlobalGlossariesAvailable": "No global glossaries available",
     "promptsTitle": "Prompts",
     "glossaryTitle": "Glossary",
