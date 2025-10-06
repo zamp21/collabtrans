@@ -1728,6 +1728,8 @@ async def update_single_setting(
             'platform_urls', 'platform_models', 'active_task_ids',
             # Web/HTTPS settings
             'https_enabled', 'https_force_redirect', 'https_cert_file', 'https_key_file',
+            # AI Platforms default selection
+            'ai_platforms_default_platform',
             # LDAP configuration keys
             'ldap_enabled', 'ldap_protocol', 'ldap_host', 'ldap_port', 'ldap_bind_dn_template',
             'ldap_base_dn', 'ldap_user_filter', 'ldap_tls_cacertfile', 'ldap_tls_verify'
@@ -1868,6 +1870,12 @@ async def update_single_setting(
                 # Handle regular global configuration items
                 if hasattr(global_config, key):
                     setattr(global_config, key, value)
+                elif key == 'ai_platforms_default_platform':
+                    try:
+                        # Save to dedicated field and also mirror into ai_platforms.default_platform during save
+                        setattr(global_config, 'ai_platforms_default_platform', value)
+                    except Exception:
+                        raise HTTPException(status_code=400, detail="Invalid value for ai_platforms_default_platform")
                 elif key in ['translator_convert_engine', 'translator_mineru_model_version', 'translator_formula_ocr', 'translator_code_ocr', 'translator_skip_translate']:
                     # Handle fields in translator_settings
                     if key == 'translator_convert_engine':

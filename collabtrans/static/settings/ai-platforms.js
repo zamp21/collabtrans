@@ -40,6 +40,33 @@ async function loadPlatformConfigs() {
     
     // Update platform selection dropdown
     updatePlatformSelect();
+
+  // Also update default platform dropdown with same options
+  try {
+    const defSel = document.getElementById('defaultPlatformSelect');
+    if (defSel) {
+      defSel.innerHTML = '';
+      for (const [key, config] of Object.entries(platformConfigs)) {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = config.name;
+        defSel.appendChild(option);
+      }
+      // Preselect from config if available
+      const respCfg = await fetch('/auth/app-config');
+      if (respCfg.ok) {
+        const cfg2 = await respCfg.json();
+        const def = (cfg2.ai_platforms && cfg2.ai_platforms.default_platform) || cfg2.ai_platforms_default_platform || null;
+        if (def && platformConfigs[def]) {
+          defSel.value = def;
+        } else if (!defSel.value && defSel.options.length > 0) {
+          defSel.selectedIndex = 0;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[DEBUG] loadPlatformConfigs - defaultPlatformSelect init failed:', e);
+  }
   } catch (e) {
     console.error('[DEBUG] loadPlatformConfigs - error:', e);
   }
@@ -93,6 +120,36 @@ function updatePlatformSelect() {
 
   // After ensuring a selection, update fields
   try { updatePlatformFields(); } catch (e) { console.warn('[DEBUG] updatePlatformSelect - updatePlatformFields failed:', e); }
+  // Also bind change listener here to ensure dynamic content attaches even if init timing varies
+  try {
+    const platformSelect = document.getElementById('platformSelect');
+    if (platformSelect && !platformSelect.__bindOnce) {
+      platformSelect.addEventListener('change', () => {
+        try { updatePlatformFields(); } catch (e) { console.warn('[DEBUG] platformSelect change -> updatePlatformFields failed:', e); }
+        try { loadAiPlatformConfig && loadAiPlatformConfig(); } catch (_) {}
+        // Rebind password toggle and ensure eye works with masked/real key dataset
+        try {
+          if (window.SettingsCore) window.SettingsCore.initTogglePasswordButtons();
+          const btn = document.querySelector('[data-target="platformApiKey"]');
+          const input = document.getElementById('platformApiKey');
+          if (btn && input && !btn.__eyeFixBound) {
+            btn.addEventListener('click', () => {
+              const toShow = input.type === 'password';
+              const real = input.dataset && input.dataset.realKey;
+              const masked = input.dataset && input.dataset.maskedKey;
+              if (toShow && real) {
+                input.value = real;
+              } else if (!toShow && masked) {
+                input.value = masked;
+              }
+            });
+            btn.__eyeFixBound = true;
+          }
+        } catch (_) {}
+      });
+      platformSelect.__bindOnce = true;
+    }
+  } catch (_) {}
 }
 
 // Load AI platform configuration
@@ -152,6 +209,11 @@ async function loadApiKey(platform) {
     if (isConfigured && apiKey) {
       // If API Key exists, display masked version
       const maskedKey = apiKey.substring(0, 8) + '***';
+      // Store real and masked key for eye-toggle reveal
+      try {
+        apiKeyInput.dataset.realKey = apiKey;
+        apiKeyInput.dataset.maskedKey = maskedKey;
+      } catch (_) {}
       apiKeyInput.value = maskedKey;
       apiKeyInput.placeholder = window.SettingsCore ? window.SettingsCore.getText('savedApiKeyPlaceholder') : 'Saved API Key';
       // Ensure input type is password so masked display works properly
@@ -175,6 +237,10 @@ async function loadApiKey(platform) {
     } else {
       // If no API Key, clear input box
       apiKeyInput.value = '';
+      try {
+        delete apiKeyInput.dataset.realKey;
+        delete apiKeyInput.dataset.maskedKey;
+      } catch (_) {}
       apiKeyInput.placeholder = window.SettingsCore ? window.SettingsCore.getText('apiKeyPlaceholder') : 'sk-...';
       apiKeyInput.type = 'password';
       if (statusBadge) {
@@ -386,6 +452,19 @@ async function saveAiPlatformConfig() {
     }
 
     if (resp1.ok) {
+      // Save default platform if control exists
+      try {
+        const defSel = document.getElementById('defaultPlatformSelect');
+        if (defSel && defSel.value) {
+          // Prefer single-setting endpoint to avoid overwriting ai_platforms block accidentally
+          await fetch('/auth/app-config/setting', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ key: 'ai_platforms_default_platform', value: defSel.value })
+          });
+        }
+      } catch (e) { console.warn('[DEBUG] saveAiPlatformConfig - save default_platform failed:', e); }
       if (window.SettingsCore) {
         window.SettingsCore.showNotification(window.SettingsCore.getText('aiPlatformSettingsSaved'), 'success');
       }

@@ -65,6 +65,8 @@ class GlobalConfig:
     
     # AI platforms configuration (loaded from JSON file, includes API keys)
     ai_platforms: Dict[str, AIPlatformConfig] = field(default_factory=dict)
+    # Default platform for homepage model selection (stored in JSON at ai_platforms.default_platform)
+    ai_platforms_default_platform: Optional[str] = None
     
     # MinerU token (sensitive information)
     translator_mineru_token: str = ""
@@ -221,9 +223,17 @@ class GlobalConfig:
         # Handle AI platforms
         if 'ai_platforms' in data:
             ai_platforms_data = data['ai_platforms']
+            # Handle default_platform specially
+            dp = ai_platforms_data.get('default_platform')
+            if isinstance(dp, str) and dp.strip():
+                self.ai_platforms_default_platform = dp.strip()
+            # Rebuild platforms (skip non-dict like default_platform)
             self.ai_platforms = {}
             for platform_key, platform_data in ai_platforms_data.items():
-                self.ai_platforms[platform_key] = AIPlatformConfig(**platform_data)
+                if platform_key == 'default_platform':
+                    continue
+                if isinstance(platform_data, dict):
+                    self.ai_platforms[platform_key] = AIPlatformConfig(**platform_data)
         
         # Handle other fields
         for key, value in data.items():
@@ -249,6 +259,9 @@ class GlobalConfig:
         for platform_key, platform_config in self.ai_platforms.items():
             platform_dict = asdict(platform_config)
             config_dict['ai_platforms'][platform_key] = platform_dict
+        # Inject default_platform under ai_platforms for storage
+        if self.ai_platforms_default_platform:
+            config_dict['ai_platforms']['default_platform'] = self.ai_platforms_default_platform
         
         # Flatten translator_settings for backward compatibility
         if flatten:

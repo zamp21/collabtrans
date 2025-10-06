@@ -212,7 +212,8 @@
       "temperature": 0.7,
       "recommended_tokens": null,
       "performance_note": null
-    }
+    },
+    "default_platform": "deepseek"
   },
   "active_task_ids": [],
   "https_enabled": false,

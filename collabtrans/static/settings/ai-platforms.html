@@ -1,5 +1,15 @@
 <div class="border rounded p-4">
   <div class="mb-3">
+    <label class="form-label" for="defaultPlatformSelect" data-i18n="defaultPlatformLabel">Default Platform</label>
+    <select id="defaultPlatformSelect" class="form-select">
+      <!-- Options will be dynamically loaded from configuration file -->
+    </select>
+    <div class="form-text" data-i18n="defaultPlatformHelp">Used as the default model on the homepage</div>
+  </div>
+
+  <div class="border-top my-4"></div>
+
+  <div class="mb-3">
     <label class="form-label" for="platformSelect" data-i18n="currentPlatformLabel">Current Platform</label>
     <select id="platformSelect" class="form-select">
       <!-- Options will be dynamically loaded from configuration file -->
@@ -25,6 +35,10 @@
       <button class="btn btn-outline-secondary toggle-password" type="button" data-target="platformApiKey">
         <i class="bi bi-eye"></i>
       </button>
+    </div>
+    <div class="form-text text-muted">
+      <i class="bi bi-shield-lock me-1"></i>
+      <span data-i18n="apiKeyMaskedNotice">For security, saved keys are masked when displayed.</span>
     </div>
     <div class="form-text" data-i18n="apiKeyHelp">API Key will be securely saved and not displayed in plain text</div>
   </div>

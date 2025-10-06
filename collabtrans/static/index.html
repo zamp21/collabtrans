@@ -2938,9 +2938,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!resp.ok) return;
             const cfg = await resp.json();
             
-            // Determine platform selection: backend user config > localStorage > default
+            // Determine platform selection: user config > localStorage > system default > hard default
             const stored = (() => { try { return localStorage.getItem('translator_platform_type'); } catch (e) { return null; } })();
-            const platformType = cfg.translator_platform_type || stored || 'deepseek';
+            const sysDefault = (cfg.ai_platforms && cfg.ai_platforms.default_platform) || cfg.ai_platforms_default_platform || null;
+            const platformType = cfg.translator_platform_type || stored || sysDefault || 'deepseek';
             if (platformSelect) {
                 platformSelect.value = platformType;
             }
