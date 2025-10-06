@@ -73,6 +73,26 @@ function updatePlatformSelect() {
   }
   
   console.log('[DEBUG] updatePlatformSelect - completed, total options:', select.options.length);
+
+  // Ensure a default selection is made to avoid saving with empty platform
+  try {
+    if (!select.value || select.value === '') {
+      // Prefer last used platform from localStorage
+      const last = (typeof localStorage !== 'undefined') ? localStorage.getItem('translator_platform_type') : null;
+      if (last && platformConfigs[last]) {
+        select.value = last;
+      } else if (platformConfigs['openai']) {
+        // Fallback to openai if exists
+        select.value = 'openai';
+      } else if (select.options.length > 0) {
+        // Fallback to first option
+        select.selectedIndex = 0;
+      }
+    }
+  } catch (_) {}
+
+  // After ensuring a selection, update fields
+  try { updatePlatformFields(); } catch (e) { console.warn('[DEBUG] updatePlatformSelect - updatePlatformFields failed:', e); }
 }
 
 // Load AI platform configuration
@@ -241,7 +261,25 @@ async function saveAiPlatformConfig() {
       throw new Error('Platform select element not found');
     }
     
-    const platformType = platformSelect.value;
+    let platformType = platformSelect.value;
+    if (!platformType) {
+      // Guard: if no selection, try recover a safe default to avoid wiping configs
+      const last = (typeof localStorage !== 'undefined') ? localStorage.getItem('translator_platform_type') : null;
+      if (last && platformConfigs[last]) {
+        platformType = last;
+        platformSelect.value = last;
+      } else if (platformConfigs['openai']) {
+        platformType = 'openai';
+        platformSelect.value = 'openai';
+      } else if (Object.keys(platformConfigs).length > 0) {
+        platformType = Object.keys(platformConfigs)[0];
+        platformSelect.value = platformType;
+      } else {
+        throw new Error('No AI platforms available to save');
+      }
+      // Also同步展示字段
+      try { updatePlatformFields(); } catch (_) {}
+    }
     const platformNameValue = platformName?.value || '';
     const platformUrlValue = platformUrl?.value || '';
     const apiKeyValue = (apiKey?.value || '').trim();
