@@ -169,15 +169,36 @@ class LocalUserStore:
 
     def create_user(self, username: str, password: str, role: LocalUserRole, display_name: Optional[str] = None, email: Optional[str] = None) -> bool:
         users = self._load()
-        if username in users.get("users", {}):
-            raise ValueError("User already exists")
+        users_list = users.get("users", [])
         password_hash = self._hash_password(password)
-        users["users"][username] = {
-            "password_hash": password_hash,
-            "role": role.value,
-            "display_name": display_name or username,
-            "email": email or None
-        }
+
+        # Support both object and array storage formats for backward compatibility
+        if isinstance(users_list, list):
+            # Check duplicate
+            for user in users_list:
+                if isinstance(user, dict) and user.get("username") == username:
+                    raise ValueError("User already exists")
+            # Append new user object entry
+            users_list.append({
+                "username": username,
+                "password_hash": password_hash,
+                "role": role.value,
+                "display_name": display_name or username,
+                "email": email or None
+            })
+            users["users"] = users_list
+        else:
+            # Dict format { username: { ... } }
+            if username in users_list:
+                raise ValueError("User already exists")
+            users_list[username] = {
+                "password_hash": password_hash,
+                "role": role.value,
+                "display_name": display_name or username,
+                "email": email or None
+            }
+            users["users"] = users_list
+
         return self._save(users)
 
     def update_user(self, username: str, role: Optional[LocalUserRole] = None, display_name: Optional[str] = None, email: Optional[str] = None) -> bool:

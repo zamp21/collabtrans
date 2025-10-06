@@ -80,6 +80,9 @@
     const pwdGroup = document.getElementById('editPasswordGroup');
     const pwdInput = document.getElementById('editPassword');
 
+    // Persist mode to avoid depending on i18n text comparisons
+    modalEl.dataset.mode = mode;
+
     if(mode==='create'){
       title.textContent = (window.SettingsCore?.getText('createUser','Create User'));
       usernameInput.value = '';
@@ -99,6 +102,9 @@
       pwdGroup.style.display='none';
       pwdInput.value='';
     }
+
+    // Ensure password toggle works in the modal
+    try { window.SettingsCore?.initTogglePasswordButtons(); } catch(_){}
 
     modal.show();
   }
@@ -169,8 +175,8 @@
       const role = document.getElementById('editRole').value;
       const pwd = document.getElementById('editPassword').value;
       const modalEl = document.getElementById('userEditModal');
-      const title = modalEl.querySelector('.modal-title').textContent;
-      if(title.includes('Create') || title.includes('New')){
+      const mode = modalEl?.dataset?.mode || 'edit';
+      if(mode === 'create'){
         if(!username || !pwd){ window.SettingsCore?.showNotification(window.SettingsCore.getText('usernamePasswordRequired','Username and password required'), 'warning'); return; }
         if(pwd.length < 6){ window.SettingsCore?.showNotification(window.SettingsCore.getText('passwordTooShort','Password too short (>=6)'), 'warning'); return; }
         const resp = await fetch('/auth/local-users',{method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username, password:pwd, role, display_name, email})});
