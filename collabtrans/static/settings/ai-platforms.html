@@ -1,4 +1,43 @@
+<style>
+  /* Theme-adaptive section cards using Bootstrap CSS variables */
+  .ct-section-card { background-color: var(--bs-tertiary-bg); border: 1px solid var(--bs-border-color); }
+  .ct-section-title { color: var(--bs-emphasis-color); }
+  .ct-section-desc { color: var(--bs-secondary-color); }
+  .ct-badge-muted { background-color: var(--bs-secondary-bg); color: var(--bs-secondary-color); }
+  /* Ensure Platform Name and Platform URL inputs look consistent across themes and autofill */
+  #platformName, #platformUrl { background-color: var(--bs-form-control-bg) !important; border-color: var(--bs-border-color); color: var(--bs-emphasis-color); }
+  /* Override autofill yellow across browsers */
+  #platformName:-webkit-autofill,
+  #platformUrl:-webkit-autofill,
+  #platformName:-webkit-autofill:focus,
+  #platformUrl:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0px 1000px var(--bs-form-control-bg) inset !important;
+    -webkit-text-fill-color: var(--bs-emphasis-color) !important;
+    caret-color: var(--bs-emphasis-color) !important;
+  }
+  #platformName:autofill,
+  #platformUrl:autofill {
+    box-shadow: 0 0 0px 1000px var(--bs-form-control-bg) inset !important;
+    -webkit-text-fill-color: var(--bs-emphasis-color) !important;
+    color: var(--bs-emphasis-color) !important;
+  }
+  /* Firefox */
+  #platformName:-moz-autofill,
+  #platformUrl:-moz-autofill {
+    box-shadow: 0 0 0px 1000px var(--bs-form-control-bg) inset !important;
+    -moz-text-fill-color: var(--bs-emphasis-color) !important;
+    color: var(--bs-emphasis-color) !important;
+  }
+</style>
+
 <div class="border rounded p-4">
+  <div class="ct-section-card rounded p-3 mb-3">
+    <div class="d-flex align-items-center mb-2">
+      <i class="bi bi-star-fill text-warning me-2"></i>
+      <span class="fw-semibold ct-section-title" data-i18n="defaultPlatformTitle">Default Platform (Global)</span>
+    </div>
+    <div class="mb-2 small ct-section-desc" data-i18n="defaultPlatformDesc">This is the platform used by default on the homepage for all users unless they choose otherwise.</div>
+  
   <div class="mb-3">
     <label class="form-label" for="defaultPlatformSelect" data-i18n="defaultPlatformLabel">Default Platform</label>
     <select id="defaultPlatformSelect" class="form-select">
@@ -6,8 +45,17 @@
     </select>
     <div class="form-text" data-i18n="defaultPlatformHelp">Used as the default model on the homepage</div>
   </div>
+  </div>
 
-  <div class="border-top my-4"></div>
+  <div class="mt-4 mb-2">
+    <div class="d-flex align-items-center">
+      <i class="bi bi-sliders me-2"></i>
+      <span class="fw-semibold ct-section-title" data-i18n="editThisPlatformTitle">Edit This Platform</span>
+      <span class="badge ct-badge-muted ms-2" data-i18n="affectsCurrentOnly">Affects current selection only</span>
+    </div>
+    <div class="small ct-section-desc mt-1" data-i18n="editThisPlatformDesc">Choose a platform below and edit its connection and model parameters. This does not change the global default.</div>
+  </div>
+  <div class="ct-section-card rounded p-3 mb-3">
 
   <div class="mb-3">
     <label class="form-label" for="platformSelect" data-i18n="currentPlatformLabel">Current Platform</label>
@@ -80,5 +128,6 @@
   <div class="mt-4 d-flex gap-2">
     <button id="saveAiPlatformBtn" type="button" class="btn btn-outline-secondary" data-i18n="saveAiPlatformSettingsBtn">Save AI Platform Settings</button>
     <button id="testAiPlatformBtn" type="button" class="btn btn-outline-secondary" data-i18n="testConnectionBtn">Test Connection</button>
+  </div>
   </div>
 </div>

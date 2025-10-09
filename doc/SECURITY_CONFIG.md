@@ -6,7 +6,7 @@ DocuTranslate 使用分离的配置文件来管理敏感信息，确保API密钥
 
 ### 1. 公共配置文件（提交到git）
 - `global_config.json` - 全局配置，不包含敏感信息
-- `auth_config.json` - 认证配置，不包含敏感信息
+- `local_config.json` - 认证/本地运行配置（分组结构），不包含敏感信息
 
 ### 2. 敏感配置文件（不提交到git）
 - `local_secrets.json` - 本地敏感配置，包含API密钥等

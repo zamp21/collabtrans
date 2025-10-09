@@ -106,6 +106,9 @@ EOF
 # Default options for CollabTrans service
 COLLABTRANS_PORT=8010
 COLLABTRANS_WORKDIR=/opt/collabtrans
+# Ensure runtime data/config paths are explicit for service user (www-data)
+XDG_DATA_HOME=/var/lib
+COLLABTRANS_CONFIG_PATH=/etc/collabtrans
 EOF
 
   cat > "${pkg_root}/usr/bin/collabtrans" <<'EOF'
@@ -114,6 +117,9 @@ set -e
 PORT=${COLLABTRANS_PORT:-8010}
 WORKDIR=${COLLABTRANS_WORKDIR:-/opt/collabtrans}
 export DOCUTRANSLATE_PORT="$PORT"
+# Propagate data/config directories (can be overridden via /etc/default/collabtrans)
+export XDG_DATA_HOME="${XDG_DATA_HOME:-/var/lib}"
+export COLLABTRANS_CONFIG_PATH="${COLLABTRANS_CONFIG_PATH:-/etc/collabtrans}"
 cd "$WORKDIR"
 exec "$WORKDIR"/CollabTrans-*-linux "$@"
 EOF
@@ -132,6 +138,7 @@ ExecStart=/usr/bin/collabtrans
 Restart=on-failure
 User=www-data
 Group=www-data
+SupplementaryGroups=collabtrans
 WorkingDirectory=/opt/collabtrans
 
 [Install]
@@ -315,6 +322,9 @@ EOF
 # Default options for CollabTrans FULL service
 COLLABTRANS_PORT=8010
 COLLABTRANS_WORKDIR=/opt/collabtrans
+# Ensure runtime data/config paths are explicit for service user (www-data)
+XDG_DATA_HOME=/var/lib
+COLLABTRANS_CONFIG_PATH=/etc/collabtrans
 EOF
 
   cat > "${pkg_root}/usr/bin/collabtrans-full" <<'EOF'
@@ -323,6 +333,9 @@ set -e
 PORT=${COLLABTRANS_PORT:-8010}
 WORKDIR=${COLLABTRANS_WORKDIR:-/opt/collabtrans}
 export DOCUTRANSLATE_PORT="$PORT"
+# Propagate data/config directories (can be overridden via /etc/default/collabtrans-full)
+export XDG_DATA_HOME="${XDG_DATA_HOME:-/var/lib}"
+export COLLABTRANS_CONFIG_PATH="${COLLABTRANS_CONFIG_PATH:-/etc/collabtrans}"
 cd "$WORKDIR"
 exec "$WORKDIR"/CollabTrans_full-*-linux "$@"
 EOF
@@ -341,6 +354,7 @@ ExecStart=/usr/bin/collabtrans-full
 Restart=on-failure
 User=www-data
 Group=www-data
+SupplementaryGroups=collabtrans
 WorkingDirectory=/opt/collabtrans
 
 [Install]
