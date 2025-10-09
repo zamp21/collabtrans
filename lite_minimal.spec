@@ -9,6 +9,20 @@ import collabtrans
 datas = [
     ('collabtrans/static', 'collabtrans/static'),
     ('collabtrans/template', 'collabtrans/template'),
+    ('collabtrans/i18n', 'collabtrans/i18n'),  # Add i18n directory
+    ('collabtrans/static/favicon.ico', 'collabtrans/favicon.ico'),
+    ('global_config.json', '.'),  # Global configuration file
+    ('app_config.json', '.'),  # Application configuration file
+    ('local_secrets.json.template', '.'),  # Local secrets template file
+    ('local_config.json.template', '.'),  # Local configuration template file
+    ('local_users.json.template', '.'),  # Local users template file
+    ('collabtrans/config/templates/default_profile.json', 'collabtrans/config/templates/'),  # Default user profile template
+    ('setup_secrets.py', '.'),  # Sensitive configuration initialization script
+    ('setup_first_deploy.py', '.'),  # First deployment setup script
+    # Redis executable and configuration files (Windows only)
+    ('3rdParty/windows/Redis-x64-3.0.504/redis-server.exe', '3rdParty/windows/Redis-x64-3.0.504/'),
+    ('3rdParty/windows/Redis-x64-3.0.504/redis.windows.conf', '3rdParty/windows/Redis-x64-3.0.504/'),
+    ('3rdParty/windows/Redis-x64-3.0.504/redis.windows-service.conf', '3rdParty/windows/Redis-x64-3.0.504/'),
     # Exclude pygments large data files
 ]
 

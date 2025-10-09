@@ -99,6 +99,7 @@ class AuthSessionManager:
                     self.config.session_max_age,
                     json.dumps(user_data)
                 )
+                print(f"✅ Session stored to Redis: {session_id}")
             except Exception as e:
                 print(f"⚠️  Failed to store session to Redis: {e}")
         

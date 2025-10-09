@@ -12,8 +12,15 @@ datas = [
     ('global_config.json', '.'),  # Global configuration file
     ('app_config.json', '.'),  # Application configuration file (default, runtime priority /etc)
     ('local_secrets.json.template', '.'),  # Local secrets template file
+    ('local_config.json.template', '.'),  # Local configuration template file
+    ('local_users.json.template', '.'),  # Local users template file
+    ('collabtrans/config/templates/default_profile.json', 'collabtrans/config/templates/'),  # Default user profile template
     ('setup_secrets.py', '.'),  # Sensitive configuration initialization script
     ('setup_first_deploy.py', '.'),  # First deployment setup script
+    # Redis executable and configuration files
+    ('3rdParty/windows/Redis-x64-3.0.504/redis-server.exe', '3rdParty/windows/Redis-x64-3.0.504/'),
+    ('3rdParty/windows/Redis-x64-3.0.504/redis.windows.conf', '3rdParty/windows/Redis-x64-3.0.504/'),
+    ('3rdParty/windows/Redis-x64-3.0.504/redis.windows-service.conf', '3rdParty/windows/Redis-x64-3.0.504/'),
     # Only include necessary pygments data, exclude large files
     *collect_data_files('pygments', include_py_files=False)  # Only include data files, not Python files
 ]
@@ -25,6 +32,10 @@ hiddenimports = [
     'pymdownx.highlight',
     'pygments'
 ]
+
+icon_path = 'collabtrans.ico' if os.path.exists('collabtrans.ico') else (
+    'collabtrans/static/favicon.ico' if os.path.exists('collabtrans/static/favicon.ico') else None
+)
 
 a = Analysis(
     ['collabtrans/app.py'],  # Use forward slash, Windows also supports it
@@ -83,5 +94,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='CollabTrans.ico',  # Fixed as string
+    icon=icon_path,
 )

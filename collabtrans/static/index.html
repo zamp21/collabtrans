@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title data-i18n-title="pageTitle">CollabTrans - Interactive Document Translation</title>
+    
+    <!-- Debug logging for main page -->
+    <script>
+        console.log('🏠 Main page HTML loaded');
+        console.log('🌐 Current URL:', window.location.href);
+        console.log('📋 Document ready state:', document.readyState);
+        console.log('🍪 Cookies:', document.cookie);
+        console.log('🔍 User agent:', navigator.userAgent);
+    </script>
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
     <!-- Bootstrap CSS -->
     <link href="/static/bootstrap.css" rel="stylesheet" crossorigin="anonymous">
@@ -6467,7 +6476,21 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // --- Start the application ---
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('🏠 Main page DOMContentLoaded event fired');
+        console.log('🌐 Current URL:', window.location.href);
+        console.log('📋 Document ready state:', document.readyState);
+        console.log('🔍 About to call init function...');
+        
+        // Call the original init function
+        if (typeof init === 'function') {
+            console.log('✅ Init function found, calling it...');
+            init();
+        } else {
+            console.error('❌ Init function not found!');
+            console.log('🔍 Available functions:', Object.keys(window).filter(key => typeof window[key] === 'function'));
+        }
+    });
 </script>
   
 
