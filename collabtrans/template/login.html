@@ -251,7 +251,20 @@
 
                 if (result.success) {
                     // Login successful, redirect
-                    window.location.href = result.next_url || '/';
+                    console.log('✅ Login successful!');
+                    console.log('📋 Response data:', result);
+                    console.log('🔗 Redirect URL:', result.next_url || '/');
+                    console.log('🌐 Current location:', window.location.href);
+                    console.log('📝 About to redirect to:', result.next_url || '/');
+                    
+                    const redirectUrl = result.next_url || '/';
+                    console.log('⏳ Redirecting to:', redirectUrl);
+                    
+                    // Add a small delay to ensure logs are visible
+                    setTimeout(() => {
+                        console.log('🚀 Executing redirect now...');
+                        window.location.href = redirectUrl;
+                    }, 100);
                 } else {
                     // Login failed, show error
                 try {

@@ -81,18 +81,26 @@ function updatePlatformSelect() {
       const last = (typeof localStorage !== 'undefined') ? localStorage.getItem('translator_platform_type') : null;
       if (last && platformConfigs[last]) {
         select.value = last;
+        console.log('[DEBUG] updatePlatformSelect - using last platform from localStorage:', last);
       } else if (platformConfigs['openai']) {
         // Fallback to openai if exists
         select.value = 'openai';
+        console.log('[DEBUG] updatePlatformSelect - using openai as fallback');
       } else if (select.options.length > 0) {
         // Fallback to first option
         select.selectedIndex = 0;
+        console.log('[DEBUG] updatePlatformSelect - using first option as fallback');
       }
     }
   } catch (_) {}
 
   // After ensuring a selection, update fields
-  try { updatePlatformFields(); } catch (e) { console.warn('[DEBUG] updatePlatformSelect - updatePlatformFields failed:', e); }
+  try { 
+    console.log('[DEBUG] updatePlatformSelect - calling updatePlatformFields');
+    updatePlatformFields(); 
+  } catch (e) { 
+    console.warn('[DEBUG] updatePlatformSelect - updatePlatformFields failed:', e); 
+  }
 }
 
 // Load AI platform configuration
@@ -202,12 +210,24 @@ async function loadApiKey(platform) {
 
 // Update platform fields
 function updatePlatformFields() {
+  console.log('[DEBUG] updatePlatformFields - starting');
   const platformSelect = document.getElementById('platformSelect');
-  if (!platformSelect) return;
+  if (!platformSelect) {
+    console.error('[DEBUG] updatePlatformFields - platform select not found');
+    return;
+  }
   
   const platform = platformSelect.value;
+  console.log('[DEBUG] updatePlatformFields - selected platform:', platform);
+  console.log('[DEBUG] updatePlatformFields - platformConfigs:', platformConfigs);
+  
   const config = platformConfigs[platform];
-  if (!config) return;
+  if (!config) {
+    console.warn('[DEBUG] updatePlatformFields - no config found for platform:', platform);
+    return;
+  }
+  
+  console.log('[DEBUG] updatePlatformFields - config for platform:', config);
   
   const platformNameEl = document.getElementById('platformName');
   const platformUrlEl = document.getElementById('platformUrl');
@@ -217,13 +237,37 @@ function updatePlatformFields() {
   const recommendedTokensEl = document.getElementById('recommendedTokens');
   const performanceNoteEl = document.getElementById('performanceNote');
   
-  if (platformNameEl) platformNameEl.value = config.name;
-  if (platformUrlEl) platformUrlEl.value = config.url;
-  if (modelNameEl) modelNameEl.value = config.model;
-  if (maxTokensEl) maxTokensEl.value = config.maxTokens;
-  if (temperatureEl) temperatureEl.value = config.temperature;
-  if (recommendedTokensEl) recommendedTokensEl.value = config.recommendedTokens || '';
-  if (performanceNoteEl) performanceNoteEl.value = config.performanceNote || '';
+  // Update form fields with platform configuration
+  if (platformNameEl) {
+    platformNameEl.value = config.name || '';
+    console.log('[DEBUG] updatePlatformFields - updated platformName:', config.name);
+  }
+  if (platformUrlEl) {
+    platformUrlEl.value = config.url || '';
+    console.log('[DEBUG] updatePlatformFields - updated platformUrl:', config.url);
+  }
+  if (modelNameEl) {
+    modelNameEl.value = config.model || '';
+    console.log('[DEBUG] updatePlatformFields - updated modelName:', config.model);
+  }
+  if (maxTokensEl) {
+    maxTokensEl.value = config.maxTokens || 4096;
+    console.log('[DEBUG] updatePlatformFields - updated maxTokens:', config.maxTokens);
+  }
+  if (temperatureEl) {
+    temperatureEl.value = config.temperature || 0.7;
+    console.log('[DEBUG] updatePlatformFields - updated temperature:', config.temperature);
+  }
+  if (recommendedTokensEl) {
+    recommendedTokensEl.value = config.recommendedTokens || '';
+    console.log('[DEBUG] updatePlatformFields - updated recommendedTokens:', config.recommendedTokens);
+  }
+  if (performanceNoteEl) {
+    performanceNoteEl.value = config.performanceNote || '';
+    console.log('[DEBUG] updatePlatformFields - updated performanceNote:', config.performanceNote);
+  }
+  
+  console.log('[DEBUG] updatePlatformFields - completed, reloading API key for platform:', platform);
   
   // Reload current platform API Key
   loadApiKey(platform);
@@ -477,14 +521,21 @@ function initAiPlatformModule() {
     // Fix: Ensure that after loading platform configuration, actively load the configuration information of the currently selected platform
     // Add a small delay here to ensure updatePlatformSelect completes before calling updatePlatformFields
     setTimeout(() => {
+      console.log('[DEBUG] initAiPlatformModule - calling updatePlatformFields after platform configs loaded');
       updatePlatformFields();
       console.log('[DEBUG] initAiPlatformModule - actively loaded configuration of currently selected platform');
-    }, 100);
+    }, 200);
     
     // Setup event listeners
     const platformSelect = document.getElementById('platformSelect');
     if (platformSelect) {
-      platformSelect.addEventListener('change', updatePlatformFields);
+      // Remove any existing event listeners to avoid duplicates
+      platformSelect.removeEventListener('change', updatePlatformFields);
+      // Add the event listener
+      platformSelect.addEventListener('change', function() {
+        console.log('[DEBUG] Platform select changed, updating fields...');
+        updatePlatformFields();
+      });
       console.log('[DEBUG] initAiPlatformModule - platform select event listener added');
     } else {
       console.error('[DEBUG] initAiPlatformModule - platform select element not found');

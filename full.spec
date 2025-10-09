@@ -45,8 +45,15 @@ custom_datas = [
     ('./global_config.json', '.'),  # Global configuration file
     ('./app_config.json', '.'),  # Application configuration file (default, runtime priority /etc)
     ('./local_secrets.json.template', '.'),  # Local secrets template file
+    ('./local_config.json.template', '.'),  # Local configuration template file
+    ('./local_users.json.template', '.'),  # Local users template file
+    ('./collabtrans/config/templates/default_profile.json', 'collabtrans/config/templates/'),  # Default user profile template
     ('./setup_secrets.py', '.'),  # Sensitive configuration initialization script
-    ('./setup_first_deploy.py', '.')  # First deployment setup script
+    ('./setup_first_deploy.py', '.'),  # First deployment setup script
+    # Redis executable and configuration files
+    ('./3rdParty/windows/Redis-x64-3.0.504/redis-server.exe', '3rdParty/windows/Redis-x64-3.0.504/'),
+    ('./3rdParty/windows/Redis-x64-3.0.504/redis.windows.conf', '3rdParty/windows/Redis-x64-3.0.504/'),
+    ('./3rdParty/windows/Redis-x64-3.0.504/redis.windows-service.conf', '3rdParty/windows/Redis-x64-3.0.504/')
 ]
 
 # Avoid adding duplicate data
@@ -118,5 +125,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='CollabTrans.ico',
+    icon=('collabTrans.ico' if os.path.exists('collabTrans.ico') else (
+        'collabtrans/static/favicon.ico' if os.path.exists('collabtrans/static/favicon.ico') else None
+    )),
 )

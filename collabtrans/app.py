@@ -2312,18 +2312,34 @@ def find_free_port(start_port):
 def run_app(port: int | None = None):
     # Automatically create local_secrets.json file on first deployment
     # Configuration file priority:
-    # 1. /etc/collabtrans/local_secrets.json (system configuration)
-    # 2. local_secrets.json in executable program directory (packaged configuration)
-    # 3. local_secrets.json in current directory (development environment)
-    
+    # Windows/Linux override:
+    # 0) COLLABTRANS_CONFIG_PATH env dir if set (Windows default: C:\\Users\\Public\\collabtrans)
+    # Linux:
+    # 1) /etc/collabtrans/local_secrets.json (system configuration)
+    # Common:
+    # 2) local_secrets.json in executable directory (packaged configuration)
+    # 3) local_secrets.json in current directory (development environment)
+
+    # 0) Environment-configured directory
+    env_dir = os.environ.get("COLLABTRANS_CONFIG_PATH")
+    # Windows default runtime configuration directory
+    if not env_dir and os.name == "nt":
+        env_dir = r"C:\\Users\\Public\\collabtrans"
+    secrets_path = None
+    if env_dir:
+        env_secrets = os.path.join(env_dir, "local_secrets.json")
+        if os.path.exists(env_secrets):
+            secrets_path = env_secrets
+            print(f"Using env secrets config: {secrets_path}")
+
     system_secrets_path = "/etc/collabtrans/local_secrets.json"
     system_dir_exists = os.path.exists("/etc/collabtrans")
-    
+
     # Determine configuration file path
-    if system_dir_exists and os.path.exists(system_secrets_path):
+    if secrets_path is None and system_dir_exists and os.path.exists(system_secrets_path):
         secrets_path = system_secrets_path
         print(f"Using system secrets config: {secrets_path}")
-    else:
+    if secrets_path is None:
         # Try to load configuration file from executable program directory
         import sys
         if getattr(sys, 'frozen', False):
@@ -2335,11 +2351,11 @@ def run_app(port: int | None = None):
                 print(f"Using executable directory secrets config: {secrets_path}")
             else:
                 secrets_path = os.path.join(os.getcwd(), "local_secrets.json")
-                print(f"Using local secrets config: {secrets_path}")
+                print(f"Using working directory secrets config: {secrets_path}")
         else:
             # Development environment
             secrets_path = os.path.join(os.getcwd(), "local_secrets.json")
-            print(f"Using local secrets config: {secrets_path}")
+            print(f"Using working directory secrets config: {secrets_path}")
     
     # Check if configuration file needs to be created
     if not os.path.exists(secrets_path):

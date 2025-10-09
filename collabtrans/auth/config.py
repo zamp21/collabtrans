@@ -20,9 +20,13 @@ def _resolve_auth_config_path(config_file: str = "local_config.json") -> Path:
     """Resolve absolute path for local_config.json with deployment-aware priority.
 
     Priority:
-      1) /etc/collabtrans/local_config.json (system)
-      2) Executable directory (PyInstaller) / same-dir as binary
-      3) Project root (development) fallback
+      Windows/Linux override:
+        0) COLLABTRANS_CONFIG_PATH env dir if set (Windows default: C:\\Users\\Public\\collabtrans)
+      Linux:
+        1) /etc/collabtrans/local_config.json (system)
+      Common:
+        2) Executable directory (PyInstaller) / same-dir as binary (or cwd)
+        3) Project root (development) fallback
     """
     # Absolute path: use directly
     p = Path(config_file)
@@ -30,11 +34,23 @@ def _resolve_auth_config_path(config_file: str = "local_config.json") -> Path:
         logger.info(f"[AuthConfig] Using absolute path: {p}")
         return p
 
-    system_dir = Path("/etc/collabtrans")
-    system_cfg = system_dir / "local_config.json"
-    if system_dir.exists() and system_cfg.exists():
-        logger.info(f"[AuthConfig] Using system config: {system_cfg}")
-        return system_cfg
+    # 0) Environment-configured directory (cross-platform override)
+    env_dir = os.environ.get("COLLABTRANS_CONFIG_PATH")
+    # Windows default runtime configuration directory
+    if not env_dir and os.name == "nt":
+        env_dir = r"C:\\Users\\Public\\collabtrans"
+    if env_dir:
+        env_cfg = Path(env_dir) / "local_config.json"
+        if env_cfg.exists():
+            logger.info(f"[AuthConfig] Using env config: {env_cfg}")
+            return env_cfg
+
+    if os.name != "nt":
+        system_dir = Path("/etc/collabtrans")
+        system_cfg = system_dir / "local_config.json"
+        if system_dir.exists() and system_cfg.exists():
+            logger.info(f"[AuthConfig] Using system config: {system_cfg}")
+            return system_cfg
 
     # Executable directory (PyInstaller)
     if getattr(sys, 'frozen', False):

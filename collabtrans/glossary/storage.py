@@ -18,7 +18,11 @@ logger = logging.getLogger(__name__)
 class GlossaryStorage:
     """Glossary storage manager"""
     
-    def __init__(self, base_dir: str = "glossaries"):
+    def __init__(self, base_dir: str = None):
+        if base_dir is None:
+            from ..utils.path_utils import get_collabtrans_paths
+            paths = get_collabtrans_paths()
+            base_dir = paths["glossaries"]
         self.base_dir = Path(base_dir)
         self.global_dir = self.base_dir / "global"
         self.users_dir = self.base_dir / "users"

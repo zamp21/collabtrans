@@ -22,38 +22,59 @@ class SecretsManager:
             secrets_file: Sensitive configuration file path
         """
         # Configuration file priority:
+        # Windows/Linux override:
+        # 0. COLLABTRANS_CONFIG_PATH env dir if set (Windows default: C:\\Users\\Public\\collabtrans)
+        # Linux:
         # 1. /etc/collabtrans/local_secrets.json (system configuration)
+        # Common:
         # 2. local_secrets.json in executable directory (packaged configuration)
-        # 3. local_secrets.json in current directory (development environment)
+        # 3. local_secrets.json in project root/current directory (development environment)
         
-        system_secrets_file = "/etc/collabtrans/local_secrets.json"
-        system_secrets_template = "/etc/collabtrans/local_secrets.json.template"
-        system_dir_exists = os.path.exists("/etc/collabtrans")
-        
-        if system_dir_exists:
-            if os.path.exists(system_secrets_file):
-                self.secrets_file = Path(system_secrets_file)
-                logger.info(f"Using system secrets config: {system_secrets_file}")
+        # 0) Environment-configured directory (cross-platform override)
+        env_dir = os.environ.get("COLLABTRANS_CONFIG_PATH")
+        # Windows default runtime configuration directory
+        if not env_dir and os.name == "nt":
+            env_dir = r"C:\\Users\\Public\\collabtrans"
+        if env_dir:
+            env_path = Path(env_dir) / "local_secrets.json"
+            # If exists, prefer it; if not, set as target path for creation
+            if env_path.exists():
+                self.secrets_file = env_path
+                logger.info(f"Using env dir secrets config: {env_path}")
+                self._secrets_cache = None
+                return
             else:
-                # Auto-create from template if available
-                if os.path.exists(system_secrets_template):
-                    try:
-                        import shutil
-                        shutil.copy2(system_secrets_template, system_secrets_file)
-                        # Set conservative permissions: rw-r----- (0640)
+                # Defer to other locations, but remember env target for save
+                self.secrets_file = env_path
+
+        if os.name != "nt":
+            system_secrets_file = "/etc/collabtrans/local_secrets.json"
+            system_secrets_template = "/etc/collabtrans/local_secrets.json.template"
+            system_dir_exists = os.path.exists("/etc/collabtrans")
+            if system_dir_exists:
+                if os.path.exists(system_secrets_file):
+                    self.secrets_file = Path(system_secrets_file)
+                    logger.info(f"Using system secrets config: {system_secrets_file}")
+                else:
+                    # Auto-create from template if available
+                    if os.path.exists(system_secrets_template):
                         try:
-                            os.chmod(system_secrets_file, 0o640)
-                        except Exception:
-                            pass
-                        self.secrets_file = Path(system_secrets_file)
-                        logger.info(
-                            f"First deployment: created {system_secrets_file} from template {system_secrets_template}"
-                        )
-                    except Exception as copy_err:
-                        logger.warning(
-                            f"Failed to create system secrets from template: {copy_err}. Will try other locations."
-                        )
-                # If still not set, fall through to other locations
+                            import shutil
+                            shutil.copy2(system_secrets_template, system_secrets_file)
+                            # Set conservative permissions: rw-r----- (0640)
+                            try:
+                                os.chmod(system_secrets_file, 0o640)
+                            except Exception:
+                                pass
+                            self.secrets_file = Path(system_secrets_file)
+                            logger.info(
+                                f"First deployment: created {system_secrets_file} from template {system_secrets_template}"
+                            )
+                        except Exception as copy_err:
+                            logger.warning(
+                                f"Failed to create system secrets from template: {copy_err}. Will try other locations."
+                            )
+                    # If still not set, fall through to other locations
         else:
             # Try to load configuration file from executable directory
             import sys

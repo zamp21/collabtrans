@@ -39,11 +39,29 @@ class LocalRedisManager:
     def _get_redis_path(self) -> Optional[Path]:
         """Get Redis executable file path"""
         if sys.platform == "win32":
-            # Windows
-            redis_dir = Path(__file__).parent.parent.parent / "3rdParty" / "windows" / "Redis-x64-3.0.504"
+            # Windows - Check multiple possible locations
+            
+            # 1. Check installation directory (production)
+            install_dir = Path("C:/Program Files/CollabTrans")
+            redis_dir = install_dir / "3rdParty" / "windows" / "Redis-x64-3.0.504"
             redis_server = redis_dir / "redis-server.exe"
             if redis_server.exists():
+                print(f"✅ Found Redis in installation directory: {redis_server}")
                 return redis_server
+            
+            # 2. Check development directory
+            dev_redis_dir = Path(__file__).parent.parent.parent / "3rdParty" / "windows" / "Redis-x64-3.0.504"
+            dev_redis_server = dev_redis_dir / "redis-server.exe"
+            if dev_redis_server.exists():
+                print(f"✅ Found Redis in development directory: {dev_redis_server}")
+                return dev_redis_server
+            
+            # 3. Check current working directory
+            cwd_redis_dir = Path.cwd() / "3rdParty" / "windows" / "Redis-x64-3.0.504"
+            cwd_redis_server = cwd_redis_dir / "redis-server.exe"
+            if cwd_redis_server.exists():
+                print(f"✅ Found Redis in current directory: {cwd_redis_server}")
+                return cwd_redis_server
         elif sys.platform == "darwin":
             # macOS
             redis_server = Path("/usr/local/bin/redis-server")

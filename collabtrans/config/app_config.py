@@ -87,7 +87,11 @@ class AppConfig:
     @classmethod
     def _resolve_app_config_path(cls, config_file: str = "app_config.json") -> Path:
         """Resolve the actual read path for app_config.json, by priority:
+        Windows/Linux override:
+        0) COLLABTRANS_CONFIG_PATH env dir if set (Windows default: C:\\Users\\Public\\collabtrans)
+        Linux:
         1) /etc/collabtrans/app_config.json
+        Common:
         2) Executable directory (PyInstaller) or current working directory
         3) Project root directory (development environment)
         If an absolute path is passed, return it directly.
@@ -97,12 +101,24 @@ class AppConfig:
             logger.info(f"[AppConfig] Using absolute path: {p}")
             return p
 
-        # 1) System directory priority
-        system_dir = Path("/etc/collabtrans")
-        system_cfg = system_dir / "app_config.json"
-        if system_dir.exists() and system_cfg.exists():
-            logger.info(f"[AppConfig] Using system config: {system_cfg}")
-            return system_cfg
+        # 0) Environment-configured directory (cross-platform override)
+        env_dir = os.environ.get("COLLABTRANS_CONFIG_PATH")
+        # Windows default runtime configuration directory
+        if not env_dir and os.name == "nt":
+            env_dir = r"C:\\Users\\Public\\collabtrans"
+        if env_dir:
+            env_cfg = Path(env_dir) / "app_config.json"
+            if env_cfg.exists():
+                logger.info(f"[AppConfig] Using env dir config: {env_cfg}")
+                return env_cfg
+
+        # 1) System directory priority (non-Windows)
+        if os.name != "nt":
+            system_dir = Path("/etc/collabtrans")
+            system_cfg = system_dir / "app_config.json"
+            if system_dir.exists() and system_cfg.exists():
+                logger.info(f"[AppConfig] Using system config: {system_cfg}")
+                return system_cfg
 
         # 2) Executable directory (PyInstaller) or current working directory
         try:
@@ -149,17 +165,15 @@ class AppConfig:
     def save_to_file(self, config_file: str = "app_config.json") -> bool:
         """Save configuration to file (system directory priority, fallback to working directory on failure)"""
         config_data = asdict(self)
-        candidates = []
-        system_dir = Path("/etc/collabtrans")
-        # 1) System directory priority
-        candidates.append(system_dir / "app_config.json")
-        # 2) Resolved path (may be executable directory or working directory)
-        try:
-            candidates.append(self._resolve_app_config_path(config_file))
-        except Exception:
-            pass
-        # 3) Explicit working directory fallback
-        candidates.append(Path.cwd() / "app_config.json")
+        # Use system-appropriate paths
+        from ..utils.path_utils import get_collabtrans_paths
+        paths = get_collabtrans_paths()
+        
+        candidates = [
+            Path(paths["app_config"]),
+            self._resolve_app_config_path(config_file),
+            Path.cwd() / "app_config.json"
+        ]
 
         last_error = None
         for path in candidates:
@@ -169,7 +183,8 @@ class AppConfig:
                 with open(path, 'w', encoding='utf-8') as f:
                     json.dump(config_data, f, indent=4, ensure_ascii=False)
                 try:
-                    if str(path).startswith(str(system_dir)):
+                    # Set appropriate permissions for system directories
+                    if str(path).startswith("/etc/"):
                         os.chmod(path, 0o660)
                 except Exception:
                     pass

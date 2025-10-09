@@ -80,7 +80,11 @@ class UserProfile:
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
     
     @classmethod
-    def load_from_file(cls, username: str, profile_dir: str = "user_profiles") -> "UserProfile":
+    def load_from_file(cls, username: str, profile_dir: str = None) -> "UserProfile":
+        if profile_dir is None:
+            from ..utils.path_utils import get_collabtrans_paths
+            paths = get_collabtrans_paths()
+            profile_dir = paths["user_profiles"]
         """Load user configuration from file"""
         try:
             # Ensure directory exists
@@ -104,7 +108,11 @@ class UserProfile:
             logger.error(f"Failed to load user configuration: {e}")
             return cls()
     
-    def save_to_file(self, username: str, profile_dir: str = "user_profiles") -> bool:
+    def save_to_file(self, username: str, profile_dir: str = None) -> bool:
+        if profile_dir is None:
+            from ..utils.path_utils import get_collabtrans_paths
+            paths = get_collabtrans_paths()
+            profile_dir = paths["user_profiles"]
         """Save user configuration to file"""
         try:
             # Ensure directory exists
@@ -169,7 +177,11 @@ class UserProfile:
 class UserProfileManager:
     """User profile manager"""
     
-    def __init__(self, profile_dir: str = "user_profiles"):
+    def __init__(self, profile_dir: str = None):
+        if profile_dir is None:
+            from ..utils.path_utils import get_collabtrans_paths
+            paths = get_collabtrans_paths()
+            profile_dir = paths["user_profiles"]
         self.profile_dir = profile_dir
         # Ensure directory exists
         os.makedirs(profile_dir, exist_ok=True)

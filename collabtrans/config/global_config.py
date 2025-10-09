@@ -85,20 +85,42 @@ class GlobalConfig:
         """Load global configuration from JSON file and API keys from secrets file"""
         try:
             # Configuration file priority:
-            # 1. /etc/collabtrans/global_config.json (system configuration)
-            # 2. global_config.json in executable directory (packaged configuration)
-            # 3. global_config.json in current directory (development environment)
+            # Windows:
+            #   0. COLLABTRANS_CONFIG_PATH env dir if set (default: C:\Users\Public\collabtrans)
+            # Linux:
+            #   1. /etc/collabtrans/global_config.json (system configuration)
+            # Common:
+            #   2. global_config.json in executable directory (packaged configuration)
+            #   3. global_config.json in current working directory (development)
             
-            system_config_file = "/etc/collabtrans/global_config.json"
-            system_dir_exists = os.path.exists("/etc/collabtrans")
-            
-            if system_dir_exists and os.path.exists(system_config_file):
-                logger.info(f"Loading global configuration from system config: {system_config_file}")
-                with open(system_config_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    config = cls()
-                    config.update_from_dict(data)
-                    logger.info("Global configuration loaded successfully from system config")
+            # 0) Environment-configured directory (cross-platform override)
+            env_dir = os.environ.get("COLLABTRANS_CONFIG_PATH")
+            # Windows default runtime configuration directory
+            if not env_dir and os.name == "nt":
+                env_dir = r"C:\\Users\\Public\\collabtrans"
+            if env_dir:
+                env_cfg = os.path.join(env_dir, "global_config.json")
+                if os.path.exists(env_cfg):
+                    logger.info(f"Loading global configuration from env dir: {env_cfg}")
+                    with open(env_cfg, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        config = cls()
+                        config.update_from_dict(data)
+                        logger.info("Global configuration loaded successfully from env dir")
+                        return config
+
+            # 1) System directory on non-Windows platforms
+            if os.name != "nt":
+                system_config_file = "/etc/collabtrans/global_config.json"
+                system_dir_exists = os.path.exists("/etc/collabtrans")
+                if system_dir_exists and os.path.exists(system_config_file):
+                    logger.info(f"Loading global configuration from system config: {system_config_file}")
+                    with open(system_config_file, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        config = cls()
+                        config.update_from_dict(data)
+                        logger.info("Global configuration loaded successfully from system config")
+                        return config
             else:
                 # Try to load configuration file from executable directory
                 import sys
@@ -171,17 +193,15 @@ class GlobalConfig:
         except Exception:
             config_dict = {}
 
-        system_dir = "/etc/collabtrans"
-        candidates = []
-        # 1) System dir first
-        candidates.append(os.path.join(system_dir, "global_config.json"))
-        # 2) Provided path
-        candidates.append(config_file)
-        # 3) CWD fallback
-        try:
-            candidates.append(str(Path.cwd() / "global_config.json"))
-        except Exception:
-            pass
+        # Use system-appropriate paths
+        from ..utils.path_utils import get_collabtrans_paths
+        paths = get_collabtrans_paths()
+        
+        candidates = [
+            paths["global_config"],
+            config_file,
+            str(Path.cwd() / "global_config.json")
+        ]
 
         last_error = None
         for target_path in candidates:
@@ -190,9 +210,9 @@ class GlobalConfig:
                 Path(os.path.dirname(target_path)).mkdir(parents=True, exist_ok=True)
                 with open(target_path, 'w', encoding='utf-8') as f:
                     json.dump(config_dict, f, ensure_ascii=False, indent=2)
-                # Set conservative permissions if writing to system dir
+                # Set appropriate permissions for system directories
                 try:
-                    if target_path.startswith(system_dir):
+                    if target_path.startswith("/etc/"):
                         os.chmod(target_path, 0o640)
                 except Exception:
                     pass
