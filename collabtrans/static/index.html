@@ -173,13 +173,17 @@
         .preview-split-container {
             display: flex;
             flex-direction: row;
-            height: 90%;
+            height: 100%;
+            flex: 1 1 auto;
+            min-height: 0; /* allow children to shrink and scroll */
         }
 
         .preview-pane-wrapper {
             display: flex;
             flex-direction: column;
             overflow: hidden; /* Important for split.js */
+            flex: 1 1 0;
+            min-height: 0; /* prevent flex-basis from forcing extra height */
         }
 
         .preview-pane-wrapper h6 {
@@ -188,10 +192,12 @@
         }
 
         .preview-pane-wrapper .preview-pane {
-            flex-grow: 1; /* Make the inner pane grow */
+            flex: 1 1 auto; /* Fill available space */
             border: 1px solid var(--bs-border-color);
             border-radius: .375rem;
-            overflow: auto;
+            overflow: hidden;
+            min-height: 0; /* enable child to calculate height */
+            display: flex; /* let iframe/pre flex to fill */
         }
 
         .gutter {
@@ -215,12 +221,21 @@
 
         .preview-pane iframe, .preview-pane pre {
             width: 100%;
-            height: 95%;
+            height: 100%;
             border: none;
             margin: 0;
             padding: 0;
             overflow: auto;
             background-color: var(--bs-body-bg);
+            flex: 1 1 auto;
+        }
+
+        /* Keep pane titles visible while scrolling */
+        .preview-pane-wrapper h6 {
+            position: sticky;
+            top: 0;
+            background-color: var(--bs-body-bg);
+            z-index: 2;
         }
 
         .slider-reset-btn {
@@ -1726,6 +1741,8 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="/static/split.min.js"></script>
 <!-- [NEW] PapaParse for CSV parsing -->
 <script src="/static/papaparse.min.js"></script>
+<!-- Preview module -->
+<script src="/static/js/preview.js"></script>
 <script type="module">
     // --- I18N Data ---
     // Initialize with a minimal fallback for critical error messages.
@@ -4175,7 +4192,17 @@ document.addEventListener('DOMContentLoaded', function() {
             state.htmlUrl = downloads.html;
             state.fileNameStem = status.original_filename_stem;
             previewBtn.style.display = 'inline-block';
-            previewBtn.onclick = () => setupPreview(cardId);
+            previewBtn.onclick = () => {
+                try {
+                    if (window.Preview && typeof window.Preview.openPreview === 'function') {
+                        window.Preview.openPreview({ file: state.file, htmlUrl: state.htmlUrl });
+                    } else {
+                        console.error('Preview module not loaded');
+                    }
+                } catch (e) {
+                    console.error('Open preview failed:', e);
+                }
+            };
             anyPreviewAvailable = true;
         }
 
@@ -4233,60 +4260,7 @@ document.addEventListener('DOMContentLoaded', function() {
             downloadButtons.style.display = 'none';
         }
     }
-    function setupPreview(cardId) {
-        const {state} = tasks[cardId];
-        if (!state.htmlUrl) return;
-
-        const existingOriginalContent = originalPreviewPane.querySelector('iframe, pre, p');
-        if (existingOriginalContent) existingOriginalContent.remove();
-        translatedPreviewFrame.src = 'about:blank';
-        translatedPreviewFrame.srcdoc = getText('preview_loading');
-
-        setPreviewDisplayMode('bilingual');
-        previewOffcanvas.show();
-
-        const menu = document.getElementById('previewDownloadMenu');
-        populateDownloadMenu(menu, state.downloads, cardId);
-
-
-        if (state.file) {
-            const fileType = state.file.type;
-            const fileExtension = state.file.name.split('.').pop().toLowerCase();
-            const textLikeExtensions = ['md', 'json', 'xml', 'log', 'py', 'js', 'css', 'java', 'c', 'cpp', 'h', 'hpp', 'cs', 'rb', 'php', 'swift', 'kt', 'go', 'rs', 'ts', 'txt', 'srt'];
-
-            if (fileType.startsWith('text/') || textLikeExtensions.includes(fileExtension)) {
-                const pre = document.createElement('pre');
-                state.file.text()
-                    .then(text => pre.textContent = text)
-                    .catch(() => pre.textContent = getText('preview_cantReadOriginal'));
-                originalPreviewPane.appendChild(pre);
-            } else if (['application/pdf', 'text/html'].includes(fileType) || ['html', 'htm'].includes(fileExtension)) {
-                const iframe = document.createElement('iframe');
-                iframe.src = URL.createObjectURL(state.file);
-                originalPreviewPane.appendChild(iframe);
-            } else {
-                const p = document.createElement('p');
-                p.className = 'p-3 text-muted';
-                p.textContent = `${getText('preview_cantPreviewType')} (${fileType || 'unknown: ' + fileExtension}).`;
-                originalPreviewPane.appendChild(p);
-            }
-        } else {
-            const p = document.createElement('p');
-            p.className = 'p-3 text-muted';
-            p.textContent = getText('preview_noOriginalCache');
-            originalPreviewPane.appendChild(p);
-        }
-
-        fetch(state.htmlUrl)
-            .then(resp => resp.ok ? resp.text() : Promise.reject(`HTTP error ${resp.status}`))
-            .then(html => {
-                translatedPreviewFrame.srcdoc = html;
-            })
-            .catch(err => {
-                console.error('Preview fetch failed:', err);
-                translatedPreviewFrame.srcdoc = `${getText('preview_loadFailed')}<p>${err.message}</p>`;
-            });
-    }
+    
 
     async function downloadPdf(cardId, retries = 2) {
         const { state } = tasks[cardId];

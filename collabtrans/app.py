@@ -16,7 +16,7 @@ from typing import List, Dict, Any, Optional, Literal, Union, Annotated, TYPE_CH
 
 import httpx
 import uvicorn
-from fastapi import FastAPI, HTTPException, APIRouter, Body, Path as FastApiPath, Request
+from fastapi import FastAPI, HTTPException, APIRouter, Body, Path as FastApiPath, Request, UploadFile, File
 from fastapi.openapi.docs import get_swagger_ui_html, get_swagger_ui_oauth2_redirect_html, get_redoc_html
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -96,6 +96,7 @@ except Exception:
 
 
 pdf_router = APIRouter()
+preview_router = APIRouter()
 
 
 class PdfExportRequest(BaseModel):
@@ -2299,6 +2300,95 @@ async def temp_translate(
 
 app.include_router(service_router)
 app.include_router(pdf_router)
+
+# ---------------------------
+# Preview endpoints (DOCX/XLSX -> HTML)
+# ---------------------------
+
+@preview_router.post("/preview/docx", response_class=HTMLResponse)
+async def preview_docx(file: UploadFile = File(...)):
+    """Convert a DOCX file to HTML for preview using mammoth."""
+    try:
+        import mammoth  # type: ignore
+    except Exception:
+        raise HTTPException(status_code=503, detail="DOCX preview requires 'mammoth' package. Please install it.")
+
+    try:
+        from io import BytesIO
+        content = await file.read()
+        # mammoth expects a file-like object with .seek
+        result = mammoth.convert_to_html(BytesIO(content))
+        html = result.value or ""
+        wrapped = (
+            "<html><head><meta charset='utf-8'>"
+            "<style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial;padding:12px}</style>"
+            "</head><body>" + html + "</body></html>"
+        )
+        return HTMLResponse(content=wrapped)
+    except Exception as e:
+        logger.exception("DOCX preview failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"DOCX preview failed: {e}")
+
+
+@preview_router.post("/preview/xlsx", response_class=HTMLResponse)
+async def preview_xlsx(file: UploadFile = File(...), max_rows: int = 200):
+    """Convert an XLSX file to HTML for preview. Prefer pandas+openpyxl; fallback to openpyxl only."""
+    use_pandas = False
+    try:
+        import pandas as pd  # type: ignore
+        use_pandas = True
+    except Exception:
+        pass
+
+    try:
+        data = await file.read()
+        tabs_html: list[str] = []
+        if use_pandas:
+            from io import BytesIO
+            import pandas as pd  # type: ignore
+            xls = pd.ExcelFile(BytesIO(data))
+            for sheet in xls.sheet_names:
+                df = xls.parse(sheet)
+                if max_rows and len(df) > max_rows:
+                    df = df.head(max_rows)
+                table_html = df.to_html(border=0, classes="table table-sm table-striped", index=False)
+                tabs_html.append(f"<div class='sheet'><h4>{sheet}</h4>{table_html}</div>")
+        else:
+            try:
+                from openpyxl import load_workbook  # type: ignore
+            except Exception:
+                raise HTTPException(status_code=503, detail="XLSX preview requires 'pandas' or 'openpyxl'.")
+            from io import BytesIO
+            wb = load_workbook(BytesIO(data), data_only=True, read_only=True)
+            for ws in wb.worksheets:
+                rows = []
+                for i, row in enumerate(ws.iter_rows(values_only=True)):
+                    if max_rows and i >= max_rows:
+                        break
+                    rows.append([(c if c is not None else "") for c in row])
+                thead = ""
+                tbody = ""
+                if rows:
+                    thead = "<thead><tr>" + "".join(f"<th>{str(v)}</th>" for v in rows[0]) + "</tr></thead>"
+                    for r in rows[1:]:
+                        tbody += "<tr>" + "".join(f"<td>{str(v)}</td>" for v in r) + "</tr>"
+                table_html = f"<table class='table table-sm table-striped'>{thead}<tbody>{tbody}</tbody></table>"
+                tabs_html.append(f"<div class='sheet'><h4>{ws.title}</h4>{table_html}</div>")
+
+        wrapped = (
+            "<html><head><meta charset='utf-8'>"
+            "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css\">"
+            "<style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial;padding:12px}.sheet{margin-bottom:24px}</style>"
+            "</head><body>" + "\n".join(tabs_html) + "</body></html>"
+        )
+        return HTMLResponse(content=wrapped)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("XLSX preview failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"XLSX preview failed: {e}")
+
+app.include_router(preview_router)
 
 
 def find_free_port(start_port):
