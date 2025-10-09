@@ -32,10 +32,10 @@ class ConverterMineruConfig(X2MarkdownConverterConfig):
 
 
 timeout = httpx.Timeout(
-    connect=5.0,  # Connection timeout (maximum time to establish connection)
-    read=200.0,  # Read timeout (maximum time to wait for server response)
-    write=200.0,  # Write timeout (maximum time to send data)
-    pool=1.0  # Timeout to get connection from connection pool
+    connect=20.0,  # Allow slower TLS handshake / network
+    read=300.0,    # Allow larger files and slower networks
+    write=300.0,
+    pool=5.0
 )
 # if USE_PROXY:
 #     client = httpx.Client(proxies=get_httpx_proxies(), timeout=timeout, verify=False)
@@ -44,9 +44,10 @@ timeout = httpx.Timeout(
 #     client = httpx.Client(trust_env=False, timeout=timeout, proxy=None, verify=False)
 #     client_async = httpx.AsyncClient(trust_env=False, timeout=timeout, proxy=None, verify=False)
 
-limits = httpx.Limits(max_connections=500, max_keepalive_connections=20)
-client = httpx.Client(limits=limits, trust_env=False, timeout=timeout, proxy=None, verify=False)
-client_async = httpx.AsyncClient(limits=limits, trust_env=False, timeout=timeout, proxy=None, verify=False)
+limits = httpx.Limits(max_connections=200, max_keepalive_connections=50)
+# trust_env=True lets corporate proxies/CA settings take effect if present
+client = httpx.Client(limits=limits, trust_env=True, timeout=timeout, verify=False)
+client_async = httpx.AsyncClient(limits=limits, trust_env=True, timeout=timeout, verify=False)
 
 
 class ConverterMineru(X2MarkdownConverter):
@@ -184,11 +185,20 @@ def get_md_from_zip_url_with_inline_images(
     """
     try:
         print(f"Downloading ZIP file from {zip_url} (using httpx.get)...")
-        response = client.get(zip_url)  # Add timeout
-        response.raise_for_status()
-        print("ZIP file download completed.")
-        return embed_inline_image_from_zip(response.content, filename_in_zip=filename_in_zip,
-                                           encoding=encoding), response.content
+        last_exc = None
+        for attempt in range(1, 4):  # retry 3 times with backoff
+            try:
+                response = client.get(zip_url)
+                response.raise_for_status()
+                print("ZIP file download completed.")
+                return embed_inline_image_from_zip(response.content, filename_in_zip=filename_in_zip,
+                                                   encoding=encoding), response.content
+            except httpx.RequestError as e:
+                last_exc = e
+                wait_s = 2 ** attempt
+                print(f"Download failed (attempt {attempt}), retrying in {wait_s}s: {e}")
+                time.sleep(wait_s)
+        raise httpx.RequestError(f"Repeated download failures after retries: {last_exc}")
 
 
     except httpx.HTTPStatusError as e:
@@ -226,11 +236,20 @@ async def get_md_from_zip_url_with_inline_images_async(
     """
     try:
         print(f"Downloading ZIP file from {zip_url} (using httpx.get)...")
-        response = await client_async.get(zip_url)  # Add timeout
-        response.raise_for_status()
-        print("ZIP file download completed.")
-        return await asyncio.to_thread(embed_inline_image_from_zip, response.content, filename_in_zip=filename_in_zip,
-                                       encoding=encoding), response.content
+        last_exc = None
+        for attempt in range(1, 4):
+            try:
+                response = await client_async.get(zip_url)
+                response.raise_for_status()
+                print("ZIP file download completed.")
+                return await asyncio.to_thread(embed_inline_image_from_zip, response.content, filename_in_zip=filename_in_zip,
+                                               encoding=encoding), response.content
+            except httpx.RequestError as e:
+                last_exc = e
+                wait_s = 2 ** attempt
+                print(f"Download failed (attempt {attempt}), retrying in {wait_s}s: {e}")
+                await asyncio.sleep(wait_s)
+        raise httpx.RequestError(f"Repeated download failures after retries: {last_exc}")
 
 
     except httpx.HTTPStatusError as e:
