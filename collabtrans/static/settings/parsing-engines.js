@@ -89,6 +89,10 @@ function updateEngineFields() {
     if (modelVersionEl) {
       modelVersionEl.value = cfg.model_version || (window.appConfig?.translator_settings?.mineru_model_version) || '';
     }
+    const testBtn = document.getElementById('testMineruBtn');
+    const statusBadge = document.getElementById('mineruConnStatus');
+    if (testBtn) testBtn.style.display = 'inline-block';
+    if (statusBadge) statusBadge.style.display = 'inline-block';
   }
 
   // Whether to show api_url row: MinerU or configuration already contains api_url
@@ -250,6 +254,8 @@ function initParsingEngineModule() {
   
   const saveBtn = document.getElementById('saveEngineBtn');
   if (saveBtn) saveBtn.addEventListener('click', saveParsingEngineConfig);
+  const testBtn = document.getElementById('testMineruBtn');
+  if (testBtn) testBtn.addEventListener('click', testMineruConnectionInSettings);
   
   // Initialize password toggle buttons
   if (window.SettingsCore) {
@@ -260,3 +266,57 @@ function initParsingEngineModule() {
 // Export functions for global access
 window.saveParsingEngineConfig = saveParsingEngineConfig;
 window.initParsingEnginesModule = initParsingEngineModule;
+
+async function testMineruConnectionInSettings() {
+  try {
+    const statusBadge = document.getElementById('mineruConnStatus');
+    if (statusBadge) {
+      statusBadge.className = 'badge bg-warning';
+      statusBadge.textContent = 'Testing...';
+    }
+    // Load current config
+    const r = await fetch('/auth/app-config', { credentials: 'include' });
+    if (!r.ok) throw new Error('Failed to load config');
+    const cfg = await r.json();
+    const ts = cfg.translator_settings || {};
+    // Only MinerU needs test
+    const key = document.getElementById('engineSelect')?.value || 'mineru';
+    const engine = (ts.engines && ts.engines[key]) || {};
+    const baseUrl = engine.api_url || '';
+    const model = engine.model_version || ts.mineru_model_version || '';
+    if (!baseUrl || !model) {
+      throw new Error('Missing API URL or model_version');
+    }
+    const resp = await fetch('/auth/mineru/test-connection', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ base_url: baseUrl, model_version: model })
+    });
+    const data = await resp.json().catch(()=>({}));
+    if (resp.ok && data.success) {
+      if (statusBadge) {
+        statusBadge.className = 'badge bg-success';
+        statusBadge.textContent = 'Connected';
+      }
+    } else {
+      const msg = data.message || data.detail || ('HTTP ' + resp.status);
+      if (statusBadge) {
+        statusBadge.className = 'badge bg-danger';
+        statusBadge.textContent = 'Failed';
+      }
+      if (window.SettingsCore) {
+        window.SettingsCore.showNotification('MinerU test failed: ' + msg, 'error');
+      }
+    }
+  } catch (e) {
+    const statusBadge = document.getElementById('mineruConnStatus');
+    if (statusBadge) {
+      statusBadge.className = 'badge bg-danger';
+      statusBadge.textContent = 'Failed';
+    }
+    if (window.SettingsCore) {
+      window.SettingsCore.showNotification('MinerU test failed: ' + (e?.message || e), 'error');
+    }
+  }
+}

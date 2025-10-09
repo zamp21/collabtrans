@@ -30,7 +30,10 @@
           <i class="bi bi-box-arrow-up-right me-1"></i><span data-i18n="getMineruTokenText">Apply/View Token</span>
         </a>
       </div>
-      <span id="mineruApiKeyStatus" class="badge bg-secondary ms-2" data-i18n="statusNotConfigured">Not configured</span>
+      <div class="mb-2">
+        <span id="mineruApiKeyStatus" class="badge bg-secondary me-2" data-i18n="statusNotConfigured">Not configured</span>
+        <span id="mineruConnStatus" class="badge bg-secondary" data-i18n="mineruConnStatusIdle">Not tested</span>
+      </div>
       <div class="input-group">
         <input type="password" class="form-control" id="mineruApiKey" data-i18n-placeholder="mineruApiKeyPlaceholder" placeholder="sk-...">
         <button class="btn btn-outline-secondary toggle-password" type="button" data-target="mineruApiKey">
@@ -43,5 +46,8 @@
 
   <div class="mt-4 d-flex gap-2">
     <button id="saveEngineBtn" type="button" class="btn btn-outline-secondary" data-i18n="saveEngineSettingsBtn">Save Engine Settings</button>
+    <button id="testMineruBtn" type="button" class="btn btn-outline-info" style="display:none;">
+      <i class="bi bi-wifi me-1"></i><span data-i18n="testMineruConnectionBtn">Test Connection</span>
+    </button>
   </div>
 </div>
