@@ -547,45 +547,102 @@ async function saveAiPlatformConfig() {
 
 // Test AI platform connection
 async function testAiPlatform() {
+  console.log('[AI Platform] Test Connection clicked');
   // Show test progress
+  try{
+    const badge = document.getElementById('platformConnStatus');
+    if (badge){ badge.className = 'badge bg-warning ms-2'; badge.textContent = (window.SettingsCore? window.SettingsCore.getText('connStatusTesting'): 'Testing...'); }
+  }catch(_){}
   if (window.SettingsCore) {
     window.SettingsCore.showNotification(window.SettingsCore.getText('testingAiPlatformConnection'), 'info');
   }
   
   try {
+    // 1) Validate configuration completeness
+    const platformType = document.getElementById('platformSelect')?.value || '';
+    const baseUrl = (document.getElementById('platformUrl')?.value || '').trim();
+    const modelName = (document.getElementById('modelName')?.value || '').trim();
+    const apiKeyInputVal = (document.getElementById('platformApiKey')?.value || '').trim();
+
+    if (!platformType) {
+      throw new Error('No platform selected');
+    }
+    if (!baseUrl) {
+      throw new Error('Base URL is required');
+    }
+    if (!modelName) {
+      throw new Error('Model name is required');
+    }
+
+    // Determine if API key is configured (masked OK). If input empty, check server raw-secrets meta
+    let apiKeyConfigured = !!apiKeyInputVal;
+    if (!apiKeyConfigured) {
+      try {
+        const rs = await fetch('/auth/app-config/raw-secrets', { credentials: 'include' });
+        if (rs.ok) {
+          const secrets = await rs.json();
+          if (secrets.platform_api_keys_meta && secrets.platform_api_keys_meta[platformType]) {
+            apiKeyConfigured = !!secrets.platform_api_keys_meta[platformType].configured;
+          } else if (secrets.platform_api_keys && secrets.platform_api_keys[platformType]) {
+            const v = secrets.platform_api_keys[platformType];
+            apiKeyConfigured = !!(typeof v === 'string' ? v : (v?.key));
+          }
+        }
+      } catch(e) { /* ignore and keep apiKeyConfigured as-is */ }
+    }
+
+    if (!apiKeyConfigured) {
+      const msg = window.SettingsCore ? window.SettingsCore.getText('apiKeyNotConfigured') || 'API Key is not configured' : 'API Key is not configured';
+      if (window.SettingsCore) window.SettingsCore.showNotification(msg, 'error');
+      const badge = document.getElementById('platformConnStatus');
+      if (badge){ badge.className = 'badge bg-danger ms-2'; badge.textContent = (window.SettingsCore? window.SettingsCore.getText('connStatusFailed'): 'Failed'); }
+      return;
+    }
+
     const resp = await fetch('/auth/test-ai-platform', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({
-        platform_type: document.getElementById('platformSelect').value,
-        base_url: document.getElementById('platformUrl').value,
-        model_name: document.getElementById('modelName').value
-      })
+      body: JSON.stringify({ platform_type: platformType, base_url: baseUrl, model_name: modelName })
     });
     
     if (!resp.ok) {
-      const errorText = await resp.text();
+      let errorText = '';
+      try { const j = await resp.json(); errorText = j.detail || j.error || JSON.stringify(j); }
+      catch(_) { errorText = await resp.text(); }
       if (window.SettingsCore) {
         window.SettingsCore.showNotification(window.SettingsCore.getText('testFailed') + ': HTTP ' + resp.status + ' - ' + errorText, 'error');
       }
       return;
     }
     
-    const data = await resp.json();
+    const data = await resp.json().catch(()=>({}));
     if (data.success) {
       if (window.SettingsCore) {
         window.SettingsCore.showNotification(window.SettingsCore.getText('aiPlatformConnectionTestSuccess'), 'success');
       }
+      try{
+        const badge = document.getElementById('platformConnStatus');
+        if (badge){ badge.className = 'badge bg-success ms-2'; badge.textContent = (window.SettingsCore? window.SettingsCore.getText('connStatusConnected'): 'Connected'); }
+      }catch(_){}
     } else {
+      const reason = data.message || data.error || data.detail || 'Unknown error';
       if (window.SettingsCore) {
-        window.SettingsCore.showNotification(window.SettingsCore.getText('testFailed') + ': ' + (data.error || window.SettingsCore.getText('unknownError')), 'error');
+        window.SettingsCore.showNotification(window.SettingsCore.getText('testFailed') + ': ' + reason, 'error');
       }
+      try{
+        const badge = document.getElementById('platformConnStatus');
+        if (badge){ badge.className = 'badge bg-danger ms-2'; badge.textContent = (window.SettingsCore? window.SettingsCore.getText('connStatusFailed'): 'Failed'); }
+      }catch(_){}
     }
   } catch (e) {
     if (window.SettingsCore) {
       window.SettingsCore.showNotification(window.SettingsCore.getText('testException') + ': ' + e.message, 'error');
     }
+    try{
+      const badge = document.getElementById('platformConnStatus');
+      if (badge){ badge.className = 'badge bg-danger ms-2'; badge.textContent = (window.SettingsCore? window.SettingsCore.getText('connStatusFailed'): 'Failed'); }
+    }catch(_){}
   }
 }
 
@@ -719,6 +776,13 @@ function initAiPlatformModule() {
   const saveAiPlatformBtn = document.getElementById('saveAiPlatformBtn');
   if (saveAiPlatformBtn) {
     saveAiPlatformBtn.addEventListener('click', () => saveAiPlatformConfig(false));
+  }
+  const testAiPlatformBtn = document.getElementById('testAiPlatformBtn');
+  if (testAiPlatformBtn) {
+    testAiPlatformBtn.addEventListener('click', testAiPlatform);
+    console.log('[AI Platform] test button listener attached (late init)');
+  } else {
+    console.warn('[AI Platform] test button not found during late init');
   }
 }
 
