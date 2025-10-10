@@ -18,6 +18,8 @@ from collabtrans.workflow.interfaces import HTMLExportable, DocxExportable
 class DocxWorkflowConfig(WorkflowConfig):
     translator_config: DocxTranslatorConfig
     html_exporter_config: Docx2HTMLExporterConfig
+    translate_headers_footers: bool = True
+    translate_textboxes_sdts: bool = True
 
 
 class DocxWorkflow(Workflow[DocxWorkflowConfig, Document, Document], HTMLExportable[Docx2HTMLExporterConfig],
@@ -37,7 +39,63 @@ class DocxWorkflow(Workflow[DocxWorkflowConfig, Document, Document], HTMLExporta
 
     def translate(self) -> Self:
         document, translator = self._pre_translate(self.document_original)
+        
+        # 翻译文档主体内容
         translator.translate(document)
+        
+        # 翻译页眉页脚（如果启用）
+        if self.config.translate_headers_footers:
+            from collabtrans.converter.x2md.docx_extras import extract_headers_footers, apply_headers_footers
+            try:
+                # 在当前文档内容上提取页眉页脚，避免覆盖正文翻译
+                items = extract_headers_footers(document.content)
+                if items:
+                    self.logger.info(f"提取到 {len(items)} 个页眉页脚文本")
+                    # 批量翻译
+                    texts = [text for _, text in items]
+                    if translator.translate_agent:
+                        translated_list = translator.translate_agent.send_segments(texts, translator.chunk_size)
+                    else:
+                        translated_list = texts
+                    translated_map = {}
+                    for (key, _), translated_text in zip(items, translated_list):
+                        if translated_text and str(translated_text).strip():
+                            translated_map[key] = translated_text
+                    if translated_map:
+                        # 在当前文档内容上回写
+                        new_bytes = apply_headers_footers(document.content, translated_map)
+                        document.content = new_bytes
+                        self.logger.info("页眉页脚翻译完成")
+            except Exception as e:
+                self.logger.warning(f"页眉页脚翻译失败: {e}")
+        
+        # 翻译文本框和SDT（如果启用）
+        if self.config.translate_textboxes_sdts:
+            from collabtrans.converter.x2md.docx_extras import extract_text_in_textboxes_and_sdts, apply_text_in_textboxes_and_sdts
+            try:
+                items = extract_text_in_textboxes_and_sdts(document.content)
+                if items:
+                    self.logger.info(f"提取到 {len(items)} 个文本框/SDT文本")
+                    for i, (key, text) in enumerate(items):
+                        self.logger.info(f"  [{i}] {key}: {text[:50]}...")
+                    texts = [text for _, text in items]
+                    if translator.translate_agent:
+                        translated_list = translator.translate_agent.send_segments(texts, translator.chunk_size)
+                    else:
+                        translated_list = texts
+                    translated_map = {}
+                    for (key, _), translated_text in zip(items, translated_list):
+                        if translated_text and str(translated_text).strip():
+                            translated_map[key] = translated_text
+                    if translated_map:
+                        new_bytes = apply_text_in_textboxes_and_sdts(document.content, translated_map)
+                        document.content = new_bytes
+                        self.logger.info("文本框和SDT翻译完成")
+                else:
+                    self.logger.info("未找到文本框/SDT文本")
+            except Exception as e:
+                self.logger.warning(f"文本框/SDT翻译失败: {e}")
+        
         if translator.glossary_dict_gen:
             self.attachment.add_document("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
         self.document_translated = document
@@ -45,7 +103,64 @@ class DocxWorkflow(Workflow[DocxWorkflowConfig, Document, Document], HTMLExporta
 
     async def translate_async(self) -> Self:
         document, translator = self._pre_translate(self.document_original)
+        
+        # 翻译文档主体内容
         await translator.translate_async(document)
+        
+        # 翻译页眉页脚（如果启用）
+        if self.config.translate_headers_footers:
+            from collabtrans.converter.x2md.docx_extras import extract_headers_footers, apply_headers_footers
+            try:
+                # 在当前文档内容上提取页眉页脚，避免覆盖正文翻译
+                items = extract_headers_footers(document.content)
+                if items:
+                    self.logger.info(f"提取到 {len(items)} 个页眉页脚文本")
+                    # 批量翻译（异步）
+                    texts = [text for _, text in items]
+                    if translator.translate_agent:
+                        translated_list = await translator.translate_agent.send_segments_async(texts, translator.chunk_size)
+                    else:
+                        translated_list = texts
+                    translated_map = {}
+                    for (key, _), translated_text in zip(items, translated_list):
+                        if translated_text and str(translated_text).strip():
+                            translated_map[key] = translated_text
+                    if translated_map:
+                        # 在当前文档内容上回写
+                        new_bytes = apply_headers_footers(document.content, translated_map)
+                        document.content = new_bytes
+                        self.logger.info("页眉页脚翻译完成")
+            except Exception as e:
+                self.logger.warning(f"页眉页脚翻译失败: {e}")
+        
+        # 翻译文本框和SDT（如果启用）
+        if self.config.translate_textboxes_sdts:
+            from collabtrans.converter.x2md.docx_extras import extract_text_in_textboxes_and_sdts, apply_text_in_textboxes_and_sdts
+            try:
+                items = extract_text_in_textboxes_and_sdts(document.content)
+                if items:
+                    self.logger.info(f"提取到 {len(items)} 个文本框/SDT文本")
+                    for i, (key, text) in enumerate(items):
+                        self.logger.info(f"  [{i}] {key}: {text[:50]}...")
+                    texts = [text for _, text in items]
+                    if translator.translate_agent:
+                        translated_list = await translator.translate_agent.send_segments_async(texts, translator.chunk_size)
+                    else:
+                        translated_list = texts
+                    translated_map = {}
+                    for (key, _), translated_text in zip(items, translated_list):
+                        if translated_text and str(translated_text).strip():
+                            translated_map[key] = translated_text
+                    if translated_map:
+                        # 应用翻译后的文本框和SDT
+                        new_bytes = apply_text_in_textboxes_and_sdts(document.content, translated_map)
+                        document.content = new_bytes
+                        self.logger.info("文本框和SDT翻译完成")
+                else:
+                    self.logger.info("未找到文本框/SDT文本")
+            except Exception as e:
+                self.logger.warning(f"文本框/SDT翻译失败: {e}")
+        
         if translator.glossary_dict_gen:
             self.attachment.add_document("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
         self.document_translated = document
