@@ -21,6 +21,52 @@ def is_image_run(run: Run) -> bool:
     return '<w:drawing' in run.element.xml or '<w:pict' in run.element.xml
 
 
+def _paragraph_has_toc_field(paragraph: Paragraph) -> bool:
+    """Check if a paragraph contains a TOC field or is part of a table of contents."""
+    try:
+        p = paragraph._p  # lxml element
+        
+        # Check for TOC field codes
+        fldChars = p.xpath('.//*[local-name()="fldChar"]')
+        if not fldChars:
+            # quick check for instruction text
+            instrs = p.xpath('.//*[local-name()="instrText"]')
+            for it in instrs:
+                if 'TOC' in (it.text or ''):
+                    return True
+        else:
+            instrs = p.xpath('.//*[local-name()="instrText"]')
+            for it in instrs:
+                if 'TOC' in (it.text or ''):
+                    return True
+        
+        # Check for TOC-like content patterns
+        text = paragraph.text or ""
+        if text:
+            # Check for directory-like patterns
+            lines = text.split('\n')
+            if len(lines) >= 3:  # Multiple lines suggest TOC
+                # Check if it looks like a table of contents
+                toc_indicators = ['目录', 'contents', 'table of contents', 'toc']
+                if any(indicator in text.lower() for indicator in toc_indicators):
+                    return True
+                
+                # Check for numbered entries pattern (like "部署1", "准备 mysql3")
+                numbered_entries = 0
+                for line in lines:
+                    line = line.strip()
+                    if line and (line[-1].isdigit() or '...' in line):
+                        numbered_entries += 1
+                
+                # If more than half the lines look like numbered TOC entries
+                if numbered_entries >= len(lines) * 0.5:
+                    return True
+                    
+    except Exception:
+        return False
+    return False
+
+
 def get_font_for_language(target_language: str) -> str:
     """
     Return appropriate font based on target language.
@@ -180,9 +226,25 @@ class DocxTranslator(AiTranslator):
         doc = docx.Document(BytesIO(document.content))
         elements_to_translate = []
         original_texts = []
+        skipped_toc = 0
 
         def process_paragraph(para: Paragraph):
-            nonlocal elements_to_translate, original_texts
+            nonlocal elements_to_translate, original_texts, skipped_toc
+            
+            # Skip paragraphs that contain TOC fields
+            if _paragraph_has_toc_field(para):
+                skipped_toc += 1
+                try:
+                    snippet = (para.text or "")[:120]
+                except Exception:
+                    snippet = ""
+                try:
+                    if getattr(self, "logger", None):
+                        self.logger.info(f"[TOC] Skipping TOC paragraph: '{snippet}'")
+                except Exception:
+                    pass
+                return
+            
             current_text_segment = ""
             current_runs = []
 
@@ -215,6 +277,13 @@ class DocxTranslator(AiTranslator):
                 for cell in row.cells:
                     for para in cell.paragraphs:
                         process_paragraph(para)
+
+        # Log summary for TOC skipping
+        try:
+            if getattr(self, "logger", None):
+                self.logger.info(f"[TOC] Skipped paragraphs counted as TOC: {skipped_toc}")
+        except Exception:
+            pass
 
         return doc, elements_to_translate, original_texts
 

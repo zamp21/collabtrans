@@ -31,6 +31,33 @@ class DocxWorkflow(Workflow[DocxWorkflowConfig, Document, Document], HTMLExporta
                 if sub_config:
                     sub_config.logger = config.logger
 
+    def _is_toc_content(self, text: str) -> bool:
+        """判断文本内容是否为目录"""
+        if not text:
+            return False
+        
+        lines = text.split('\n')
+        if len(lines) < 3:  # 少于3行不太可能是目录
+            return False
+        
+        # 检查目录关键词
+        toc_indicators = ['目录', 'contents', 'table of contents', 'toc']
+        if any(indicator in text.lower() for indicator in toc_indicators):
+            return True
+        
+        # 检查编号模式
+        numbered_entries = 0
+        for line in lines:
+            line = line.strip()
+            if line and (line[-1].isdigit() or '...' in line):
+                numbered_entries += 1
+        
+        # 如果超过一半的行看起来像编号的目录条目
+        if numbered_entries >= len(lines) * 0.5:
+            return True
+        
+        return False
+
     def _pre_translate(self, document_original: Document):
         document = document_original.copy()
         translate_config = self.config.translator_config
@@ -76,21 +103,39 @@ class DocxWorkflow(Workflow[DocxWorkflowConfig, Document, Document], HTMLExporta
                 items = extract_text_in_textboxes_and_sdts(document.content)
                 if items:
                     self.logger.info(f"提取到 {len(items)} 个文本框/SDT文本")
+                    
+                    # 过滤掉TOC内容
+                    filtered_items = []
+                    skipped_toc_count = 0
+                    
                     for i, (key, text) in enumerate(items):
-                        self.logger.info(f"  [{i}] {key}: {text[:50]}...")
-                    texts = [text for _, text in items]
-                    if translator.translate_agent:
-                        translated_list = translator.translate_agent.send_segments(texts, translator.chunk_size)
+                        # 检查是否为TOC内容
+                        if self._is_toc_content(text):
+                            self.logger.info(f"  [{i}] {key}: 跳过TOC内容 - {text[:50]}...")
+                            skipped_toc_count += 1
+                        else:
+                            filtered_items.append((key, text))
+                            self.logger.info(f"  [{i}] {key}: {text[:50]}...")
+                    
+                    if skipped_toc_count > 0:
+                        self.logger.info(f"跳过了 {skipped_toc_count} 个TOC内容")
+                    
+                    if filtered_items:
+                        texts = [text for _, text in filtered_items]
+                        if translator.translate_agent:
+                            translated_list = translator.translate_agent.send_segments(texts, translator.chunk_size)
+                        else:
+                            translated_list = texts
+                        translated_map = {}
+                        for (key, _), translated_text in zip(filtered_items, translated_list):
+                            if translated_text and str(translated_text).strip():
+                                translated_map[key] = translated_text
+                        if translated_map:
+                            new_bytes = apply_text_in_textboxes_and_sdts(document.content, translated_map)
+                            document.content = new_bytes
+                            self.logger.info("文本框和SDT翻译完成")
                     else:
-                        translated_list = texts
-                    translated_map = {}
-                    for (key, _), translated_text in zip(items, translated_list):
-                        if translated_text and str(translated_text).strip():
-                            translated_map[key] = translated_text
-                    if translated_map:
-                        new_bytes = apply_text_in_textboxes_and_sdts(document.content, translated_map)
-                        document.content = new_bytes
-                        self.logger.info("文本框和SDT翻译完成")
+                        self.logger.info("所有SDT内容都是TOC，跳过翻译")
                 else:
                     self.logger.info("未找到文本框/SDT文本")
             except Exception as e:
@@ -140,22 +185,40 @@ class DocxWorkflow(Workflow[DocxWorkflowConfig, Document, Document], HTMLExporta
                 items = extract_text_in_textboxes_and_sdts(document.content)
                 if items:
                     self.logger.info(f"提取到 {len(items)} 个文本框/SDT文本")
+                    
+                    # 过滤掉TOC内容
+                    filtered_items = []
+                    skipped_toc_count = 0
+                    
                     for i, (key, text) in enumerate(items):
-                        self.logger.info(f"  [{i}] {key}: {text[:50]}...")
-                    texts = [text for _, text in items]
-                    if translator.translate_agent:
-                        translated_list = await translator.translate_agent.send_segments_async(texts, translator.chunk_size)
+                        # 检查是否为TOC内容
+                        if self._is_toc_content(text):
+                            self.logger.info(f"  [{i}] {key}: 跳过TOC内容 - {text[:50]}...")
+                            skipped_toc_count += 1
+                        else:
+                            filtered_items.append((key, text))
+                            self.logger.info(f"  [{i}] {key}: {text[:50]}...")
+                    
+                    if skipped_toc_count > 0:
+                        self.logger.info(f"跳过了 {skipped_toc_count} 个TOC内容")
+                    
+                    if filtered_items:
+                        texts = [text for _, text in filtered_items]
+                        if translator.translate_agent:
+                            translated_list = await translator.translate_agent.send_segments_async(texts, translator.chunk_size)
+                        else:
+                            translated_list = texts
+                        translated_map = {}
+                        for (key, _), translated_text in zip(filtered_items, translated_list):
+                            if translated_text and str(translated_text).strip():
+                                translated_map[key] = translated_text
+                        if translated_map:
+                            # 应用翻译后的文本框和SDT
+                            new_bytes = apply_text_in_textboxes_and_sdts(document.content, translated_map)
+                            document.content = new_bytes
+                            self.logger.info("文本框和SDT翻译完成")
                     else:
-                        translated_list = texts
-                    translated_map = {}
-                    for (key, _), translated_text in zip(items, translated_list):
-                        if translated_text and str(translated_text).strip():
-                            translated_map[key] = translated_text
-                    if translated_map:
-                        # 应用翻译后的文本框和SDT
-                        new_bytes = apply_text_in_textboxes_and_sdts(document.content, translated_map)
-                        document.content = new_bytes
-                        self.logger.info("文本框和SDT翻译完成")
+                        self.logger.info("所有SDT内容都是TOC，跳过翻译")
                 else:
                     self.logger.info("未找到文本框/SDT文本")
             except Exception as e:
