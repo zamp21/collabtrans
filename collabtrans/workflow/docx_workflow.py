@@ -32,27 +32,32 @@ class DocxWorkflow(Workflow[DocxWorkflowConfig, Document, Document], HTMLExporta
                     sub_config.logger = config.logger
 
     def _is_toc_content(self, text: str) -> bool:
-        """判断文本内容是否为目录"""
+        """Check if text content is a table of contents"""
         if not text:
             return False
         
         lines = text.split('\n')
-        if len(lines) < 3:  # 少于3行不太可能是目录
+        if len(lines) < 3:  # Less than 3 lines is unlikely to be a TOC
             return False
         
-        # 检查目录关键词
+        # Check for TOC keywords (including Chinese "目录")
         toc_indicators = ['目录', 'contents', 'table of contents', 'toc']
         if any(indicator in text.lower() for indicator in toc_indicators):
             return True
         
-        # 检查编号模式
+        # Check for numbered pattern
         numbered_entries = 0
         for line in lines:
             line = line.strip()
-            if line and (line[-1].isdigit() or '...' in line):
-                numbered_entries += 1
+            if line:
+                # 排除版本号模式
+                if any(keyword in line.lower() for keyword in ['版本', 'version', 'v']):
+                    continue
+                # 检查TOC模式：以数字结尾或包含省略号
+                if line[-1].isdigit() or '...' in line:
+                    numbered_entries += 1
         
-        # 如果超过一半的行看起来像编号的目录条目
+        # If more than half the lines look like numbered TOC entries
         if numbered_entries >= len(lines) * 0.5:
             return True
         
@@ -70,15 +75,15 @@ class DocxWorkflow(Workflow[DocxWorkflowConfig, Document, Document], HTMLExporta
         # 翻译文档主体内容
         translator.translate(document)
         
-        # 翻译页眉页脚（如果启用）
+        # Translate headers/footers (if enabled)
         if self.config.translate_headers_footers:
             from collabtrans.converter.x2md.docx_extras import extract_headers_footers, apply_headers_footers
             try:
-                # 在当前文档内容上提取页眉页脚，避免覆盖正文翻译
+                # Extract headers/footers from current document content to avoid overwriting body translation
                 items = extract_headers_footers(document.content)
                 if items:
-                    self.logger.info(f"提取到 {len(items)} 个页眉页脚文本")
-                    # 批量翻译
+                    self.logger.info(f"Extracted {len(items)} header/footer texts")
+                    # Batch translation
                     texts = [text for _, text in items]
                     if translator.translate_agent:
                         translated_list = translator.translate_agent.send_segments(texts, translator.chunk_size)
@@ -89,36 +94,36 @@ class DocxWorkflow(Workflow[DocxWorkflowConfig, Document, Document], HTMLExporta
                         if translated_text and str(translated_text).strip():
                             translated_map[key] = translated_text
                     if translated_map:
-                        # 在当前文档内容上回写
+                        # Write back to current document content
                         new_bytes = apply_headers_footers(document.content, translated_map)
                         document.content = new_bytes
-                        self.logger.info("页眉页脚翻译完成")
+                        self.logger.info("Header/footer translation completed")
             except Exception as e:
-                self.logger.warning(f"页眉页脚翻译失败: {e}")
+                self.logger.warning(f"Header/footer translation failed: {e}")
         
-        # 翻译文本框和SDT（如果启用）
+        # Translate textboxes and SDTs (if enabled)
         if self.config.translate_textboxes_sdts:
             from collabtrans.converter.x2md.docx_extras import extract_text_in_textboxes_and_sdts, apply_text_in_textboxes_and_sdts
             try:
                 items = extract_text_in_textboxes_and_sdts(document.content)
                 if items:
-                    self.logger.info(f"提取到 {len(items)} 个文本框/SDT文本")
+                    self.logger.info(f"Extracted {len(items)} textbox/SDT texts")
                     
-                    # 过滤掉TOC内容
+                    # Filter out TOC content
                     filtered_items = []
                     skipped_toc_count = 0
                     
                     for i, (key, text) in enumerate(items):
-                        # 检查是否为TOC内容
+                        # Check if it's TOC content
                         if self._is_toc_content(text):
-                            self.logger.info(f"  [{i}] {key}: 跳过TOC内容 - {text[:50]}...")
+                            self.logger.info(f"  [{i}] {key}: Skipping TOC content - {text[:50]}...")
                             skipped_toc_count += 1
                         else:
                             filtered_items.append((key, text))
                             self.logger.info(f"  [{i}] {key}: {text[:50]}...")
                     
                     if skipped_toc_count > 0:
-                        self.logger.info(f"跳过了 {skipped_toc_count} 个TOC内容")
+                        self.logger.info(f"Skipped {skipped_toc_count} TOC contents")
                     
                     if filtered_items:
                         texts = [text for _, text in filtered_items]
@@ -133,13 +138,13 @@ class DocxWorkflow(Workflow[DocxWorkflowConfig, Document, Document], HTMLExporta
                         if translated_map:
                             new_bytes = apply_text_in_textboxes_and_sdts(document.content, translated_map)
                             document.content = new_bytes
-                            self.logger.info("文本框和SDT翻译完成")
+                            self.logger.info("Textbox and SDT translation completed")
                     else:
-                        self.logger.info("所有SDT内容都是TOC，跳过翻译")
+                        self.logger.info("All SDT contents are TOC, skipping translation")
                 else:
-                    self.logger.info("未找到文本框/SDT文本")
+                    self.logger.info("No textbox/SDT texts found")
             except Exception as e:
-                self.logger.warning(f"文本框/SDT翻译失败: {e}")
+                self.logger.warning(f"Textbox/SDT translation failed: {e}")
         
         if translator.glossary_dict_gen:
             self.attachment.add_document("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
@@ -152,15 +157,15 @@ class DocxWorkflow(Workflow[DocxWorkflowConfig, Document, Document], HTMLExporta
         # 翻译文档主体内容
         await translator.translate_async(document)
         
-        # 翻译页眉页脚（如果启用）
+        # Translate headers/footers (if enabled)
         if self.config.translate_headers_footers:
             from collabtrans.converter.x2md.docx_extras import extract_headers_footers, apply_headers_footers
             try:
-                # 在当前文档内容上提取页眉页脚，避免覆盖正文翻译
+                # Extract headers/footers from current document content to avoid overwriting body translation
                 items = extract_headers_footers(document.content)
                 if items:
-                    self.logger.info(f"提取到 {len(items)} 个页眉页脚文本")
-                    # 批量翻译（异步）
+                    self.logger.info(f"Extracted {len(items)} header/footer texts")
+                    # Batch translation（异步）
                     texts = [text for _, text in items]
                     if translator.translate_agent:
                         translated_list = await translator.translate_agent.send_segments_async(texts, translator.chunk_size)
@@ -171,36 +176,36 @@ class DocxWorkflow(Workflow[DocxWorkflowConfig, Document, Document], HTMLExporta
                         if translated_text and str(translated_text).strip():
                             translated_map[key] = translated_text
                     if translated_map:
-                        # 在当前文档内容上回写
+                        # Write back to current document content
                         new_bytes = apply_headers_footers(document.content, translated_map)
                         document.content = new_bytes
-                        self.logger.info("页眉页脚翻译完成")
+                        self.logger.info("Header/footer translation completed")
             except Exception as e:
-                self.logger.warning(f"页眉页脚翻译失败: {e}")
+                self.logger.warning(f"Header/footer translation failed: {e}")
         
-        # 翻译文本框和SDT（如果启用）
+        # Translate textboxes and SDTs (if enabled)
         if self.config.translate_textboxes_sdts:
             from collabtrans.converter.x2md.docx_extras import extract_text_in_textboxes_and_sdts, apply_text_in_textboxes_and_sdts
             try:
                 items = extract_text_in_textboxes_and_sdts(document.content)
                 if items:
-                    self.logger.info(f"提取到 {len(items)} 个文本框/SDT文本")
+                    self.logger.info(f"Extracted {len(items)} textbox/SDT texts")
                     
-                    # 过滤掉TOC内容
+                    # Filter out TOC content
                     filtered_items = []
                     skipped_toc_count = 0
                     
                     for i, (key, text) in enumerate(items):
-                        # 检查是否为TOC内容
+                        # Check if it's TOC content
                         if self._is_toc_content(text):
-                            self.logger.info(f"  [{i}] {key}: 跳过TOC内容 - {text[:50]}...")
+                            self.logger.info(f"  [{i}] {key}: Skipping TOC content - {text[:50]}...")
                             skipped_toc_count += 1
                         else:
                             filtered_items.append((key, text))
                             self.logger.info(f"  [{i}] {key}: {text[:50]}...")
                     
                     if skipped_toc_count > 0:
-                        self.logger.info(f"跳过了 {skipped_toc_count} 个TOC内容")
+                        self.logger.info(f"Skipped {skipped_toc_count} TOC contents")
                     
                     if filtered_items:
                         texts = [text for _, text in filtered_items]
@@ -216,13 +221,13 @@ class DocxWorkflow(Workflow[DocxWorkflowConfig, Document, Document], HTMLExporta
                             # 应用翻译后的文本框和SDT
                             new_bytes = apply_text_in_textboxes_and_sdts(document.content, translated_map)
                             document.content = new_bytes
-                            self.logger.info("文本框和SDT翻译完成")
+                            self.logger.info("Textbox and SDT translation completed")
                     else:
-                        self.logger.info("所有SDT内容都是TOC，跳过翻译")
+                        self.logger.info("All SDT contents are TOC, skipping translation")
                 else:
-                    self.logger.info("未找到文本框/SDT文本")
+                    self.logger.info("No textbox/SDT texts found")
             except Exception as e:
-                self.logger.warning(f"文本框/SDT翻译失败: {e}")
+                self.logger.warning(f"Textbox/SDT translation failed: {e}")
         
         if translator.glossary_dict_gen:
             self.attachment.add_document("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))

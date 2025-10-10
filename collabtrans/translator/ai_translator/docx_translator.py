@@ -22,7 +22,7 @@ def is_image_run(run: Run) -> bool:
 
 
 def _paragraph_has_toc_field(paragraph: Paragraph) -> bool:
-    """Check if a paragraph contains a TOC field or is part of a table of contents."""
+    """Check if a paragraph contains a TOC field."""
     try:
         p = paragraph._p  # lxml element
         
@@ -38,28 +38,6 @@ def _paragraph_has_toc_field(paragraph: Paragraph) -> bool:
             instrs = p.xpath('.//*[local-name()="instrText"]')
             for it in instrs:
                 if 'TOC' in (it.text or ''):
-                    return True
-        
-        # Check for TOC-like content patterns
-        text = paragraph.text or ""
-        if text:
-            # Check for directory-like patterns
-            lines = text.split('\n')
-            if len(lines) >= 3:  # Multiple lines suggest TOC
-                # Check if it looks like a table of contents
-                toc_indicators = ['目录', 'contents', 'table of contents', 'toc']
-                if any(indicator in text.lower() for indicator in toc_indicators):
-                    return True
-                
-                # Check for numbered entries pattern (like "部署1", "准备 mysql3")
-                numbered_entries = 0
-                for line in lines:
-                    line = line.strip()
-                    if line and (line[-1].isdigit() or '...' in line):
-                        numbered_entries += 1
-                
-                # If more than half the lines look like numbered TOC entries
-                if numbered_entries >= len(lines) * 0.5:
                     return True
                     
     except Exception:
