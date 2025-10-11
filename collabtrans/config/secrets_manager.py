@@ -261,15 +261,8 @@ class SecretsManager:
         secrets = self.load_secrets()
         return secrets.get("auth_secrets", {})
     
-    def get_default_password(self) -> Optional[str]:
-        """
-        Get default administrator password
-        
-        Returns:
-            Default password, returns None if not exists
-        """
-        auth_secrets = self.get_auth_secrets()
-        return auth_secrets.get("default_password")
+    # Default password is now managed by unified user storage
+    # This method is deprecated
     
     def get_session_secret_key(self) -> Optional[str]:
         """

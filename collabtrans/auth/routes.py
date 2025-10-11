@@ -209,23 +209,7 @@ async def login(
                 logger.warning(f"Unified user authentication failed: {_mask_username(username)}")
                 raise InvalidCredentials("Invalid username or password")
         
-        elif username == config.default_username:
-            # Fallback: admin user from secrets config (for backward compatibility)
-            logger.info(f"Using fallback admin authentication for: {_mask_username(username)}")
-            
-            from .password_manager import password_manager
-            if password_manager.verify_password(password, config.default_password):
-                user = User(
-                    username=username,
-                    display_name="Administrator",
-                    email=None,
-                    is_authenticated=True,
-                    role=UserRole.ADMIN
-                )
-                logger.info(f"Fallback admin user authenticated: {_mask_username(username)}")
-            else:
-                logger.warning(f"Fallback admin user authentication failed: {_mask_username(username)}")
-                raise InvalidCredentials("Invalid username or password")
+        # No fallback needed - all users should be in unified storage
         elif config.ldap_enabled:
             # Non-admin users use LDAP authentication (ldap3 client)
             logger.info(f"Using LDAP authentication for user: {_mask_username(username)}")
@@ -2610,49 +2594,5 @@ async def change_own_local_password(request: Request, current_user: Optional[Use
             raise HTTPException(status_code=500, detail=get_password_message("changePasswordUpdateFailed"))
     
     else:
-        # Fallback: check if this is admin user in secrets config
-        if current_user.username == config.default_username:
-            logger.info(f"Fallback admin user changing password: {_mask_username(current_user.username)}")
-            
-            # Verify current password
-            if not password_manager.verify_password(current_password, config.default_password):
-                raise HTTPException(status_code=403, detail=get_password_message("changePasswordCurrentIncorrect"))
-            
-            # Update admin password in secrets config
-            try:
-                from ..config.secrets_manager import get_secrets_manager
-                secrets_manager = get_secrets_manager()
-                auth_secrets = secrets_manager.get_auth_secrets()
-                
-                # Hash new password
-                hashed_new_password = password_manager.hash_password(new_password)
-                auth_secrets["default_password"] = hashed_new_password
-                
-                # Save updated secrets
-                secrets = secrets_manager.load_secrets()
-                secrets["auth_secrets"] = auth_secrets
-                
-                if secrets_manager.save_secrets(secrets):
-                    logger.info(f"Fallback admin password updated successfully: {_mask_username(current_user.username)}")
-                    return {"ok": True}
-                else:
-                    logger.error("Failed to save updated admin password")
-                    raise HTTPException(status_code=500, detail=get_password_message("changePasswordSaveFailed"))
-                    
-            except Exception as e:
-                logger.error(f"Failed to update admin password: {e}")
-                raise HTTPException(status_code=500, detail=get_password_message("changePasswordUpdateFailed"))
-        
-        else:
-            # Check local user store as fallback
-            store = get_local_user_store()
-            local_user = store.get_user(current_user.username)
-            if not local_user:
-                raise HTTPException(status_code=403, detail=get_password_message("changePasswordNotLocalUser"))
-
-            ok, _ = store.verify_credentials(current_user.username, current_password)
-            if not ok:
-                raise HTTPException(status_code=403, detail=get_password_message("changePasswordCurrentIncorrect"))
-
-            store.reset_password(current_user.username, new_password)
-            return {"ok": True}
+        # User not found in unified storage
+        raise HTTPException(status_code=403, detail=get_password_message("changePasswordNotLocalUser"))
