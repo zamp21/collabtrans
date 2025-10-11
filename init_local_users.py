@@ -46,8 +46,16 @@ def initialize_local_users():
     for user in template_data["users"]:
         username = user["username"]
         
-        # Get default password
-        default_password = template_data["metadata"]["default_passwords"].get(username, "password123")
+        # Get default password from environment or prompt user
+        if username == "admin":
+            default_password = os.getenv("ADMIN_DEFAULT_PASSWORD")
+            if not default_password:
+                default_password = input(f"Enter password for {username}: ").strip()
+                if not default_password:
+                    print(f"❌ Password for {username} is required!")
+                    return False
+        else:
+            default_password = template_data["metadata"]["default_passwords"].get(username, "password123")
         
         # Generate password hash
         password_hash = hash_password(default_password)

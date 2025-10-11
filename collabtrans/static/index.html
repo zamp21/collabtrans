@@ -1241,7 +1241,7 @@ $.*"></textarea>
                                 <li>
                                     <a class="dropdown-item d-flex align-items-center" href="#" id="aboutBtn">
                                         <i class="bi bi-info-circle me-2"></i>
-                                        <span data-i18n="aboutBtn">About</span>
+                                        <span data-i18n="about">About</span>
                                     </a>
                                 </li>
                                 
@@ -6565,9 +6565,170 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('❌ Init function not found!');
             console.log('🔍 Available functions:', Object.keys(window).filter(key => typeof window[key] === 'function'));
         }
+        
+        // --- Change Password functionality ---
+        // Password visibility toggle
+        function setupPasswordToggle(buttonId, inputId) {
+            const button = document.getElementById(buttonId);
+            const input = document.getElementById(inputId);
+            if (button && input) {
+                button.addEventListener('click', function() {
+                    const icon = this.querySelector('i');
+                    if (input.type === 'password') {
+                        input.type = 'text';
+                        if (icon) icon.className = 'bi bi-eye';
+                    } else {
+                        input.type = 'password';
+                        if (icon) icon.className = 'bi bi-eye-slash';
+                    }
+                });
+            }
+        }
+        
+        setupPasswordToggle('toggleCurrentPassword', 'currentPassword');
+        setupPasswordToggle('toggleNewPassword', 'newPassword');
+        setupPasswordToggle('toggleConfirmPassword', 'confirmPassword');
+        
+        // Change password submit
+        const changePasswordSubmit = document.getElementById('changePasswordSubmit');
+        if (changePasswordSubmit) {
+            changePasswordSubmit.addEventListener('click', async function() {
+                const currentPassword = document.getElementById('currentPassword').value;
+                const newPassword = document.getElementById('newPassword').value;
+                const confirmPassword = document.getElementById('confirmPassword').value;
+                const errorDiv = document.getElementById('changePasswordError');
+                const successDiv = document.getElementById('changePasswordSuccess');
+                
+                // Hide previous messages
+                errorDiv.classList.add('d-none');
+                successDiv.classList.add('d-none');
+                
+                // Validation
+                if (!currentPassword || !newPassword || !confirmPassword) {
+                    errorDiv.textContent = i18n('changePasswordRequired');
+                    errorDiv.classList.remove('d-none');
+                    return;
+                }
+                
+                if (newPassword !== confirmPassword) {
+                    errorDiv.textContent = i18n('changePasswordMismatch');
+                    errorDiv.classList.remove('d-none');
+                    return;
+                }
+                
+                try {
+                    const response = await fetch('/local-users/me/change-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            current_password: currentPassword,
+                            new_password: newPassword
+                        }),
+                        credentials: 'include'
+                    });
+                    
+                    if (response.ok) {
+                        successDiv.textContent = i18n('changePasswordSuccess');
+                        successDiv.classList.remove('d-none');
+                        document.getElementById('changePasswordForm').reset();
+                        setTimeout(() => {
+                            const modal = bootstrap.Modal.getInstance(document.getElementById('changePasswordModal'));
+                            if (modal) modal.hide();
+                        }, 1500);
+                    } else {
+                        const error = await response.json();
+                        errorDiv.textContent = error.detail || i18n('changePasswordFailed');
+                        errorDiv.classList.remove('d-none');
+                    }
+                } catch (error) {
+                    console.error('Change password error:', error);
+                    errorDiv.textContent = i18n('changePasswordFailed');
+                    errorDiv.classList.remove('d-none');
+                }
+            });
+        }
+        
+        // Reset form when modal is hidden
+        const changePasswordModal = document.getElementById('changePasswordModal');
+        if (changePasswordModal) {
+            changePasswordModal.addEventListener('hidden.bs.modal', function() {
+                document.getElementById('changePasswordForm').reset();
+                document.getElementById('changePasswordError').classList.add('d-none');
+                document.getElementById('changePasswordSuccess').classList.add('d-none');
+            });
+        }
     });
 </script>
-  
+<!-- Change Password Modal -->
+<div class="modal fade" id="changePasswordModal" tabindex="-1" aria-labelledby="changePasswordModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="changePasswordModalLabel">
+                    <i class="bi bi-key me-2"></i>
+                    <span data-i18n="changePasswordTitle">Change Password</span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="changePasswordForm">
+                    <div class="mb-3">
+                        <label for="currentPassword" class="form-label">
+                            <span data-i18n="changePasswordCurrentLabel">Current Password</span>
+                        </label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="currentPassword" 
+                                   data-i18n-placeholder="changePasswordCurrentPlaceholder"
+                                   placeholder="Please enter current password" required>
+                            <button class="btn btn-outline-secondary" type="button" id="toggleCurrentPassword">
+                                <i class="bi bi-eye-slash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newPassword" class="form-label">
+                            <span data-i18n="changePasswordNewLabel">New Password</span>
+                        </label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="newPassword" 
+                                   data-i18n-placeholder="changePasswordNewPlaceholder"
+                                   placeholder="Please enter new password" required>
+                            <button class="btn btn-outline-secondary" type="button" id="toggleNewPassword">
+                                <i class="bi bi-eye-slash"></i>
+                            </button>
+                        </div>
+                        <div class="form-text">
+                            Password must be at least 8 characters long and contain at least one lowercase letter, one uppercase letter, and one digit.
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="confirmPassword" class="form-label">
+                            <span data-i18n="changePasswordConfirmLabel">Confirm New Password</span>
+                        </label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="confirmPassword" 
+                                   data-i18n-placeholder="changePasswordConfirmPlaceholder"
+                                   placeholder="Please enter new password again" required>
+                            <button class="btn btn-outline-secondary" type="button" id="toggleConfirmPassword">
+                                <i class="bi bi-eye-slash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="alert alert-danger d-none" id="changePasswordError"></div>
+                    <div class="alert alert-success d-none" id="changePasswordSuccess"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <span data-i18n="changePasswordCancelBtn">Cancel</span>
+                </button>
+                <button type="button" class="btn btn-primary" id="changePasswordSubmit">
+                    <span data-i18n="changePasswordBtn">Change Password</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 </body>
 <script>

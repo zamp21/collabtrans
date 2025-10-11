@@ -78,32 +78,11 @@ def main():
         # Fallback: use new structure
         secrets["translator_mineru_token"] = {"key": mineru_token if mineru_token else "", "configured": bool(mineru_token)}
     
-    # Configure authentication sensitive information
-    print("\n🔐 Authentication sensitive information configuration:")
-    auth_secrets = secrets.get("auth_secrets", {})
-    
-    # Default password
-    default_password = input("  Default admin password (default: admin123): ").strip()
-    if default_password:
-        auth_secrets["default_password"] = default_password
-    else:
-        auth_secrets["default_password"] = "admin123"
-    
-    # Session key
-    session_secret = input("  Session key (default: auto-generated): ").strip()
-    if session_secret:
-        auth_secrets["session_secret_key"] = session_secret
-    else:
-        import secrets as secrets_module
-        auth_secrets["session_secret_key"] = secrets_module.token_urlsafe(32)
-        print(f"    Auto-generated session key: {auth_secrets['session_secret_key'][:8]}...")
-    
-    # Redis password
-    redis_password = input("  Redis password (optional): ").strip()
-    if redis_password:
-        auth_secrets["redis_password"] = redis_password
-    else:
-        auth_secrets["redis_password"] = None
+    # Authentication is now managed by unified user storage and local_config.json
+    print("\n🔐 Authentication configuration:")
+    print("  ✅ Admin password: Managed by unified user storage")
+    print("  ✅ Session key: Managed by local_config.json")
+    print("  ✅ Redis password: Managed by local_config.json")
     
     # Save configuration
     try:
@@ -143,9 +122,9 @@ def main():
     else:
         mineru_configured = bool(mt and str(mt).strip())
     print(f"  MinerU token: {'configured' if mineru_configured else 'not configured'}")
-    print(f"  Default password: {'configured' if auth_secrets.get('default_password') else 'not configured'}")
-    print(f"  Session key: {'configured' if auth_secrets.get('session_secret_key') else 'not configured'}")
-    print(f"  Redis password: {'configured' if auth_secrets.get('redis_password') else 'not configured'}")
+    print(f"  Default password: Managed by unified user storage")
+    print(f"  Session key: Managed by local_config.json")
+    print(f"  Redis password: Managed by local_config.json")
     
     print("\n🚀 Configuration completed! You can now start the DocuTranslate service")
     print("💡 Tip: After admin login, you can continue configuring API keys in the web interface")

@@ -679,6 +679,9 @@
     "createFailed": "Create failed",
     "saved": "Saved",
     "usersLoaded": "Users loaded",
-    "apiUrlPlaceholder": "https://..."
+    "apiUrlPlaceholder": "https://...",
+    "userMenu": "User Menu",
+    "changePassword": "Change Password",
+    "about": "About"
   }
 }

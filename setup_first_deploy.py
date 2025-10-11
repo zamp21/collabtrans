@@ -42,17 +42,13 @@ def setup_first_deploy():
                 if k in config:
                     config.pop(k, None)
             
-            # Generate random session key
-            config['auth_secrets']['session_secret_key'] = generate_random_key(64)
-            
-            # Set default admin password
-            config['auth_secrets']['default_password'] = "admin123"
+            # Authentication is now managed by unified user storage and local_config.json
+            # No need to generate auth_secrets
             
             with open(local_secrets_path, 'w', encoding='utf-8') as f:
                 json.dump(config, f, indent=2, ensure_ascii=False)
             
-            print("✅ Generated random session key")
-            print("✅ Set default admin password: admin123")
+            print("✅ Generated secrets configuration")
             
         except Exception as e:
             print(f"❌ Failed to create local_secrets.json: {e}")
@@ -87,7 +83,7 @@ def setup_first_deploy():
     print("   http://127.0.0.1:8010")
     print("\n👤 Default login information:")
     print("   Username: admin")
-    print("   Password: admin123")
+    print("   Password: [Set via unified user storage]")
     print("\n📚 For more information, check the documents in the doc/ directory")
 
 

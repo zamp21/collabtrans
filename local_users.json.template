@@ -30,9 +30,9 @@
     "created_at": "{{TIMESTAMP}}",
     "description": "Local users configuration template",
     "default_passwords": {
-      "admin": "admin123",
-      "app_admin": "appadmin123",
-      "user1": "user123"
+      "admin": "{{ADMIN_DEFAULT_PASSWORD}}",
+      "app_admin": "{{APP_ADMIN_DEFAULT_PASSWORD}}",
+      "user1": "{{USER1_DEFAULT_PASSWORD}}"
     }
   }
 }

@@ -5,6 +5,8 @@
         "completed": "Application startup completed, multi-task state initialized.",
         "cleanup_task_started": "Conversion file cleanup task started.",
         "cleanup_task_failed": "Failed to start conversion file cleanup task: {error}",
+        "password_recovery_completed": "Admin password recovery completed successfully.",
+        "password_recovery_failed": "Failed to perform password recovery: {error}",
         "api_docs": "Service API documentation: {url}",
         "browser_access": "Please access {url} in your browser"
       },

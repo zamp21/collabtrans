@@ -23,13 +23,14 @@ class PasswordManager:
     SALT_LENGTH = 16  # 128 bits
     
     @staticmethod
-    def hash_password(password: str, iterations: int = None) -> str:
+    def hash_password(password: str, iterations: int = None, skip_validation: bool = False) -> str:
         """
         Hash a password using PBKDF2-SHA256
         
         Args:
             password: Plain text password
             iterations: Number of iterations (default: 210,000)
+            skip_validation: Skip password strength validation (for default passwords)
             
         Returns:
             Hashed password in format: pbkdf2_sha256$iterations$salt$hash
@@ -39,6 +40,12 @@ class PasswordManager:
         """
         if not isinstance(password, str) or not password:
             raise ValueError("Password must be non-empty string")
+        
+        # Validate password strength unless explicitly skipped
+        if not skip_validation:
+            is_valid, error_msg = PasswordManager.validate_password_strength(password)
+            if not is_valid:
+                raise ValueError(error_msg)
         
         if iterations is None:
             iterations = PasswordManager.DEFAULT_ITERATIONS

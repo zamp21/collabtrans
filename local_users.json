@@ -7,12 +7,12 @@
   "users": {
     "admin": {
       "username": "admin",
-      "password_hash": "pbkdf2_sha256$210000$ef18dc366c57307580f2b3ed3ffe96b9$7d8f894cbd5d1ab3d4a39d772d3ba15163b89bc2aded327691cf20916cb0ede3",
+      "password_hash": "pbkdf2_sha256$210000$b78801d083aea176f2e4fae7f9815ea3$d6f0e1300a5cd732f446bf7403129b35a5ea8a88fc638fc3b3089fd1a8858c0f",
       "role": "super_admin",
       "display_name": "Administrator",
       "email": null,
       "created_at": "2025-10-11T12:08:36.876701",
-      "last_login": "2025-10-11T12:18:26.806104",
+      "last_login": "2025-10-11T15:56:15.587479",
       "is_active": true,
       "is_system_user": true
     },

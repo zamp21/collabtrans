@@ -362,7 +362,6 @@ async def get_auth_config_api(request: Request):
         "ldap_tls_cacertfile": config.ldap_tls_cacertfile,
         "ldap_tls_verify": config.ldap_tls_verify,
         "default_username": config.default_username,
-        "default_password": "***",  # Do not return real password
         "session_max_age": config.session_max_age,
         "max_login_attempts": config.max_login_attempts,
         "login_attempt_window": config.login_attempt_window,
@@ -1628,9 +1627,6 @@ async def update_app_config_api(
                     secrets_manager.update_mineru_token(str(raw))
             del config_data['translator_mineru_token']
         
-        # Prohibit non-super administrators from modifying default password
-        if not user.is_super_admin() and 'default_password' in config_data:
-            del config_data['default_password']
         
         # Handle Web/HTTPS related fields and write to local configuration
         from ..config.global_config import get_global_config, save_global_config
@@ -1755,10 +1751,7 @@ async def update_single_setting(
         # Define sensitive configuration keys (only administrators can modify, saved to local_secrets.json)
         sensitive_config_keys = [
             'translator_mineru_token',
-            'platform_api_keys',
-            'default_password',
-            'session_secret_key',
-            'redis_password'
+            'platform_api_keys'
         ]
         
         # Define global configuration keys (only administrators can modify)
@@ -1802,9 +1795,6 @@ async def update_single_setting(
                 logger.warning(f"LDAP user {_mask_username(user.username)} attempted to modify sensitive configuration: {key}")
                 raise HTTPException(status_code=403, detail="Access denied: Only admin can modify sensitive settings")
             # Default password can only be changed by super administrator
-            if key == 'default_password' and not user.is_super_admin():
-                logger.warning(f"Non-super administrator {_mask_username(user.username)} attempted to modify default password")
-                raise HTTPException(status_code=403, detail="Only super admin can change default password")
         elif key in global_config_keys:
             # Global configuration, only administrators can modify
             if not user.is_admin():
@@ -1862,7 +1852,7 @@ async def update_single_setting(
                 else:
                     raise HTTPException(status_code=400, detail="Platform API keys must be a dictionary")
             
-            elif key in ['default_password', 'session_secret_key', 'redis_password']:
+            # session_secret_key and redis_password are now managed by local_config.json
                 if secrets_manager.update_auth_secret(key, value):
                     logger.info(f"Authentication sensitive configuration {key} updated by user {_mask_username(user.username)}")
                     return {"success": True, "message": f"Auth secret {key} updated successfully"}

@@ -54,7 +54,7 @@ class SecretsManager:
             if system_dir_exists:
                 if os.path.exists(system_secrets_file):
                     self.secrets_file = Path(system_secrets_file)
-                    logger.info(f"Using system secrets config: {system_secrets_file}")
+                    logger.debug(f"Using system secrets config: {system_secrets_file}")
                 else:
                     # Auto-create from template if available
                     if os.path.exists(system_secrets_template):
@@ -84,19 +84,19 @@ class SecretsManager:
                 exe_secrets_file = os.path.join(exe_dir, "local_secrets.json")
                 if os.path.exists(exe_secrets_file):
                     self.secrets_file = Path(exe_secrets_file)
-                    logger.info(f"Using executable directory secrets config: {exe_secrets_file}")
+                    logger.debug(f"Using executable directory secrets config: {exe_secrets_file}")
                 else:
                     # Fix relative path to repository root directory to avoid writing to wrong location due to working directory changes
                     proj_root = Path(__file__).resolve().parents[2]
                     sf = Path(secrets_file)
                     self.secrets_file = sf if sf.is_absolute() else (proj_root / sf)
-                    logger.info(f"Using local secrets config: {self.secrets_file}")
+                    logger.debug(f"Using local secrets config: {self.secrets_file}")
             else:
                 # Development environment
                 proj_root = Path(__file__).resolve().parents[2]
                 sf = Path(secrets_file)
                 self.secrets_file = sf if sf.is_absolute() else (proj_root / sf)
-                logger.info(f"Using local secrets config: {self.secrets_file}")
+                logger.debug(f"Using local secrets config: {self.secrets_file}")
         self._secrets_cache: Optional[Dict[str, Any]] = None
         
     def load_secrets(self) -> Dict[str, Any]:
@@ -251,38 +251,15 @@ class SecretsManager:
         secrets = self.load_secrets()
         return secrets.get("docling_auth", {})
     
-    def get_auth_secrets(self) -> Dict[str, Any]:
-        """
-        Get authentication-related sensitive information
-        
-        Returns:
-            Authentication sensitive information dictionary
-        """
-        secrets = self.load_secrets()
-        return secrets.get("auth_secrets", {})
     
     # Default password is now managed by unified user storage
     # This method is deprecated
     
-    def get_session_secret_key(self) -> Optional[str]:
-        """
-        Get session secret key
-        
-        Returns:
-            Session secret key, returns None if not exists
-        """
-        auth_secrets = self.get_auth_secrets()
-        return auth_secrets.get("session_secret_key")
+    # Session secret key is now managed by local_config.json
+    # This method is deprecated
     
-    def get_redis_password(self) -> Optional[str]:
-        """
-        Get Redis password
-        
-        Returns:
-            Redis password, returns None if not exists
-        """
-        auth_secrets = self.get_auth_secrets()
-        return auth_secrets.get("redis_password")
+    # Redis password is now managed by local_config.json
+    # This method is deprecated
     
     def save_secrets(self, secrets: Dict[str, Any]) -> bool:
         """
@@ -355,25 +332,6 @@ class SecretsManager:
         secrets["translator_mineru_token"] = meta
         return self.save_secrets(secrets)
     
-    def update_auth_secret(self, key: str, value: str) -> bool:
-        """
-        Update authentication-related sensitive information
-        
-        Args:
-            key: Configuration key
-            value: Configuration value
-            
-        Returns:
-            Whether update was successful
-        """
-        secrets = self.load_secrets()
-        
-        if "auth_secrets" not in secrets:
-            secrets["auth_secrets"] = {}
-        
-        secrets["auth_secrets"][key] = value
-        
-        return self.save_secrets(secrets)
 
     # ==== Web/HTTPS TLS Private Key Password ====
     def get_web_tls_password(self) -> Optional[str]:
@@ -434,11 +392,6 @@ class SecretsManager:
             
             "translator_mineru_token": "your-mineru-token-here",
             
-            "auth_secrets": {
-                "default_password": "your-secure-admin-password",
-                "session_secret_key": "your-very-long-random-session-secret-key-here",
-                "redis_password": "your-redis-password-if-needed"
-            }
         }
         
         try:

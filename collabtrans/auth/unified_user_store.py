@@ -108,19 +108,19 @@ class UnifiedUserStore:
         
         if system_dir.exists() and system_file.exists():
             self.file_path = system_file
-            logger.info(f"[UnifiedUsers] Using system users file: {self.file_path}")
+            logger.debug(f"[UnifiedUsers] Using system users file: {self.file_path}")
         else:
             import sys
             if getattr(sys, 'frozen', False):
                 exe_dir = Path(os.path.dirname(sys.executable))
                 exe_file = exe_dir / filename
                 self.file_path = exe_file if exe_file.exists() else exe_dir / filename
-                logger.info(f"[UnifiedUsers] Using executable users file: {self.file_path}")
+                logger.debug(f"[UnifiedUsers] Using executable users file: {self.file_path}")
             else:
                 # repo root
                 repo_root = Path(__file__).resolve().parents[2]
                 self.file_path = (Path(filename) if Path(filename).is_absolute() else (repo_root / filename))
-                logger.info(f"[UnifiedUsers] Using repo users file: {self.file_path}")
+                logger.debug(f"[UnifiedUsers] Using repo users file: {self.file_path}")
         
         self._cache: Optional[Dict[str, Any]] = None
     
@@ -227,20 +227,21 @@ class UnifiedUserStore:
     
     def create_user(self, username: str, password: str, role: UnifiedUserRole, 
                    display_name: Optional[str] = None, email: Optional[str] = None,
-                   is_system_user: bool = False) -> bool:
+                   is_system_user: bool = False, skip_password_validation: bool = False) -> bool:
         """Create a new user"""
         if self.get_user(username):
             logger.warning(f"[UnifiedUsers] User {username} already exists")
             return False
         
-        # Validate password strength
-        is_valid, error_msg = password_manager.validate_password_strength(password)
-        if not is_valid:
-            logger.error(f"[UnifiedUsers] Password validation failed: {error_msg}")
-            return False
+        # Validate password strength unless explicitly skipped (for default passwords)
+        if not skip_password_validation:
+            is_valid, error_msg = password_manager.validate_password_strength(password)
+            if not is_valid:
+                logger.error(f"[UnifiedUsers] Password validation failed: {error_msg}")
+                return False
         
         # Hash password
-        password_hash = password_manager.hash_password(password)
+        password_hash = password_manager.hash_password(password, skip_validation=skip_password_validation)
         
         # Create user
         user = UnifiedUser(
@@ -342,13 +343,14 @@ class UnifiedUserStore:
             logger.info(f"[UnifiedUsers] Admin user {admin_username} already exists in unified storage")
             return True
         
-        # Create admin user in unified storage
+        # Create admin user in unified storage (skip password validation for default passwords)
         return self.create_user(
             username=admin_username,
             password=admin_password,
             role=UnifiedUserRole.SUPER_ADMIN,
             display_name="Administrator",
-            is_system_user=True
+            is_system_user=True,
+            skip_password_validation=True
         )
 
 

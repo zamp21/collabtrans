@@ -31,7 +31,7 @@ def _resolve_auth_config_path(config_file: str = "local_config.json") -> Path:
     # Absolute path: use directly
     p = Path(config_file)
     if p.is_absolute():
-        logger.info(f"[AuthConfig] Using absolute path: {p}")
+        logger.debug(f"[AuthConfig] Using absolute path: {p}")
         return p
 
     # 0) Environment-configured directory (cross-platform override)
@@ -49,7 +49,7 @@ def _resolve_auth_config_path(config_file: str = "local_config.json") -> Path:
         system_dir = Path("/etc/collabtrans")
         system_cfg = system_dir / "local_config.json"
         if system_dir.exists() and system_cfg.exists():
-            logger.info(f"[AuthConfig] Using system config: {system_cfg}")
+            logger.debug(f"[AuthConfig] Using system config: {system_cfg}")
             return system_cfg
 
     # Executable directory (PyInstaller)
@@ -57,12 +57,12 @@ def _resolve_auth_config_path(config_file: str = "local_config.json") -> Path:
         exe_dir = Path(os.path.dirname(sys.executable))
         exe_cfg = exe_dir / "local_config.json"
         if exe_cfg.exists():
-            logger.info(f"[AuthConfig] Using executable directory config: {exe_cfg}")
+            logger.debug(f"[AuthConfig] Using executable directory config: {exe_cfg}")
             return exe_cfg
         # fallback to cwd if exists
         cwd_cfg = Path.cwd() / "local_config.json"
         if cwd_cfg.exists():
-            logger.info(f"[AuthConfig] Using working directory config: {cwd_cfg}")
+            logger.debug(f"[AuthConfig] Using working directory config: {cwd_cfg}")
             return cwd_cfg
         # default to executable dir path
         return exe_cfg
@@ -96,7 +96,6 @@ class AuthConfig:
     
     # Default user configuration (used when LDAP is disabled)
     default_username: str = "admin"
-    default_password: str = "admin123"
     
     # Session configuration
     session_secret_key: str = "your-secret-key-change-in-production"
@@ -138,7 +137,6 @@ class AuthConfig:
             ldap_glossary_group=os.getenv("LDAP_GLOSSARY_GROUP", "DocuTranslate-Users"),
             ldap_group_base_dn=os.getenv("LDAP_GROUP_BASE_DN", "OU=Groups,DC=example,DC=com"),
             default_username=os.getenv("DEFAULT_USERNAME", "admin"),
-            default_password=os.getenv("DEFAULT_PASSWORD", "admin123"),
             session_secret_key=os.getenv("SESSION_SECRET_KEY", "your-secret-key-change-in-production"),
             session_cookie_name=os.getenv("SESSION_COOKIE_NAME", "collabtrans_session"),
             session_max_age=int(os.getenv("SESSION_MAX_AGE", "604800")),  # 7 days
@@ -186,7 +184,7 @@ class AuthConfig:
         if candidates:
             candidates.sort(reverse=True)
             config_path = candidates[0][1]
-            logger.info(f"[AuthConfig] Selected newest config: {config_path}")
+            logger.debug(f"[AuthConfig] Selected newest config: {config_path}")
         else:
             config_path = _resolve_auth_config_path(config_file)
 
@@ -242,7 +240,6 @@ class AuthConfig:
                 config = cls.from_env()
         
         # Load sensitive information from sensitive configuration file
-        config._load_auth_secrets()
         
         return config
 
@@ -274,7 +271,6 @@ class AuthConfig:
             ldap_glossary_group=groups.get("glossary_group", "DocuTranslate-Glossary"),
             ldap_group_base_dn=groups.get("group_base_dn", "OU=Groups,DC=example,DC=com"),
             default_username=default_user.get("username", "admin"),
-            default_password=default_user.get("password", "admin123"),
             session_secret_key=session.get("secret_key", "your-secret-key-change-in-production"),
             session_cookie_name=session.get("cookie_name", "collabtrans_session"),
             session_max_age=int(session.get("max_age", 604800)),
@@ -314,7 +310,6 @@ class AuthConfig:
             },
             "default_user": {
                 "username": self.default_username,
-                "password": self.default_password,
             },
             "session": {
                 "secret_key": self.session_secret_key,
@@ -338,27 +333,6 @@ class AuthConfig:
             },
         }
     
-    def _load_auth_secrets(self) -> None:
-        """Load authentication-related sensitive information from sensitive configuration file"""
-        try:
-            secrets_manager = get_secrets_manager()
-            auth_secrets = secrets_manager.get_auth_secrets()
-            
-            if auth_secrets:
-                # Update sensitive information
-                # Default password is now managed by unified user storage
-                # No longer needed from auth_secrets
-                
-                if "session_secret_key" in auth_secrets and auth_secrets["session_secret_key"]:
-                    self.session_secret_key = auth_secrets["session_secret_key"]
-                    logger.debug("Loaded session secret key from sensitive configuration")
-                
-                if "redis_password" in auth_secrets and auth_secrets["redis_password"]:
-                    self.redis_password = auth_secrets["redis_password"]
-                    logger.debug("Loaded Redis password from sensitive configuration")
-                    
-        except Exception as e:
-            logger.warning(f"Failed to load authentication sensitive configuration: {e}")
     
     def save_to_file(self, config_file: str = "local_config.json") -> bool:
         """Save grouped configuration to local_config.json (without secrets).
@@ -369,7 +343,6 @@ class AuthConfig:
         3) Explicit fallback to CWD local_config.json
         """
         grouped = self.to_grouped_dict()
-        grouped.get("default_user", {}).pop("password", None)
         grouped.get("session", {}).pop("secret_key", None)
         grouped.get("redis", {}).pop("password", None)
 
@@ -408,11 +381,6 @@ class AuthConfig:
         """Update configuration from dictionary"""
         for key, value in config_data.items():
             if hasattr(self, key):
-                # Skip password field updates (avoid being overwritten by ***)
-                if key == "default_password" and value == "***":
-                    logger.info(f"Skipping password field update, keeping original value")
-                    continue
-                
                 # Special handling for boolean values
                 if key == "ldap_enabled" and isinstance(value, str):
                     value = value.lower() in ("true", "1", "yes", "on")
@@ -454,7 +422,6 @@ class AuthConfig:
             'ldap_glossary_group': ['LDAP_GLOSSARY_GROUP'],
             'ldap_group_base_dn': ['LDAP_GROUP_BASE_DN'],
             'default_username': ['DEFAULT_USERNAME'],
-            'default_password': ['DEFAULT_PASSWORD'],
             'session_secret_key': ['SESSION_SECRET_KEY'],
             'session_cookie_name': ['SESSION_COOKIE_NAME'],
             'session_max_age': ['SESSION_MAX_AGE'],

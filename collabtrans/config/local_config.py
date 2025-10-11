@@ -46,6 +46,7 @@ class SessionConfig:
     """Session configuration"""
     cookie_name: str = "collabtrans_session"
     max_age: int = 604800
+    secret_key: str = "your-secret-key-change-in-production"
 
 
 @dataclass
@@ -54,6 +55,7 @@ class RedisConfig:
     host: str = "localhost"
     port: int = 6379
     db: int = 0
+    password: Optional[str] = None
 
 
 @dataclass
@@ -62,6 +64,7 @@ class SecurityConfig:
     max_login_attempts: int = 5
     login_attempt_window: int = 300
     rate_limit_window: int = 300
+    password_recovery: bool = False
 
 
 @dataclass

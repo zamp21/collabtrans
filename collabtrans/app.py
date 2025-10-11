@@ -534,6 +534,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         i18n_logger.error("backend.app.startup.cleanup_task_failed", error=str(e))
 
+    # Check for password recovery and reset admin password if needed
+    try:
+        from collabtrans.auth.password_recovery import reset_admin_password_if_recovery_enabled
+        if reset_admin_password_if_recovery_enabled():
+            i18n_logger.info("backend.app.startup.password_recovery_completed")
+    except Exception as e:
+        i18n_logger.error("backend.app.startup.password_recovery_failed", error=str(e))
+
     # Authentication module has been initialized at application startup
     api_url = f"http://127.0.0.1:{app.state.port_to_use}/docs"
     browser_url = f"http://127.0.0.1:{app.state.port_to_use}"

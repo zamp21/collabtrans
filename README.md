@@ -187,7 +187,7 @@ For first-time deployment, CollabTrans will automatically:
 2. **Generate secure keys**: Create random session keys for security
 3. **Set default credentials**: 
    - Username: `admin`
-   - Password: `admin123`
+   - Password: `Changeme`
 4. **Create necessary directories**: `logs/`, `output/`, `certs/`, etc.
 5. **Auto-start Redis service**: Automatically detect and start local Redis for session management
 6. **Cross-platform LDAP support**: Uses ldap3 (pure Python) for better Windows compatibility

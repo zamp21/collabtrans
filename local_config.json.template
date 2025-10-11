@@ -24,17 +24,20 @@
   },
   "session": {
     "cookie_name": "collabtrans_session",
-    "max_age": 604800
+    "max_age": 604800,
+    "secret_key": "collabtrans-session-secret-key-2025-very-long-random-string-for-security"
   },
   "redis": {
     "host": "localhost",
     "port": 6379,
-    "db": 0
+    "db": 0,
+    "password": null
   },
   "security": {
     "max_login_attempts": 5,
     "login_attempt_window": 300,
-    "rate_limit_window": 300
+    "rate_limit_window": 300,
+    "password_recovery": false
   },
   "messages": {
     "login_banner": "Welcome",

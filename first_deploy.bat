@@ -38,6 +38,6 @@ echo 启动命令：
 echo   .venv\Scripts\python.exe -m collabtrans.cli -i
 echo.
 echo 访问地址：http://127.0.0.1:8010
-echo 默认登录：admin / admin123
+echo 默认登录：admin / Changeme
 echo.
 pause
