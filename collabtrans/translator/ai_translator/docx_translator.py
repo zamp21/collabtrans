@@ -21,6 +21,35 @@ def is_image_run(run: Run) -> bool:
     return '<w:drawing' in run.element.xml or '<w:pict' in run.element.xml
 
 
+def has_page_break(run: Run) -> bool:
+    """Check if a run contains a page break."""
+    return '<w:br' in run._element.xml and 'w:type="page"' in run._element.xml
+
+
+def preserve_page_breaks_in_run(run: Run, new_text: str) -> None:
+    """Set run text while preserving page breaks."""
+    # Check if run has page breaks
+    breaks = run._element.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}br')
+    page_breaks = [br for br in breaks if br.get('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}type') == 'page']
+    
+    if page_breaks:
+        # Clear existing text elements but keep breaks
+        text_elements = run._element.findall('.//{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t')
+        for text_elem in text_elements:
+            text_elem.text = new_text
+            # Only keep the first text element, remove others
+            break
+        else:
+            # No text elements found, create one
+            from docx.oxml import OxmlElement
+            t_elem = OxmlElement('w:t')
+            t_elem.text = new_text
+            run._element.append(t_elem)
+    else:
+        # No page breaks, safe to set text directly
+        run.text = new_text
+
+
 def _paragraph_has_toc_field(paragraph: Paragraph) -> bool:
     """Check if a paragraph contains a TOC field."""
     try:
@@ -292,9 +321,9 @@ class DocxTranslator(AiTranslator):
                 continue
 
             # --- Core modification section ---
-            # 1. Write complete translated text to the first run
+            # 1. Write complete translated text to the first run, preserving page breaks
             first_run = runs[0]
-            first_run.text = final_text
+            preserve_page_breaks_in_run(first_run, final_text)
             
             # 2. Set appropriate font based on target language to avoid font compatibility issues
             if first_run.font:
