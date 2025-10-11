@@ -2242,9 +2242,9 @@ async def swagger_ui_redirect():
 @app.middleware("http")
 async def https_redirect_middleware(request: Request, call_next):
     try:
-        from collabtrans.config.global_config import get_global_config
-        cfg = get_global_config()
-        if getattr(cfg, 'https_enabled', False) and getattr(cfg, 'https_force_redirect', True):
+        from collabtrans.config.local_config import LocalConfig
+        local_config = LocalConfig.load_from_file()
+        if local_config.https.enabled and local_config.https.force_redirect:
             proto = request.headers.get('x-forwarded-proto') or request.url.scheme
             host = request.headers.get('host')
             if proto == 'http' and host:
@@ -2485,12 +2485,14 @@ def run_app(port: int | None = None):
         ssl_kwargs = {}
         try:
             from collabtrans.config.global_config import get_global_config
+            from collabtrans.config.local_config import LocalConfig
             from collabtrans.config.secrets_manager import get_secrets_manager
             from collabtrans.config.global_config import save_global_config
             global_config = get_global_config()
-            if getattr(global_config, "https_enabled", False):
-                cert_file = getattr(global_config, "https_cert_file", "") or ""
-                key_file = getattr(global_config, "https_key_file", "") or ""
+            local_config = LocalConfig.load_from_file()
+            if local_config.https.enabled:
+                cert_file = local_config.https.cert_file or ""
+                key_file = local_config.https.key_file or ""
 
                 # If HTTPS is enabled but certificates are missing, try to auto-generate self-signed certificates
                 if not (cert_file and key_file and os.path.exists(cert_file) and os.path.exists(key_file)):
@@ -2513,10 +2515,10 @@ def run_app(port: int | None = None):
 
                         cert_file = default_crt
                         key_file = default_key
-                        # Write back to global configuration for direct use on next startup
-                        global_config.https_cert_file = cert_file
-                        global_config.https_key_file = key_file
-                        save_global_config()
+                        # Write back to local configuration for direct use on next startup
+                        local_config.https.cert_file = cert_file
+                        local_config.https.key_file = key_file
+                        local_config.save_to_file()
                     except Exception as gen_err:
                         print(f"Failed to auto-generate development self-signed certificate, will start with HTTP: {gen_err}")
 

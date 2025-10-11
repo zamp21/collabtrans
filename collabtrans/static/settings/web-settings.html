@@ -5,6 +5,12 @@
     <div class="form-text" data-i18n="httpsSecurityNote">For security reasons, this switch is disabled until testing is passed</div>
   </div>
 
+  <div class="form-check form-switch mb-3">
+    <input class="form-check-input" type="checkbox" id="httpsForceRedirect">
+    <label class="form-check-label" for="httpsForceRedirect" data-i18n="httpsForceRedirectLabel">Force HTTPS Redirect</label>
+    <div class="form-text" data-i18n="httpsForceRedirectNote">Automatically redirect HTTP requests to HTTPS when HTTPS is enabled</div>
+  </div>
+
   <div class="row g-3">
     <div class="col-md-6">
       <label class="form-label" for="certFile" data-i18n="certFileLabel">Certificate file (.crt/.pem)</label>

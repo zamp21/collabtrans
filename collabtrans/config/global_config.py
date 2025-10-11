@@ -74,13 +74,6 @@ class GlobalConfig:
     
     # System settings
     active_task_ids: list = field(default_factory=list)
-
-    # Web/HTTPS settings
-    https_enabled: bool = False
-    https_cert_file: Optional[str] = None
-    https_key_file: Optional[str] = None
-    # Whether to force HTTP redirect to HTTPS when HTTPS is enabled
-    https_force_redirect: bool = True
     
     @classmethod
     def load_from_file(cls, config_file: str = "global_config.json") -> "GlobalConfig":
@@ -268,11 +261,7 @@ class GlobalConfig:
             'logging': asdict(self.logging),
             'translator_settings': asdict(self.translator_settings),
             'ai_platforms': {},
-            'active_task_ids': self.active_task_ids,
-            'https_enabled': self.https_enabled,
-            'https_cert_file': self.https_cert_file,
-            'https_key_file': self.https_key_file,
-            'https_force_redirect': self.https_force_redirect
+            'active_task_ids': self.active_task_ids
         }
         
         # Convert ai_platforms to dictionary format (API keys are stored separately)

@@ -10,8 +10,8 @@ async function loadAppConfig() {
     
     // Update current certificate and key display
     try {
-      const certPath = cfg.https_cert_file;
-      const keyPath = cfg.https_key_file;
+      const certPath = cfg.https?.cert_file;
+      const keyPath = cfg.https?.key_file;
       document.getElementById('currentCertName').textContent = certPath ? (certPath.split('/').pop()) : '-';
       document.getElementById('currentKeyName').textContent = keyPath ? (keyPath.split('/').pop()) : '-';
 
@@ -87,7 +87,10 @@ async function saveWebSettings() {
     }
 
     const patch = {
-      https_enabled: document.getElementById('httpsEnabled').checked,
+      https: {
+        enabled: document.getElementById('httpsEnabled').checked,
+        force_redirect: document.getElementById('httpsForceRedirect').checked
+      },
       https_key_password: document.getElementById('keyPassword').value || null
     };
     
@@ -114,13 +117,39 @@ async function saveWebSettings() {
 
 // Initialize web settings module (called by SettingsCore after HTML injected)
 async function initWebSettingsModule() {
+  // Check if required elements exist
+  const httpsEnabledEl = document.getElementById('httpsEnabled');
+  const httpsForceRedirectEl = document.getElementById('httpsForceRedirect');
+  
+  if (!httpsEnabledEl) {
+    console.error('HTTPS enabled element not found');
+    return;
+  }
+  
+  if (!httpsForceRedirectEl) {
+    console.error('HTTPS force redirect element not found');
+    return;
+  }
+
   // Set default HTTPS disabled, and disable modification until tested
-  document.getElementById('httpsEnabled').checked = false;
-  document.getElementById('httpsEnabled').disabled = true;
+  httpsEnabledEl.checked = false;
+  httpsEnabledEl.disabled = true;
+  httpsForceRedirectEl.checked = false;
+  httpsForceRedirectEl.disabled = true;
 
   const cfg = await loadAppConfig();
-  if (cfg && typeof cfg.https_enabled !== 'undefined') {
-    document.getElementById('httpsEnabled').checked = !!cfg.https_enabled;
+  if (cfg && cfg.https) {
+    if (typeof cfg.https.enabled !== 'undefined') {
+      httpsEnabledEl.checked = !!cfg.https.enabled;
+      // If HTTPS is already enabled, allow modification of force redirect
+      if (cfg.https.enabled) {
+        httpsEnabledEl.disabled = false;
+        httpsForceRedirectEl.disabled = false;
+      }
+    }
+    if (typeof cfg.https.force_redirect !== 'undefined') {
+      httpsForceRedirectEl.checked = !!cfg.https.force_redirect;
+    }
   }
 
   // Set internationalized placeholders
@@ -182,20 +211,23 @@ async function initWebSettingsModule() {
           if (window.SettingsCore) {
             window.SettingsCore.showNotification(window.SettingsCore.getText('httpsTestSuccess'), 'success');
           }
-          // After passing test, allow switching to enable HTTPS
+          // After passing test, allow switching to enable HTTPS and force redirect
           document.getElementById('httpsEnabled').disabled = false;
+          document.getElementById('httpsForceRedirect').disabled = false;
         } else {
           if (window.SettingsCore) {
             window.SettingsCore.showNotification(window.SettingsCore.getText('httpsTestFailed') + ': ' + JSON.stringify(data), 'error');
           }
           // Test failed, still keep disabled
           document.getElementById('httpsEnabled').disabled = true;
+          document.getElementById('httpsForceRedirect').disabled = true;
         }
       } catch (e) {
         if (window.SettingsCore) {
           window.SettingsCore.showNotification(window.SettingsCore.getText('httpsTestException') + ': ' + e.message, 'error');
         }
         document.getElementById('httpsEnabled').disabled = true;
+        document.getElementById('httpsForceRedirect').disabled = true;
       }
     });
   }

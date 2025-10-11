@@ -1,0 +1,13 @@
+{
+  "_meta": {
+    "version": 1
+  },
+  "users": {
+    "user1": {
+      "password_hash": "pbkdf2_sha256$210000$c1db6a760d5ee95134871c1143aabba4$aa5f5bf0d8c6c7c5934e99e791ef9bb8e51f86a720d16cb565005eff8c2eff43",
+      "role": "user",
+      "display_name": "user1",
+      "email": null
+    }
+  }
+}

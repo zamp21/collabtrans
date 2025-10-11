@@ -511,12 +511,17 @@ async def get_app_config_api(
     global_config = get_global_config()
     global_config_dict = global_config.get_config_dict(include_api_keys=False, flatten=True)
     
+    # Get local configuration
+    from ..config.local_config import LocalConfig
+    local_config = LocalConfig.load_from_file()
+    local_config_dict = local_config.get_config_dict()
+    
     # Get LDAP configuration (using global configuration accessor in this module)
     auth_config = get_auth_config()
     auth_config_dict = auth_config.__dict__
     
-    # Merge configurations: user config + global config + LDAP config
-    config_dict = {**global_config_dict, **user_config, **auth_config_dict}
+    # Merge configurations: user config + global config + local config + LDAP config
+    config_dict = {**global_config_dict, **user_config, **local_config_dict, **auth_config_dict}
     
     # Only keep new key names in output (do not handle deprecated old keys)
     
@@ -635,12 +640,13 @@ async def upload_web_cert(
         if not saved_cert_path and not saved_key_path:
             raise HTTPException(status_code=400, detail="No files uploaded")
 
-        gc = get_global_config()
+        from collabtrans.config.local_config import LocalConfig
+        local_config = LocalConfig.load_from_file()
         if saved_cert_path:
-            gc.https_cert_file = saved_cert_path
+            local_config.https.cert_file = saved_cert_path
         if saved_key_path:
-            gc.https_key_file = saved_key_path
-        save_global_config()
+            local_config.https.key_file = saved_key_path
+        local_config.save_to_file()
 
         return {"success": True, "cert": saved_cert_path, "key": saved_key_path}
     except HTTPException:
@@ -668,12 +674,14 @@ async def test_https_available(
 
     try:
         from ..config.global_config import get_global_config
+        from ..config.local_config import LocalConfig
         from ..config.secrets_manager import get_secrets_manager
 
         gc = get_global_config()
+        local_config = LocalConfig.load_from_file()
         sm = get_secrets_manager()
-        cert_file = (payload or {}).get('https_cert_file') or gc.https_cert_file
-        key_file = (payload or {}).get('https_key_file') or gc.https_key_file
+        cert_file = local_config.https.cert_file
+        key_file = local_config.https.key_file
         key_password = (payload or {}).get('https_key_password') or sm.get_web_tls_password()
 
         details = {
@@ -1595,29 +1603,31 @@ async def update_app_config_api(
         if not user.is_super_admin() and 'default_password' in config_data:
             del config_data['default_password']
         
-        # Handle Web/HTTPS related fields and write to global configuration
+        # Handle Web/HTTPS related fields and write to local configuration
         from ..config.global_config import get_global_config, save_global_config
+        from ..config.local_config import LocalConfig
         global_cfg = get_global_config()
+        local_cfg = LocalConfig.load_from_file()
 
-        https_keys = {
-            'https_enabled', 'https_force_redirect'
-        }
-
-        https_updates = {k: v for k, v in config_data.items() if k in https_keys}
-
-        # Certificate path and private key path stored in global configuration (as regular fields storing path strings)
-        if 'https_cert_file' in config_data:
-            global_cfg.https_cert_file = config_data['https_cert_file'] or None
-        if 'https_key_file' in config_data:
-            global_cfg.https_key_file = config_data['https_key_file'] or None
-        for k, v in https_updates.items():
-            setattr(global_cfg, k, v)
+        # Handle HTTPS configuration
+        if 'https' in config_data:
+            https_config = config_data['https']
+            if isinstance(https_config, dict):
+                if 'enabled' in https_config:
+                    local_cfg.https.enabled = bool(https_config['enabled'])
+                if 'force_redirect' in https_config:
+                    local_cfg.https.force_redirect = bool(https_config['force_redirect'])
+                if 'cert_file' in https_config:
+                    local_cfg.https.cert_file = https_config['cert_file'] or None
+                if 'key_file' in https_config:
+                    local_cfg.https.key_file = https_config['key_file'] or None
+        
 
         # If HTTPS is requested to be enabled, perform strong validation before saving (ensure it has passed testing)
         try:
-            if bool(global_cfg.https_enabled):
-                cert_file = global_cfg.https_cert_file
-                key_file = global_cfg.https_key_file
+            if bool(local_cfg.https.enabled):
+                cert_file = local_cfg.https.cert_file
+                key_file = local_cfg.https.key_file
                 if not (cert_file and key_file and os.path.exists(cert_file) and os.path.exists(key_file)):
                     raise HTTPException(status_code=400, detail="Enable HTTPS failed: certificate or key not found")
                 import ssl as _ssl
@@ -1670,7 +1680,7 @@ async def update_app_config_api(
                 del config_data['default_language']
 
         # Update other configurations (user-level App configuration)
-        app_config.update_from_dict({k: v for k, v in config_data.items() if k not in https_keys and k not in ['https_cert_file','https_key_file']})
+        app_config.update_from_dict({k: v for k, v in config_data.items() if k not in ['https']})
         
         # Save configuration
         # Save HTTPS private key password to sensitive configuration
@@ -1681,7 +1691,8 @@ async def update_app_config_api(
 
         ok1 = save_app_config()
         ok2 = save_global_config()
-        if ok1 and ok2:
+        ok3 = local_cfg.save_to_file()
+        if ok1 and ok2 and ok3:
             logger.info(f"Application configuration updated by user {_mask_username(user.username)}")
             return {"success": True, "message": "Configuration updated successfully"}
         else:
@@ -1726,8 +1737,6 @@ async def update_single_setting(
             'translator_convert_engine', 'translator_mineru_model_version',
             'translator_formula_ocr', 'translator_code_ocr', 'translator_skip_translate',
             'platform_urls', 'platform_models', 'active_task_ids',
-            # Web/HTTPS settings
-            'https_enabled', 'https_force_redirect', 'https_cert_file', 'https_key_file',
             # AI Platforms default selection
             'ai_platforms_default_platform',
             # LDAP configuration keys
