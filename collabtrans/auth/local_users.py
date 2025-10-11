@@ -61,28 +61,16 @@ class LocalUserStore:
 
     # ===== Password hashing =====
     @staticmethod
-    def _hash_password(password: str, iterations: int = 210_000) -> str:
-        if not isinstance(password, str) or not password:
-            raise ValueError("Password must be non-empty string")
-        salt = secrets.token_bytes(16)
-        dk = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, iterations)
-        return f"pbkdf2_sha256${iterations}${salt.hex()}${dk.hex()}"
+    def _hash_password(password: str, iterations: int = None) -> str:
+        """Hash password using unified password manager"""
+        from .password_manager import password_manager
+        return password_manager.hash_password(password, iterations)
 
     @staticmethod
     def _verify_password(password: str, encoded: str) -> bool:
-        try:
-            algo, iter_str, salt_hex, hash_hex = encoded.split('$', 3)
-            if algo != 'pbkdf2_sha256':
-                return False
-            iterations = int(iter_str)
-            salt = bytes.fromhex(salt_hex)
-            expected = bytes.fromhex(hash_hex)
-            dk = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, iterations)
-            # constant time compare - use hmac.compare_digest for compatibility
-            import hmac
-            return hmac.compare_digest(dk, expected)
-        except Exception:
-            return False
+        """Verify password using unified password manager"""
+        from .password_manager import password_manager
+        return password_manager.verify_password(password, encoded)
 
     # ===== Persistence =====
     def _load(self) -> Dict[str, Dict]:

@@ -347,8 +347,26 @@ class AuthConfig:
             if auth_secrets:
                 # Update sensitive information
                 if "default_password" in auth_secrets and auth_secrets["default_password"]:
-                    self.default_password = auth_secrets["default_password"]
-                    logger.debug("Loaded default password from sensitive configuration")
+                    # Check if admin user exists in unified storage first
+                    try:
+                        from .unified_user_store import get_unified_user_store
+                        unified_store = get_unified_user_store()
+                        admin_user = unified_store.get_user(self.default_username)
+                        
+                        if admin_user and admin_user.is_active:
+                            # Use password from unified storage
+                            self.default_password = admin_user.password_hash
+                            logger.debug("Loaded default password from unified user storage")
+                        else:
+                            # Fallback to secrets config
+                            from .password_manager import password_manager
+                            self.default_password = password_manager.migrate_plaintext_password(auth_secrets["default_password"])
+                            logger.debug("Loaded default password from sensitive configuration (fallback)")
+                    except Exception as e:
+                        # Fallback to secrets config if unified storage fails
+                        from .password_manager import password_manager
+                        self.default_password = password_manager.migrate_plaintext_password(auth_secrets["default_password"])
+                        logger.debug(f"Loaded default password from sensitive configuration (fallback due to error: {e})")
                 
                 if "session_secret_key" in auth_secrets and auth_secrets["session_secret_key"]:
                     self.session_secret_key = auth_secrets["session_secret_key"]

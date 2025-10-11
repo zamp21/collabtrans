@@ -2490,6 +2490,7 @@ def run_app(port: int | None = None):
             from collabtrans.config.global_config import save_global_config
             global_config = get_global_config()
             local_config = LocalConfig.load_from_file()
+            
             if local_config.https.enabled:
                 cert_file = local_config.https.cert_file or ""
                 key_file = local_config.https.key_file or ""
