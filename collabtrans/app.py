@@ -2420,7 +2420,7 @@ def run_app(port: int | None = None):
         env_secrets = os.path.join(env_dir, "local_secrets.json")
         if os.path.exists(env_secrets):
             secrets_path = env_secrets
-            print(f"Using env secrets config: {secrets_path}")
+            logger.debug(f"Using env secrets config: {secrets_path}")
 
     system_secrets_path = "/etc/collabtrans/local_secrets.json"
     system_dir_exists = os.path.exists("/etc/collabtrans")

@@ -99,7 +99,7 @@ class UserProfile:
                     # Create configuration instance and update fields
                     profile = cls()
                     profile.update_from_dict(data)
-                    logger.info(f"User {username} configuration loaded successfully")
+                    logger.debug(f"User {username} configuration loaded successfully")
                     return profile
             else:
                 logger.info(f"User profile file {profile_file} does not exist, creating default configuration")

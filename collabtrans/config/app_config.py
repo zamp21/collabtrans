@@ -153,7 +153,7 @@ class AppConfig:
                     data = json.load(f)
                     config = cls()
                     config.update_from_dict(data)
-                    logger.info("Application configuration loaded successfully")
+                    logger.debug("Application configuration loaded successfully")
                     return config
             else:
                 logger.info(f"Configuration file {cfg_path} does not exist, using default configuration")

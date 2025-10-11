@@ -144,7 +144,7 @@ class LocalConfig:
                 if 'https' in config_data:
                     config.https = HTTPSConfig(**config_data['https'])
                 
-                logger.info(f"Loaded local configuration from {config_file}")
+                logger.debug(f"Loaded local configuration from {config_file}")
                 return config
             else:
                 logger.warning(f"Local configuration file {config_file} not found, using defaults")

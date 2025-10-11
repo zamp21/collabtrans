@@ -42,7 +42,7 @@ def _resolve_auth_config_path(config_file: str = "local_config.json") -> Path:
     if env_dir:
         env_cfg = Path(env_dir) / "local_config.json"
         if env_cfg.exists():
-            logger.info(f"[AuthConfig] Using env config: {env_cfg}")
+            logger.debug(f"[AuthConfig] Using env config: {env_cfg}")
             return env_cfg
 
     if os.name != "nt":
@@ -348,15 +348,15 @@ class AuthConfig:
                 # Update sensitive information
                 if "default_password" in auth_secrets and auth_secrets["default_password"]:
                     self.default_password = auth_secrets["default_password"]
-                    logger.info("Loaded default password from sensitive configuration")
+                    logger.debug("Loaded default password from sensitive configuration")
                 
                 if "session_secret_key" in auth_secrets and auth_secrets["session_secret_key"]:
                     self.session_secret_key = auth_secrets["session_secret_key"]
-                    logger.info("Loaded session secret key from sensitive configuration")
+                    logger.debug("Loaded session secret key from sensitive configuration")
                 
                 if "redis_password" in auth_secrets and auth_secrets["redis_password"]:
                     self.redis_password = auth_secrets["redis_password"]
-                    logger.info("Loaded Redis password from sensitive configuration")
+                    logger.debug("Loaded Redis password from sensitive configuration")
                     
         except Exception as e:
             logger.warning(f"Failed to load authentication sensitive configuration: {e}")

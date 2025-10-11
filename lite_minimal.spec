@@ -20,9 +20,9 @@ datas = [
     ('setup_secrets.py', '.'),  # Sensitive configuration initialization script
     ('setup_first_deploy.py', '.'),  # First deployment setup script
     # Redis executable and configuration files (Windows only)
-    ('3rdParty/windows/Redis-x64-3.0.504/redis-server.exe', '3rdParty/windows/Redis-x64-3.0.504/'),
-    ('3rdParty/windows/Redis-x64-3.0.504/redis.windows.conf', '3rdParty/windows/Redis-x64-3.0.504/'),
-    ('3rdParty/windows/Redis-x64-3.0.504/redis.windows-service.conf', '3rdParty/windows/Redis-x64-3.0.504/'),
+    ('3rdParty/windows/Redis-x64-3.0.504/redis-server.exe', '3rdParty/windows/Redis-x64-3.0.504/redis-server.exe'),
+    ('3rdParty/windows/Redis-x64-3.0.504/redis.windows.conf', '3rdParty/windows/Redis-x64-3.0.504/redis.windows.conf'),
+    ('3rdParty/windows/Redis-x64-3.0.504/redis.windows-service.conf', '3rdParty/windows/Redis-x64-3.0.504/redis.windows-service.conf'),
     # Exclude pygments large data files
 ]
 

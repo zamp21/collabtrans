@@ -40,7 +40,7 @@ class SecretsManager:
             # If exists, prefer it; if not, set as target path for creation
             if env_path.exists():
                 self.secrets_file = env_path
-                logger.info(f"Using env dir secrets config: {env_path}")
+                logger.debug(f"Using env dir secrets config: {env_path}")
                 self._secrets_cache = None
                 return
             else:
@@ -174,7 +174,7 @@ class SecretsManager:
                 # Normalization failure does not affect reading
                 pass
             
-            logger.info(f"Successfully loaded sensitive configuration file: {self.secrets_file}")
+            logger.debug(f"Successfully loaded sensitive configuration file: {self.secrets_file}")
             self._secrets_cache = secrets
             return secrets
             

@@ -101,7 +101,7 @@ class GlobalConfig:
                         data = json.load(f)
                         config = cls()
                         config.update_from_dict(data)
-                        logger.info("Global configuration loaded successfully from env dir")
+                        logger.debug("Global configuration loaded successfully from env dir")
                         return config
 
             # 1) System directory on non-Windows platforms
@@ -114,7 +114,7 @@ class GlobalConfig:
                         data = json.load(f)
                         config = cls()
                         config.update_from_dict(data)
-                        logger.info("Global configuration loaded successfully from system config")
+                        logger.debug("Global configuration loaded successfully from system config")
                         return config
             else:
                 # Try to load configuration file from executable directory
@@ -129,14 +129,14 @@ class GlobalConfig:
                             data = json.load(f)
                             config = cls()
                             config.update_from_dict(data)
-                            logger.info("Global configuration loaded successfully from executable directory")
+                            logger.debug("Global configuration loaded successfully from executable directory")
                     elif os.path.exists(config_file):
                         logger.info(f"Loading global configuration from: {config_file}")
                         with open(config_file, 'r', encoding='utf-8') as f:
                             data = json.load(f)
                             config = cls()
                             config.update_from_dict(data)
-                            logger.info("Global configuration loaded successfully")
+                            logger.debug("Global configuration loaded successfully")
                     else:
                         logger.warning(f"Global config file not found in {exe_config_file} or {config_file}, using empty configuration")
                         config = cls()
@@ -148,7 +148,7 @@ class GlobalConfig:
                             data = json.load(f)
                             config = cls()
                             config.update_from_dict(data)
-                            logger.info("Global configuration loaded successfully")
+                            logger.debug("Global configuration loaded successfully")
                     else:
                         logger.warning(f"Global config file not found in {config_file}, using empty configuration")
                         config = cls()
