@@ -208,9 +208,9 @@
       "name": "Custom Platform",
       "url": "",
       "model": "",
-      "max_tokens": 4096,
-      "temperature": 0.7,
-      "recommended_tokens": null,
+      "max_tokens": 8192,
+      "temperature": 0.3,
+      "recommended_tokens": 4096,
       "performance_note": null
     },
     "default_platform": "deepseek"

@@ -82,8 +82,19 @@ def get_collabtrans_paths() -> Dict[str, str]:
     Returns:
         Dict[str, str]: Dictionary containing all path types
     """
-    data_dir = get_system_data_dir()
-    config_dir = get_system_config_dir()
+    # Check for deployment environment (systemd service)
+    env_config_path = os.environ.get("COLLABTRANS_CONFIG_PATH")
+    env_data_home = os.environ.get("XDG_DATA_HOME")
+    
+    # Use system directories if environment variables are set (deployment mode)
+    if env_config_path and os.path.exists(env_config_path):
+        config_dir = env_config_path
+        data_dir = env_data_home if env_data_home else "/var/lib/collabtrans"
+    else:
+        # Development mode: use user directories
+        data_dir = get_system_data_dir()
+        config_dir = get_system_config_dir()
+    
     cache_dir = get_system_cache_dir()
     
     return {

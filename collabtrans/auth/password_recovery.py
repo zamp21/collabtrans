@@ -28,17 +28,45 @@ def reset_admin_password_if_recovery_enabled() -> bool:
         
         logger.info("Password recovery is enabled, resetting admin password...")
         
-        # Load users data
-        users_file = Path("local_users.json")
+        # Load users data using the same resolution as UnifiedUserStore
+        from .unified_user_store import UnifiedUserStore
+        store = UnifiedUserStore()
+        users_file = store.file_path
         if not users_file.exists():
-            logger.error("local_users.json not found")
+            logger.error(f"local_users.json not found at {users_file}")
             return False
-        
+
         with open(users_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
+
+        # Normalize users structure: support legacy v1 list format -> v2 dict format
+        users = data.get('users')
+        if isinstance(users, list):
+            normalized = {}
+            for item in users:
+                try:
+                    uname = str(item.get('username', '')).strip()
+                    if not uname:
+                        continue
+                    normalized[uname] = item
+                except Exception:
+                    continue
+            data['users'] = normalized
+            users = data['users']
+
+        # Support case-insensitive lookup for 'admin' to fix accidental casing
+        admin_key = None
+        if isinstance(users, dict):
+            if 'admin' in users:
+                admin_key = 'admin'
+            else:
+                # try find Admin/adimin variants
+                for k in list(users.keys()):
+                    if isinstance(k, str) and k.lower() == 'admin':
+                        admin_key = k
+                        break
         
-        # Check if admin user exists
-        if 'admin' not in data.get('users', {}):
+        if not admin_key:
             logger.error("Admin user not found in local_users.json")
             return False
         
@@ -47,7 +75,10 @@ def reset_admin_password_if_recovery_enabled() -> bool:
         new_password = "Changeme"
         new_hash = password_manager.hash_password(new_password, skip_validation=True)
         
-        # Update admin password
+        # Ensure key normalization and update admin password
+        if admin_key != 'admin':
+            data['users']['admin'] = data['users'].pop(admin_key)
+            data['users']['admin']['username'] = 'admin'
         data['users']['admin']['password_hash'] = new_hash
         
         # Save updated users data

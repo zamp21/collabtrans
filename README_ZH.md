@@ -128,7 +128,7 @@ uv sync
 **启动服务:**
 
 ```bash
-# 启动服务，默认监听 8010 端口
+# 启动服务，默认监听 8020 端口
 collabtrans -i
 
 # 指定端口启动
@@ -139,15 +139,15 @@ export COLLABTRANS_PORT=8011
 collabtrans -i
 ```
 
-- **交互式界面**: 启动服务后，请在浏览器中访问 `http://127.0.0.1:8010` (或您指定的端口)。
-- **API 文档**: 完整的 API 文档（Swagger UI）位于 `http://127.0.0.1:8010/docs`。
+- **交互式界面**: 启动服务后，请在浏览器中访问 `http://127.0.0.1:8020` (或您指定的端口)。
+- **API 文档**: 完整的 API 文档（Swagger UI）位于 `http://127.0.0.1:8020/docs`。
 
 ### HTTPS 使用说明
 
 CollabTrans 支持两种 HTTPS 方式。默认为关闭状态。请在管理端 `/settings` 的“Web 设置（HTTPS）”中配置与测试。
 
 1) 反向代理终止 TLS（推荐）
-- 使用 Nginx/Caddy/Traefik 在 443 配置证书与私钥，反向代理到 `http://127.0.0.1:8010`（或你的端口）。
+- 使用 Nginx/Caddy/Traefik 在 443 配置证书与私钥，反向代理到 `http://127.0.0.1:8020`（或你的端口）。
 - 代理需转发 `X-Forwarded-Proto: https` 头。
 - 应用内可保持 HTTPS 关闭；如需在应用内强制跳转，也可开启“强制重定向”。
 
@@ -505,7 +505,7 @@ converter_config = ConverterDoclingConfig(
 
 ## FAQ
 
-**Q: 8010 端口被占用了怎么办？**
+**Q: 8020 端口被占用了怎么办？**
 A: 使用 `-p` 参数指定一个新端口，或设置 COLLABTRANS_PORT` 环境变量。
 
 **Q: 支持PDF扫描件的翻译吗？**

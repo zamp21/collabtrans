@@ -16,11 +16,11 @@ from typing import List, Dict, Any, Optional, Literal, Union, Annotated, TYPE_CH
 
 import httpx
 import uvicorn
-from fastapi import FastAPI, HTTPException, APIRouter, Body, Path as FastApiPath, Request, UploadFile, File
+from fastapi import FastAPI, HTTPException, APIRouter, Body, Path as FastApiPath, Request, UploadFile, File, Form
 from fastapi.openapi.docs import get_swagger_ui_html, get_swagger_ui_oauth2_redirect_html, get_redoc_html
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, field_validator, model_validator, AliasChoices
+from pydantic import BaseModel, Field, field_validator, model_validator, AliasChoices, ValidationError, TypeAdapter
 
 from collabtrans import __version__
 # Initialize project logging (save to logs/app.log and output to console)
@@ -514,7 +514,7 @@ class QueueAndHistoryHandler(logging.Handler):
 async def lifespan(app: FastAPI):
     global httpx_client, AUTH_AVAILABLE
     app.state.main_event_loop = asyncio.get_running_loop()
-    httpx_client = httpx.AsyncClient()
+    httpx_client = httpx.AsyncClient(timeout=httpx.Timeout(connect=5, read=120, write=300, pool=10))
     tasks_state.clear()
     tasks_log_queues.clear()
     tasks_log_histories.clear()
@@ -674,9 +674,11 @@ class GlossaryAgentConfigPayload(BaseModel):
                           description="Base URL for the LLM API used by the Agent for glossary generation.", examples=["https://api.openai.com/v1"])
     api_key: str = Field(..., validation_alias=AliasChoices('api_key', 'key'),
                          description="LLM API key for the Agent used for glossary generation.", examples=["sk-agent-api-key"])
+    api_type: Optional[str] = Field(default="openai", description="API type: 'openai' or 'ollama'. Defaults to 'openai'.", examples=["openai", "ollama"])
     model_id: str = Field(..., description="Model ID for the Agent used for glossary generation.", examples=["gpt-4-turbo"])
     to_lang: str = Field(..., description="Target language for glossary generation.", examples=["Chinese", "English"])
     temperature: float = Field(default=0.7, description="Temperature parameter for the Agent used for glossary generation.")
+    max_tokens: Optional[int] = Field(default=None, description="Maximum tokens to generate. For Ollama, this maps to num_predict in options.")
     concurrent: int = Field(default=30, description="Maximum concurrent requests for the Agent.")
     timeout: int = Field(default=default_params["timeout"], description="Time to wait for API response (seconds).")
     thinking: ThinkingMode = Field(default="default", description="Thinking mode for the Agent.")
@@ -692,6 +694,9 @@ class BaseWorkflowParams(BaseModel):
     api_key: Optional[str] = Field(default=None, validation_alias=AliasChoices('api_key', 'key'),
                                    description="LLM API key (optional).",
                                    examples=["sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxx"])
+    api_type: Optional[str] = Field(default=None,
+                                    description="API type: 'openai' or 'ollama'. Defaults to 'openai'.",
+                                    examples=["openai", "ollama"])
     model_id: Optional[str] = Field(default=None,
                                     description="LLM model ID to use. Required when `skip_translate` is `False`.",
                                     examples=["gpt-4o"])
@@ -699,6 +704,7 @@ class BaseWorkflowParams(BaseModel):
     chunk_size: int = Field(default=default_params["chunk_size"], description="Chunk size for text splitting (characters).")
     concurrent: int = Field(default=default_params["concurrent"], description="Number of concurrent requests.")
     temperature: float = Field(default=default_params["temperature"], description="LLM temperature parameter.")
+    max_tokens: Optional[int] = Field(default=None, description="Maximum tokens to generate. For Ollama, this maps to num_predict in options.")
     timeout: int = Field(default=default_params["timeout"], description="Time to wait for API response (seconds).")
     thinking: ThinkingMode = Field(default=default_params["thinking"], description="Thinking mode for the Agent.",
                                    examples=["default", "enable", "disable"])
@@ -1083,12 +1089,15 @@ async def _perform_translation(
                 secrets = get_secrets_manager()
                 global_conf = get_global_config()
 
-                base_url = (args.get('base_url') or '').lower()
-                logger.info(f"[DEBUG] inject_global_api_key - base_url: {base_url}")
+                base_url_raw = args.get('base_url') or ''
+                base_url = base_url_raw.lower()
+                logger.info(f"[DEBUG] inject_global_api_key - base_url: {base_url_raw}")
                 logger.info(f"[DEBUG] inject_global_api_key - args: {args}")
                 
                 platform_key = None
-                # Rough platform identification based on base_url
+                platform_config = None
+                
+                # First, try to identify platform by URL keywords
                 if 'deepseek' in base_url:
                     platform_key = 'deepseek'
                 elif 'openai' in base_url:
@@ -1101,17 +1110,80 @@ async def _perform_translation(
                     platform_key = 'siliconflow'
                 elif 'ark.' in base_url or 'volcengine' in base_url:
                     platform_key = 'volcengine_ark'
+                elif ':11434' in base_url or 'ollama' in base_url:
+                    # Ollama typically uses port 11434
+                    platform_key = None  # Will try to find by URL match
+                    logger.info(f"[DEBUG] inject_global_api_key - detected possible Ollama URL (port 11434)")
+                
+                # If platform_key identified, get config
+                if platform_key:
+                    platform_config = global_conf.get_ai_platform_config(platform_key)
+                
+                # If not identified by keywords, try to find platform by matching base_url
+                if not platform_config:
+                    # Clean base_url for comparison (remove trailing slashes and common paths)
+                    base_url_clean = base_url_raw.strip().rstrip('/')
+                    for path_prefix in ['/v1', '/v1/chat', '/v1/chat/completions', '/api', '/api/chat']:
+                        if base_url_clean.endswith(path_prefix):
+                            base_url_clean = base_url_clean[:-len(path_prefix)]
+                    
+                    # Try to find matching platform by URL
+                    for key, config in global_conf.ai_platforms.items():
+                        if key == 'default_platform':  # Skip special key
+                            continue
+                        config_url_clean = config.url.strip().rstrip('/')
+                        # Remove common paths from config URL too
+                        for path_prefix in ['/v1', '/v1/chat', '/v1/chat/completions', '/api', '/api/chat']:
+                            if config_url_clean.endswith(path_prefix):
+                                config_url_clean = config_url_clean[:-len(path_prefix)]
+                        
+                        # Compare URLs (case-insensitive)
+                        if config_url_clean.lower() == base_url_clean.lower():
+                            platform_key = key
+                            platform_config = config
+                            logger.info(f"[DEBUG] inject_global_api_key - matched platform by URL: {platform_key}")
+                            break
 
                 logger.info(f"[DEBUG] inject_global_api_key - detected platform_key: {platform_key}")
 
+                # Inject api_type from platform config if not already set
+                if platform_config and platform_config.api_type and not args.get('api_type'):
+                    args['api_type'] = platform_config.api_type
+                    logger.info(f"[DEBUG] inject_global_api_key - injected api_type: {platform_config.api_type} for platform: {platform_key}")
+                elif not args.get('api_type'):
+                    # If still no api_type, try to infer from URL
+                    if ':11434' in base_url or 'ollama' in base_url:
+                        args['api_type'] = 'ollama'
+                        logger.info(f"[DEBUG] inject_global_api_key - inferred api_type: ollama from URL")
+
                 # Only read API Key from sensitive configuration
+                # For Ollama, API key is optional (local deployments don't require it)
                 api_keys = secrets.get_api_keys() or {}
                 key = api_keys.get(platform_key) if platform_key else None
+                
+                # Determine if API key is required based on api_type
+                api_type = args.get('api_type', 'openai')
+                is_ollama = api_type == 'ollama'
+                
                 if key:
                     args['api_key'] = key
                     logger.info(f"[DEBUG] inject_global_api_key - injected API key for platform: {platform_key}")
-                else:
-                    logger.warning(f"API Key for platform {platform_key or 'unknown'} not found, please save the corresponding platform Key in the admin interface")
+                elif is_ollama:
+                    # Ollama doesn't require API key, set to None or empty string
+                    args['api_key'] = None
+                    logger.info(f"[DEBUG] inject_global_api_key - No API key for Ollama platform (not required for local deployments)")
+                elif platform_key:
+                    # For other platforms, warn if API key is missing
+                    logger.warning(f"API Key for platform {platform_key} not found, please save the corresponding platform Key in the admin interface")
+                # If platform_key is None, we couldn't identify the platform, but that's OK for custom/Ollama platforms
+                
+                # Note: We do NOT inject platform temperature here, as user's temperature setting should take priority
+                # Platform temperature is only used for display purposes in the UI
+                
+                # Inject max_tokens from platform config if not already set and platform config exists
+                if platform_config and not args.get('max_tokens') and platform_config.max_tokens:
+                    args['max_tokens'] = platform_config.max_tokens
+                    logger.info(f"[DEBUG] inject_global_api_key - injected max_tokens: {platform_config.max_tokens} for platform: {platform_key}")
             except Exception as e:
                 logger.error(f"[DEBUG] inject_global_api_key - error: {e}")
             return args
@@ -1141,8 +1213,8 @@ async def _perform_translation(
         if isinstance(payload, MarkdownWorkflowParams):
             task_logger.info("Building MarkdownBasedWorkflow configuration")
             translator_args = payload.model_dump(include={
-                'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
-                'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict', 'timeout', 'retry'
+                'skip_translate', 'base_url', 'api_key', 'api_type', 'model_id', 'to_lang', 'custom_prompt',
+                'temperature', 'max_tokens', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict', 'timeout', 'retry'
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
@@ -1200,7 +1272,7 @@ async def _perform_translation(
         elif isinstance(payload, TextWorkflowParams):
             task_logger.info("Building TXTWorkflow configuration")
             translator_args = payload.model_dump(include={
-                'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                'skip_translate', 'base_url', 'api_key', 'api_type', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict',
                 'insert_mode', 'separator', 'timeout', 'retry'
             }, exclude_none=True)
@@ -1229,8 +1301,8 @@ async def _perform_translation(
         elif isinstance(payload, JsonWorkflowParams):
             task_logger.info("Building JsonWorkflow configuration")
             translator_args = payload.model_dump(include={
-                'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
-                'temperature', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict',
+                'skip_translate', 'base_url', 'api_key', 'api_type', 'model_id', 'to_lang', 'custom_prompt',
+                'temperature', 'max_tokens', 'thinking', 'chunk_size', 'concurrent', 'glossary_dict',
                 'json_paths', 'timeout', 'retry'
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
@@ -1258,7 +1330,7 @@ async def _perform_translation(
         elif isinstance(payload, XlsxWorkflowParams):
             task_logger.info("Building XlsxWorkflow configuration")
             translator_args = payload.model_dump(include={
-                'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
+                'skip_translate', 'base_url', 'api_key', 'api_type', 'model_id', 'to_lang', 'custom_prompt',
                 'temperature', 'thinking', 'chunk_size', 'concurrent',
                 'insert_mode', 'separator', 'translate_regions', 'glossary_dict', 'timeout', 'retry'
             }, exclude_none=True)
@@ -1287,11 +1359,15 @@ async def _perform_translation(
 
         elif isinstance(payload, DocxWorkflowParams):
             task_logger.info("Building DocxWorkflow configuration")
+            # Log temperature before model_dump
+            task_logger.info(f"[DEBUG] DocxWorkflowParams temperature: {payload.temperature}")
             translator_args = payload.model_dump(include={
-                'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
-                'temperature', 'thinking', 'chunk_size', 'concurrent',
+                'skip_translate', 'base_url', 'api_key', 'api_type', 'model_id', 'to_lang', 'custom_prompt',
+                'temperature', 'max_tokens', 'thinking', 'chunk_size', 'concurrent',
                 'insert_mode', 'separator', 'glossary_dict', 'timeout', 'retry'
             }, exclude_none=True)
+            # Log temperature after model_dump
+            task_logger.info(f"[DEBUG] translator_args temperature after model_dump: {translator_args.get('temperature', 'NOT_FOUND')}")
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
             translator_args['glossary_agent_config'] = build_glossary_agent_config()
             
@@ -1305,6 +1381,8 @@ async def _perform_translation(
                 task_logger.info(f"User glossary loaded with {len(user_glossary)} terms")
             
             translator_args = inject_global_api_key(translator_args)
+            # Log temperature after inject_global_api_key
+            task_logger.info(f"[DEBUG] translator_args temperature after inject_global_api_key: {translator_args.get('temperature', 'NOT_FOUND')}")
             translator_config = DocxTranslatorConfig(**translator_args)
 
             html_exporter_config = Docx2HTMLExporterConfig(cdn=True)
@@ -1318,8 +1396,8 @@ async def _perform_translation(
         elif isinstance(payload, SrtWorkflowParams):
             task_logger.info("Building SrtWorkflow configuration")
             translator_args = payload.model_dump(include={
-                'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
-                'temperature', 'thinking', 'chunk_size', 'concurrent',
+                'skip_translate', 'base_url', 'api_key', 'api_type', 'model_id', 'to_lang', 'custom_prompt',
+                'temperature', 'max_tokens', 'thinking', 'chunk_size', 'concurrent',
                 'insert_mode', 'separator', 'glossary_dict', 'timeout', 'retry'
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
@@ -1348,8 +1426,8 @@ async def _perform_translation(
         elif isinstance(payload, EpubWorkflowParams):
             task_logger.info("Building EpubWorkflow configuration")
             translator_args = payload.model_dump(include={
-                'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
-                'temperature', 'thinking', 'chunk_size', 'concurrent',
+                'skip_translate', 'base_url', 'api_key', 'api_type', 'model_id', 'to_lang', 'custom_prompt',
+                'temperature', 'max_tokens', 'thinking', 'chunk_size', 'concurrent',
                 'insert_mode', 'separator', 'glossary_dict', 'timeout', 'retry'
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
@@ -1379,8 +1457,8 @@ async def _perform_translation(
         elif isinstance(payload, HtmlWorkflowParams):
             task_logger.info("Building HtmlWorkflow configuration")
             translator_args = payload.model_dump(include={
-                'skip_translate', 'base_url', 'api_key', 'model_id', 'to_lang', 'custom_prompt',
-                'temperature', 'thinking', 'chunk_size', 'concurrent',
+                'skip_translate', 'base_url', 'api_key', 'api_type', 'model_id', 'to_lang', 'custom_prompt',
+                'temperature', 'max_tokens', 'thinking', 'chunk_size', 'concurrent',
                 'insert_mode', 'separator', 'glossary_dict', 'timeout', 'retry'
             }, exclude_none=True)
             translator_args['glossary_generate_enable'] = payload.glossary_generate_enable
@@ -1503,6 +1581,67 @@ async def _perform_translation(
         # 5. Task successful, update final status
         end_time = time.time()
         duration = end_time - task_state["task_start_time"]
+        
+        # --- Extract translation statistics (success/failure counts) ---
+        import re
+        translation_stats = {
+            "total_chunks": 0,
+            "successful_chunks": 0,
+            "failed_chunks": 0
+        }
+        try:
+            # Try to get stats from workflow.translator.agent
+            _translator = getattr(workflow, 'translator', None)
+            _agent_via_translator = getattr(_translator, 'agent', None) if _translator is not None else None
+            if _agent_via_translator is not None:
+                # Get unresolved error count and total chunks from agent
+                failed_count = getattr(_agent_via_translator, 'unresolved_error_count', 0)
+                task_logger.info(f"[TranslationStats] Got failed_count from agent: {failed_count}")
+                # Try to get total chunks from log history
+                log_history = tasks_log_histories.get(task_id, [])
+                total_chunks = 0
+                for line in log_history:
+                    # Look for "Planned to send X requests" pattern
+                    match = re.search(r"Planned to send (\d+) requests", line)
+                    if match:
+                        total_chunks = int(match.group(1))
+                        task_logger.info(f"[TranslationStats] Found total_chunks from log: {total_chunks}")
+                        break
+                
+                # Also check log history for error indicators if total_chunks is 0
+                if total_chunks == 0:
+                    # Check for error patterns in logs
+                    has_errors = False
+                    for line in log_history:
+                        if re.search(r"(Too many errors|All retries failed|connection error|ReadTimeout)", line, re.IGNORECASE):
+                            has_errors = True
+                            # Try to extract chunk count from error context
+                            match = re.search(r"(\d+)\s*requests?", line, re.IGNORECASE)
+                            if match:
+                                total_chunks = int(match.group(1))
+                            break
+                    
+                    # If we found errors but no chunk count, assume at least 1 chunk failed
+                    if has_errors and total_chunks == 0:
+                        total_chunks = 1
+                        failed_count = max(failed_count, 1)  # Ensure at least 1 failed if errors detected
+                
+                # Update stats if we have valid data
+                if total_chunks > 0:
+                    translation_stats["total_chunks"] = total_chunks
+                    translation_stats["failed_chunks"] = failed_count
+                    translation_stats["successful_chunks"] = total_chunks - failed_count
+                    task_logger.info(f"[TranslationStats] Total chunks: {total_chunks}, Successful: {translation_stats['successful_chunks']}, Failed: {failed_count}")
+                elif failed_count > 0:
+                    # Even if total_chunks is 0, if we have failed_count > 0, it means there were errors
+                    # Set total_chunks to failed_count to indicate all chunks failed
+                    translation_stats["total_chunks"] = failed_count
+                    translation_stats["failed_chunks"] = failed_count
+                    translation_stats["successful_chunks"] = 0
+                    task_logger.info(f"[TranslationStats] Detected {failed_count} failed chunks (total_chunks was 0)")
+        except Exception as _e:
+            task_logger.warning(f"[TranslationStats] failed to extract stats: {_e}")
+        
         # --- Attach token stats if available ---
         token_stats_obj = None
         try:
@@ -1538,7 +1677,6 @@ async def _perform_translation(
         # If still None, try extracting from log history (fallback)
         if token_stats_obj is None:
             try:
-                import re
                 log_history = tasks_log_histories.get(task_id, [])
                 # Find last line containing token stats
                 for line in reversed(log_history):
@@ -1565,17 +1703,111 @@ async def _perform_translation(
             except Exception as _e:
                 task_logger.warning(f"[TokenStats] failed to extract from logs: {_e}")
 
+        # Determine status based on translation statistics
+        total_chunks = translation_stats.get("total_chunks", 0)
+        failed_chunks = translation_stats.get("failed_chunks", 0)
+        successful_chunks = translation_stats.get("successful_chunks", 0)
+        
+        # Also check log history for error indicators as fallback
+        has_errors_in_logs = False
+        error_reason = None
+        if total_chunks == 0 and failed_chunks == 0:
+            try:
+                log_history = tasks_log_histories.get(task_id, [])
+                for line in log_history:
+                    if re.search(r"(Too many errors|All retries failed|connection error|ReadTimeout|unresolved errors)", line, re.IGNORECASE):
+                        has_errors_in_logs = True
+                        task_logger.info(f"[TranslationStats] Found error in log: {line[:100]}")
+                        # Try to extract error count from "Total unresolved errors: X"
+                        match = re.search(r"Total unresolved errors:\s*(\d+)", line, re.IGNORECASE)
+                        if match:
+                            failed_chunks = int(match.group(1))
+                            total_chunks = max(total_chunks, failed_chunks)
+                            task_logger.info(f"[TranslationStats] Extracted failed_chunks from log: {failed_chunks}")
+                        
+                        # Extract error reason
+                        if re.search(r"ReadTimeout|read timeout", line, re.IGNORECASE):
+                            error_reason = "ReadTimeout"
+                            # Try to extract timeout value
+                            timeout_match = re.search(r"timeout:\s*(\d+)s", line, re.IGNORECASE)
+                            if timeout_match:
+                                error_reason = f"ReadTimeout (timeout: {timeout_match.group(1)}s)"
+                        elif re.search(r"ConnectTimeout|connection timeout", line, re.IGNORECASE):
+                            error_reason = "ConnectionTimeout"
+                        elif re.search(r"ConnectError|connection error", line, re.IGNORECASE):
+                            error_reason = "ConnectionError"
+                        elif re.search(r"Too many errors", line, re.IGNORECASE):
+                            error_reason = "TooManyErrors"
+                        break
+            except Exception as e:
+                task_logger.warning(f"[TranslationStats] Error checking logs: {e}")
+        
+        # If we have translation stats, use them to determine success/failure
+        if total_chunks > 0:
+            if failed_chunks == total_chunks:
+                # All chunks failed
+                status_message = f"Translation failed: All {total_chunks} chunks failed (took {duration:.2f} seconds)"
+                error_flag = True
+                download_ready = False
+            elif failed_chunks > 0:
+                # Partial failure
+                status_message = f"Translation completed with errors: {successful_chunks}/{total_chunks} chunks succeeded, {failed_chunks} failed (took {duration:.2f} seconds)"
+                error_flag = False  # Still allow download as some chunks succeeded
+                download_ready = True
+            else:
+                # All succeeded
+                status_message = f"Translation completed successfully: All {total_chunks} chunks succeeded (took {duration:.2f} seconds)"
+                error_flag = False
+                download_ready = True
+        elif failed_chunks > 0 or has_errors_in_logs:
+            # Errors detected but total_chunks is 0 - treat as failure
+            if failed_chunks > 0:
+                base_msg = f"Translation failed: {failed_chunks} chunk(s) failed (took {duration:.2f} seconds)"
+            else:
+                base_msg = f"Translation failed: Errors occurred during translation (took {duration:.2f} seconds)"
+            
+            # Add error reason if available
+            if error_reason:
+                if error_reason == "ReadTimeout":
+                    status_message = f"{base_msg} - Request timeout. The server did not respond in time. Possible causes: 1) Model is too slow, 2) Network issues, 3) Server overload. Try increasing timeout or reducing chunk_size."
+                elif error_reason == "ConnectionTimeout":
+                    status_message = f"{base_msg} - Connection timeout. Failed to connect to the server. Check if the server is running and accessible."
+                elif error_reason == "ConnectionError":
+                    status_message = f"{base_msg} - Connection error. Failed to connect to the server. Check network connectivity and server status."
+                elif error_reason == "TooManyErrors":
+                    status_message = f"{base_msg} - Too many errors occurred. Please check the logs for details."
+                else:
+                    status_message = f"{base_msg} - Error: {error_reason}"
+            else:
+                status_message = base_msg
+            
+            error_flag = True
+            download_ready = False
+            # Update translation_stats for consistency
+            if failed_chunks > 0:
+                translation_stats["total_chunks"] = failed_chunks
+                translation_stats["failed_chunks"] = failed_chunks
+                translation_stats["successful_chunks"] = 0
+            task_logger.info(f"[TranslationStats] Detected failure: failed_chunks={failed_chunks}, has_errors_in_logs={has_errors_in_logs}, error_reason={error_reason}")
+        else:
+            # No stats available, assume success (backward compatibility)
+            status_message = f"Translation completed successfully in {duration:.2f} seconds"
+            error_flag = False
+            download_ready = True
+
         task_state.update({
-            "status_message": f"Translation completed successfully in {duration:.2f} seconds",
-            "download_ready": True,
-            "error_flag": False,
+            "status_message": status_message,
+            "download_ready": download_ready,
+            "error_flag": error_flag,
             "task_end_time": end_time,
             "downloadable_files": downloadable_files,
             "attachment_files": attachment_files,
             # attach token stats if the workflow exposes it via agent
             "token_stats": token_stats_obj,
+            # attach translation statistics
+            "translation_stats": translation_stats,
         })
-        task_logger.info(f"Translation completed successfully, took {duration:.2f} seconds")
+        task_logger.info(f"Translation task completed, took {duration:.2f} seconds. Stats: {translation_stats}")
 
     except asyncio.CancelledError:
         end_time = time.time()
@@ -1703,9 +1935,18 @@ def _cancel_translation_logic(task_id: str):
     "/translate",
     summary="Submit translation task (unified entry point)",
     description="""
-Receive a JSON request containing file content (Base64 encoded) and workflow parameters to start a background translation task.
+Submit translation task with file and workflow parameters. Supports two formats:
 
-- **Workflow Selection**: The `payload.workflow_type` field in the request body determines the type of this task (such as `markdown_based`, `txt`, `json`, `xlsx`, `docx`, `srt`, `epub`, `html`).
+**Format 1: multipart/form-data (Recommended)**
+- `file`: Binary file content (Content-Type: application/octet-stream)
+- `payload`: JSON string containing workflow parameters
+
+**Format 2: application/json (Legacy, for backward compatibility)**
+- `file_name`: Original filename
+- `file_content`: Base64 encoded file content
+- `payload`: Workflow parameters object
+
+- **Workflow Selection**: The `payload.workflow_type` field determines the type of this task (such as `markdown_based`, `txt`, `json`, `xlsx`, `docx`, `srt`, `epub`, `html`).
 - **Dynamic Parameters**: Depending on the selected workflow, the API requires different parameter sets. Please refer to the Schema or examples below.
 - **Asynchronous Processing**: This endpoint returns a task ID immediately, and the client needs to poll the status interface to get progress.
 """,
@@ -1715,25 +1956,109 @@ Receive a JSON request containing file content (Base64 encoded) and workflow par
             "content": {"application/json": {
                 "example": {"task_started": True, "task_id": "a1b2c3d4", "message": "Translation task started successfully, please wait..."}}}
         },
-        400: {"description": "Invalid request body, e.g., Base64 decoding failed."},
+        400: {"description": "Invalid request body, e.g., Base64 decoding failed or missing required fields."},
         429: {"description": "Server already has a task with the same ID being processed (theoretically should not happen since ID is newly generated)."},
         500: {"description": "Unknown error occurred while starting background task."},
     }
 )
-async def service_translate(request: TranslateServiceRequest = Body(..., description="Detailed parameters and file content for translation task.")):
+async def service_translate(request: Request):
+    """
+    Handle translation request in two formats:
+    1. multipart/form-data: file + payload (JSON string)
+    2. application/json: TranslateServiceRequest (legacy)
+    """
     task_id = uuid.uuid4().hex[:8]
-
-    try:
-        file_contents = base64.b64decode(request.file_content)
-    except (binascii.Error, TypeError) as e:
-        raise HTTPException(status_code=400, detail=f"Invalid Base64 file content: {e}")
+    
+    # Determine request format based on content type
+    content_type = request.headers.get("content-type", "").lower()
+    
+    if "multipart/form-data" in content_type:
+        # New format: multipart/form-data
+        try:
+            form = await request.form()
+            file = form.get("file")
+            payload_str = form.get("payload")
+            
+            if not file:
+                raise HTTPException(status_code=400, detail="File is required in multipart/form-data format")
+            if not payload_str:
+                raise HTTPException(status_code=400, detail="Payload is required in multipart/form-data format")
+            
+            # Read file content
+            file_contents = await file.read()
+            original_filename = file.filename or "unknown"
+            
+            # Parse JSON payload
+            import json
+            payload_dict = json.loads(payload_str)
+            
+            # Validate workflow_type is present
+            if 'workflow_type' not in payload_dict:
+                raise HTTPException(status_code=400, detail="Missing required field 'workflow_type' in payload")
+            
+            # Try to instantiate the payload with better error handling
+            # Use TypeAdapter for better error messages with discriminated unions
+            try:
+                # For Pydantic v2, use TypeAdapter to validate discriminated unions
+                adapter = TypeAdapter(TranslatePayload)
+                payload_obj = adapter.validate_python(payload_dict)
+            except ValidationError as e:
+                # Pydantic validation error - provide detailed error information
+                workflow_type = payload_dict.get('workflow_type', 'unknown')
+                error_details = []
+                for error in e.errors():
+                    field_path = ' -> '.join(str(loc) for loc in error.get('loc', []))
+                    error_msg = error.get('msg', 'Validation error')
+                    error_type = error.get('type', 'unknown')
+                    error_details.append(f"{field_path}: {error_msg} (type: {error_type})")
+                
+                detail_msg = f"Invalid payload for workflow_type '{workflow_type}'. "
+                if error_details:
+                    detail_msg += "Errors: " + "; ".join(error_details[:3])  # Show first 3 errors
+                else:
+                    detail_msg += str(e)
+                
+                raise HTTPException(status_code=400, detail=detail_msg)
+            except Exception as e:
+                # Handle other errors (including Union instantiation errors)
+                error_msg = str(e)
+                workflow_type = payload_dict.get('workflow_type', 'unknown')
+                valid_types = ['markdown_based', 'txt', 'json', 'xlsx', 'docx', 'srt', 'epub', 'html']
+                
+                if "Union" in error_msg or "Cannot instantiate" in error_msg:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Invalid workflow_type '{workflow_type}'. Valid types are: {', '.join(valid_types)}. "
+                               f"Please ensure the workflow_type matches one of the supported types and all required fields are provided."
+                    )
+                raise HTTPException(status_code=400, detail=f"Invalid request format: {error_msg}")
+            
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid JSON payload: {e}")
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid request format: {e}")
+    else:
+        # Legacy format: application/json
+        try:
+            json_data = await request.json()
+            json_request = TranslateServiceRequest(**json_data)
+            
+            file_contents = base64.b64decode(json_request.file_content)
+            original_filename = json_request.file_name
+            payload_obj = json_request.payload
+        except (binascii.Error, TypeError) as e:
+            raise HTTPException(status_code=400, detail=f"Invalid Base64 file content: {e}")
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid JSON request: {e}")
 
     try:
         response_data = await _start_translation_task(
             task_id=task_id,
-            payload=request.payload,
+            payload=payload_obj,
             file_contents=file_contents,
-            original_filename=request.file_name
+            original_filename=original_filename
         )
         return JSONResponse(content=response_data)
     except HTTPException as e:
@@ -1989,20 +2314,9 @@ FileType = Literal["markdown", "markdown_zip", "html", "txt", "json", "xlsx", "c
     summary="Download translation result files",
     responses={
         200: {
-            "description": "Successfully returned file stream. Filename is specified via Content-Disposition header.",
+            "description": "Successfully returned file stream. Filename is specified via Content-Disposition header. Content-Type is application/octet-stream.",
             "content": {
-                "text/html; charset=utf-8": {"schema": {"type": "string"}},
-                "text/markdown; charset=utf-8": {"schema": {"type": "string"}},
-                "text/plain; charset=utf-8": {"schema": {"type": "string"}},
-                "text/csv; charset=utf-8": {"schema": {"type": "string"}},
-                "application/zip": {"schema": {"type": "string", "format": "binary"}},
-                "application/json": {"schema": {"type": "string", "format": "binary"}},
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
-                    "schema": {"type": "string", "format": "binary"}},
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
-                    "schema": {"type": "string", "format": "binary"}},
-                "application/epub+zip": {
-                    "schema": {"type": "string", "format": "binary"}},
+                "application/octet-stream": {"schema": {"type": "string", "format": "binary"}},
             }
         },
         404: {"description": "Task ID does not exist, or the task does not support the requested file type, or temporary files have been lost."},
@@ -2025,7 +2339,8 @@ async def service_download_file(
 
     file_path = file_info["path"]
     filename = file_info["filename"]
-    media_type = MEDIA_TYPES.get(file_type, "application/octet-stream")
+    # Use application/octet-stream for all file downloads
+    media_type = "application/octet-stream"
 
     return FileResponse(path=file_path, media_type=media_type, filename=filename)
 
@@ -2482,7 +2797,7 @@ def run_app(port: int | None = None):
         else:
             print("Warning: No local_secrets.json.template found for first deployment setup")
     
-    initial_port = port or int(os.environ.get("DOCUTRANSLATE_PORT", 8010))
+    initial_port = port or int(os.environ.get("DOCUTRANSLATE_PORT", 8020))
     try:
         port_to_use = find_free_port(initial_port)
         if port_to_use != initial_port: print(f"Port {initial_port} is occupied, using port {port_to_use} instead")

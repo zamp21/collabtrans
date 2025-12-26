@@ -463,7 +463,15 @@ async def test_ldap_connection(request: Request, payload: dict):
             # Get user's group membership information (unified use of ldap3, avoid mixing with python-ldap API)
             try:
                 from ldap3 import SUBTREE as _LDAP3_SUBTREE
-                conn = client._get_connection()
+                # Create a fresh connection for group queries to avoid state conflicts
+                conn = client._create_fresh_connection()
+                # Re-bind with the same credentials for group queries
+                bind_dn = temp_config.ldap_bind_dn_template.format(username=username)
+                if not conn.bind(bind_dn, password):
+                    logger.warning(f"Failed to bind for group queries: {conn.last_error}")
+                    conn.unbind()
+                    return JSONResponse(status_code=400, content={"ok": False, "message": "Failed to bind for group queries"})
+                
                 user_filter = temp_config.ldap_user_filter.format(username=username)
                 conn.search(
                     search_base=temp_config.ldap_base_dn,
@@ -747,9 +755,9 @@ async def test_https_available(
             })
 
         # 4) Self-test: make one HTTPS request to self (disable verification to support self-signed)
-        port = getattr(request.app.state, 'port_to_use', 8010)
+        port = getattr(request.app.state, 'port_to_use', 8020)
         try:
-            async with httpx.AsyncClient(verify=False, timeout=2.5) as client:
+            async with httpx.AsyncClient(verify=False, timeout=120.0) as client:
                 r = await client.get(f"https://127.0.0.1:{port}/login")
                 details["probe_status"] = r.status_code
         except Exception as e:
@@ -2126,37 +2134,130 @@ async def test_ai_platform(
         platform_type = data.get('platform_type')
         base_url = data.get('base_url')
         model_name = data.get('model_name')
+        api_type = data.get('api_type', 'openai')  # Default to openai if not specified
+        
+        logger.info(f"[AI Platform Test] Test request received - user: {_mask_username(user.username)}, platform: {platform_type}, base_url: {base_url}, model: {model_name}, api_type: {api_type}")
         
         if not platform_type or not base_url or not model_name:
+            logger.warning(f"[AI Platform Test] Missing required parameters - platform_type: {platform_type}, base_url: {base_url}, model_name: {model_name}")
             raise HTTPException(status_code=400, detail="Missing required parameters: platform_type, base_url, model_name")
         
         # Get API key
         from ..config.secrets_manager import get_secrets_manager
+        from ..config.global_config import get_global_config
         secrets_manager = get_secrets_manager()
         api_keys = secrets_manager.get_api_keys()
         api_key = api_keys.get(platform_type)
         
-        if not api_key:
+        logger.debug(f"[AI Platform Test] API key found: {bool(api_key)} for platform: {platform_type}")
+        
+        # Get api_type from platform config if not provided in request
+        if api_type == 'openai':
+            global_config = get_global_config()
+            platform_config = global_config.get_ai_platform_config(platform_type)
+            if platform_config and platform_config.api_type:
+                api_type = platform_config.api_type.lower()
+                logger.info(f"[AI Platform Test] API type loaded from config: {api_type}")
+        
+        # For Custom Platform or Ollama, allow empty API key
+        if not api_key and platform_type != "custom" and api_type != "ollama":
+            logger.warning(f"[AI Platform Test] No API key found for platform: {platform_type}, api_type: {api_type}")
             raise HTTPException(status_code=400, detail=f"No API key found for platform: {platform_type}")
         
-        # Build test request based on platform type
-        test_payload = {
-            "model": model_name,
-            "messages": [
-                {"role": "user", "content": "Hello, this is a connection test."}
-            ],
-            "max_tokens": 10
+        # Build headers
+        headers = {
+            "Content-Type": "application/json"
         }
         
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}"
-        }
+        logger.info(f"[AI Platform Test] Starting connection test - api_type: {api_type}, endpoint will be determined based on api_type")
+        
+        # Clean base_url: remove trailing slashes and common API path prefixes
+        # This ensures base_url only contains protocol, host, and port
+        cleaned_base_url = base_url.strip()
+        if cleaned_base_url.endswith("/"):
+            cleaned_base_url = cleaned_base_url[:-1]
+        # Remove common API path prefixes that might be incorrectly included
+        for prefix in ["/v1", "/v1/chat", "/v1/chat/completions", "/api", "/api/chat"]:
+            if cleaned_base_url.endswith(prefix):
+                cleaned_base_url = cleaned_base_url[:-len(prefix)]
+                logger.info(f"[AI Platform Test] Removed API path prefix '{prefix}' from base_url")
+        
+        logger.info(f"[AI Platform Test] Cleaned base_url: {cleaned_base_url} (original: {base_url})")
+        
+        # Use 120 seconds timeout for all API calls
+        timeout_seconds = 120.0
+        logger.info(f"[AI Platform Test] Using timeout: {timeout_seconds} seconds")
         
         # Send test request
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            if platform_type == "anthropic":
+        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+            if api_type == "ollama":
+                # First, get available models list for logging
+                try:
+                    models_endpoint = f"{cleaned_base_url}/api/tags"
+                    logger.info(f"[AI Platform Test] Fetching available Ollama models from: {models_endpoint}")
+                    models_response = await client.get(models_endpoint, timeout=120.0)
+                    if models_response.status_code == 200:
+                        models_data = models_response.json()
+                        available_models = []
+                        if "models" in models_data:
+                            for model in models_data["models"]:
+                                model_name_full = model.get("name", "unknown")
+                                model_size = model.get("size", 0)
+                                model_size_gb = model_size / (1024**3) if model_size > 0 else 0
+                                available_models.append(f"{model_name_full} ({model_size_gb:.2f}GB)")
+                        if available_models:
+                            logger.info(f"[AI Platform Test] Available Ollama models: {', '.join(available_models)}")
+                        else:
+                            logger.warning(f"[AI Platform Test] No models found in Ollama service")
+                    else:
+                        logger.warning(f"[AI Platform Test] Failed to fetch models list: status {models_response.status_code}")
+                except Exception as e:
+                    logger.warning(f"[AI Platform Test] Could not fetch available models: {e}")
+                
+                # Ollama API format: /api/chat (not /v1/chat/completions)
+                endpoint = f"{cleaned_base_url}/api/chat"
+                test_payload = {
+                    "model": model_name,
+                    "messages": [
+                        {"role": "user", "content": "Hello, this is a connection test."}
+                    ],
+                    "stream": False
+                }
+                logger.info(f"[AI Platform Test] Testing Ollama API - endpoint: {endpoint}, model: {model_name}")
+                # Ollama doesn't require Authorization header
+                try:
+                    response = await client.post(endpoint, json=test_payload, headers=headers, timeout=timeout_seconds)
+                except httpx.TimeoutException as e:
+                    logger.error(f"[AI Platform Test] Ollama API request timeout after {timeout_seconds}s - endpoint: {endpoint}, model: {model_name}")
+                    return {"success": False, "error": f"Connection timeout after {int(timeout_seconds)} seconds. This may happen if the model is loading for the first time. Please check if Ollama service is running and the model '{model_name}' is available."}
+                except httpx.ConnectError as e:
+                    logger.error(f"[AI Platform Test] Ollama API connection failed - endpoint: {endpoint}, error: {e}")
+                    return {"success": False, "error": f"Connection failed: {str(e)}. Please check if Ollama service is running at {base_url}."}
+                except Exception as e:
+                    logger.error(f"[AI Platform Test] Ollama API request failed - endpoint: {endpoint}, error: {e}", exc_info=True)
+                    return {"success": False, "error": f"Request failed: {str(e)}"}
+                logger.info(f"[AI Platform Test] Ollama API response - status: {response.status_code}")
+                # Verify Ollama response format
+                if response.status_code == 200:
+                    try:
+                        response_data = response.json()
+                        logger.debug(f"[AI Platform Test] Ollama response data keys: {list(response_data.keys())}")
+                        if "message" in response_data and "content" in response_data.get("message", {}):
+                            logger.info(f"[AI Platform Test] Ollama connection test successful - user: {_mask_username(user.username)}")
+                            return {"success": True, "message": "AI platform connection test successful (Ollama)"}
+                        else:
+                            logger.warning(f"[AI Platform Test] Invalid Ollama response format: {response_data}")
+                            return {"success": False, "error": f"Invalid Ollama response format: {response_data}"}
+                    except Exception as e:
+                        logger.error(f"[AI Platform Test] Failed to parse Ollama response: {e}", exc_info=True)
+                        return {"success": False, "error": f"Failed to parse Ollama response: {str(e)}"}
+                else:
+                    error_detail = response.text
+                    logger.error(f"[AI Platform Test] Ollama API returned error - status: {response.status_code}, detail: {error_detail}")
+                    return {"success": False, "error": f"Ollama API returned status {response.status_code}: {error_detail}"}
+            elif platform_type == "anthropic":
                 # Anthropic uses different API format
+                endpoint = f"{cleaned_base_url}/messages"
                 test_payload = {
                     "model": model_name,
                     "max_tokens": 10,
@@ -2166,12 +2267,17 @@ async def test_ai_platform(
                 }
                 headers = {
                     "Content-Type": "application/json",
-                    "x-api-key": api_key,
                     "anthropic-version": "2023-06-01"
                 }
-                response = await client.post(f"{base_url}/messages", json=test_payload, headers=headers)
+                if api_key:
+                    headers["x-api-key"] = api_key
+                logger.info(f"[AI Platform Test] Testing Anthropic API - endpoint: {endpoint}, model: {model_name}")
+                response = await client.post(endpoint, json=test_payload, headers=headers)
+                logger.info(f"[AI Platform Test] Anthropic API response - status: {response.status_code}")
             elif platform_type == "google":
                 # Google uses different API format
+                api_key_for_url = api_key if api_key else ""
+                endpoint = f"{cleaned_base_url}/models/{model_name}:generateContent?key={api_key_for_url}"
                 test_payload = {
                     "contents": [
                         {"parts": [{"text": "Hello, this is a connection test."}]}
@@ -2183,23 +2289,52 @@ async def test_ai_platform(
                 headers = {
                     "Content-Type": "application/json"
                 }
-                response = await client.post(f"{base_url}/models/{model_name}:generateContent?key={api_key}", json=test_payload, headers=headers)
+                logger.info(f"[AI Platform Test] Testing Google API - endpoint: {endpoint}, model: {model_name}")
+                response = await client.post(endpoint, json=test_payload, headers=headers)
+                logger.info(f"[AI Platform Test] Google API response - status: {response.status_code}")
             else:
-                # Standard OpenAI format
-                response = await client.post(f"{base_url}/chat/completions", json=test_payload, headers=headers)
+                # Standard OpenAI format (including custom platform)
+                # OpenAI standard: https://api.openai.com/v1/chat/completions
+                # Some services use: https://example.com/chat/completions (without /v1)
+                # We'll try /v1/chat/completions first (standard), but some services may use /chat/completions
+                endpoint = f"{cleaned_base_url}/v1/chat/completions"
+                test_payload = {
+                    "model": model_name,
+                    "messages": [
+                        {"role": "user", "content": "Hello, this is a connection test."}
+                    ],
+                    "max_tokens": 10
+                }
+                if api_key:
+                    headers["Authorization"] = f"Bearer {api_key}"
+                logger.info(f"[AI Platform Test] Testing OpenAI-compatible API - endpoint: {endpoint}, model: {model_name}, has_api_key: {bool(api_key)}")
+                response = await client.post(endpoint, json=test_payload, headers=headers)
+                logger.info(f"[AI Platform Test] OpenAI-compatible API response - status: {response.status_code}")
             
             if response.status_code == 200:
+                logger.info(f"[AI Platform Test] Connection test successful - user: {_mask_username(user.username)}, platform: {platform_type}")
                 return {"success": True, "message": "AI platform connection test successful"}
             else:
                 error_detail = response.text
+                logger.error(f"[AI Platform Test] API returned error - status: {response.status_code}, platform: {platform_type}, detail: {error_detail[:200]}")
                 return {"success": False, "error": f"API returned status {response.status_code}: {error_detail}"}
                 
-    except httpx.TimeoutException:
-        return {"success": False, "error": "Connection timeout - please check your network and API endpoint"}
-    except httpx.ConnectError:
-        return {"success": False, "error": "Connection failed - please check the API URL"}
+    except httpx.TimeoutException as e:
+        logger.error(f"[AI Platform Test] Connection timeout - platform: {platform_type}, base_url: {base_url}, api_type: {api_type}, error: {e}")
+        if api_type == "ollama":
+            return {"success": False, "error": f"Connection timeout. Ollama may be loading the model for the first time, which can take several minutes. Please check if Ollama service is running at {base_url} and the model is available."}
+        else:
+            return {"success": False, "error": "Connection timeout - please check your network and API endpoint"}
+    except httpx.ConnectError as e:
+        logger.error(f"[AI Platform Test] Connection failed - platform: {platform_type}, base_url: {base_url}, api_type: {api_type}, error: {e}")
+        if api_type == "ollama":
+            return {"success": False, "error": f"Connection failed. Please check if Ollama service is running at {base_url}. You can test with: curl {base_url}/api/tags"}
+        else:
+            return {"success": False, "error": "Connection failed - please check the API URL"}
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"AI platform test failed: {e}")
+        logger.error(f"[AI Platform Test] Test failed - platform: {platform_type}, base_url: {base_url}, error: {e}", exc_info=True)
         return {"success": False, "error": f"Test failed: {str(e)}"}
 
 
@@ -2238,7 +2373,7 @@ async def test_mineru_connection(request: Request):
             
             logger.info("MinerU connection test: Starting API connection test")
             
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=120.0) as client:
                 response = await client.post(
                     'https://mineru.net/api/v4/file-urls/batch',
                     headers=headers,

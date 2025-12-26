@@ -37,8 +37,8 @@ class AiTranslator(Translator[T]):
         self.skip_translate = config.skip_translate
         self.glossary_agent = None
         self.glossary_dict_gen = None
-        if not self.skip_translate and (config.base_url is None or config.api_key is None or config.model_id is None):
-            raise ValueError("When skip_translate is not false, base_url, api_key, and model_id are required")
+        if not self.skip_translate and (config.base_url is None or config.model_id is None):
+            raise ValueError("When skip_translate is not false, base_url and model_id are required")
 
         if config.glossary_generate_enable:
             if config.glossary_agent_config:
@@ -48,8 +48,10 @@ class AiTranslator(Translator[T]):
                     to_lang=config.to_lang,
                     base_url=config.base_url,
                     api_key=config.api_key,
+                    api_type=getattr(config, 'api_type', 'openai'),
                     model_id=config.model_id,
                     temperature=config.temperature,
+                    max_tokens=getattr(config, 'max_tokens', None),
                     thinking=config.thinking,
                     concurrent=config.concurrent,
                     timeout=config.timeout,

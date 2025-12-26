@@ -19,7 +19,7 @@ def main():
         "-p", "--port",
         type=int,  # Specify parameter type (e.g., integer)
         default=None,  # Default value (optional)
-        help="Specify port number (default: 8010)."
+        help="Specify port number (default: 8020)."
     )
 
     parser.add_argument(

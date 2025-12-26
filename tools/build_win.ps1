@@ -95,8 +95,7 @@ function Make-WinPackage {
     # Copy configuration files to config directory
     $configFiles = @(
         "global_config.json",
-        "local_secrets.json.template",
-        "app_config.json.template"
+        "local_secrets.json.template"
     )
     
     foreach ($configFile in $configFiles) {
@@ -106,10 +105,11 @@ function Make-WinPackage {
         }
     }
     
-    # Copy additional template files if they exist
+    # Copy template files to templates directory
     $templateFiles = @(
         "local_config.json.template",
-        "app_config.json"
+        "app_config.json.template",
+        "local_users.json.template"
     )
     
     foreach ($templateFile in $templateFiles) {
@@ -129,7 +129,7 @@ setlocal
 
 REM Set default configuration directory for Windows
 set COLLABTRANS_CONFIG_DIR=C:\Users\Public\collabtrans
-set COLLABTRANS_PORT=8010
+set COLLABTRANS_PORT=8020
 
 REM Create config directory if it doesn't exist
 if not exist "%COLLABTRANS_CONFIG_DIR%" (
@@ -149,12 +149,12 @@ if not exist "%COLLABTRANS_CONFIG_DIR%\local_secrets.json" (
 )
 
 if not exist "%COLLABTRANS_CONFIG_DIR%\app_config.json" (
-    if exist "%~dp0config\app_config.json.template" (
-        copy "%~dp0config\app_config.json.template" "%COLLABTRANS_CONFIG_DIR%\app_config.json"
+    if exist "%~dp0config\templates\app_config.json.template" (
+        copy "%~dp0config\templates\app_config.json.template" "%COLLABTRANS_CONFIG_DIR%\app_config.json"
+        echo Created app_config.json from template in %COLLABTRANS_CONFIG_DIR%
     ) else (
-        copy "%~dp0config\app_config.json" "%COLLABTRANS_CONFIG_DIR%\"
+        echo WARNING: app_config.json.template not found in installation package
     )
-    echo Copied app_config.json to %COLLABTRANS_CONFIG_DIR%
 )
 
 REM Set environment variables for the application
@@ -258,28 +258,21 @@ if not exist "%CONFIG_DIR%\local_secrets.json" (
     echo local_secrets.json already exists in runtime directory, skipping template copy
 )
 
-REM Copy app_config.json
+REM Copy app_config.json from template to runtime directory
 if not exist "%CONFIG_DIR%\app_config.json" (
-    if exist "%INSTALL_DIR%\config\templates\app_config.json" (
-        copy "%INSTALL_DIR%\config\templates\app_config.json" "%CONFIG_DIR%\app_config.json" >nul
+    if exist "%INSTALL_DIR%\config\templates\app_config.json.template" (
+        copy "%INSTALL_DIR%\config\templates\app_config.json.template" "%CONFIG_DIR%\app_config.json" >nul
         if errorlevel 1 (
-            echo WARNING: Failed to copy app_config.json template
+            echo WARNING: Failed to copy app_config.json template to runtime directory
         ) else (
-            echo Created app_config.json from template
-        )
-    ) else if exist "%INSTALL_DIR%\config\app_config.json" (
-        copy "%INSTALL_DIR%\config\app_config.json" "%CONFIG_DIR%\" >nul
-        if errorlevel 1 (
-            echo WARNING: Failed to copy app_config.json
-        ) else (
-            echo Copied app_config.json
+            echo Created app_config.json from template in runtime directory
         )
     ) else (
-        echo WARNING: app_config.json not found in installation package
-        echo Expected locations:
-        echo   - %INSTALL_DIR%\config\templates\app_config.json
-        echo   - %INSTALL_DIR%\config\app_config.json
+        echo WARNING: app_config.json.template not found in installation package
+        echo Template location: %INSTALL_DIR%\config\templates\app_config.json.template
     )
+) else (
+    echo app_config.json already exists in runtime directory, skipping template copy
 )
 
 REM Copy local_config.json from template
@@ -434,8 +427,8 @@ INSTALLATION:
 USAGE:
 - Start the application using the desktop shortcut or Start Menu
 - Or run: C:\Program Files\CollabTrans\$launcherName
-- The application will start on port 8010 by default
-- Access the web interface at: http://localhost:8010
+- The application will start on port 8020 by default
+- Access the web interface at: http://localhost:8020
 
 CONFIGURATION:
 - Configuration files are stored in: C:\Users\Public\collabtrans

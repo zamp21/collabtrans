@@ -51,18 +51,12 @@ class LDAPClient:
                 server = Server(
                     host=self.config.ldap_host,
                     port=self.config.ldap_port,
-                    use_ssl=(self.config.ldap_protocol == "ldaps"),
-                    get_info=ALL
+                    use_ssl=(self.config.ldap_protocol == "ldaps")
                 )
                 logger.info(f"LDAP server object created successfully")
                 
                 # Create connection object
-                self._connection = Connection(
-                    server,
-                    auto_bind=False,
-                    receive_timeout=10,
-                    auto_referrals=False
-                )
+                self._connection = Connection(server, auto_bind=False, receive_timeout=10)
                 logger.info("LDAP connection object created successfully")
                 
                 # Configure TLS options
@@ -92,6 +86,43 @@ class LDAPClient:
         
         return self._connection
     
+    def _create_fresh_connection(self) -> Connection:
+        """Create a fresh LDAP connection for authentication"""
+        ldap_uri = self.config.get_ldap_uri()
+        logger.info(f"Creating fresh LDAP connection to: {ldap_uri}")
+        
+        try:
+            # Create LDAP server object
+            server = Server(
+                host=self.config.ldap_host,
+                port=self.config.ldap_port,
+                use_ssl=(self.config.ldap_protocol == "ldaps")
+            )
+            
+            # Create fresh connection object
+            conn = Connection(server, auto_bind=False, receive_timeout=10)
+            
+            # Configure TLS options if needed
+            if self.config.ldap_protocol == "ldaps":
+                if self.config.ldap_tls_cacertfile:
+                    tls = Tls(
+                        local_private_key_file=None,
+                        local_certificate_file=None,
+                        ca_certs_file=self.config.ldap_tls_cacertfile,
+                        validate=ssl.CERT_REQUIRED if self.config.ldap_tls_verify else ssl.CERT_NONE
+                    )
+                    server.tls = tls
+                else:
+                    tls = Tls(validate=ssl.CERT_REQUIRED if self.config.ldap_tls_verify else ssl.CERT_NONE)
+                    server.tls = tls
+            
+            logger.info("Fresh LDAP connection created successfully")
+            return conn
+            
+        except Exception as e:
+            logger.error(f"Failed to create fresh LDAP connection: {e}")
+            raise
+    
     def authenticate(self, username: str, password: str) -> User:
         """Authenticate user credentials"""
         if not self.config.ldap_enabled:
@@ -109,15 +140,16 @@ class LDAPClient:
         logger.info(f"  - TLS Verify: {self.config.ldap_tls_verify}")
         
         try:
-            conn = self._get_connection()
+            # Create a fresh connection for authentication
+            conn = self._create_fresh_connection()
             
             # Build bind DN
             bind_dn = self.config.ldap_bind_dn_template.format(username=username)
             logger.info(f"Built bind DN: {_mask_username(bind_dn)}")
             
-            # Attempt bind (note: ldap3's bind() doesn't accept username/password, should use rebind())
+            # Attempt bind
             logger.info("Attempting LDAP bind...")
-            if not conn.rebind(user=bind_dn, password=password):
+            if not conn.bind(bind_dn, password):
                 logger.warning(f"LDAP bind failed: {conn.last_error}")
                 raise InvalidCredentials("Invalid username or password")
             logger.info("LDAP bind successful")

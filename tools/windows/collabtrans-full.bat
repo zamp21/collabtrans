@@ -6,7 +6,7 @@ REM This script sets up the Windows environment and launches CollabTrans Full
 
 REM Set default configuration directory for Windows
 set COLLABTRANS_CONFIG_DIR=C:\Users\Public\collabtrans
-set COLLABTRANS_PORT=8010
+set COLLABTRANS_PORT=8020
 
 REM Create config directory if it doesn't exist
 if not exist "%COLLABTRANS_CONFIG_DIR%" (

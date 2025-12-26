@@ -170,7 +170,7 @@ Configure default port and working directory:
 ```bash
 sudo nano /etc/default/collabtrans          # lite
 sudo nano /etc/default/collabtrans-full     # full
-# COLLABTRANS_PORT=8010
+# COLLABTRANS_PORT=8020
 # COLLABTRANS_WORKDIR=/opt/collabtrans
 sudo systemctl restart collabtrans
 ```
@@ -259,7 +259,7 @@ For ease of use, CollabTrans provides a full-featured Web interface and RESTful 
 **Starting the Service:**
 
 ```bash
-# Start the service, listening on port 8010 by default
+# Start the service, listening on port 8020 by default
 collabtrans -i
 
 # Start on a specific port
@@ -270,16 +270,16 @@ export COLLABTRANS_PORT=8011
 collabtrans -i
 ```
 
-- **Interactive Interface**: After starting the service, please visit `http://127.0.0.1:8010` (or your specified port)
+- **Interactive Interface**: After starting the service, please visit `http://127.0.0.1:8020` (or your specified port)
   in your browser.
-- **API Documentation**: The complete API documentation (Swagger UI) is available at `http://127.0.0.1:8010/docs`.
+- **API Documentation**: The complete API documentation (Swagger UI) is available at `http://127.0.0.1:8020/docs`.
 
 ### HTTPS Setup
 
 CollabTrans supports HTTPS in two ways. By default HTTPS is disabled for safety. Use the Settings page `/settings` to configure and test.
 
 1) Reverse proxy terminates TLS (recommended)
-- Put Nginx/Caddy/Traefik in front of CollabTrans, listen on 443 with your certificate and key, and proxy to `http://127.0.0.1:8010` (or your port).
+- Put Nginx/Caddy/Traefik in front of CollabTrans, listen on 443 with your certificate and key, and proxy to `http://127.0.0.1:8020` (or your port).
 - Forward `X-Forwarded-Proto: https` from the proxy.
 - In Settings, you can keep HTTPS disabled in the app, or enable redirect if you still want in-app HTTPS enforcement.
 
@@ -643,7 +643,7 @@ converter_config = ConverterDoclingConfig(
 
 ## FAQ
 
-**Q: What if port 8010 is occupied?**
+**Q: What if port 8020 is occupied?**
 A: Use the `-p` parameter to specify a new port, or set the `COLLABTRANS_PORT` environment variable.
 
 **Q: Does it support translation of scanned PDFs?**

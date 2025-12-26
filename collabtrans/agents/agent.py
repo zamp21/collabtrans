@@ -3,10 +3,13 @@
 
 import asyncio
 import itertools
+import json
 import logging
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from datetime import datetime
 from threading import Lock
 from typing import Literal, Callable, Any
 from urllib.parse import urlparse
@@ -32,9 +35,11 @@ class AgentResultError(ValueError):
 class PartialAgentResultError(ValueError):
     """A special exception used to indicate that the result is incomplete but contains partially successful data to trigger retry. This error is not counted in the total error count"""
 
-    def __init__(self, message, partial_result: dict):
+    def __init__(self, message, partial_result: dict, missing_keys: set = None, original_chunk: dict = None):
         super().__init__(message)
         self.partial_result = partial_result
+        self.missing_keys = missing_keys or set()
+        self.original_chunk = original_chunk or {}
 
 
 @dataclass(kw_only=True)
@@ -44,10 +49,12 @@ class AgentConfig:
     api_key: str | None = None
     model_id: str
     temperature: float = 0.7
+    max_tokens: int | None = None  # Maximum tokens to generate. For Ollama, this maps to num_predict in options
     concurrent: int = 30
     timeout: int = 1200  # Unit (seconds), this value is the read value in httpx.TimeOut, not the total timeout time
     thinking: ThinkingMode = "default"
-    retry: int = 2
+    retry: int = 5  # Increased default retry count for better reliability
+    api_type: str = "openai"  # API type: "openai" or "ollama"
 
 
 class TotalErrorCounter:
@@ -229,12 +236,24 @@ class Agent:
         if self.baseurl.endswith("/"):
             self.baseurl = self.baseurl[:-1]
         self.domain = urlparse(self.baseurl).netloc
-        self.key = config.api_key.strip() if config.api_key else "xx"
         self.model_id = config.model_id.strip()
+        self.api_type = config.api_type.lower() if config.api_type else "openai"
+        # For Ollama, API key is optional (None or empty string is acceptable)
+        # For other platforms, use "xx" as placeholder if no key provided
+        if config.api_key:
+            self.key = config.api_key.strip()
+        elif self.api_type == "ollama":
+            self.key = None  # Ollama doesn't require API key
+        else:
+            self.key = "xx"  # Placeholder for other platforms
         self.system_prompt = ""
         self.temperature = config.temperature
+        self.max_tokens = config.max_tokens
         self.max_concurrent = config.concurrent
-        self.timeout = httpx.Timeout(connect=5, read=config.timeout, write=300, pool=10)
+        # Set timeout to 120 seconds for all API calls
+        # Fixed timeout value for consistent behavior
+        read_timeout = 120  # 120 seconds for all API calls
+        self.timeout = httpx.Timeout(connect=5, read=read_timeout, write=300, pool=10)
         self.thinking = config.thinking
         self.logger = config.logger
         self.total_error_counter = TotalErrorCounter(logger=self.logger)
@@ -245,6 +264,57 @@ class Agent:
         self.token_counter = TokenCounter(logger=self.logger)
 
         self.retry = config.retry
+
+    def _get_api_log_dir(self) -> str | None:
+        """Get API log directory from task state if available"""
+        try:
+            # Try to extract task_id from logger name (format: "task.{task_id}")
+            logger_name = self.logger.name
+            if logger_name.startswith("task."):
+                task_id = logger_name.split(".", 1)[1]
+                # Import here to avoid circular dependency
+                from collabtrans.app import tasks_state
+                if task_id in tasks_state:
+                    temp_dir = tasks_state[task_id].get("temp_dir")
+                    if temp_dir and os.path.isdir(temp_dir):
+                        api_log_dir = os.path.join(temp_dir, "api_calls")
+                        os.makedirs(api_log_dir, exist_ok=True)
+                        return api_log_dir
+        except Exception:
+            pass
+        return None
+
+    def _save_api_call(self, request_data: dict, response_data: dict | None = None, error: str | None = None):
+        """Save API call input and output to temporary folder"""
+        try:
+            api_log_dir = self._get_api_log_dir()
+            if not api_log_dir:
+                return
+            
+            # Generate filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            filename = f"api_call_{timestamp}.json"
+            filepath = os.path.join(api_log_dir, filename)
+            
+            # Prepare data to save
+            api_call_data = {
+                "timestamp": datetime.now().isoformat(),
+                "request": request_data,
+            }
+            
+            if response_data is not None:
+                api_call_data["response"] = response_data
+            if error is not None:
+                api_call_data["error"] = error
+            
+            # Save to JSON file
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(api_call_data, f, ensure_ascii=False, indent=2)
+            
+            self.logger.debug(f"API call saved to: {filepath}")
+        except Exception as e:
+            # Don't fail the request if logging fails
+            self.logger.warning(f"Failed to save API call: {e}")
 
     def _add_thinking_mode(self, data: dict):
         if self.domain not in self._think_factory:
@@ -260,21 +330,51 @@ class Agent:
     ):
         if temperature is None:
             temperature = self.temperature
+        
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.key}",
         }
-        data = {
-            "model": self.model_id,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt},
-            ],
-            "temperature": temperature,
-            "top_p": top_p,
-        }
-        if self.thinking != "default":
-            self._add_thinking_mode(data)
+        
+        # For Ollama, no Authorization header needed
+        if self.api_type != "ollama" and self.key and self.key != "xx":
+            headers["Authorization"] = f"Bearer {self.key}"
+        
+        # Prepare messages
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+        
+        if self.api_type == "ollama":
+            # Ollama API format
+            data = {
+                "model": self.model_id,
+                "messages": messages,
+                "stream": False,
+            }
+            # Ollama uses "options" object for parameters
+            options = {}
+            if temperature is not None:
+                options["temperature"] = temperature
+            # Ollama uses "num_predict" instead of "max_tokens"
+            if self.max_tokens is not None and self.max_tokens > 0:
+                options["num_predict"] = self.max_tokens
+            if options:
+                data["options"] = options
+        else:
+            # OpenAI API format (default)
+            data = {
+                "model": self.model_id,
+                "messages": messages,
+                "temperature": temperature,
+                "top_p": top_p,
+            }
+            # OpenAI uses "max_tokens" parameter
+            if self.max_tokens is not None and self.max_tokens > 0:
+                data["max_tokens"] = self.max_tokens
+            if self.thinking != "default":
+                self._add_thinking_mode(data)
+        
         return headers, data
 
     async def send_async(
@@ -309,27 +409,66 @@ class Agent:
         output_tokens = 0
 
         try:
+            # Determine API endpoint based on api_type
+            if self.api_type == "ollama":
+                endpoint = f"{self.baseurl}/api/chat"
+                # Log Ollama request details for debugging (debug level to reduce log noise)
+                self.logger.debug(f"[Ollama API] Endpoint: {endpoint}")
+                self.logger.debug(f"[Ollama API] Request data: {data}")
+                self.logger.debug(f"[Ollama API] Timeout: {self.timeout.read}s")
+            else:
+                endpoint = f"{self.baseurl}/chat/completions"
+            
+            # Prepare request data for logging (mask sensitive information)
+            request_log_data = {
+                "endpoint": endpoint,
+                "method": "POST",
+                "headers": {k: v if k.lower() != "authorization" else "***" for k, v in headers.items()},
+                "data": data,
+                "timeout": {
+                    "connect": self.timeout.connect,
+                    "read": self.timeout.read,
+                    "write": self.timeout.write,
+                    "pool": self.timeout.pool,
+                },
+                "api_type": self.api_type,
+                "model_id": self.model_id,
+            }
+            
             response = await client.post(
-                f"{self.baseurl}/chat/completions",
+                endpoint,
                 json=data,
                 headers=headers,
                 timeout=self.timeout,
             )
             response.raise_for_status()
-            # print(f"[Test] resp:\n{response.json()}")
-            result = response.json()["choices"][0]["message"]["content"]
+            response_data = response.json()
+            
+            # Save API call (request and response)
+            self._save_api_call(request_log_data, response_data)
+            
+            # Parse response based on API type
+            if self.api_type == "ollama":
+                # Ollama response format: {"message": {"content": "..."}}
+                result = response_data["message"]["content"]
+                # Ollama doesn't provide token usage in standard format
+                input_tokens = 0
+                cached_tokens = 0
+                output_tokens = 0
+                reasoning_tokens = 0
+            else:
+                # OpenAI response format: {"choices": [{"message": {"content": "..."}}]}
+                result = response_data["choices"][0]["message"]["content"]
+                # Get token usage information
+                input_tokens, cached_tokens, output_tokens, reasoning_tokens = (
+                    extract_token_info(response_data)
+                )
             
             # Print AI response logs
             self.logger.debug("=" * 80)
             self.logger.debug("🤖 Agent Response:")
             self.logger.debug(f"📄 Response Content:\n{result}")
             self.logger.debug("=" * 80)
-
-            # Get token usage information
-            response_data = response.json()
-            input_tokens, cached_tokens, output_tokens, reasoning_tokens = (
-                extract_token_info(response_data)
-            )
 
             # Update token counter
             self.token_counter.add(
@@ -345,7 +484,7 @@ class Agent:
             return (
                 result
                 if result_handler is None
-                else result_handler(result, prompt, self.logger)
+                else result_handler(result, prompt, self.logger, best_partial_result=best_partial_result)
             )
 
         except AgentResultError as e:
@@ -358,16 +497,77 @@ class Agent:
             current_partial_result = e.partial_result
             should_retry = True
             # is_hard_error remains False
+            # Smart retry: only retry missing segments instead of full chunk
+            if e.missing_keys and e.original_chunk:
+                # Build a new prompt containing only the missing segments
+                missing_chunk = {key: e.original_chunk[key] for key in e.missing_keys if key in e.original_chunk}
+                if missing_chunk:
+                    import json
+                    prompt = json.dumps(missing_chunk, ensure_ascii=False, indent=0)
+                    self.logger.info(f"Smart retry: Only retrying missing segments {e.missing_keys} instead of full chunk")
 
         # Catch hard errors
         except httpx.HTTPStatusError as e:
+            # Save API call with error
+            try:
+                request_log_data = {
+                    "endpoint": endpoint if 'endpoint' in locals() else f"{self.baseurl}/api/chat" if self.api_type == "ollama" else f"{self.baseurl}/chat/completions",
+                    "method": "POST",
+                    "headers": {k: v if k.lower() != "authorization" else "***" for k, v in (headers.items() if 'headers' in locals() else {})},
+                    "data": data if 'data' in locals() else {},
+                    "timeout": {
+                        "connect": self.timeout.connect,
+                        "read": self.timeout.read,
+                        "write": self.timeout.write,
+                        "pool": self.timeout.pool,
+                    },
+                    "api_type": self.api_type,
+                    "model_id": self.model_id,
+                }
+                error_msg_full = f"HTTPStatusError: {e.response.status_code} - {e.response.text[:500]}"
+                self._save_api_call(request_log_data, error=error_msg_full)
+            except Exception:
+                pass  # Don't fail if logging fails
+            
             self.logger.error(
                 f"AI request HTTP status error (async): {e.response.status_code} - {e.response.text}"
             )
             should_retry = True
             is_hard_error = True
         except httpx.RequestError as e:
-            self.logger.error(f"AI request connection error (async): {repr(e)}")
+            # Save API call with error
+            try:
+                request_log_data = {
+                    "endpoint": endpoint if 'endpoint' in locals() else f"{self.baseurl}/api/chat" if self.api_type == "ollama" else f"{self.baseurl}/chat/completions",
+                    "method": "POST",
+                    "headers": {k: v if k.lower() != "authorization" else "***" for k, v in (headers.items() if 'headers' in locals() else {})},
+                    "data": data if 'data' in locals() else {},
+                    "timeout": {
+                        "connect": self.timeout.connect,
+                        "read": self.timeout.read,
+                        "write": self.timeout.write,
+                        "pool": self.timeout.pool,
+                    },
+                    "api_type": self.api_type,
+                    "model_id": self.model_id,
+                }
+                error_msg_full = f"{type(e).__name__}: {str(e) if str(e) else repr(e)}"
+                self._save_api_call(request_log_data, error=error_msg_full)
+            except Exception:
+                pass  # Don't fail if logging fails
+            
+            # Provide more detailed error information
+            error_type = type(e).__name__
+            error_msg = str(e) if str(e) else repr(e)
+            timeout_info = f" (timeout: {self.timeout.read}s)"
+            if isinstance(e, httpx.ReadTimeout):
+                self.logger.error(f"AI request read timeout (async): {error_msg}{timeout_info}. The server did not respond within {self.timeout.read} seconds. This may indicate: 1) The model is too slow for the chunk size, 2) Network issues, 3) Server overload. Consider increasing timeout or reducing chunk_size.")
+            elif isinstance(e, httpx.ConnectTimeout):
+                self.logger.error(f"AI request connection timeout (async): {error_msg}{timeout_info}. Failed to connect to {self.baseurl}. Check if the server is running and accessible.")
+            elif isinstance(e, httpx.ConnectError):
+                self.logger.error(f"AI request connection error (async): {error_msg}. Failed to connect to {self.baseurl}. Check network connectivity and server status.")
+            else:
+                self.logger.error(f"AI request connection error (async): {error_type}: {error_msg}{timeout_info}")
             should_retry = True
             is_hard_error = True
         except (KeyError, IndexError, ValueError) as e:
@@ -384,6 +584,9 @@ class Agent:
                 if retry_count == 0:
                     if self.total_error_counter.add():
                         self.logger.error("Too many errors, reached limit, no more retries.")
+                        # Increase unresolved error count when too many errors occur
+                        with self.unresolved_error_lock:
+                            self.unresolved_error_count += 1
                         return (
                             best_partial_result
                             if best_partial_result
@@ -395,6 +598,9 @@ class Agent:
                         )
                 elif self.total_error_counter.reach_limit():
                     self.logger.error("Too many errors, reached limit, no more retries for this request.")
+                    # Increase unresolved error count when too many errors occur
+                    with self.unresolved_error_lock:
+                        self.unresolved_error_count += 1
                     return (
                         best_partial_result
                         if best_partial_result
@@ -473,7 +679,8 @@ class Agent:
         )
 
         async with httpx.AsyncClient(
-                trust_env=False, proxies=proxies, verify=False, limits=limits
+                trust_env=False, proxies=proxies, verify=False, limits=limits,
+                timeout=httpx.Timeout(connect=5, read=120, write=300, pool=10)
         ) as client:
             async def send_with_semaphore(p_text: str):
                 async with semaphore:
@@ -536,27 +743,62 @@ class Agent:
         output_tokens = 0
 
         try:
+            # Determine API endpoint based on api_type
+            if self.api_type == "ollama":
+                endpoint = f"{self.baseurl}/api/chat"
+            else:
+                endpoint = f"{self.baseurl}/chat/completions"
+            
+            # Prepare request data for logging (mask sensitive information)
+            request_log_data = {
+                "endpoint": endpoint,
+                "method": "POST",
+                "headers": {k: v if k.lower() != "authorization" else "***" for k, v in headers.items()},
+                "data": data,
+                "timeout": {
+                    "connect": self.timeout.connect,
+                    "read": self.timeout.read,
+                    "write": self.timeout.write,
+                    "pool": self.timeout.pool,
+                },
+                "api_type": self.api_type,
+                "model_id": self.model_id,
+            }
+            
             response = client.post(
-                f"{self.baseurl}/chat/completions",
+                endpoint,
                 json=data,
                 headers=headers,
                 timeout=self.timeout,
             )
             response.raise_for_status()
-
-            result = response.json()["choices"][0]["message"]["content"]
+            response_data = response.json()
+            
+            # Save API call (request and response)
+            self._save_api_call(request_log_data, response_data)
+            
+            # Parse response based on API type
+            if self.api_type == "ollama":
+                # Ollama response format: {"message": {"content": "..."}}
+                result = response_data["message"]["content"]
+                # Ollama doesn't provide token usage in standard format
+                input_tokens = 0
+                cached_tokens = 0
+                output_tokens = 0
+                reasoning_tokens = 0
+            else:
+                # OpenAI response format: {"choices": [{"message": {"content": "..."}}]}
+                result = response_data["choices"][0]["message"]["content"]
+                # Get token usage information
+                input_tokens, cached_tokens, output_tokens, reasoning_tokens = (
+                    extract_token_info(response_data)
+                )
             
             # Print AI response logs
             self.logger.debug("=" * 80)
             self.logger.debug("🤖 Agent Response:")
             self.logger.debug(f"📄 Response Content:\n{result}")
             self.logger.debug("=" * 80)
-
-            # Get token usage information
-            response_data = response.json()
-            input_tokens, cached_tokens, output_tokens, reasoning_tokens = (
-                extract_token_info(response_data)
-            )
 
             # Update token counter
             self.token_counter.add(
@@ -571,7 +813,7 @@ class Agent:
             return (
                 result
                 if result_handler is None
-                else result_handler(result, prompt, self.logger)
+                else result_handler(result, prompt, self.logger, best_partial_result=best_partial_result)
             )
         except AgentResultError as e:
             self.logger.error(f"AI returned incorrect result: {e}")
@@ -582,16 +824,77 @@ class Agent:
             current_partial_result = e.partial_result
             should_retry = True
             # is_hard_error remains False
+            # Smart retry: only retry missing segments instead of full chunk
+            if e.missing_keys and e.original_chunk:
+                # Build a new prompt containing only the missing segments
+                missing_chunk = {key: e.original_chunk[key] for key in e.missing_keys if key in e.original_chunk}
+                if missing_chunk:
+                    import json
+                    prompt = json.dumps(missing_chunk, ensure_ascii=False, indent=0)
+                    self.logger.info(f"Smart retry: Only retrying missing segments {e.missing_keys} instead of full chunk")
 
         # Catch hard errors
         except httpx.HTTPStatusError as e:
+            # Save API call with error
+            try:
+                request_log_data = {
+                    "endpoint": endpoint if 'endpoint' in locals() else f"{self.baseurl}/api/chat" if self.api_type == "ollama" else f"{self.baseurl}/chat/completions",
+                    "method": "POST",
+                    "headers": {k: v if k.lower() != "authorization" else "***" for k, v in (headers.items() if 'headers' in locals() else {})},
+                    "data": data if 'data' in locals() else {},
+                    "timeout": {
+                        "connect": self.timeout.connect,
+                        "read": self.timeout.read,
+                        "write": self.timeout.write,
+                        "pool": self.timeout.pool,
+                    },
+                    "api_type": self.api_type,
+                    "model_id": self.model_id,
+                }
+                error_msg_full = f"HTTPStatusError: {e.response.status_code} - {e.response.text[:500]}"
+                self._save_api_call(request_log_data, error=error_msg_full)
+            except Exception:
+                pass  # Don't fail if logging fails
+            
             self.logger.error(
                 f"AI request HTTP status error (sync): {e.response.status_code} - {e.response.text}"
             )
             should_retry = True
             is_hard_error = True
         except httpx.RequestError as e:
-            self.logger.error(f"AI request connection error (sync): {repr(e)}\nprompt:{prompt}")
+            # Save API call with error
+            try:
+                request_log_data = {
+                    "endpoint": endpoint if 'endpoint' in locals() else f"{self.baseurl}/api/chat" if self.api_type == "ollama" else f"{self.baseurl}/chat/completions",
+                    "method": "POST",
+                    "headers": {k: v if k.lower() != "authorization" else "***" for k, v in (headers.items() if 'headers' in locals() else {})},
+                    "data": data if 'data' in locals() else {},
+                    "timeout": {
+                        "connect": self.timeout.connect,
+                        "read": self.timeout.read,
+                        "write": self.timeout.write,
+                        "pool": self.timeout.pool,
+                    },
+                    "api_type": self.api_type,
+                    "model_id": self.model_id,
+                }
+                error_msg_full = f"{type(e).__name__}: {str(e) if str(e) else repr(e)}"
+                self._save_api_call(request_log_data, error=error_msg_full)
+            except Exception:
+                pass  # Don't fail if logging fails
+            
+            # Provide more detailed error information
+            error_type = type(e).__name__
+            error_msg = str(e) if str(e) else repr(e)
+            timeout_info = f" (timeout: {self.timeout.read}s)"
+            if isinstance(e, httpx.ReadTimeout):
+                self.logger.error(f"AI request read timeout (sync): {error_msg}{timeout_info}. The server did not respond within {self.timeout.read} seconds. This may indicate: 1) The model is too slow for the chunk size, 2) Network issues, 3) Server overload. Consider increasing timeout or reducing chunk_size.\nprompt:{prompt[:200]}")
+            elif isinstance(e, httpx.ConnectTimeout):
+                self.logger.error(f"AI request connection timeout (sync): {error_msg}{timeout_info}. Failed to connect to {self.baseurl}. Check if the server is running and accessible.\nprompt:{prompt[:200]}")
+            elif isinstance(e, httpx.ConnectError):
+                self.logger.error(f"AI request connection error (sync): {error_msg}. Failed to connect to {self.baseurl}. Check network connectivity and server status.\nprompt:{prompt[:200]}")
+            else:
+                self.logger.error(f"AI request connection error (sync): {error_type}: {error_msg}{timeout_info}\nprompt:{prompt[:200]}")
             should_retry = True
             is_hard_error = True
         except (KeyError, IndexError, ValueError) as e:
@@ -608,6 +911,9 @@ class Agent:
                 if retry_count == 0:
                     if self.total_error_counter.add():
                         self.logger.error("Too many errors, reached limit, no more retries.")
+                        # Increase unresolved error count when too many errors occur
+                        with self.unresolved_error_lock:
+                            self.unresolved_error_count += 1
                         return (
                             best_partial_result
                             if best_partial_result
@@ -619,6 +925,9 @@ class Agent:
                         )
                 elif self.total_error_counter.reach_limit():
                     self.logger.error("Too many errors, reached limit, no more retries for this request.")
+                    # Increase unresolved error count when too many errors occur
+                    with self.unresolved_error_lock:
+                        self.unresolved_error_count += 1
                     return (
                         best_partial_result
                         if best_partial_result
@@ -716,7 +1025,8 @@ class Agent:
         )
         proxies = get_httpx_proxies() if USE_PROXY else None
         with httpx.Client(
-                trust_env=False, proxies=proxies, verify=False, limits=limits
+                trust_env=False, proxies=proxies, verify=False, limits=limits,
+                timeout=httpx.Timeout(connect=5, read=120, write=300, pool=10)
         ) as client:
             clients = itertools.repeat(client, len(prompts))
             with ThreadPoolExecutor(max_workers=self.max_concurrent) as executor:

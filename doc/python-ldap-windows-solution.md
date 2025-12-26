@@ -125,7 +125,7 @@ uv pip install python_ldap-3.4.4-cp312-cp312-win_amd64.whl
 ### 4. 验证服务
 ```bash
 # 检查服务是否在指定端口运行
-netstat -an | findstr :8010
+netstat -an | findstr :8020
 ```
 
 ## 常见问题

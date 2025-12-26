@@ -112,8 +112,12 @@ class LocalConfig:
     def load_from_file(cls, config_file: str = "local_config.json") -> "LocalConfig":
         """Load local configuration from JSON file"""
         try:
-            if os.path.exists(config_file):
-                with open(config_file, 'r', encoding='utf-8') as f:
+            # Resolve the actual config file path
+            from ..auth.config import _resolve_auth_config_path
+            resolved_path = _resolve_auth_config_path(config_file)
+            
+            if resolved_path.exists():
+                with open(resolved_path, 'r', encoding='utf-8') as f:
                     config_data = json.load(f)
                 
                 # Create configuration object
@@ -147,10 +151,10 @@ class LocalConfig:
                 if 'https' in config_data:
                     config.https = HTTPSConfig(**config_data['https'])
                 
-                logger.debug(f"Loaded local configuration from {config_file}")
+                logger.debug(f"Loaded local configuration from {resolved_path}")
                 return config
             else:
-                logger.warning(f"Local configuration file {config_file} not found, using defaults")
+                logger.warning(f"Local configuration file {resolved_path} not found, using defaults")
                 return cls()
                 
         except Exception as e:
@@ -160,6 +164,10 @@ class LocalConfig:
     def save_to_file(self, config_file: str = "local_config.json") -> bool:
         """Save local configuration to JSON file"""
         try:
+            # Resolve the actual config file path
+            from ..auth.config import _resolve_auth_config_path
+            resolved_path = _resolve_auth_config_path(config_file)
+            
             config_dict = {
                 'ldap': asdict(self.ldap),
                 'default_user': asdict(self.default_user),
@@ -170,14 +178,14 @@ class LocalConfig:
                 'https': asdict(self.https)
             }
             
-            with open(config_file, 'w', encoding='utf-8') as f:
+            with open(resolved_path, 'w', encoding='utf-8') as f:
                 json.dump(config_dict, f, indent=2, ensure_ascii=False)
             
-            logger.info(f"Saved local configuration to {config_file}")
+            logger.info(f"Saved local configuration to {resolved_path}")
             return True
             
         except Exception as e:
-            logger.error(f"Error saving local configuration to {config_file}: {e}")
+            logger.error(f"Error saving local configuration to {resolved_path}: {e}")
             return False
     
     def get_config_dict(self) -> Dict[str, Any]:

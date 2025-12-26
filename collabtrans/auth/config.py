@@ -358,6 +358,10 @@ class AuthConfig:
         last_error = None
         for path in candidates:
             try:
+                logger.debug(f"[AuthConfig] Attempting to save to: {path}")
+                logger.debug(f"[AuthConfig] Path exists: {path.exists()}, parent exists: {path.parent.exists()}")
+                logger.debug(f"[AuthConfig] Path permissions: {oct(path.stat().st_mode) if path.exists() else 'N/A'}")
+                
                 path.parent.mkdir(parents=True, exist_ok=True)
                 with open(path, 'w', encoding='utf-8') as f:
                     json.dump(grouped, f, indent=2, ensure_ascii=False)
@@ -365,13 +369,15 @@ class AuthConfig:
                 try:
                     if str(path).startswith(str(system_dir)):
                         os.chmod(path, 0o640)
-                except Exception:
-                    pass
+                        logger.debug(f"[AuthConfig] Set permissions 640 for {path}")
+                except Exception as perm_e:
+                    logger.warning(f"[AuthConfig] Failed to set permissions for {path}: {perm_e}")
                 logger.info(f"[AuthConfig] Grouped config saved to {path}")
                 return True
             except Exception as e:
                 last_error = e
                 logger.warning(f"[AuthConfig] Write failed, trying next location: {path} -> {e}")
+                logger.debug(f"[AuthConfig] Exception details: {type(e).__name__}: {e}")
                 continue
 
         logger.error(f"[AuthConfig] Failed to save grouped config after fallbacks: {last_error}")

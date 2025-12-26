@@ -51,6 +51,7 @@ class TXTTranslator(AiTranslator):
                 to_lang=config.to_lang,
                 base_url=config.base_url,
                 api_key=config.api_key,
+                api_type=getattr(config, 'api_type', 'openai'),
                 model_id=config.model_id,
                 temperature=config.temperature,
                 thinking=config.thinking,

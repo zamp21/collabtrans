@@ -65,7 +65,7 @@
    - `app_config.json.template` → `app_config.json` (应用配置)
 3. **设置环境变量**:
    - `COLLABTRANS_CONFIG_PATH` = `C:\Users\Public\collabtrans`
-   - `DOCUTRANSLATE_PORT` = `8010`
+   - `DOCUTRANSLATE_PORT` = `8020`
 
 ### 启动脚本功能
 

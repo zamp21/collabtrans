@@ -32,9 +32,9 @@ class ConverterMineruConfig(X2MarkdownConverterConfig):
 
 
 timeout = httpx.Timeout(
-    connect=20.0,  # Allow slower TLS handshake / network
-    read=300.0,    # Allow larger files and slower networks
-    write=300.0,
+    connect=5.0,   # Connection timeout
+    read=120.0,    # Read timeout: 120 seconds for all API calls
+    write=300.0,   # Write timeout
     pool=5.0
 )
 # if USE_PROXY:

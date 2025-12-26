@@ -178,6 +178,7 @@ async function loadAiPlatformConfig() {
       // Fill form fields
       document.getElementById('platformName').value = platformConfig.name || '';
       document.getElementById('platformUrl').value = platformConfig.url || '';
+      document.getElementById('apiType').value = platformConfig.api_type || 'openai';
       document.getElementById('modelName').value = platformConfig.model || '';
       document.getElementById('maxTokens').value = platformConfig.max_tokens || 4096;
       document.getElementById('temperature').value = platformConfig.temperature || 0.7;
@@ -185,6 +186,7 @@ async function loadAiPlatformConfig() {
       // If no configuration found, use default values
       document.getElementById('platformName').value = '';
       document.getElementById('platformUrl').value = '';
+      document.getElementById('apiType').value = 'openai';
       document.getElementById('modelName').value = '';
       document.getElementById('modelName').placeholder = window.SettingsCore ? window.SettingsCore.getText('modelNamePlaceholder') : 'deepseek-chat';
       document.getElementById('maxTokens').value = 4096;
@@ -350,6 +352,7 @@ async function saveAiPlatformConfig() {
     const platformName = document.getElementById('platformName');
     const platformUrl = document.getElementById('platformUrl');
     const apiKey = document.getElementById('platformApiKey');
+    const apiType = document.getElementById('apiType');
     const modelName = document.getElementById('modelName');
     const maxTokens = document.getElementById('maxTokens');
     const temperature = document.getElementById('temperature');
@@ -394,6 +397,7 @@ async function saveAiPlatformConfig() {
     const platformNameValue = platformName?.value || '';
     const platformUrlValue = platformUrl?.value || '';
     const apiKeyValue = (apiKey?.value || '').trim();
+    const apiTypeValue = apiType?.value || 'openai';
     const modelNameValue = modelName?.value || '';
     const maxTokensValue = parseInt(maxTokens?.value || '4096');
     const temperatureValue = parseFloat(temperature?.value || '0.7');
@@ -431,6 +435,7 @@ async function saveAiPlatformConfig() {
         [platformType]: {     // Update only current platform
           name: platformNameValue,
           url: platformUrlValue,
+          api_type: apiTypeValue,
           model: modelNameValue,
           max_tokens: maxTokensValue,
           temperature: temperatureValue,
@@ -562,6 +567,7 @@ async function testAiPlatform() {
     const platformType = document.getElementById('platformSelect')?.value || '';
     const baseUrl = (document.getElementById('platformUrl')?.value || '').trim();
     const modelName = (document.getElementById('modelName')?.value || '').trim();
+    const apiType = (document.getElementById('apiType')?.value || 'openai').trim();
     const apiKeyInputVal = (document.getElementById('platformApiKey')?.value || '').trim();
 
     if (!platformType) {
@@ -575,35 +581,40 @@ async function testAiPlatform() {
     }
 
     // Determine if API key is configured (masked OK). If input empty, check server raw-secrets meta
-    let apiKeyConfigured = !!apiKeyInputVal;
-    if (!apiKeyConfigured) {
-      try {
-        const rs = await fetch('/auth/app-config/raw-secrets', { credentials: 'include' });
-        if (rs.ok) {
-          const secrets = await rs.json();
-          if (secrets.platform_api_keys_meta && secrets.platform_api_keys_meta[platformType]) {
-            apiKeyConfigured = !!secrets.platform_api_keys_meta[platformType].configured;
-          } else if (secrets.platform_api_keys && secrets.platform_api_keys[platformType]) {
-            const v = secrets.platform_api_keys[platformType];
-            apiKeyConfigured = !!(typeof v === 'string' ? v : (v?.key));
+    // For Custom Platform and Ollama, skip API key check
+    if (platformType === 'custom' || apiType === 'ollama') {
+      // Allow empty API key for custom platform and Ollama
+    } else {
+      let apiKeyConfigured = !!apiKeyInputVal;
+      if (!apiKeyConfigured) {
+        try {
+          const rs = await fetch('/auth/app-config/raw-secrets', { credentials: 'include' });
+          if (rs.ok) {
+            const secrets = await rs.json();
+            if (secrets.platform_api_keys_meta && secrets.platform_api_keys_meta[platformType]) {
+              apiKeyConfigured = !!secrets.platform_api_keys_meta[platformType].configured;
+            } else if (secrets.platform_api_keys && secrets.platform_api_keys[platformType]) {
+              const v = secrets.platform_api_keys[platformType];
+              apiKeyConfigured = !!(typeof v === 'string' ? v : (v?.key));
+            }
           }
-        }
-      } catch(e) { /* ignore and keep apiKeyConfigured as-is */ }
-    }
+        } catch(e) { /* ignore and keep apiKeyConfigured as-is */ }
+      }
 
-    if (!apiKeyConfigured) {
-      const msg = window.SettingsCore ? window.SettingsCore.getText('apiKeyNotConfigured') || 'API Key is not configured' : 'API Key is not configured';
-      if (window.SettingsCore) window.SettingsCore.showNotification(msg, 'error');
-      const badge = document.getElementById('platformConnStatus');
-      if (badge){ badge.className = 'badge bg-danger ms-2'; badge.textContent = (window.SettingsCore? window.SettingsCore.getText('connStatusFailed'): 'Failed'); }
-      return;
+      if (!apiKeyConfigured) {
+        const msg = window.SettingsCore ? window.SettingsCore.getText('apiKeyNotConfigured') || 'API Key is not configured' : 'API Key is not configured';
+        if (window.SettingsCore) window.SettingsCore.showNotification(msg, 'error');
+        const badge = document.getElementById('platformConnStatus');
+        if (badge){ badge.className = 'badge bg-danger ms-2'; badge.textContent = (window.SettingsCore? window.SettingsCore.getText('connStatusFailed'): 'Failed'); }
+        return;
+      }
     }
 
     const resp = await fetch('/auth/test-ai-platform', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ platform_type: platformType, base_url: baseUrl, model_name: modelName })
+      body: JSON.stringify({ platform_type: platformType, base_url: baseUrl, model_name: modelName, api_type: apiType })
     });
     
     if (!resp.ok) {

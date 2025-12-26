@@ -81,12 +81,13 @@ class SegmentsTranslateAgent(Agent):
                 system_prompt += append_text
         return system_prompt, prompt
 
-    def _result_handler(self, result: str, origin_prompt: str, logger: Logger):
+    def _result_handler(self, result: str, origin_prompt: str, logger: Logger, best_partial_result: dict = None):
         """
         Handle successful API response.
         - If keys match completely, return translation result.
         - If keys don't match, construct a partially successful result and throw PartialTranslationError exception to trigger retry.
         - Other errors (such as JSON parsing failure, model laziness) throw regular ValueError to trigger retry.
+        - If best_partial_result is provided (from previous retry), merge it with new result.
         """
         if result == "":
             if origin_prompt.strip() != "":
@@ -102,6 +103,16 @@ class SegmentsTranslateAgent(Agent):
 
             if repaired_result == original_chunk:
                 raise AgentResultError("Translation result is identical to original text, suspected translation failure, will retry.")
+
+            # If this is a retry with partial result, merge the new result with the existing partial result
+            if best_partial_result:
+                logger.info(f"Merging retry result with previous partial result. Previous keys: {set(best_partial_result.keys())}, New keys: {set(repaired_result.keys())}")
+                # Merge: use new result for keys that exist in repaired_result, keep best_partial_result for others
+                merged_result = best_partial_result.copy()
+                for key, value in repaired_result.items():
+                    merged_result[key] = str(value)
+                repaired_result = merged_result
+                logger.info(f"Merged result keys: {set(repaired_result.keys())}")
 
             original_keys = set(original_chunk.keys())
             result_keys = set(repaired_result.keys())
@@ -123,8 +134,13 @@ class SegmentsTranslateAgent(Agent):
                 for key in missing_keys:
                     final_chunk[key] = str(original_chunk[key])
 
-                # Throw custom exception, passing partial result and error information together
-                raise PartialAgentResultError("Key mismatch, triggering retry", partial_result=final_chunk)
+                # Throw custom exception, passing partial result, missing keys, and original chunk for smart retry
+                raise PartialAgentResultError(
+                    "Key mismatch, triggering retry",
+                    partial_result=final_chunk,
+                    missing_keys=missing_keys,
+                    original_chunk=original_chunk
+                )
 
             # If keys match completely (ideal case), return normally
             for key, value in repaired_result.items():

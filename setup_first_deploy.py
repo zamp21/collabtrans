@@ -80,7 +80,7 @@ def setup_first_deploy():
     print("\n🔧 Startup command:")
     print("   .venv\\Scripts\\python.exe -m collabtrans.cli -i")
     print("\n🌐 Access URL:")
-    print("   http://127.0.0.1:8010")
+    print("   http://127.0.0.1:8020")
     print("\n👤 Default login information:")
     print("   Username: admin")
     print("   Password: [Set via unified user storage]")

@@ -69,6 +69,7 @@ make_deb_lite() {
   # Install configuration files to /etc/collabtrans
   install -m644 "${ROOT_DIR}/global_config.json" "${pkg_root}/etc/collabtrans/"
   install -m644 "${ROOT_DIR}/local_secrets.json.template" "${pkg_root}/etc/collabtrans/"
+  install -m644 "${ROOT_DIR}/local_users.json.template" "${pkg_root}/etc/collabtrans/"
   if [[ -f "${ROOT_DIR}/local_config.json.template" ]]; then
     install -m644 "${ROOT_DIR}/local_config.json.template" "${pkg_root}/etc/collabtrans/"
   fi
@@ -104,7 +105,7 @@ EOF
 
   cat > "${pkg_root}/etc/default/collabtrans" <<'EOF'
 # Default options for CollabTrans service
-COLLABTRANS_PORT=8010
+COLLABTRANS_PORT=8020
 COLLABTRANS_WORKDIR=/opt/collabtrans
 # Ensure runtime data/config paths are explicit for service user (www-data)
 XDG_DATA_HOME=/var/lib
@@ -114,7 +115,7 @@ EOF
   cat > "${pkg_root}/usr/bin/collabtrans" <<'EOF'
 #!/usr/bin/env bash
 set -e
-PORT=${COLLABTRANS_PORT:-8010}
+PORT=${COLLABTRANS_PORT:-8020}
 WORKDIR=${COLLABTRANS_WORKDIR:-/opt/collabtrans}
 export DOCUTRANSLATE_PORT="$PORT"
 # Propagate data/config directories (can be overridden via /etc/default/collabtrans)
@@ -225,6 +226,59 @@ if [[ ! -f "$CFG_DIR/app_config.json" && -f "$CFG_DIR/app_config.json.template" 
   chmod 660 "$CFG_DIR/app_config.json" || true
   echo "Created /etc/collabtrans/app_config.json from template"
 fi
+# Initialize /etc/collabtrans/local_users.json (if missing and template exists)
+if [[ ! -f "$CFG_DIR/local_users.json" && -f "$CFG_DIR/local_users.json.template" ]]; then
+  # Generate local_users.json from template with proper password hashing
+  python3 -c "
+import json
+import hashlib
+import hmac
+import secrets
+from datetime import datetime
+
+def hash_password(password: str) -> str:
+    '''Hash password using PBKDF2-SHA256'''
+    salt = secrets.token_bytes(16)
+    dk = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 210000)
+    return f'pbkdf2_sha256\$210000\${salt.hex()}\${dk.hex()}'
+
+# Read template
+with open('$CFG_DIR/local_users.json.template', 'r', encoding='utf-8') as f:
+    template = json.load(f)
+
+# Generate timestamp
+timestamp = datetime.now().isoformat()
+
+# Process users
+for user in template['users']:
+    username = user['username']
+    # Get default password from template metadata
+    default_password = template['metadata']['default_passwords'].get(username, 'password123')
+    # Generate proper password hash
+    user['password_hash'] = hash_password(default_password)
+    user['created_at'] = timestamp
+    user['last_login'] = None
+    user['is_active'] = True
+    user['is_system_user'] = (username == 'admin')
+
+# Update metadata
+template['metadata']['created_at'] = timestamp
+template['_meta'] = {
+    'version': 2,
+    'description': 'Unified user storage with admin and regular users',
+    'migrated_at': timestamp
+}
+
+# Write generated file
+with open('$CFG_DIR/local_users.json', 'w', encoding='utf-8') as f:
+    json.dump(template, f, indent=2, ensure_ascii=False)
+
+print('Generated local_users.json from template')
+"
+  chmod 660 "$CFG_DIR/local_users.json" || true
+  chown root:collabtrans "$CFG_DIR/local_users.json" || true
+  echo "Created /etc/collabtrans/local_users.json from template with proper password hashing"
+fi
 
 # Create runtime data directories and grant permissions (user profiles, cache, etc.)
 RUNTIME_DIR="/var/lib/collabtrans"
@@ -248,6 +302,10 @@ fi
 if [[ ! -L "/opt/collabtrans/glossaries" ]]; then
   ln -sfn "$RUNTIME_DIR/glossaries" "/opt/collabtrans/glossaries" || true
 fi
+
+# Create logs directory in installation path (for backward compatibility)
+install -d -m 755 /opt/collabtrans/logs || true
+chown -R www-data:collabtrans /opt/collabtrans/logs || true
 EOF
   chmod 755 "${pkg_root}/DEBIAN/postinst"
 
@@ -299,6 +357,7 @@ make_deb_full() {
   # Install configuration files to /etc/collabtrans
   install -m644 "${ROOT_DIR}/global_config.json" "${pkg_root}/etc/collabtrans/"
   install -m644 "${ROOT_DIR}/local_secrets.json.template" "${pkg_root}/etc/collabtrans/"
+  install -m644 "${ROOT_DIR}/local_users.json.template" "${pkg_root}/etc/collabtrans/"
   if [[ -f "${ROOT_DIR}/local_config.json.template" ]]; then
     install -m644 "${ROOT_DIR}/local_config.json.template" "${pkg_root}/etc/collabtrans/"
   fi
@@ -320,7 +379,7 @@ EOF
 
   cat > "${pkg_root}/etc/default/collabtrans-full" <<'EOF'
 # Default options for CollabTrans FULL service
-COLLABTRANS_PORT=8010
+COLLABTRANS_PORT=8020
 COLLABTRANS_WORKDIR=/opt/collabtrans
 # Ensure runtime data/config paths are explicit for service user (www-data)
 XDG_DATA_HOME=/var/lib
@@ -330,7 +389,7 @@ EOF
   cat > "${pkg_root}/usr/bin/collabtrans-full" <<'EOF'
 #!/usr/bin/env bash
 set -e
-PORT=${COLLABTRANS_PORT:-8010}
+PORT=${COLLABTRANS_PORT:-8020}
 WORKDIR=${COLLABTRANS_WORKDIR:-/opt/collabtrans}
 export DOCUTRANSLATE_PORT="$PORT"
 # Propagate data/config directories (can be overridden via /etc/default/collabtrans-full)

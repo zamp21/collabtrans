@@ -93,6 +93,15 @@
   </div>
 
   <div class="mt-3">
+    <label class="form-label" for="apiType" data-i18n="apiTypeLabel">API Type</label>
+    <select class="form-select" id="apiType">
+      <option value="openai" data-i18n="apiTypeOpenAI">OpenAI</option>
+      <option value="ollama" data-i18n="apiTypeOllama">Ollama</option>
+    </select>
+    <div class="form-text" data-i18n="apiTypeHelp">Select API interface type: OpenAI format or Ollama format</div>
+  </div>
+
+  <div class="mt-3">
     <label class="form-label" for="modelName" data-i18n="modelNameLabel">Model Name</label>
     <input type="text" class="form-control" id="modelName" data-i18n-placeholder="modelNamePlaceholder" placeholder="deepseek-chat">
     <div class="form-text" data-i18n="modelNameHelp">e.g.: deepseek-chat, gpt-4, claude-3-sonnet, etc.</div>

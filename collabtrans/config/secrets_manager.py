@@ -75,6 +75,15 @@ class SecretsManager:
                                 f"Failed to create system secrets from template: {copy_err}. Will try other locations."
                             )
                     # If still not set, fall through to other locations
+                    if not hasattr(self, 'secrets_file'):
+                        self.secrets_file = Path(system_secrets_file)
+            else:
+                # System directory doesn't exist, use fallback
+                if not hasattr(self, 'secrets_file'):
+                    proj_root = Path(__file__).resolve().parents[2]
+                    sf = Path(secrets_file)
+                    self.secrets_file = sf if sf.is_absolute() else (proj_root / sf)
+                    logger.debug(f"Using fallback secrets config: {self.secrets_file}")
         else:
             # Try to load configuration file from executable directory
             import sys

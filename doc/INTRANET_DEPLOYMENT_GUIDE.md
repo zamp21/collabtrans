@@ -57,7 +57,7 @@
 ### 2. 网络配置
 
 **防火墙设置：**
-- 确保应用端口（默认8010）可访问
+- 确保应用端口（默认8020）可访问
 - 如果使用HTTPS，确保443端口开放
 - 确保Redis端口（默认6379）可访问
 
@@ -145,11 +145,11 @@ Failed to load i18n data: Error: Failed to load i18n data
 
 ```bash
 # 测试静态资源访问
-curl -I http://your-server:8010/static/bootstrap.css
-curl -I http://your-server:8010/i18n/i18nData.json
+curl -I http://your-server:8020/static/bootstrap.css
+curl -I http://your-server:8020/i18n/i18nData.json
 
 # 测试应用启动
-curl -I http://your-server:8010/
+curl -I http://your-server:8020/
 ```
 
 ## 最佳实践

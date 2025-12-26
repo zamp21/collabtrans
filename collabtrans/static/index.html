@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title data-i18n-title="pageTitle">CollabTrans - Interactive Document Translation</title>
+    <title data-i18n-title="pageTitle">Interactive Document Translation</title>
     
     <!-- Debug logging for main page -->
     <script>
@@ -325,7 +325,7 @@
                     <div class="d-flex align-items-center">
                         <img src="/static/favicon.ico" alt="CollabTrans Logo" style="width: 96px; height: 96px; margin-right: 20px;">
                         <div style="height: 96px; display: flex; flex-direction: column; justify-content: center;">
-                            <h1 class="mb-1 fw-bold" style="font-size: 2.5rem;">CollabTrans</h1>
+                            <h1 class="mb-1 fw-bold" style="font-size: 2.5rem;">AI </h1>
                             <p class="mb-0 text-muted" style="font-size: 1.25rem;">Document Translation Agent</p>
                         </div>
                     </div>
@@ -353,13 +353,9 @@
                                             (.pdf/.md/.png, etc.)
                                         </option>
                                         <option value="txt" data-i18n="workflowOptionTxt">Plain Text Translation (.txt)</option>
-                                        <option value="json" data-i18n="workflowOptionJson">JSON Translation (.json)</option>
                                         <option value="docx" data-i18n="workflowOptionDocx">DOCX Translation (.docx)</option>
                                         <option value="xlsx" data-i18n="workflowOptionXlsx">XLSX Translation (.xlsx/.csv)
                                         </option>
-                                        <option value="srt" data-i18n="workflowOptionSrt">SRT Subtitle Translation (.srt)</option>
-                                        <option value="epub" data-i18n="workflowOptionEpub">EPUB Translation (.epub)</option>
-                                        <option value="html" data-i18n="workflowOptionHtml">HTML Translation (.html)</option>
                                     </select>
                                     <div class="form-check form-switch mt-2">
                                         <input class="form-check-input" type="checkbox" role="switch"
@@ -2389,7 +2385,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const getFromConfig = (key, defaultValue = '') => {
         try {
             if (appConfig && appConfig.hasOwnProperty(key)) {
-                return appConfig[key];
+                const value = appConfig[key];
+                // For numeric keys (temperature, chunk_size, concurrent, etc.), ensure we return a number
+                const numericKeys = ['translator_temperature', 'glossary_agent_temperature', 'chunk_size', 'concurrent', 'glossary_agent_chunk_size', 'glossary_agent_concurrent'];
+                if (numericKeys.includes(key) && typeof value !== 'number') {
+                    const numValue = parseFloat(value);
+                    if (!isNaN(numValue)) {
+                        console.log(`[DEBUG] getFromConfig - converted ${key} from ${value} (${typeof value}) to ${numValue} (number)`);
+                        return numValue;
+                    }
+                }
+                return value;
             }
             return defaultValue;
         } catch (e) {
@@ -3156,28 +3162,33 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.warn('[Home][AI Test] Missing base_url/model');
                 return;
             }
-            // check api key configured
-            let hasKey = false;
-            try {
-                const rs = await fetch('/auth/app-config/raw-secrets', { credentials: 'include' });
-                if (rs.ok) {
-                    const secrets = await rs.json();
-                    if (secrets.platform_api_keys_meta && secrets.platform_api_keys_meta[selectedPlatform]) {
-                        hasKey = !!secrets.platform_api_keys_meta[selectedPlatform].configured;
-                    } else if (secrets.platform_api_keys && secrets.platform_api_keys[selectedPlatform]) {
-                        const v = secrets.platform_api_keys[selectedPlatform];
-                        hasKey = !!(typeof v === 'string' ? v : (v?.key));
+            // Get api_type from platform config
+            const apiType = (pf.api_type || 'openai').toLowerCase();
+            
+            // check api key configured (skip for Custom Platform and Ollama)
+            if (selectedPlatform !== 'custom' && apiType !== 'ollama') {
+                let hasKey = false;
+                try {
+                    const rs = await fetch('/auth/app-config/raw-secrets', { credentials: 'include' });
+                    if (rs.ok) {
+                        const secrets = await rs.json();
+                        if (secrets.platform_api_keys_meta && secrets.platform_api_keys_meta[selectedPlatform]) {
+                            hasKey = !!secrets.platform_api_keys_meta[selectedPlatform].configured;
+                        } else if (secrets.platform_api_keys && secrets.platform_api_keys[selectedPlatform]) {
+                            const v = secrets.platform_api_keys[selectedPlatform];
+                            hasKey = !!(typeof v === 'string' ? v : (v?.key));
+                        }
                     }
+                } catch(_) {}
+                if (!hasKey) {
+                    setBanner('danger', 'API Key not configured for selected platform');
+                    console.warn('[Home][AI Test] API key not configured');
+                    return;
                 }
-            } catch(_) {}
-            if (!hasKey) {
-                setBanner('danger', 'API Key not configured for selected platform');
-                console.warn('[Home][AI Test] API key not configured');
-                return;
             }
             const resp = await fetch('/auth/test-ai-platform', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
-                body: JSON.stringify({ platform_type: selectedPlatform, base_url: baseUrl, model_name: model })
+                body: JSON.stringify({ platform_type: selectedPlatform, base_url: baseUrl, model_name: model, api_type: apiType })
             });
             let data = {};
             if (!resp.ok) {
@@ -3287,7 +3298,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function setupSlider(slider, display, resetBtn, key, params) {
-        slider.value = getFromConfig(key, params[key]);
+        const configValue = getFromConfig(key, params[key]);
+        console.log(`[DEBUG] setupSlider - key: ${key}, configValue: ${configValue}, defaultValue: ${params[key]}`);
+        slider.value = configValue;
         const updater = createSliderUpdater(slider, display, resetBtn, key, params);
         slider.addEventListener('input', updater);
         resetBtn.addEventListener('click', () => {
@@ -3647,29 +3660,25 @@ document.addEventListener('DOMContentLoaded', function() {
         // If no taskId exists, create a temporary task for conversion
         if (!taskId) {
             try {
-                // Wait for file content to be loaded
-                if (!state.fileContent) {
-                    showNotification('File content not loaded yet, please try again later', 'error');
+                // Check if file is available
+                if (!state.file) {
+                    showNotification('File not found, please try again later', 'error');
                     return;
                 }
                 
-                // Extract base64 content (remove data:application/pdf;base64, prefix)
-                const base64Content = state.fileContent.split(',')[1];
+                // Use multipart/form-data format with application/octet-stream for file
+                const formData = new FormData();
+                formData.append('file', state.file);  // File with Content-Type: application/octet-stream
+                formData.append('payload', JSON.stringify({
+                    workflow_type: 'markdown_based', // Use markdown_based workflow
+                    skip_translate: true, // Skip actual translation
+                    convert_engine: 'identity' // Use identity engine for conversion only
+                }));
                 
                 const response = await fetch('/service/translate', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        file_name: state.original_filename,
-                        file_content: base64Content,
-                        payload: {
-                            workflow_type: 'markdown_based', // Use markdown_based workflow
-                            skip_translate: true, // Skip actual translation
-                            convert_engine: 'identity' // Use identity engine for conversion only
-                        }
-                    })
+                    // Don't set Content-Type header, browser will set it automatically with boundary for multipart/form-data
+                    body: formData
                 });
                 
                 if (!response.ok) {
@@ -3862,16 +3871,23 @@ document.addEventListener('DOMContentLoaded', function() {
             mergedGlossaryDict = {};
         }
         
+        // Debug: Log temperature slider value
+        const temperatureValue = parseFloat(temperatureSlider.value);
+        console.log('[DEBUG] Frontend temperature slider value:', temperatureSlider.value, 'parsed:', temperatureValue);
+        
         const basePayload = {
             skip_translate: skipTranslate,
             to_lang: targetLanguage,
             thinking: document.querySelector('input[name="thinking"]:checked')?.value || 'disable',
             chunk_size: parseInt(chunkSizeSlider.value, 10),
             concurrent: parseInt(concurrentSlider.value, 10),
-            temperature: parseFloat(temperatureSlider.value),
+            temperature: temperatureValue,
             custom_prompt: mergedPrompt,
             glossary_dict: Object.keys(mergedGlossaryDict).length > 0 ? mergedGlossaryDict : null,
         };
+        
+        // Debug: Log final payload temperature
+        console.log('[DEBUG] Frontend payload temperature:', basePayload.temperature);
 
         // --- Glossary Generation Config ---
         const glossaryResult = buildGlossaryAgentConfig();
@@ -3994,17 +4010,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
         try {
-            const fileContentBase64 = await fileToBase64(state.file);
-            const finalRequest = {
-                file_name: state.file.name,
-                file_content: fileContentBase64,
-                payload: payload
-            };
+            // Use multipart/form-data format with application/octet-stream for file
+            const formData = new FormData();
+            formData.append('file', state.file);  // File with Content-Type: application/octet-stream
+            formData.append('payload', JSON.stringify(payload));  // JSON string for workflow parameters
 
             const response = await fetch('/service/translate', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(finalRequest)
+                // Don't set Content-Type header, browser will set it automatically with boundary for multipart/form-data
+                body: formData
             });
             const result = await response.json();
 
@@ -4149,8 +4163,34 @@ document.addEventListener('DOMContentLoaded', function() {
                 elements.tokenStatsWrapper.style.display = 'block';
             }
 
-            elements.statusMessage.textContent = status.status_message || getText('status_gettingStatus');
-            elements.statusMessage.className = `status-message small ${status.error_flag ? 'text-danger' : 'text-info'}`;
+            // Display status message with translation statistics if available
+            let statusText = status.status_message || getText('status_gettingStatus');
+            let statusClass = `status-message small ${status.error_flag ? 'text-danger' : 'text-info'}`;
+            
+            // Enhance status message with translation statistics if available
+            if (status.translation_stats && status.translation_stats.total_chunks > 0) {
+                const stats = status.translation_stats;
+                const total = stats.total_chunks;
+                const successful = stats.successful_chunks;
+                const failed = stats.failed_chunks;
+                
+                if (failed === total) {
+                    // All chunks failed
+                    statusText = `Translation failed: All ${total} chunks failed. Please check your API configuration and network connection.`;
+                    statusClass = 'status-message small text-danger';
+                } else if (failed > 0) {
+                    // Partial failure
+                    statusText = `Translation completed with errors: ${successful}/${total} chunks succeeded, ${failed} failed.`;
+                    statusClass = 'status-message small text-warning';
+                } else {
+                    // All succeeded
+                    statusText = `Translation completed successfully: All ${total} chunks succeeded.`;
+                    statusClass = 'status-message small text-success';
+                }
+            }
+            
+            elements.statusMessage.textContent = statusText;
+            elements.statusMessage.className = statusClass;
 
             if (!status.is_processing) {
                 pollLogs(backendTaskId); // Get final logs
@@ -4162,7 +4202,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('temp-spinner-' + cardId)?.remove();
 
                 if (status.download_ready && !status.error_flag) {
-                    elements.statusMessage.className = 'status-message small text-success';
+                    // Only show success class if all chunks succeeded
+                    if (status.translation_stats && status.translation_stats.total_chunks > 0) {
+                        const stats = status.translation_stats;
+                        if (stats.failed_chunks === 0) {
+                            elements.statusMessage.className = 'status-message small text-success';
+                        } else if (stats.failed_chunks < stats.total_chunks) {
+                            elements.statusMessage.className = 'status-message small text-warning';
+                        }
+                    } else {
+                        elements.statusMessage.className = 'status-message small text-success';
+                    }
                     updateResultButtons(cardId, status);
                 } else {
                     elements.downloadButtons.style.display = 'none';
