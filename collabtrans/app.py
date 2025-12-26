@@ -1600,13 +1600,20 @@ async def _perform_translation(
                 # Try to get total chunks from log history
                 log_history = tasks_log_histories.get(task_id, [])
                 total_chunks = 0
+                # First, try to get from log history
                 for line in log_history:
                     # Look for "Planned to send X requests" pattern
-                    match = re.search(r"Planned to send (\d+) requests", line)
+                    match = re.search(r"Planned to send (\d+) requests", line, re.IGNORECASE)
                     if match:
                         total_chunks = int(match.group(1))
                         task_logger.info(f"[TranslationStats] Found total_chunks from log: {total_chunks}")
                         break
+                
+                # If not found in log history, try to get from agent's prompt count
+                if total_chunks == 0 and hasattr(_agent_via_translator, 'last_prompt_count'):
+                    total_chunks = getattr(_agent_via_translator, 'last_prompt_count', 0)
+                    if total_chunks > 0:
+                        task_logger.info(f"[TranslationStats] Found total_chunks from agent.last_prompt_count: {total_chunks}")
                 
                 # Also check log history for error indicators if total_chunks is 0
                 if total_chunks == 0:
@@ -1715,15 +1722,25 @@ async def _perform_translation(
             try:
                 log_history = tasks_log_histories.get(task_id, [])
                 for line in log_history:
-                    if re.search(r"(Too many errors|All retries failed|connection error|ReadTimeout|unresolved errors)", line, re.IGNORECASE):
+                    # First, try to extract error count from "Total unresolved errors: X"
+                    # Only treat as error if the count is greater than 0
+                    unresolved_match = re.search(r"Total unresolved errors:\s*(\d+)", line, re.IGNORECASE)
+                    if unresolved_match:
+                        error_count = int(unresolved_match.group(1))
+                        if error_count > 0:
+                            has_errors_in_logs = True
+                            failed_chunks = error_count
+                            total_chunks = max(total_chunks, failed_chunks)
+                            task_logger.info(f"[TranslationStats] Found errors in log: {line[:100]}")
+                            task_logger.info(f"[TranslationStats] Extracted failed_chunks from log: {failed_chunks}")
+                        else:
+                            # "Total unresolved errors: 0" means no errors, don't treat as failure
+                            task_logger.info(f"[TranslationStats] Found 'unresolved errors: 0' in log, treating as success")
+                            continue
+                    # Check for other error patterns (but not "unresolved errors: 0")
+                    elif re.search(r"(Too many errors|All retries failed|connection error|ReadTimeout)", line, re.IGNORECASE):
                         has_errors_in_logs = True
                         task_logger.info(f"[TranslationStats] Found error in log: {line[:100]}")
-                        # Try to extract error count from "Total unresolved errors: X"
-                        match = re.search(r"Total unresolved errors:\s*(\d+)", line, re.IGNORECASE)
-                        if match:
-                            failed_chunks = int(match.group(1))
-                            total_chunks = max(total_chunks, failed_chunks)
-                            task_logger.info(f"[TranslationStats] Extracted failed_chunks from log: {failed_chunks}")
                         
                         # Extract error reason
                         if re.search(r"ReadTimeout|read timeout", line, re.IGNORECASE):
