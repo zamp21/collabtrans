@@ -149,7 +149,8 @@ class LDAPClient:
             
             # Attempt bind
             logger.info("Attempting LDAP bind...")
-            if not conn.bind(bind_dn, password):
+            # Explicitly pass controls=None to avoid "controls must be a sequence" error in some ldap3 versions
+            if not conn.bind(bind_dn, password, controls=None):
                 logger.warning(f"LDAP bind failed: {conn.last_error}")
                 raise InvalidCredentials("Invalid username or password")
             logger.info("LDAP bind successful")
