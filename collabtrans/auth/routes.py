@@ -467,12 +467,24 @@ async def test_ldap_connection(request: Request, payload: dict):
                 conn = client._create_fresh_connection()
                 # Re-bind with the same credentials for group queries
                 bind_dn = temp_config.ldap_bind_dn_template.format(username=username)
-                # Use position arguments for bind_dn and password, controls as keyword argument
+                # Try different bind approaches for different ldap3 versions
+                bind_result = False
                 try:
-                    bind_result = conn.bind(bind_dn, password, controls=[])
-                except TypeError:
-                    # Fallback: try without controls parameter for older ldap3 versions
+                    # First try: simple bind without controls (most compatible)
                     bind_result = conn.bind(bind_dn, password)
+                except Exception as e:
+                    error_str = str(e).lower()
+                    if 'controls' in error_str or 'sequence' in error_str:
+                        # Try with explicit None or empty tuple
+                        try:
+                            bind_result = conn.bind(bind_dn, password, controls=None)
+                        except Exception:
+                            try:
+                                bind_result = conn.bind(bind_dn, password, controls=())
+                            except Exception as e3:
+                                logger.warning(f"All bind attempts failed: {e3}")
+                    else:
+                        raise
                 
                 if not bind_result:
                     logger.warning(f"Failed to bind for group queries: {conn.last_error}")

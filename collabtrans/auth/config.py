@@ -327,22 +327,43 @@ class AuthConfig:
     def save_to_file(self, config_file: str = "local_config.json") -> bool:
         """Save grouped configuration to local_config.json (without secrets).
 
-        Write-order policy (mirrors AppConfig/global_config):
-        1) /etc/collabtrans/local_config.json (if dir exists and writable)
-        2) Resolved path by _resolve_auth_config_path (executable dir or cwd)
-        3) Explicit fallback to CWD local_config.json
+        Uses environment-based path resolution to ensure consistency with load_from_file:
+        1) Environment-based path (production: /etc/collabtrans/, development: project root)
+        2) Legacy fallback paths for backward compatibility
         """
         grouped = self.to_grouped_dict()
         grouped.get("session", {}).pop("secret_key", None)
         grouped.get("redis", {}).pop("password", None)
 
         candidates = []
-        system_dir = Path("/etc/collabtrans")
-        candidates.append(system_dir / "local_config.json")
+        # 1) Environment-based path (production or development) - highest priority
+        # This ensures save and load use the same path
+        # Use get_config_path to get the target path based on environment, not _resolve_auth_config_path
+        # because _resolve_auth_config_path only returns existing files, but we need to save even if file doesn't exist
         try:
-            candidates.append(_resolve_auth_config_path(config_file))
-        except Exception:
-            pass
+            if is_production():
+                # Production: use /etc/collabtrans/
+                env_path = get_prod_config_path(config_file)
+            else:
+                # Development: use project root
+                env_path = get_dev_config_path(config_file)
+            candidates.append(env_path)
+            logger.info(f"[AuthConfig] Environment-based save path (priority): {env_path}")
+        except Exception as e:
+            logger.debug(f"[AuthConfig] Failed to resolve environment path: {e}")
+            # Fallback: try _resolve_auth_config_path
+            try:
+                env_path = _resolve_auth_config_path(config_file)
+                candidates.append(env_path)
+            except Exception:
+                pass
+        
+        # 2) Legacy fallback paths (for backward compatibility)
+        system_dir = Path("/etc/collabtrans")
+        system_path = system_dir / "local_config.json"
+        # Only add system path if it's different from environment path
+        if not candidates or candidates[0] != system_path:
+            candidates.append(system_path)
         candidates.append(Path.cwd() / "local_config.json")
 
         last_error = None

@@ -100,6 +100,7 @@ class LDAPClient:
             )
             
             # Create fresh connection object
+            # Don't pass controls parameter - Connection constructor doesn't accept it
             conn = Connection(server, auto_bind=False, receive_timeout=10)
             
             # Configure TLS options if needed
@@ -140,22 +141,80 @@ class LDAPClient:
         logger.info(f"  - TLS Verify: {self.config.ldap_tls_verify}")
         
         try:
-            # Create a fresh connection for authentication
-            conn = self._create_fresh_connection()
-            
             # Build bind DN
             bind_dn = self.config.ldap_bind_dn_template.format(username=username)
             logger.info(f"Built bind DN: {_mask_username(bind_dn)}")
             
-            # Attempt bind
+            # Create server object
+            server = Server(
+                host=self.config.ldap_host,
+                port=self.config.ldap_port,
+                use_ssl=(self.config.ldap_protocol == "ldaps")
+            )
+            
+            # Configure TLS options if needed
+            if self.config.ldap_protocol == "ldaps":
+                if self.config.ldap_tls_cacertfile:
+                    tls = Tls(
+                        local_private_key_file=None,
+                        local_certificate_file=None,
+                        ca_certs_file=self.config.ldap_tls_cacertfile,
+                        validate=ssl.CERT_REQUIRED if self.config.ldap_tls_verify else ssl.CERT_NONE
+                    )
+                    server.tls = tls
+                else:
+                    tls = Tls(validate=ssl.CERT_REQUIRED if self.config.ldap_tls_verify else ssl.CERT_NONE)
+                    server.tls = tls
+            
+            # Attempt bind using Connection constructor with credentials
+            # This avoids the controls issue in bind() method
             logger.info("Attempting LDAP bind...")
-            # Use position arguments for bind_dn and password, controls as keyword argument
-            # Some ldap3 versions require explicit controls parameter (empty list if not used)
+            bind_result = False
+            conn = None
+            
             try:
-                bind_result = conn.bind(bind_dn, password, controls=[])
-            except TypeError:
-                # Fallback: try without controls parameter for older ldap3 versions
-                bind_result = conn.bind(bind_dn, password)
+                # Method 1: Create connection with credentials in constructor (auto_bind=True)
+                # This is the recommended way and avoids controls issues
+                conn = Connection(
+                    server,
+                    user=bind_dn,
+                    password=password,
+                    auto_bind=True,
+                    receive_timeout=10
+                )
+                bind_result = conn.bound
+                if bind_result:
+                    logger.info("LDAP bind successful using Connection constructor with auto_bind")
+            except Exception as e1:
+                logger.debug(f"Auto bind failed: {e1}, trying manual bind...")
+                # Method 2: Fallback to manual bind if auto_bind fails
+                try:
+                    conn = Connection(server, auto_bind=False, receive_timeout=10)
+                    # Ensure controls is a sequence before bind
+                    if hasattr(conn, 'controls'):
+                        if not isinstance(conn.controls, (list, tuple)):
+                            conn.controls = []
+                    # Try manual bind
+                    bind_result = conn.bind(bind_dn, password)
+                    if bind_result:
+                        logger.info("LDAP bind successful using manual bind")
+                except Exception as e2:
+                    error_str = str(e2).lower()
+                    if 'controls' in error_str or 'sequence' in error_str:
+                        logger.warning(f"Manual bind failed with controls error: {e2}")
+                        # Method 3: Try bind with explicit controls parameter
+                        try:
+                            logger.info("Trying bind with explicit controls=[] parameter...")
+                            if conn is None:
+                                conn = Connection(server, auto_bind=False, receive_timeout=10)
+                            bind_result = conn.bind(bind_dn, password, controls=[])
+                            if bind_result:
+                                logger.info("LDAP bind successful with explicit controls=[]")
+                        except Exception as e3:
+                            logger.error(f"All bind methods failed: {e1}, {e2}, {e3}")
+                            raise Exception(f"LDAP bind failed: {e3}")
+                    else:
+                        raise
             
             if not bind_result:
                 logger.warning(f"LDAP bind failed: {conn.last_error}")
