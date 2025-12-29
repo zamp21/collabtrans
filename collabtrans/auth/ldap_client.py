@@ -149,13 +149,13 @@ class LDAPClient:
             
             # Attempt bind
             logger.info("Attempting LDAP bind...")
-            # Use keyword arguments to avoid parameter conflicts
+            # Use position arguments for bind_dn and password, controls as keyword argument
             # Some ldap3 versions require explicit controls parameter (empty list if not used)
             try:
-                bind_result = conn.bind(user=bind_dn, password=password, controls=[])
+                bind_result = conn.bind(bind_dn, password, controls=[])
             except TypeError:
                 # Fallback: try without controls parameter for older ldap3 versions
-                bind_result = conn.bind(user=bind_dn, password=password)
+                bind_result = conn.bind(bind_dn, password)
             
             if not bind_result:
                 logger.warning(f"LDAP bind failed: {conn.last_error}")
