@@ -101,8 +101,59 @@ class SegmentsTranslateAgent(Agent):
             if not isinstance(repaired_result, dict):
                 raise AgentResultError(f"Agent returned result is not in dict JSON format, result: {result}")
 
+            # Check if result is identical to original - but allow certain cases
             if repaired_result == original_chunk:
-                raise AgentResultError("Translation result is identical to original text, suspected translation failure, will retry.")
+                # Check if all values are likely to be technical codes/numbers that should remain unchanged
+                # This includes: pure numbers, codes with slashes/dashes, or very short alphanumeric strings
+                all_technical = True
+                has_translatable_content = False
+                
+                for key, value in original_chunk.items():
+                    val_str = str(value).strip()
+                    if not val_str:
+                        continue  # Empty strings are fine
+                    
+                    # Check if it's a pure number or very short code
+                    if val_str.isdigit() or len(val_str) <= 3:
+                        continue  # Pure numbers or very short codes are fine
+                    
+                    # Check if it's a technical code pattern (contains special chars like /, -, _, or tabs)
+                    # Examples: "PULSE/AC02-DHF-035", "R1", "v1.0"
+                    is_code_pattern = any(c in val_str for c in ['/', '-', '_', '\t']) and not ' ' in val_str
+                    
+                    # Check if it contains meaningful words that should be translated
+                    # If it has spaces, it likely contains translatable text
+                    # If it's longer than 10 chars without special code characters, it might be translatable
+                    if ' ' in val_str:
+                        has_translatable_content = True
+                        all_technical = False
+                        break
+                    elif len(val_str) > 10 and not is_code_pattern:
+                        # Long text without code patterns should be translated
+                        has_translatable_content = True
+                        all_technical = False
+                        break
+                
+                if has_translatable_content:
+                    # Contains translatable content but result is identical - likely translation failure
+                    # However, if we have a best_partial_result that is also identical, it means we've retried multiple times
+                    # In this case, accept the result (use original as translation) to allow file generation to continue
+                    if best_partial_result and best_partial_result == original_chunk:
+                        logger.warning(f"Translation result is identical to original text after multiple retries. Accepting original text as translation to allow file generation.")
+                        return original_chunk
+                    logger.warning(f"Translation result is identical to original text, but contains translatable content. Will retry.")
+                    raise AgentResultError("Translation result is identical to original text, suspected translation failure, will retry.")
+                elif all_technical:
+                    # All values appear to be technical codes/numbers, keeping them unchanged is acceptable
+                    logger.info(f"Translation result is identical to original text, but all values appear to be technical codes/numbers. Accepting result.")
+                else:
+                    # Mixed case - if we've retried multiple times, accept the result
+                    if best_partial_result and best_partial_result == original_chunk:
+                        logger.warning(f"Translation result is identical to original text after multiple retries. Accepting original text as translation to allow file generation.")
+                        return original_chunk
+                    # Mixed case - be conservative and retry
+                    logger.warning(f"Translation result is identical to original text. Mixed content detected, will retry.")
+                    raise AgentResultError("Translation result is identical to original text, suspected translation failure, will retry.")
 
             # If this is a retry with partial result, merge the new result with the existing partial result
             if best_partial_result:

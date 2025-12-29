@@ -635,11 +635,22 @@ class Agent:
                 self.logger.info("All retries failed, but partial translation result exists, will use it.")
                 return best_partial_result
 
-            return (
-                prompt
-                if error_result_handler is None
-                else error_result_handler(prompt, self.logger)
-            )
+            # If all retries failed and no partial result, use the original prompt as translation
+            # to allow file generation to continue. This handles the case where AI returns original text multiple times.
+            try:
+                # Check if we can parse the prompt as JSON (for segments agent)
+                import json
+                parsed_prompt = json.loads(prompt)
+                self.logger.warning("All retries failed. Using original text as translation to allow file generation.")
+                return parsed_prompt
+            except (json.JSONDecodeError, ValueError, TypeError):
+                # Not JSON format, return as string
+                self.logger.warning("All retries failed. Using original text as translation to allow file generation.")
+                return (
+                    prompt
+                    if error_result_handler is None
+                    else error_result_handler(prompt, self.logger)
+                )
 
     async def send_prompts_async(
             self,

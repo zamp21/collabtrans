@@ -1778,14 +1778,28 @@ async def _perform_translation(
                 error_flag = False
                 download_ready = True
         elif failed_chunks > 0 or has_errors_in_logs:
-            # Errors detected but total_chunks is 0 - treat as failure
-            if failed_chunks > 0:
-                base_msg = f"Translation failed: {failed_chunks} chunk(s) failed (took {duration:.2f} seconds)"
-            else:
-                base_msg = f"Translation failed: Errors occurred during translation (took {duration:.2f} seconds)"
+            # Errors detected but total_chunks is 0 - check if files were generated
+            # If files were generated (even with errors), allow download
+            files_generated = bool(downloadable_files)
             
-            # Add error reason if available
-            if error_reason:
+            # Check if "Using original text as translation" message exists (fallback scenario)
+            using_original_as_translation = False
+            try:
+                log_history = tasks_log_histories.get(task_id, [])
+                for line in log_history:
+                    if "Using original text as translation" in line or "Using original text as translation to allow file generation" in line:
+                        using_original_as_translation = True
+                        break
+            except Exception:
+                pass
+            
+            if failed_chunks > 0:
+                base_msg = f"Translation completed with warnings: {failed_chunks} chunk(s) used original text (took {duration:.2f} seconds)" if files_generated or using_original_as_translation else f"Translation failed: {failed_chunks} chunk(s) failed (took {duration:.2f} seconds)"
+            else:
+                base_msg = f"Translation completed with warnings: Some segments used original text (took {duration:.2f} seconds)" if files_generated or using_original_as_translation else f"Translation failed: Errors occurred during translation (took {duration:.2f} seconds)"
+            
+            # Add error reason if available (but only if files were not generated)
+            if error_reason and not (files_generated or using_original_as_translation):
                 if error_reason == "ReadTimeout":
                     status_message = f"{base_msg} - Request timeout. The server did not respond in time. Possible causes: 1) Model is too slow, 2) Network issues, 3) Server overload. Try increasing timeout or reducing chunk_size."
                 elif error_reason == "ConnectionTimeout":
@@ -1799,14 +1813,21 @@ async def _perform_translation(
             else:
                 status_message = base_msg
             
-            error_flag = True
-            download_ready = False
+            # If files were generated or using original as translation, allow download
+            if files_generated or using_original_as_translation:
+                error_flag = False  # Not a complete failure if files were generated
+                download_ready = True
+                task_logger.info(f"[TranslationStats] Files generated despite errors. Allowing download. files_generated={files_generated}, using_original_as_translation={using_original_as_translation}")
+            else:
+                error_flag = True
+                download_ready = False
+            
             # Update translation_stats for consistency
             if failed_chunks > 0:
                 translation_stats["total_chunks"] = failed_chunks
                 translation_stats["failed_chunks"] = failed_chunks
                 translation_stats["successful_chunks"] = 0
-            task_logger.info(f"[TranslationStats] Detected failure: failed_chunks={failed_chunks}, has_errors_in_logs={has_errors_in_logs}, error_reason={error_reason}")
+            task_logger.info(f"[TranslationStats] Detected issues: failed_chunks={failed_chunks}, has_errors_in_logs={has_errors_in_logs}, error_reason={error_reason}, files_generated={files_generated}, download_ready={download_ready}")
         else:
             # No stats available, assume success (backward compatibility)
             status_message = f"Translation completed successfully in {duration:.2f} seconds"
@@ -1851,10 +1872,15 @@ async def _perform_translation(
         task_state["is_processing"] = False
         task_state["current_task_ref"] = None
 
-        if task_state["error_flag"] and temp_dir and os.path.isdir(temp_dir):
+        # Only clean up temp directory if task failed AND no files were generated
+        # If files were generated (even with errors), keep temp directory for download
+        files_generated = bool(task_state.get("downloadable_files"))
+        if task_state["error_flag"] and not files_generated and temp_dir and os.path.isdir(temp_dir):
             shutil.rmtree(temp_dir)
-            task_logger.info(f"Temporary directory cleaned up due to task failure")
+            task_logger.info(f"Temporary directory cleaned up due to task failure (no files generated)")
             task_state["temp_dir"] = None
+        elif files_generated and temp_dir:
+            task_logger.info(f"Temporary directory kept for file download (files generated despite errors)")
 
         task_logger.info(f"Background translation task '{original_filename}' processing completed")
         task_logger.removeHandler(task_handler)

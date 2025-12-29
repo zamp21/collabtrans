@@ -1,7 +1,7 @@
 {
   "default_language": "en",
   "logging": {
-    "level": "DEBUG",
+    "level": "INFO",
     "console_enabled": true,
     "file_enabled": true,
     "max_file_size_mb": 10,
