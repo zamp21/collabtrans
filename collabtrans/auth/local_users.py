@@ -32,31 +32,69 @@ class LocalUser:
 class LocalUserStore:
     """Manages local users with secure password hashing and JSON persistence.
 
-    Search/Write priority similar to SecretsManager:
-    1) /etc/collabtrans/local_users.json if directory exists
-    2) Executable directory (when frozen)
-    3) Project root (repo root)
+    Search/Write priority:
+    0) COLLABTRANS_CONFIG_PATH env dir if set
+    1) Environment-based path (production: /etc/collabtrans/, development: project root)
+    2) Legacy fallback paths
     """
 
     def __init__(self, filename: str = "local_users.json") -> None:
+        from ..config.env_detector import is_production, get_dev_config_path, get_prod_config_path
+        
+        # 0) Environment-configured directory
+        env_dir = os.environ.get("COLLABTRANS_CONFIG_PATH")
+        if not env_dir and os.name == "nt":
+            env_dir = r"C:\\Users\\Public\\collabtrans"
+        if env_dir:
+            env_file = Path(env_dir) / filename
+            if env_file.exists():
+                self.file_path = env_file
+                logger.info(f"[LocalUsers] Using env users file: {self.file_path}")
+                self._cache: Optional[Dict[str, Dict]] = None
+                return
+        
+        # 1) Environment-based path (production or development)
+        if is_production():
+            # Production: use /etc/collabtrans/
+            prod_file = get_prod_config_path(filename)
+            if prod_file.exists():
+                self.file_path = prod_file
+                logger.info(f"[LocalUsers] Using production users file: {self.file_path}")
+                self._cache: Optional[Dict[str, Dict]] = None
+                return
+            # Default to production path even if file doesn't exist
+            self.file_path = prod_file
+            logger.info(f"[LocalUsers] Using production users file (will create): {self.file_path}")
+        else:
+            # Development: use project root
+            dev_file = get_dev_config_path(filename)
+            if dev_file.exists():
+                self.file_path = dev_file
+                logger.info(f"[LocalUsers] Using development users file: {self.file_path}")
+                self._cache: Optional[Dict[str, Dict]] = None
+                return
+            # Default to development path even if file doesn't exist
+            self.file_path = dev_file
+            logger.info(f"[LocalUsers] Using development users file (will create): {self.file_path}")
+        
+        # 2) Legacy fallback (for backward compatibility)
         system_dir = Path("/etc/collabtrans")
         system_file = system_dir / filename
-        self.file_path: Path
         if system_dir.exists() and system_file.exists():
             self.file_path = system_file
-            logger.info(f"[LocalUsers] Using system users file: {self.file_path}")
+            logger.info(f"[LocalUsers] Using system users file (legacy): {self.file_path}")
         else:
             import sys
             if getattr(sys, 'frozen', False):
                 exe_dir = Path(os.path.dirname(sys.executable))
                 exe_file = exe_dir / filename
                 self.file_path = exe_file if exe_file.exists() else exe_dir / filename
-                logger.info(f"[LocalUsers] Using executable users file: {self.file_path}")
+                logger.info(f"[LocalUsers] Using executable users file (legacy): {self.file_path}")
             else:
                 # repo root
                 repo_root = Path(__file__).resolve().parents[2]
                 self.file_path = (Path(filename) if Path(filename).is_absolute() else (repo_root / filename))
-                logger.info(f"[LocalUsers] Using repo users file: {self.file_path}")
+                logger.info(f"[LocalUsers] Using repo users file (legacy): {self.file_path}")
         self._cache: Optional[Dict[str, Dict]] = None
 
     # ===== Password hashing =====

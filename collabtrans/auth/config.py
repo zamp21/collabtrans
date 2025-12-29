@@ -9,6 +9,7 @@ from typing import Optional
 from pathlib import Path
 import sys
 from ..config.secrets_manager import get_secrets_manager
+from ..config.env_detector import is_production, get_config_path, get_dev_config_path, get_prod_config_path
 
 # Create logger
 logger = logging.getLogger(__name__)
@@ -22,11 +23,10 @@ def _resolve_auth_config_path(config_file: str = "local_config.json") -> Path:
     Priority:
       Windows/Linux override:
         0) COLLABTRANS_CONFIG_PATH env dir if set (Windows default: C:\\Users\\Public\\collabtrans)
-      Linux:
-        1) /etc/collabtrans/local_config.json (system)
+        1) Environment-based path (production: /etc/collabtrans/, development: project root)
       Common:
-        2) Executable directory (PyInstaller) / same-dir as binary (or cwd)
-        3) Project root (development) fallback
+        2) Executable directory (PyInstaller) / same-dir as binary (or cwd) (legacy fallback)
+        3) Project root (development) fallback (legacy)
     """
     # Absolute path: use directly
     p = Path(config_file)
@@ -40,36 +40,51 @@ def _resolve_auth_config_path(config_file: str = "local_config.json") -> Path:
     if not env_dir and os.name == "nt":
         env_dir = r"C:\\Users\\Public\\collabtrans"
     if env_dir:
-        env_cfg = Path(env_dir) / "local_config.json"
+        env_cfg = Path(env_dir) / config_file
         if env_cfg.exists():
             logger.debug(f"[AuthConfig] Using env config: {env_cfg}")
             return env_cfg
 
+    # 1) Environment-based path (production or development)
+    if is_production():
+        # Production: use /etc/collabtrans/
+        prod_cfg = get_prod_config_path(config_file)
+        if prod_cfg.exists():
+            logger.debug(f"[AuthConfig] Using production config: {prod_cfg}")
+            return prod_cfg
+    else:
+        # Development: use project root
+        dev_cfg = get_dev_config_path(config_file)
+        if dev_cfg.exists():
+            logger.debug(f"[AuthConfig] Using development config: {dev_cfg}")
+            return dev_cfg
+
+    # 2) Legacy fallback: System directory (non-Windows)
     if os.name != "nt":
         system_dir = Path("/etc/collabtrans")
-        system_cfg = system_dir / "local_config.json"
+        system_cfg = system_dir / config_file
         if system_dir.exists() and system_cfg.exists():
-            logger.debug(f"[AuthConfig] Using system config: {system_cfg}")
+            logger.debug(f"[AuthConfig] Using system config (legacy): {system_cfg}")
             return system_cfg
 
-    # Executable directory (PyInstaller)
+    # 3) Legacy fallback: Executable directory (PyInstaller)
     if getattr(sys, 'frozen', False):
         exe_dir = Path(os.path.dirname(sys.executable))
-        exe_cfg = exe_dir / "local_config.json"
+        exe_cfg = exe_dir / config_file
         if exe_cfg.exists():
-            logger.debug(f"[AuthConfig] Using executable directory config: {exe_cfg}")
+            logger.debug(f"[AuthConfig] Using executable directory config (legacy): {exe_cfg}")
             return exe_cfg
         # fallback to cwd if exists
-        cwd_cfg = Path.cwd() / "local_config.json"
+        cwd_cfg = Path.cwd() / config_file
         if cwd_cfg.exists():
-            logger.debug(f"[AuthConfig] Using working directory config: {cwd_cfg}")
+            logger.debug(f"[AuthConfig] Using working directory config (legacy): {cwd_cfg}")
             return cwd_cfg
         # default to executable dir path
         return exe_cfg
 
-    # Development: project root (two levels up from this file)
+    # 4) Legacy fallback: Development: project root (two levels up from this file)
     project_root = Path(__file__).resolve().parents[2]
-    return project_root / "local_config.json"
+    return project_root / config_file
 
 
 @dataclass
@@ -158,35 +173,10 @@ class AuthConfig:
     @classmethod
     def load_from_file(cls, config_file: str = "local_config.json") -> "AuthConfig":
         """Load configuration from grouped local_config.json and then load secrets.
-        Prefer the most recently modified existing config among system/executable/cwd/project.
+        Uses environment-based path resolution (production: /etc/collabtrans/, development: project root).
         """
-        # Build candidate paths
-        system_dir = Path("/etc/collabtrans")
-        system_cfg = system_dir / "local_config.json"
-        exe_cfg = None
-        if getattr(sys, 'frozen', False):
-            exe_dir = Path(os.path.dirname(sys.executable))
-            exe_cfg = exe_dir / "local_config.json"
-        cwd_cfg = Path.cwd() / "local_config.json"
-        project_root = Path(__file__).resolve().parents[2]
-        proj_cfg = project_root / "local_config.json"
-
-        candidates = []
-        for p in [system_cfg, exe_cfg, cwd_cfg, proj_cfg]:
-            if p is not None and p.exists():
-                try:
-                    mtime = p.stat().st_mtime
-                except Exception:
-                    mtime = 0
-                candidates.append((mtime, p))
-
-        # Choose newest existing config, otherwise fall back to resolved path
-        if candidates:
-            candidates.sort(reverse=True)
-            config_path = candidates[0][1]
-            logger.debug(f"[AuthConfig] Selected newest config: {config_path}")
-        else:
-            config_path = _resolve_auth_config_path(config_file)
+        # Use environment-based path resolution
+        config_path = _resolve_auth_config_path(config_file)
 
         logger.debug(f"[AuthConfig] Attempting to read config from: {config_path}")
         if not config_path.exists():

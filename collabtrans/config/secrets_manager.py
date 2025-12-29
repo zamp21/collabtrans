@@ -6,6 +6,7 @@ import logging
 import os
 from pathlib import Path
 from typing import Dict, Any, Optional
+from .env_detector import is_production, get_config_path, get_dev_config_path, get_prod_config_path
 
 # Create logger
 logger = logging.getLogger(__name__)
@@ -22,13 +23,9 @@ class SecretsManager:
             secrets_file: Sensitive configuration file path
         """
         # Configuration file priority:
-        # Windows/Linux override:
-        # 0. COLLABTRANS_CONFIG_PATH env dir if set (Windows default: C:\\Users\\Public\\collabtrans)
-        # Linux:
-        # 1. /etc/collabtrans/local_secrets.json (system configuration)
-        # Common:
-        # 2. local_secrets.json in executable directory (packaged configuration)
-        # 3. local_secrets.json in project root/current directory (development environment)
+        # 0. COLLABTRANS_CONFIG_PATH env dir if set (cross-platform override)
+        # 1. Environment-based path (production: /etc/collabtrans/, development: project root)
+        # 2. Legacy fallback paths
         
         # 0) Environment-configured directory (cross-platform override)
         env_dir = os.environ.get("COLLABTRANS_CONFIG_PATH")
@@ -36,7 +33,7 @@ class SecretsManager:
         if not env_dir and os.name == "nt":
             env_dir = r"C:\\Users\\Public\\collabtrans"
         if env_dir:
-            env_path = Path(env_dir) / "local_secrets.json"
+            env_path = Path(env_dir) / secrets_file
             # If exists, prefer it; if not, set as target path for creation
             if env_path.exists():
                 self.secrets_file = env_path
@@ -46,66 +43,109 @@ class SecretsManager:
             else:
                 # Defer to other locations, but remember env target for save
                 self.secrets_file = env_path
+                self._secrets_cache = None
+                return
 
-        if os.name != "nt":
-            system_secrets_file = "/etc/collabtrans/local_secrets.json"
-            system_secrets_template = "/etc/collabtrans/local_secrets.json.template"
-            system_dir_exists = os.path.exists("/etc/collabtrans")
-            if system_dir_exists:
-                if os.path.exists(system_secrets_file):
-                    self.secrets_file = Path(system_secrets_file)
-                    logger.debug(f"Using system secrets config: {system_secrets_file}")
-                else:
-                    # Auto-create from template if available
-                    if os.path.exists(system_secrets_template):
+        # 1) Environment-based path (production or development)
+        if is_production():
+            # Production: use /etc/collabtrans/
+            prod_path = get_prod_config_path(secrets_file)
+            if prod_path.exists():
+                self.secrets_file = prod_path
+                logger.debug(f"Using production secrets config: {prod_path}")
+            else:
+                # Auto-create from template if available
+                prod_template = get_prod_config_path(f"{secrets_file}.template")
+                if prod_template.exists():
+                    try:
+                        import shutil
+                        shutil.copy2(prod_template, prod_path)
+                        # Set conservative permissions: rw-r----- (0640)
                         try:
-                            import shutil
-                            shutil.copy2(system_secrets_template, system_secrets_file)
-                            # Set conservative permissions: rw-r----- (0640)
-                            try:
-                                os.chmod(system_secrets_file, 0o640)
-                            except Exception:
-                                pass
-                            self.secrets_file = Path(system_secrets_file)
-                            logger.info(
-                                f"First deployment: created {system_secrets_file} from template {system_secrets_template}"
-                            )
-                        except Exception as copy_err:
-                            logger.warning(
-                                f"Failed to create system secrets from template: {copy_err}. Will try other locations."
-                            )
-                    # If still not set, fall through to other locations
-                    if not hasattr(self, 'secrets_file'):
-                        self.secrets_file = Path(system_secrets_file)
-            else:
-                # System directory doesn't exist, use fallback
-                if not hasattr(self, 'secrets_file'):
-                    proj_root = Path(__file__).resolve().parents[2]
-                    sf = Path(secrets_file)
-                    self.secrets_file = sf if sf.is_absolute() else (proj_root / sf)
-                    logger.debug(f"Using fallback secrets config: {self.secrets_file}")
-        else:
-            # Try to load configuration file from executable directory
-            import sys
-            if getattr(sys, 'frozen', False):
-                # PyInstaller packaged environment
-                exe_dir = os.path.dirname(sys.executable)
-                exe_secrets_file = os.path.join(exe_dir, "local_secrets.json")
-                if os.path.exists(exe_secrets_file):
-                    self.secrets_file = Path(exe_secrets_file)
-                    logger.debug(f"Using executable directory secrets config: {exe_secrets_file}")
+                            os.chmod(prod_path, 0o640)
+                        except Exception:
+                            pass
+                        self.secrets_file = prod_path
+                        logger.info(f"First deployment: created {prod_path} from template {prod_template}")
+                    except Exception as copy_err:
+                        logger.warning(f"Failed to create production secrets from template: {copy_err}")
+                        self.secrets_file = prod_path
                 else:
-                    # Fix relative path to repository root directory to avoid writing to wrong location due to working directory changes
+                    self.secrets_file = prod_path
+        else:
+            # Development: use project root
+            dev_path = get_dev_config_path(secrets_file)
+            if dev_path.exists():
+                self.secrets_file = dev_path
+                logger.debug(f"Using development secrets config: {dev_path}")
+            else:
+                # Try to create from template
+                dev_template = get_dev_config_path(f"{secrets_file}.template")
+                if dev_template.exists():
+                    try:
+                        import shutil
+                        shutil.copy2(dev_template, dev_path)
+                        self.secrets_file = dev_path
+                        logger.info(f"First deployment: created {dev_path} from template {dev_template}")
+                    except Exception as copy_err:
+                        logger.warning(f"Failed to create development secrets from template: {copy_err}")
+                        self.secrets_file = dev_path
+                else:
+                    self.secrets_file = dev_path
+        
+        # 2) Legacy fallback (for backward compatibility, only if not set above)
+        if not hasattr(self, 'secrets_file') or self.secrets_file is None:
+            if os.name != "nt":
+                system_secrets_file = "/etc/collabtrans/local_secrets.json"
+                system_secrets_template = "/etc/collabtrans/local_secrets.json.template"
+                system_dir_exists = os.path.exists("/etc/collabtrans")
+                if system_dir_exists:
+                    if os.path.exists(system_secrets_file):
+                        self.secrets_file = Path(system_secrets_file)
+                        logger.debug(f"Using system secrets config (legacy): {system_secrets_file}")
+                    else:
+                        # Auto-create from template if available
+                        if os.path.exists(system_secrets_template):
+                            try:
+                                import shutil
+                                shutil.copy2(system_secrets_template, system_secrets_file)
+                                try:
+                                    os.chmod(system_secrets_file, 0o640)
+                                except Exception:
+                                    pass
+                                self.secrets_file = Path(system_secrets_file)
+                                logger.info(f"First deployment: created {system_secrets_file} from template (legacy)")
+                            except Exception as copy_err:
+                                logger.warning(f"Failed to create system secrets from template (legacy): {copy_err}")
+                        if not hasattr(self, 'secrets_file'):
+                            self.secrets_file = Path(system_secrets_file)
+                else:
+                    # System directory doesn't exist, use fallback
                     proj_root = Path(__file__).resolve().parents[2]
                     sf = Path(secrets_file)
                     self.secrets_file = sf if sf.is_absolute() else (proj_root / sf)
-                    logger.debug(f"Using local secrets config: {self.secrets_file}")
+                    logger.debug(f"Using fallback secrets config (legacy): {self.secrets_file}")
             else:
-                # Development environment
-                proj_root = Path(__file__).resolve().parents[2]
-                sf = Path(secrets_file)
-                self.secrets_file = sf if sf.is_absolute() else (proj_root / sf)
-                logger.debug(f"Using local secrets config: {self.secrets_file}")
+                # Windows: Try executable directory
+                import sys
+                if getattr(sys, 'frozen', False):
+                    exe_dir = os.path.dirname(sys.executable)
+                    exe_secrets_file = os.path.join(exe_dir, secrets_file)
+                    if os.path.exists(exe_secrets_file):
+                        self.secrets_file = Path(exe_secrets_file)
+                        logger.debug(f"Using executable directory secrets config (legacy): {exe_secrets_file}")
+                    else:
+                        proj_root = Path(__file__).resolve().parents[2]
+                        sf = Path(secrets_file)
+                        self.secrets_file = sf if sf.is_absolute() else (proj_root / sf)
+                        logger.debug(f"Using local secrets config (legacy): {self.secrets_file}")
+                else:
+                    # Development environment
+                    proj_root = Path(__file__).resolve().parents[2]
+                    sf = Path(secrets_file)
+                    self.secrets_file = sf if sf.is_absolute() else (proj_root / sf)
+                    logger.debug(f"Using local secrets config (legacy): {self.secrets_file}")
+        
         self._secrets_cache: Optional[Dict[str, Any]] = None
         
     def load_secrets(self) -> Dict[str, Any]:

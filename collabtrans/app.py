@@ -86,6 +86,7 @@ from collabtrans.translator.ai_translator.html_translator import HtmlTranslatorC
 from collabtrans.logger import global_logger
 from collabtrans.translator import default_params
 from collabtrans.utils.resource_utils import resource_path
+from collabtrans.config.env_detector import is_production, get_config_path, get_dev_config_path, get_prod_config_path
 
 # --- Optional: Playwright for server-side PDF export ---
 try:
@@ -2744,11 +2745,10 @@ def run_app(port: int | None = None):
     # Configuration file priority:
     # Windows/Linux override:
     # 0) COLLABTRANS_CONFIG_PATH env dir if set (Windows default: C:\\Users\\Public\\collabtrans)
-    # Linux:
-    # 1) /etc/collabtrans/local_secrets.json (system configuration)
+    # 1) Environment-based path (production: /etc/collabtrans/, development: project root)
     # Common:
-    # 2) local_secrets.json in executable directory (packaged configuration)
-    # 3) local_secrets.json in current directory (development environment)
+    # 2) local_secrets.json in executable directory (packaged configuration, legacy fallback)
+    # 3) local_secrets.json in current directory (development environment, legacy fallback)
 
     # 0) Environment-configured directory
     env_dir = os.environ.get("COLLABTRANS_CONFIG_PATH")
@@ -2762,15 +2762,31 @@ def run_app(port: int | None = None):
             secrets_path = env_secrets
             logger.debug(f"Using env secrets config: {secrets_path}")
 
-    system_secrets_path = "/etc/collabtrans/local_secrets.json"
-    system_dir_exists = os.path.exists("/etc/collabtrans")
-
-    # Determine configuration file path
-    if secrets_path is None and system_dir_exists and os.path.exists(system_secrets_path):
-        secrets_path = system_secrets_path
-        print(f"Using system secrets config: {secrets_path}")
+    # 1) Environment-based path (production or development)
     if secrets_path is None:
-        # Try to load configuration file from executable program directory
+        if is_production():
+            # Production: use /etc/collabtrans/
+            prod_secrets = get_prod_config_path("local_secrets.json")
+            if prod_secrets.exists():
+                secrets_path = str(prod_secrets)
+                print(f"Using production secrets config: {secrets_path}")
+        else:
+            # Development: use project root
+            dev_secrets = get_dev_config_path("local_secrets.json")
+            if dev_secrets.exists():
+                secrets_path = str(dev_secrets)
+                print(f"Using development secrets config: {secrets_path}")
+
+    # 2) Legacy fallback: System directory (non-Windows)
+    if secrets_path is None:
+        system_secrets_path = "/etc/collabtrans/local_secrets.json"
+        system_dir_exists = os.path.exists("/etc/collabtrans")
+        if system_dir_exists and os.path.exists(system_secrets_path):
+            secrets_path = system_secrets_path
+            print(f"Using system secrets config (legacy): {secrets_path}")
+
+    # 3) Legacy fallback: Executable directory or current directory
+    if secrets_path is None:
         import sys
         if getattr(sys, 'frozen', False):
             # PyInstaller packaged environment
@@ -2778,30 +2794,53 @@ def run_app(port: int | None = None):
             exe_secrets_path = os.path.join(exe_dir, "local_secrets.json")
             if os.path.exists(exe_secrets_path):
                 secrets_path = exe_secrets_path
-                print(f"Using executable directory secrets config: {secrets_path}")
+                print(f"Using executable directory secrets config (legacy): {secrets_path}")
             else:
                 secrets_path = os.path.join(os.getcwd(), "local_secrets.json")
-                print(f"Using working directory secrets config: {secrets_path}")
+                print(f"Using working directory secrets config (legacy): {secrets_path}")
         else:
             # Development environment
             secrets_path = os.path.join(os.getcwd(), "local_secrets.json")
-            print(f"Using working directory secrets config: {secrets_path}")
+            print(f"Using working directory secrets config (legacy): {secrets_path}")
     
     # Check if configuration file needs to be created
     if not os.path.exists(secrets_path):
-        # Determine template file path
-        system_template_path = "/etc/collabtrans/local_secrets.json.template"
-        exe_template_path = os.path.join(os.path.dirname(sys.executable), "local_secrets.json.template") if getattr(sys, 'frozen', False) else None
-        local_template_path = os.path.join(os.getcwd(), "local_secrets.json.template")
-        
-        # Select template file by priority
+        # Determine template file path based on environment
         template_path = None
-        if system_dir_exists and os.path.exists(system_template_path):
-            template_path = system_template_path
-        elif exe_template_path and os.path.exists(exe_template_path):
-            template_path = exe_template_path
-        elif os.path.exists(local_template_path):
-            template_path = local_template_path
+        
+        # 0) Environment-configured directory
+        if env_dir:
+            env_template = os.path.join(env_dir, "local_secrets.json.template")
+            if os.path.exists(env_template):
+                template_path = env_template
+        
+        # 1) Environment-based path (production or development)
+        if template_path is None:
+            if is_production():
+                prod_template = get_prod_config_path("local_secrets.json.template")
+                if prod_template.exists():
+                    template_path = str(prod_template)
+            else:
+                dev_template = get_dev_config_path("local_secrets.json.template")
+                if dev_template.exists():
+                    template_path = str(dev_template)
+        
+        # 2) Legacy fallback: System directory
+        if template_path is None:
+            system_template_path = "/etc/collabtrans/local_secrets.json.template"
+            system_dir_exists = os.path.exists("/etc/collabtrans")
+            if system_dir_exists and os.path.exists(system_template_path):
+                template_path = system_template_path
+        
+        # 3) Legacy fallback: Executable directory or current directory
+        if template_path is None:
+            import sys
+            exe_template_path = os.path.join(os.path.dirname(sys.executable), "local_secrets.json.template") if getattr(sys, 'frozen', False) else None
+            local_template_path = os.path.join(os.getcwd(), "local_secrets.json.template")
+            if exe_template_path and os.path.exists(exe_template_path):
+                template_path = exe_template_path
+            elif os.path.exists(local_template_path):
+                template_path = local_template_path
         
         if template_path:
             try:

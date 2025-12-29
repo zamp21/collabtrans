@@ -8,6 +8,7 @@ from dataclasses import dataclass, asdict, field
 from typing import Optional, Dict, Any
 from pathlib import Path
 from .secrets_manager import get_secrets_manager
+from .env_detector import is_production, get_config_path, get_dev_config_path, get_prod_config_path
 
 # Create logger
 logger = logging.getLogger(__name__)
@@ -81,13 +82,9 @@ class GlobalConfig:
         """Load global configuration from JSON file and API keys from secrets file"""
         try:
             # Configuration file priority:
-            # Windows:
-            #   0. COLLABTRANS_CONFIG_PATH env dir if set (default: C:\Users\Public\collabtrans)
-            # Linux:
-            #   1. /etc/collabtrans/global_config.json (system configuration)
-            # Common:
-            #   2. global_config.json in executable directory (packaged configuration)
-            #   3. global_config.json in current working directory (development)
+            # 0. COLLABTRANS_CONFIG_PATH env dir if set (cross-platform override)
+            # 1. Environment-based path (production: /etc/collabtrans/, development: project root)
+            # 2. Fallback to legacy paths for backward compatibility
             
             # 0) Environment-configured directory (cross-platform override)
             env_dir = os.environ.get("COLLABTRANS_CONFIG_PATH")
@@ -95,7 +92,7 @@ class GlobalConfig:
             if not env_dir and os.name == "nt":
                 env_dir = r"C:\\Users\\Public\\collabtrans"
             if env_dir:
-                env_cfg = os.path.join(env_dir, "global_config.json")
+                env_cfg = os.path.join(env_dir, config_file)
                 if os.path.exists(env_cfg):
                     logger.info(f"Loading global configuration from env dir: {env_cfg}")
                     with open(env_cfg, 'r', encoding='utf-8') as f:
@@ -105,56 +102,85 @@ class GlobalConfig:
                         logger.debug("Global configuration loaded successfully from env dir")
                         return config
 
-            # 1) System directory on non-Windows platforms
+            # 1) Environment-based path (production or development)
+            if is_production():
+                # Production: use /etc/collabtrans/
+                config_path = get_prod_config_path(config_file)
+                if config_path.exists():
+                    logger.info(f"Loading global configuration from production config: {config_path}")
+                    with open(config_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        config = cls()
+                        config.update_from_dict(data)
+                        logger.debug("Global configuration loaded successfully from production config")
+                        config._load_secrets()
+                        return config
+            else:
+                # Development: use project root
+                config_path = get_dev_config_path(config_file)
+                if config_path.exists():
+                    logger.info(f"Loading global configuration from development config: {config_path}")
+                    with open(config_path, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        config = cls()
+                        config.update_from_dict(data)
+                        logger.debug("Global configuration loaded successfully from development config")
+                        config._load_secrets()
+                        return config
+
+            # 2) Fallback to legacy paths for backward compatibility
             if os.name != "nt":
                 system_config_file = "/etc/collabtrans/global_config.json"
                 system_dir_exists = os.path.exists("/etc/collabtrans")
                 if system_dir_exists and os.path.exists(system_config_file):
-                    logger.info(f"Loading global configuration from system config: {system_config_file}")
+                    logger.info(f"Loading global configuration from system config (legacy): {system_config_file}")
                     with open(system_config_file, 'r', encoding='utf-8') as f:
                         data = json.load(f)
                         config = cls()
                         config.update_from_dict(data)
                         logger.debug("Global configuration loaded successfully from system config")
+                        config._load_secrets()
                         return config
-            else:
-                # Try to load configuration file from executable directory
-                import sys
-                if getattr(sys, 'frozen', False):
-                    # PyInstaller packaged environment
-                    exe_dir = os.path.dirname(sys.executable)
-                    exe_config_file = os.path.join(exe_dir, "global_config.json")
-                    if os.path.exists(exe_config_file):
-                        logger.info(f"Loading global configuration from executable directory: {exe_config_file}")
-                        with open(exe_config_file, 'r', encoding='utf-8') as f:
-                            data = json.load(f)
-                            config = cls()
-                            config.update_from_dict(data)
-                            logger.debug("Global configuration loaded successfully from executable directory")
-                    elif os.path.exists(config_file):
-                        logger.info(f"Loading global configuration from: {config_file}")
-                        with open(config_file, 'r', encoding='utf-8') as f:
-                            data = json.load(f)
-                            config = cls()
-                            config.update_from_dict(data)
-                            logger.debug("Global configuration loaded successfully")
-                    else:
-                        logger.warning(f"Global config file not found in {exe_config_file} or {config_file}, using empty configuration")
-                        config = cls()
-                else:
-                    # Development environment
-                    if os.path.exists(config_file):
-                        logger.info(f"Loading global configuration from: {config_file}")
-                        with open(config_file, 'r', encoding='utf-8') as f:
-                            data = json.load(f)
-                            config = cls()
-                            config.update_from_dict(data)
-                            logger.debug("Global configuration loaded successfully")
-                    else:
-                        logger.warning(f"Global config file not found in {config_file}, using empty configuration")
-                        config = cls()
             
-            # Load API keys and other sensitive information from secrets file
+            # Try to load configuration file from executable directory
+            import sys
+            if getattr(sys, 'frozen', False):
+                # PyInstaller packaged environment
+                exe_dir = os.path.dirname(sys.executable)
+                exe_config_file = os.path.join(exe_dir, config_file)
+                if os.path.exists(exe_config_file):
+                    logger.info(f"Loading global configuration from executable directory (legacy): {exe_config_file}")
+                    with open(exe_config_file, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        config = cls()
+                        config.update_from_dict(data)
+                        logger.debug("Global configuration loaded successfully from executable directory")
+                        config._load_secrets()
+                        return config
+                elif os.path.exists(config_file):
+                    logger.info(f"Loading global configuration from current directory (legacy): {config_file}")
+                    with open(config_file, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                        config = cls()
+                        config.update_from_dict(data)
+                        logger.debug("Global configuration loaded successfully")
+                        config._load_secrets()
+                        return config
+            
+            # Development environment fallback
+            if os.path.exists(config_file):
+                logger.info(f"Loading global configuration from current directory (legacy): {config_file}")
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    config = cls()
+                    config.update_from_dict(data)
+                    logger.debug("Global configuration loaded successfully")
+                    config._load_secrets()
+                    return config
+            
+            # No config file found, use defaults
+            logger.warning(f"Global config file not found, using empty configuration")
+            config = cls()
             config._load_secrets()
             
             # Migration: Ensure all platforms have api_type field

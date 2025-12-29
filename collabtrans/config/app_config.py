@@ -7,6 +7,7 @@ import logging
 from dataclasses import dataclass, asdict, field
 from typing import Optional, Dict, Any, List
 from pathlib import Path
+from .env_detector import is_production, get_config_path, get_dev_config_path, get_prod_config_path
 
 # Create logger
 logger = logging.getLogger(__name__)
@@ -89,11 +90,10 @@ class AppConfig:
         """Resolve the actual read path for app_config.json, by priority:
         Windows/Linux override:
         0) COLLABTRANS_CONFIG_PATH env dir if set (Windows default: C:\\Users\\Public\\collabtrans)
-        Linux:
-        1) /etc/collabtrans/app_config.json
+        1) Environment-based path (production: /etc/collabtrans/, development: project root)
         Common:
-        2) Executable directory (PyInstaller) or current working directory
-        3) Project root directory (development environment)
+        2) Executable directory (PyInstaller) or current working directory (legacy fallback)
+        3) Project root directory (development environment, legacy fallback)
         If an absolute path is passed, return it directly.
         """
         p = Path(config_file)
@@ -107,40 +107,54 @@ class AppConfig:
         if not env_dir and os.name == "nt":
             env_dir = r"C:\\Users\\Public\\collabtrans"
         if env_dir:
-            env_cfg = Path(env_dir) / "app_config.json"
+            env_cfg = Path(env_dir) / config_file
             if env_cfg.exists():
                 logger.info(f"[AppConfig] Using env dir config: {env_cfg}")
                 return env_cfg
 
-        # 1) System directory priority (non-Windows)
+        # 1) Environment-based path (production or development)
+        if is_production():
+            # Production: use /etc/collabtrans/
+            prod_cfg = get_prod_config_path(config_file)
+            if prod_cfg.exists():
+                logger.info(f"[AppConfig] Using production config: {prod_cfg}")
+                return prod_cfg
+        else:
+            # Development: use project root
+            dev_cfg = get_dev_config_path(config_file)
+            if dev_cfg.exists():
+                logger.info(f"[AppConfig] Using development config: {dev_cfg}")
+                return dev_cfg
+
+        # 2) Legacy fallback: System directory priority (non-Windows)
         if os.name != "nt":
             system_dir = Path("/etc/collabtrans")
-            system_cfg = system_dir / "app_config.json"
+            system_cfg = system_dir / config_file
             if system_dir.exists() and system_cfg.exists():
-                logger.info(f"[AppConfig] Using system config: {system_cfg}")
+                logger.info(f"[AppConfig] Using system config (legacy): {system_cfg}")
                 return system_cfg
 
-        # 2) Executable directory (PyInstaller) or current working directory
+        # 3) Legacy fallback: Executable directory (PyInstaller) or current working directory
         try:
             if getattr(__import__('sys'), 'frozen', False):
                 import sys as _sys
                 exe_dir = Path(os.path.dirname(_sys.executable))
-                exe_cfg = exe_dir / "app_config.json"
+                exe_cfg = exe_dir / config_file
                 if exe_cfg.exists():
-                    logger.info(f"[AppConfig] Using executable directory config: {exe_cfg}")
+                    logger.info(f"[AppConfig] Using executable directory config (legacy): {exe_cfg}")
                     return exe_cfg
-                cwd_cfg = Path.cwd() / "app_config.json"
+                cwd_cfg = Path.cwd() / config_file
                 if cwd_cfg.exists():
-                    logger.info(f"[AppConfig] Using working directory config: {cwd_cfg}")
+                    logger.info(f"[AppConfig] Using working directory config (legacy): {cwd_cfg}")
                     return cwd_cfg
                 # Default return to expected path in executable directory (may be used for subsequent writes)
                 return exe_cfg
         except Exception:
             pass
 
-        # 3) Project root directory (development environment)
+        # 4) Legacy fallback: Project root directory (development environment)
         project_root = Path(__file__).resolve().parents[2]
-        return project_root / "app_config.json"
+        return project_root / config_file
 
     @classmethod
     def load_from_file(cls, config_file: str = "app_config.json") -> "AppConfig":
