@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import binascii
+import json
 import logging
 import os
 import shutil
@@ -2033,7 +2034,6 @@ async def service_translate(request: Request):
             original_filename = file.filename or "unknown"
             
             # Parse JSON payload
-            import json
             payload_dict = json.loads(payload_str)
             
             # Validate workflow_type is present

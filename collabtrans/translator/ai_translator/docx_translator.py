@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2025 QinHan
 # SPDX-License-Identifier: MPL-2.0
 import asyncio
+import re
 from dataclasses import dataclass
 from io import BytesIO
 from typing import Self, Literal, List, Dict, Any, Tuple
@@ -9,10 +10,211 @@ import docx
 from docx.document import Document as DocumentObject
 from docx.text.paragraph import Paragraph
 from docx.text.run import Run
+from docx.shared import Pt, RGBColor
 
 from collabtrans.agents.segments_agent import SegmentsTranslateAgentConfig, SegmentsTranslateAgent
 from collabtrans.ir.document import Document
 from collabtrans.translator.ai_translator.base import AiTranslatorConfig, AiTranslator
+
+
+@dataclass
+class RunFormatInfo:
+    """Run 格式信息，用于格式感知分片"""
+    font_name: str | None = None
+    font_size: int | None = None  # 单位：磅 (Pt)
+    bold: bool | None = None
+    italic: bool | None = None
+    underline: bool | None = None
+    color_rgb: str | None = None  # RGB 颜色值，格式："RRGGBB" 或 "RGBColor(r, g, b)"
+    highlight_color: str | None = None  # 高亮颜色
+    strikethrough: bool | None = None
+    
+    def __eq__(self, other) -> bool:
+        """比较两个格式信息是否相同（用于分片判断）"""
+        if not isinstance(other, RunFormatInfo):
+            return False
+        return (
+            self.font_name == other.font_name and
+            self.font_size == other.font_size and
+            self.bold == other.bold and
+            self.italic == other.italic and
+            self.underline == other.underline and
+            self.color_rgb == other.color_rgb and
+            self.highlight_color == other.highlight_color and
+            self.strikethrough == other.strikethrough
+        )
+    
+    def __hash__(self) -> int:
+        """用于字典键"""
+        return hash((
+            self.font_name, self.font_size, self.bold, self.italic,
+            self.underline, self.color_rgb, self.highlight_color, self.strikethrough
+        ))
+
+
+def extract_run_format(run: Run) -> RunFormatInfo:
+    """从 Run 对象提取格式信息"""
+    font = run.font
+    
+    # 提取字体名称
+    font_name = None
+    if font.name:
+        font_name = font.name
+    
+    # 提取字号
+    font_size = None
+    if font.size:
+        font_size = font.size.pt
+    
+    # 提取颜色（RGB）
+    color_rgb = None
+    if font.color and font.color.rgb:
+        # 转换为字符串表示
+        rgb = font.color.rgb
+        try:
+            # 尝试多种方式提取 RGB 值
+            r = g = b = None
+            
+            # 方法1: 尝试使用 r, g, b 属性
+            if hasattr(rgb, 'r') and hasattr(rgb, 'g') and hasattr(rgb, 'b'):
+                r, g, b = rgb.r, rgb.g, rgb.b
+            # 方法2: 尝试使用 red, green, blue 属性
+            elif hasattr(rgb, 'red') and hasattr(rgb, 'green') and hasattr(rgb, 'blue'):
+                r, g, b = rgb.red, rgb.green, rgb.blue
+            # 方法3: 尝试使用索引访问（如果是元组或列表）
+            elif hasattr(rgb, '__getitem__') and len(rgb) >= 3:
+                try:
+                    r, g, b = rgb[0], rgb[1], rgb[2]
+                except (TypeError, IndexError):
+                    pass
+            # 方法4: 尝试使用 hex() 方法转换为十六进制
+            elif hasattr(rgb, 'hex'):
+                hex_str = rgb.hex()
+                if hex_str and len(hex_str) >= 6:
+                    r = int(hex_str[0:2], 16)
+                    g = int(hex_str[2:4], 16)
+                    b = int(hex_str[4:6], 16)
+            
+            # 如果成功提取了 RGB 值，转换为字符串
+            if r is not None and g is not None and b is not None:
+                # 使用十六进制格式存储（更通用）
+                color_rgb = f"{r:02X}{g:02X}{b:02X}"
+            else:
+                # 如果无法提取，使用字符串表示
+                color_rgb = str(rgb)
+        except Exception:
+            # 如果所有方法都失败，使用字符串表示
+            color_rgb = str(rgb)
+    
+    # 提取高亮颜色
+    highlight_color = None
+    if hasattr(font, 'highlight_color') and font.highlight_color:
+        highlight_color = str(font.highlight_color)
+    
+    # 提取删除线
+    strikethrough = None
+    if hasattr(font, 'strike'):
+        strikethrough = font.strike
+    
+    return RunFormatInfo(
+        font_name=font_name,
+        font_size=font_size,
+        bold=font.bold,
+        italic=font.italic,
+        underline=font.underline,
+        color_rgb=color_rgb,
+        highlight_color=highlight_color,
+        strikethrough=strikethrough
+    )
+
+
+def apply_format_to_run(run: Run, format_info: RunFormatInfo, target_font_name: str | None = None, logger=None):
+    """
+    将格式信息应用到 Run 对象
+    
+    Args:
+        run: Run 对象
+        format_info: 格式信息
+        target_font_name: 目标语言字体名称（可选，用于字体兼容性）
+        logger: 日志记录器（可选）
+    """
+    if logger is None:
+        import logging
+        logger = logging.getLogger(__name__)
+    
+    font = run.font
+    
+    # 应用字体名称（优先使用目标语言字体，如果未指定则使用原始字体）
+    if target_font_name:
+        font.name = target_font_name
+    elif format_info.font_name:
+        font.name = format_info.font_name
+    
+    # 应用字号
+    if format_info.font_size:
+        font.size = Pt(format_info.font_size)
+    
+    # 应用粗体
+    if format_info.bold is not None:
+        font.bold = format_info.bold
+    
+    # 应用斜体
+    if format_info.italic is not None:
+        font.italic = format_info.italic
+    
+    # 应用下划线
+    if format_info.underline is not None:
+        font.underline = format_info.underline
+    
+    # 应用颜色
+    if format_info.color_rgb:
+        try:
+            # 解析 RGB 颜色字符串
+            r = g = b = None
+            
+            # 方法1: 尝试解析 "RGBColor(r, g, b)" 格式
+            if format_info.color_rgb.startswith("RGBColor"):
+                match = re.search(r'RGBColor\((\d+),\s*(\d+),\s*(\d+)\)', format_info.color_rgb)
+                if match:
+                    r, g, b = map(int, match.groups())
+            # 方法2: 尝试解析十六进制格式 "RRGGBB"（6位）
+            elif len(format_info.color_rgb) == 6:
+                try:
+                    r = int(format_info.color_rgb[0:2], 16)
+                    g = int(format_info.color_rgb[2:4], 16)
+                    b = int(format_info.color_rgb[4:6], 16)
+                except ValueError:
+                    pass
+            # 方法3: 尝试解析十进制格式（如果包含逗号）
+            elif ',' in format_info.color_rgb:
+                parts = format_info.color_rgb.split(',')
+                if len(parts) == 3:
+                    try:
+                        r, g, b = map(int, parts)
+                    except ValueError:
+                        pass
+            
+            # 如果成功解析了 RGB 值，应用颜色
+            if r is not None and g is not None and b is not None:
+                font.color.rgb = RGBColor(r, g, b)
+        except Exception as e:
+            logger.warning(f"Failed to apply color {format_info.color_rgb}: {e}")
+    
+    # 应用高亮颜色
+    if format_info.highlight_color:
+        try:
+            # 注意：python-docx 对高亮颜色的支持可能有限
+            # 这里需要根据实际情况调整
+            if hasattr(font, 'highlight_color'):
+                # 尝试解析高亮颜色
+                pass
+        except Exception as e:
+            logger.warning(f"Failed to apply highlight color: {e}")
+    
+    # 应用删除线
+    if format_info.strikethrough is not None:
+        if hasattr(font, 'strike'):
+            font.strike = format_info.strikethrough
 
 
 def is_image_run(run: Run) -> bool:
@@ -253,26 +455,62 @@ class DocxTranslator(AiTranslator):
                     pass
                 return
             
+            # 格式感知分片：根据格式差异进行分片
             current_text_segment = ""
             current_runs = []
+            current_format: RunFormatInfo | None = None
 
             for run in para.runs:
                 if is_image_run(run):
-                    # Encounter image, treat previously accumulated text as a translation unit
+                    # 遇到图片，结束当前分片
                     if current_text_segment.strip():
-                        elements_to_translate.append({"type": "text_runs", "runs": current_runs})
+                        elements_to_translate.append({
+                            "type": "text_runs",
+                            "runs": current_runs,
+                            "format": current_format  # 记录格式信息
+                        })
                         original_texts.append(current_text_segment)
-                    # Reset accumulator
+                    # 重置
                     current_text_segment = ""
                     current_runs = []
+                    current_format = None
                 else:
-                    # Accumulate text run
-                    current_runs.append(run)
-                    current_text_segment += run.text
+                    # 提取当前 run 的格式
+                    run_format = extract_run_format(run)
+                    
+                    # 判断是否需要分片
+                    # 条件：格式发生变化 或 当前分片为空
+                    if current_format is None:
+                        # 第一个 run，开始新分片
+                        current_format = run_format
+                        current_runs.append(run)
+                        current_text_segment += run.text
+                    elif current_format == run_format:
+                        # 格式相同，继续累积
+                        current_runs.append(run)
+                        current_text_segment += run.text
+                    else:
+                        # 格式不同，结束当前分片，开始新分片
+                        if current_text_segment.strip():
+                            elements_to_translate.append({
+                                "type": "text_runs",
+                                "runs": current_runs,
+                                "format": current_format
+                            })
+                            original_texts.append(current_text_segment)
+                        
+                        # 开始新分片
+                        current_format = run_format
+                        current_runs = [run]
+                        current_text_segment = run.text
 
-            # Process the last text block at the end of the paragraph
+            # 处理最后一个分片
             if current_text_segment.strip():
-                elements_to_translate.append({"type": "text_runs", "runs": current_runs})
+                elements_to_translate.append({
+                    "type": "text_runs",
+                    "runs": current_runs,
+                    "format": current_format
+                })
                 original_texts.append(current_text_segment)
 
         # Traverse all paragraphs
@@ -299,11 +537,16 @@ class DocxTranslator(AiTranslator):
                          translated_texts: List[str], original_texts: List[str]) -> bytes:
         """
         [Refactored] Write translated text back to corresponding text runs, preserving images and styles.
+        格式感知版本：保留原始格式属性（字号、颜色、粗体等）
         """
         translation_map = dict(zip(original_texts, translated_texts))
+        
+        # 获取目标语言字体（用于字体兼容性）
+        target_font_name = get_font_for_language(self.config.to_lang)
 
         for i, element_info in enumerate(elements_to_translate):
             runs = element_info["runs"]
+            format_info: RunFormatInfo | None = element_info.get("format")
             original_text = original_texts[i]
             translated_text = translated_texts[i]
 
@@ -321,50 +564,55 @@ class DocxTranslator(AiTranslator):
             if not runs:
                 continue
 
-            # --- Core modification section ---
-            # 1. Write complete translated text to the first run, preserving page breaks
-            first_run = runs[0]
-            preserve_page_breaks_in_run(first_run, final_text)
-            
-            # 2. Set appropriate font based on target language to avoid font compatibility issues
-            if first_run.font:
-                # Select font based on target language
-                target_font = get_font_for_language(self.config.to_lang)
-                first_run.font.name = target_font
+            # --- 格式感知导出逻辑 ---
+            # 策略：将翻译文本分配到各个 run，保持格式
+            if len(runs) == 1:
+                # 单个 run：直接替换并应用格式
+                first_run = runs[0]
+                preserve_page_breaks_in_run(first_run, final_text)
+                if format_info:
+                    apply_format_to_run(first_run, format_info, target_font_name, self.logger)
+                else:
+                    # 如果没有格式信息，使用原有逻辑（字体兼容性）
+                    if first_run.font:
+                        first_run.font.name = target_font_name
+            else:
+                # 多个 run：将文本放入第一个 run，其他 run 清空
+                first_run = runs[0]
+                preserve_page_breaks_in_run(first_run, final_text)
+                if format_info:
+                    apply_format_to_run(first_run, format_info, target_font_name, self.logger)
+                else:
+                    # 如果没有格式信息，使用原有逻辑（字体兼容性）
+                    if first_run.font:
+                        first_run.font.name = target_font_name
+                        # 尝试备选字体
+                        if not first_run.font.name:
+                            if any(char in self.config.to_lang for char in ['Chinese', 'Chinese', 'Simplified', 'Traditional']):
+                                fallback_fonts = ['SimSun', 'SimHei', 'Arial Unicode MS', 'Times New Roman']
+                            elif any(char in self.config.to_lang for char in ['Japanese', 'Japanese', 'Japanese']):
+                                fallback_fonts = ['MS Gothic', 'Arial Unicode MS', 'Times New Roman']
+                            elif any(char in self.config.to_lang for char in ['Korean', 'Korean', '한국어']):
+                                fallback_fonts = ['Gulim', 'Arial Unicode MS', 'Times New Roman']
+                            elif any(char in self.config.to_lang for char in ['Russian', 'Russian', 'Русский']):
+                                fallback_fonts = ['Times New Roman', 'Arial', 'Calibri']
+                            elif any(char in self.config.to_lang for char in ['Arabic', 'Arabic', 'العَرَبِيَّة']):
+                                fallback_fonts = ['Arial Unicode MS', 'Times New Roman', 'Arial']
+                            else:
+                                fallback_fonts = ['Calibri', 'Times New Roman', 'Arial']
+                            
+                            for fallback_font in fallback_fonts:
+                                first_run.font.name = fallback_font
+                                if first_run.font.name:
+                                    break
                 
-                # If primary font is not available, try fallback fonts
-                if not first_run.font.name:
-                    # Select fallback fonts based on language type
-                    if any(char in self.config.to_lang for char in ['Chinese', 'Chinese', 'Simplified', 'Traditional']):
-                        # Chinese fallback fonts
-                        fallback_fonts = ['SimSun', 'SimHei', 'Arial Unicode MS', 'Times New Roman']
-                    elif any(char in self.config.to_lang for char in ['Japanese', 'Japanese', 'Japanese']):
-                        # Japanese fallback fonts
-                        fallback_fonts = ['MS Gothic', 'Arial Unicode MS', 'Times New Roman']
-                    elif any(char in self.config.to_lang for char in ['Korean', 'Korean', '한국어']):
-                        # Korean fallback fonts
-                        fallback_fonts = ['Gulim', 'Arial Unicode MS', 'Times New Roman']
-                    elif any(char in self.config.to_lang for char in ['Russian', 'Russian', 'Русский']):
-                        # Russian fallback fonts
-                        fallback_fonts = ['Times New Roman', 'Arial', 'Calibri']
-                    elif any(char in self.config.to_lang for char in ['Arabic', 'Arabic', 'العَرَبِيَّة']):
-                        # Arabic fallback fonts
-                        fallback_fonts = ['Arial Unicode MS', 'Times New Roman', 'Arial']
-                    else:
-                        # Fallback fonts for other languages
-                        fallback_fonts = ['Calibri', 'Times New Roman', 'Arial']
-                    
-                    # Try fallback fonts
-                    for fallback_font in fallback_fonts:
-                        first_run.font.name = fallback_font
-                        if first_run.font.name:
-                            break
-
-            # 3. Clear content of remaining runs in this text block while preserving run structure
-            #    This prevents duplicate text while maintaining document structure
-            for run in runs[1:]:
-                run.text = ""
-            # --- End of modification ---
+                # 清空其他 run（保留结构）
+                for run in runs[1:]:
+                    run.text = ""
+                    # 可选：也应用格式（保持一致性）
+                    if format_info:
+                        apply_format_to_run(run, format_info, target_font_name, self.logger)
+            # --- End of format-aware logic ---
 
         # Save the modified document to BytesIO stream
         doc_output_stream = BytesIO()

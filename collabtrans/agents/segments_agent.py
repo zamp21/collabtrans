@@ -230,20 +230,156 @@ class SegmentsTranslateAgent(Agent):
                                                  error_result_handler=self._error_result_handler)
 
         indexed_translated = indexed_originals.copy()
-        for chunk in translated_chunks:
+        failed_segments = {}  # 记录失败的片段: {key: original_text}
+        
+        for i, chunk in enumerate(translated_chunks):
             try:
                 if not isinstance(chunk, dict):
-                    self.logger.warning(f"Received chunk is not a valid dictionary, skipped: {chunk}")
+                    self.logger.error(f"Received chunk is not a valid dictionary, skipped: {chunk}")
+                    # 记录整个 chunk 的所有片段为失败
+                    original_chunk = chunks[i]
+                    for key, val in original_chunk.items():
+                        if key in indexed_originals:
+                            failed_segments[key] = indexed_originals[key]
                     continue
+                
+                original_chunk = chunks[i]
+                original_keys = set(original_chunk.keys())
+                result_keys = set(chunk.keys())
+                
+                # 检查是否有缺失的 key
+                missing_keys = original_keys - result_keys
+                if missing_keys:
+                    self.logger.warning(f"Chunk {i} missing keys: {missing_keys}, will retry these segments")
+                    for key in missing_keys:
+                        if key in indexed_originals:
+                            failed_segments[key] = indexed_originals[key]
+                
+                # 优化：先检查整个 chunk 是否完全失败（所有值都与原文相同）
+                # 如果是，直接标记整个 chunk 为失败，避免逐个 segment 检查
+                all_identical = True
+                has_translatable_content = False
+                for key in original_keys:
+                    if key not in chunk:
+                        all_identical = False
+                        break
+                    original_val = indexed_originals.get(key, "")
+                    result_val = chunk.get(key, "")
+                    if result_val != original_val:
+                        all_identical = False
+                        break
+                    # 检查是否有可翻译内容
+                    if original_val.strip():
+                        val_str = str(original_val).strip()
+                        is_technical = (
+                            val_str.isdigit() or 
+                            len(val_str) <= 3 or 
+                            (any(c in val_str for c in ['/', '-', '_', '\t']) and ' ' not in val_str)
+                        )
+                        if not is_technical:
+                            has_translatable_content = True
+                
+                if all_identical and has_translatable_content:
+                    # 整个 chunk 都失败了，直接标记所有 segment 为失败
+                    self.logger.warning(f"Chunk {i} completely failed (all {len(original_keys)} segments identical to original), will retry entire chunk")
+                    for key in original_keys:
+                        if key in indexed_originals:
+                            failed_segments[key] = indexed_originals[key]
+                    # 不更新 indexed_translated，保持原文
+                    continue
+                
+                # 部分成功或完全成功的情况，逐个处理 segment
                 for key, val in chunk.items():
                     if key in indexed_translated:
+                        original_val = indexed_originals.get(key, "")
+                        # 如果翻译结果与原文完全相同，且原文不是空或纯技术代码，可能是翻译失败
+                        if val == original_val and original_val.strip():
+                            # 检查是否是纯技术代码（数字、短代码等）
+                            val_str = str(val).strip()
+                            is_technical = (
+                                val_str.isdigit() or 
+                                len(val_str) <= 3 or 
+                                (any(c in val_str for c in ['/', '-', '_', '\t']) and ' ' not in val_str)
+                            )
+                            if not is_technical:
+                                self.logger.warning(f"Segment {key} translation is identical to original, may be a failure. Will retry.")
+                                failed_segments[key] = original_val
                         indexed_translated[key] = val
                     else:
                         self.logger.warning(f"Unknown key '{key}' found in result chunk, ignored.")
             except (AttributeError, TypeError) as e:
                 self.logger.error(f"Type or attribute error occurred while processing chunk, skipped. Chunk: {chunk}, Error: {e.__repr__()}")
+                # 记录整个 chunk 的所有片段为失败
+                original_chunk = chunks[i]
+                for key, val in original_chunk.items():
+                    if key in indexed_originals:
+                        failed_segments[key] = indexed_originals[key]
             except Exception as e:
                 self.logger.error(f"Unknown error occurred while processing chunk: {e.__repr__()}")
+                # 记录整个 chunk 的所有片段为失败
+                original_chunk = chunks[i]
+                for key, val in original_chunk.items():
+                    if key in indexed_originals:
+                        failed_segments[key] = indexed_originals[key]
+
+        # 如果有失败的片段，进行第二次翻译
+        if failed_segments:
+            self.logger.info(f"Found {len(failed_segments)} failed segments, will retry translation")
+            
+            # 将失败的片段重新组装成 chunk
+            failed_chunks, failed_merged_indices = self._create_chunks_from_segments(failed_segments, chunk_size)
+            failed_prompts = [json.dumps(chunk, ensure_ascii=False, indent=0) for chunk in failed_chunks]
+            
+            # 第二次翻译
+            self.logger.info(f"Retrying {len(failed_prompts)} chunks with {sum(len(c) for c in failed_chunks)} failed segments")
+            retry_translated_chunks = super().send_prompts(
+                prompts=failed_prompts, 
+                pre_send_handler=self._pre_send_handler,
+                result_handler=self._result_handler,
+                error_result_handler=self._error_result_handler
+            )
+            
+            # 合并第二次翻译结果
+            retry_count = 0
+            for chunk in retry_translated_chunks:
+                try:
+                    if not isinstance(chunk, dict):
+                        self.logger.warning(f"Retry chunk is not a valid dictionary, skipped: {chunk}")
+                        continue
+                    for key, val in chunk.items():
+                        if key in indexed_translated and key in failed_segments:
+                            original_val = failed_segments[key]
+                            # 检查重试结果是否真的与原文不同（成功翻译）
+                            if val != original_val:
+                                # 更新翻译结果
+                                indexed_translated[key] = val
+                                # 从失败列表中移除
+                                failed_segments.pop(key, None)
+                                retry_count += 1
+                            else:
+                                # 重试结果与原文相同，仍然是失败
+                                # 检查是否是纯技术代码（如果是，可以接受）
+                                val_str = str(val).strip()
+                                is_technical = (
+                                    val_str.isdigit() or 
+                                    len(val_str) <= 3 or 
+                                    (any(c in val_str for c in ['/', '-', '_', '\t']) and ' ' not in val_str)
+                                )
+                                if is_technical:
+                                    # 技术代码，接受结果
+                                    indexed_translated[key] = val
+                                    failed_segments.pop(key, None)
+                                    retry_count += 1
+                                else:
+                                    # 非技术代码但结果相同，重试失败
+                                    self.logger.warning(f"Retry failed for segment {key}: result is still identical to original")
+                except Exception as e:
+                    self.logger.error(f"Error processing retry chunk: {e.__repr__()}")
+            
+            if retry_count > 0:
+                self.logger.info(f"Successfully retranslated {retry_count} segments")
+            if failed_segments:
+                self.logger.warning(f"Still have {len(failed_segments)} segments that failed after retry")
 
         # Rebuild final list
         result = []
@@ -268,21 +404,160 @@ class SegmentsTranslateAgent(Agent):
                                                              error_result_handler=self._error_result_handler)
 
         indexed_translated = indexed_originals.copy()
-        for chunk in translated_chunks:
+        failed_segments = {}  # 记录失败的片段: {key: original_text}
+        
+        for i, chunk in enumerate(translated_chunks):
             try:
                 if not isinstance(chunk, dict):
                     self.logger.error(f"Received chunk is not a valid dictionary, skipped: {chunk}")
+                    # 记录整个 chunk 的所有片段为失败
+                    original_chunk = chunks[i]
+                    for key, val in original_chunk.items():
+                        if key in indexed_originals:
+                            failed_segments[key] = indexed_originals[key]
                     continue
+                
+                original_chunk = chunks[i]
+                original_keys = set(original_chunk.keys())
+                result_keys = set(chunk.keys())
+                
+                # 检查是否有缺失的 key
+                missing_keys = original_keys - result_keys
+                if missing_keys:
+                    self.logger.warning(f"Chunk {i} missing keys: {missing_keys}, will retry these segments")
+                    for key in missing_keys:
+                        if key in indexed_originals:
+                            failed_segments[key] = indexed_originals[key]
+                
+                # 优化：先检查整个 chunk 是否完全失败（所有值都与原文相同）
+                # 如果是，直接标记整个 chunk 为失败，避免逐个 segment 检查
+                all_identical = True
+                has_translatable_content = False
+                for key in original_keys:
+                    if key not in chunk:
+                        all_identical = False
+                        break
+                    original_val = indexed_originals.get(key, "")
+                    result_val = chunk.get(key, "")
+                    if result_val != original_val:
+                        all_identical = False
+                        break
+                    # 检查是否有可翻译内容
+                    if original_val.strip():
+                        val_str = str(original_val).strip()
+                        is_technical = (
+                            val_str.isdigit() or 
+                            len(val_str) <= 3 or 
+                            (any(c in val_str for c in ['/', '-', '_', '\t']) and ' ' not in val_str)
+                        )
+                        if not is_technical:
+                            has_translatable_content = True
+                
+                if all_identical and has_translatable_content:
+                    # 整个 chunk 都失败了，直接标记所有 segment 为失败
+                    self.logger.warning(f"Chunk {i} completely failed (all {len(original_keys)} segments identical to original), will retry entire chunk")
+                    for key in original_keys:
+                        if key in indexed_originals:
+                            failed_segments[key] = indexed_originals[key]
+                    # 不更新 indexed_translated，保持原文
+                    continue
+                
+                # 部分成功或完全成功的情况，逐个处理 segment
                 for key, val in chunk.items():
                     if key in indexed_translated:
-                        # str(val) is no longer needed here, as _result_handler has already handled it
+                        original_val = indexed_originals.get(key, "")
+                        # 如果翻译结果与原文完全相同，且原文不是空或纯技术代码，可能是翻译失败
+                        if val == original_val and original_val.strip():
+                            # 检查是否是纯技术代码（数字、短代码等）
+                            val_str = str(val).strip()
+                            is_technical = (
+                                val_str.isdigit() or 
+                                len(val_str) <= 3 or 
+                                (any(c in val_str for c in ['/', '-', '_', '\t']) and ' ' not in val_str)
+                            )
+                            if not is_technical:
+                                self.logger.warning(f"Segment {key} translation is identical to original, may be a failure. Will retry.")
+                                failed_segments[key] = original_val
                         indexed_translated[key] = val
                     else:
                         self.logger.warning(f"Unknown key '{key}' found in result chunk, ignored.")
             except (AttributeError, TypeError) as e:
                 self.logger.error(f"Type or attribute error occurred while processing chunk, skipped. Chunk: {chunk}, Error: {e.__repr__()}")
+                # 记录整个 chunk 的所有片段为失败
+                original_chunk = chunks[i]
+                for key, val in original_chunk.items():
+                    if key in indexed_originals:
+                        failed_segments[key] = indexed_originals[key]
             except Exception as e:
                 self.logger.error(f"Unknown error occurred while processing chunk: {e.__repr__()}")
+                # 记录整个 chunk 的所有片段为失败
+                original_chunk = chunks[i]
+                for key, val in original_chunk.items():
+                    if key in indexed_originals:
+                        failed_segments[key] = indexed_originals[key]
+
+        # 如果有失败的片段，进行第二次翻译
+        if failed_segments:
+            self.logger.info(f"Found {len(failed_segments)} failed segments, will retry translation")
+            
+            # 将失败的片段重新组装成 chunk
+            failed_chunks, failed_merged_indices = await asyncio.to_thread(
+                self._create_chunks_from_segments, 
+                failed_segments, 
+                chunk_size
+            )
+            failed_prompts = [json.dumps(chunk, ensure_ascii=False, indent=0) for chunk in failed_chunks]
+            
+            # 第二次翻译
+            self.logger.info(f"Retrying {len(failed_prompts)} chunks with {sum(len(c) for c in failed_chunks)} failed segments")
+            retry_translated_chunks = await super().send_prompts_async(
+                prompts=failed_prompts, 
+                pre_send_handler=self._pre_send_handler,
+                result_handler=self._result_handler,
+                error_result_handler=self._error_result_handler
+            )
+            
+            # 合并第二次翻译结果
+            retry_count = 0
+            for chunk in retry_translated_chunks:
+                try:
+                    if not isinstance(chunk, dict):
+                        self.logger.warning(f"Retry chunk is not a valid dictionary, skipped: {chunk}")
+                        continue
+                    for key, val in chunk.items():
+                        if key in indexed_translated and key in failed_segments:
+                            original_val = failed_segments[key]
+                            # 检查重试结果是否真的与原文不同（成功翻译）
+                            if val != original_val:
+                                # 更新翻译结果
+                                indexed_translated[key] = val
+                                # 从失败列表中移除
+                                failed_segments.pop(key, None)
+                                retry_count += 1
+                            else:
+                                # 重试结果与原文相同，仍然是失败
+                                # 检查是否是纯技术代码（如果是，可以接受）
+                                val_str = str(val).strip()
+                                is_technical = (
+                                    val_str.isdigit() or 
+                                    len(val_str) <= 3 or 
+                                    (any(c in val_str for c in ['/', '-', '_', '\t']) and ' ' not in val_str)
+                                )
+                                if is_technical:
+                                    # 技术代码，接受结果
+                                    indexed_translated[key] = val
+                                    failed_segments.pop(key, None)
+                                    retry_count += 1
+                                else:
+                                    # 非技术代码但结果相同，重试失败
+                                    self.logger.warning(f"Retry failed for segment {key}: result is still identical to original")
+                except Exception as e:
+                    self.logger.error(f"Error processing retry chunk: {e.__repr__()}")
+            
+            if retry_count > 0:
+                self.logger.info(f"Successfully retranslated {retry_count} segments")
+            if failed_segments:
+                self.logger.warning(f"Still have {len(failed_segments)} segments that failed after retry")
 
         # Rebuild final list
         result = []
@@ -296,6 +571,38 @@ class SegmentsTranslateAgent(Agent):
 
         result.extend(ls[last_end:])
         return result
+    
+    def _create_chunks_from_segments(self, segments_dict: dict[str, str], chunk_size_max: int) -> tuple[list[dict[str, str]], list[tuple[int, int]]]:
+        """
+        从失败的片段字典创建 chunks，用于重试翻译
+        返回: (chunks_list, merged_indices_list)
+        """
+        from collabtrans.utils.json_utils import get_json_size
+        
+        # 将字典转换为列表，保持 key 的顺序
+        segments_list = [(key, val) for key, val in segments_dict.items()]
+        chunks_list = []
+        merged_indices_list = []
+        
+        if not segments_list:
+            return [], []
+        
+        chunk = {}
+        for key, val in segments_list:
+            prospective_chunk = chunk.copy()
+            prospective_chunk[key] = val
+            
+            if get_json_size(prospective_chunk) > chunk_size_max and chunk:
+                chunks_list.append(chunk)
+                chunk = {key: val}
+            else:
+                chunk = prospective_chunk
+        
+        if chunk:
+            chunks_list.append(chunk)
+        
+        # merged_indices_list 对于重试场景可以返回空列表，因为不需要合并
+        return chunks_list, []
 
     def update_glossary_dict(self, update_dict: dict | None):
         if self.glossary_dict is None:
