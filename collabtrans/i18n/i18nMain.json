@@ -1,7 +1,7 @@
 {
   "zh": {
     "loadingPrompts": "加载中...",
-    "pageTitle": "CollabTrans - 交互式文档翻译",
+    "pageTitle": "交互式文档翻译",
     "tutorialBtn": "教程",
     "projectContributeBtn": "项目协作",
     "workflowTitle": "选择工作流",
@@ -342,7 +342,7 @@
   },
   "en": {
     "loadingPrompts": "Loading...",
-    "pageTitle": "CollabTrans - Interactive Document Translation",
+    "pageTitle": "Interactive Document Translation",
     "tutorialBtn": "Tutorial",
     "projectContributeBtn": "Project Contribution",
     "workflowTitle": "Select Workflow",
