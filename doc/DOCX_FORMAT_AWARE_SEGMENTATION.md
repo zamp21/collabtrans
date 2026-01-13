@@ -62,10 +62,16 @@ def extract_run_format(run: Run) -> RunFormatInfo:
     if font.color and font.color.rgb:
         color_rgb = str(font.color.rgb)
     
-    # 提取高亮颜色
+    # 提取高亮颜色（对不被 python-docx 支持的值做兼容处理，例如 w:val="none"）
     highlight_color = None
-    if hasattr(font, 'highlight_color') and font.highlight_color:
-        highlight_color = str(font.highlight_color)
+    if hasattr(font, 'highlight_color'):
+        try:
+            if font.highlight_color:
+                highlight_color = str(font.highlight_color)
+        except ValueError as e:
+            # 例如：WD_COLOR_INDEX has no XML mapping for 'none'
+            # 这类问题只影响高亮效果，不影响正文内容，安全忽略
+            pass
     
     return RunFormatInfo(
         font_name=font.name,

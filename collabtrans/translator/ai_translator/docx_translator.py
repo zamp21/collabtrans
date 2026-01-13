@@ -107,9 +107,34 @@ def extract_run_format(run: Run) -> RunFormatInfo:
             color_rgb = str(rgb)
     
     # 提取高亮颜色
+    # 注意：某些第三方编辑器（如早期 WPS）可能写出 python-docx 不支持的值，比如 w:val="none"
+    # 这会在访问 font.highlight_color 时触发 ValueError: WD_COLOR_INDEX has no XML mapping for 'none'
+    # 完全避免使用 hasattr，直接使用 try/except 处理，因为 hasattr 在访问属性时可能无法捕获所有异常
     highlight_color = None
-    if hasattr(font, 'highlight_color') and font.highlight_color:
-        highlight_color = str(font.highlight_color)
+    try:
+        # 直接访问 highlight_color 属性，不使用 hasattr
+        hc = font.highlight_color
+        if hc:
+            highlight_color = str(hc)
+    except ValueError as e:
+        # 对于 "no XML mapping for 'none'" 这类已知兼容性问题，安全地忽略高亮信息，避免中断整个翻译任务
+        msg = str(e)
+        if "no XML mapping for 'none'" in msg or "has no XML mapping for 'none'" in msg:
+            try:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Ignored unsupported highlight_color 'none' in DOCX run: %s", msg
+                )
+            except Exception:
+                # 日志失败不影响主流程
+                pass
+            highlight_color = None
+        else:
+            # 其它未知的 ValueError 仍然抛出，避免掩盖真正的问题
+            raise
+    except (AttributeError, TypeError):
+        # 如果 font 对象没有 highlight_color 属性或访问时出现其他类型错误，安全忽略
+        highlight_color = None
     
     # 提取删除线
     strikethrough = None
