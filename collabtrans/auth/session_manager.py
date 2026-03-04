@@ -40,8 +40,11 @@ class AuthSessionManager:
                 db=self.config.redis_db,
                 password=self.config.redis_password,
                 decode_responses=True,
-                socket_connect_timeout=2,
-                socket_timeout=2
+                # Relax timeouts a bit so that short CPU / IO spikes
+                # during large translations won't immediately break session access.
+                socket_connect_timeout=5,
+                socket_timeout=5,
+                retry_on_timeout=True,
             )
             # Test connection
             self.redis_client.ping()
