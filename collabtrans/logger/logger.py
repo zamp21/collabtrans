@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: MPL-2.0
 import logging
 from pathlib import Path
+
+from collabtrans.logger.levels import TRACE  # noqa: F401 - register TRACE with logging at startup
 from logging.handlers import TimedRotatingFileHandler
 from collabtrans.config.global_config import get_global_config
 from collabtrans.logger.log_messages import get_log_message, initialize_log_language

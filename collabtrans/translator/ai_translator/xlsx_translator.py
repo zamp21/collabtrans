@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2025 QinHan
 # SPDX-License-Identifier: MPL-2.0
 import asyncio
+import os
+import tempfile
 from dataclasses import dataclass
 from io import BytesIO
 from typing import Self, Literal, List, Optional
@@ -11,6 +13,7 @@ from openpyxl.cell import Cell
 from collabtrans.agents.segments_agent import SegmentsTranslateAgentConfig, SegmentsTranslateAgent
 from collabtrans.ir.document import Document
 from collabtrans.translator.ai_translator.base import AiTranslatorConfig, AiTranslator
+from collabtrans.utils.memory_utils import log_memory
 
 
 @dataclass
@@ -52,13 +55,24 @@ class XlsxTranslator(AiTranslator):
         self.translate_regions = config.translate_regions
 
     def _pre_translate(self, document: Document):
-        workbook = openpyxl.load_workbook(BytesIO(document.content))
-        cells_to_translate = []
+        """
+        Preprocess XLSX file in low-memory mode:
+        - Use read_only workbook to scan and collect cells to translate.
+        - Do NOT keep workbook object in memory; only return coordinates and texts.
+
+        Returns:
+            cells_to_translate: list of {"sheet_name": str, "coordinate": str}
+            original_texts: list of cell text (same order as cells_to_translate)
+        """
+        # Use read_only + data_only to reduce memory while scanning
+        workbook = openpyxl.load_workbook(BytesIO(document.content), read_only=True, data_only=True)
+        log_memory(self.logger, "xlsx: after load_workbook (read_only)", f"file size {len(document.content) / (1024*1024):.2f} MB")
+        cells_to_translate: list[dict] = []
+        original_texts: list[str] = []
 
         # --- Step 1: Collect text cells that need translation based on whether regions are specified ---
-
-        # If no translation regions are specified, use old logic to translate all cells
         if not self.translate_regions:  # Also handle None or empty list cases
+            # No regions: translate all string cells
             for sheet in workbook.worksheets:
                 for row in sheet.iter_rows():
                     for cell in row:
@@ -66,17 +80,16 @@ class XlsxTranslator(AiTranslator):
                             cells_to_translate.append({
                                 "sheet_name": sheet.title,
                                 "coordinate": cell.coordinate,
-                                "original_text": cell.value,
                             })
-        # If translation regions are specified, only search within these regions
+                            original_texts.append(cell.value)
         else:
+            # If translation regions are specified, only search within these regions
             processed_coordinates = set()
-
-            regions_by_sheet = {}
-            all_sheet_regions = []
+            regions_by_sheet: dict[str, list[str]] = {}
+            all_sheet_regions: list[str] = []
             for region in self.translate_regions:
-                if '!' in region:
-                    sheet_name, cell_range = region.split('!', 1)
+                if "!" in region:
+                    sheet_name, cell_range = region.split("!", 1)
                     if sheet_name not in regions_by_sheet:
                         regions_by_sheet[sheet_name] = []
                     regions_by_sheet[sheet_name].append(cell_range)
@@ -94,42 +107,41 @@ class XlsxTranslator(AiTranslator):
                     try:
                         cells_in_range = sheet[cell_range]
 
-                        # --- START: This is the key part of the modification ---
-                        # Flatten to 1D list regardless of whether it returns single cell, 1D tuple (row/column) or 2D tuple (rectangle)
-                        flat_cells = []
+                        # Flatten to 1D list regardless of whether it returns single cell, 1D tuple or 2D tuple
+                        flat_cells: list[Cell] = []
                         if isinstance(cells_in_range, Cell):
                             flat_cells.append(cells_in_range)
                         elif isinstance(cells_in_range, tuple):
                             for item in cells_in_range:
                                 if isinstance(item, Cell):
-                                    flat_cells.append(item)  # Handle 1D tuple
+                                    flat_cells.append(item)
                                 elif isinstance(item, tuple):
-                                    for cell in item:  # Handle 2D tuple
+                                    for cell in item:
                                         flat_cells.append(cell)
-                        # --- END: Modification complete ---
 
-                        # Use simplified single-layer loop
                         for cell in flat_cells:
                             full_coordinate = (sheet.title, cell.coordinate)
                             if full_coordinate in processed_coordinates:
                                 continue
 
                             if isinstance(cell.value, str) and cell.data_type == "s":
-                                cell_info = {
+                                cells_to_translate.append({
                                     "sheet_name": sheet.title,
                                     "coordinate": cell.coordinate,
-                                    "original_text": cell.value,
-                                }
-                                cells_to_translate.append(cell_info)
+                                })
+                                original_texts.append(cell.value)
                                 processed_coordinates.add(full_coordinate)
-
                     except Exception as e:
                         self.logger.warning(f"Skipping invalid range '{cell_range}' in worksheet '{sheet.title}'. Error: {e}")
 
-        original_texts = [cell["original_text"] for cell in cells_to_translate]
-        return workbook, cells_to_translate, original_texts
+        workbook.close()
+        log_memory(self.logger, "xlsx: after collecting cells (read_only)", f"{len(cells_to_translate)} cells")
+        return cells_to_translate, original_texts
 
-    def _after_translate(self, workbook, cells_to_translate, translated_texts, original_texts):
+    def _after_translate(self, document: Document, cells_to_translate, translated_texts, original_texts):
+        # Load a writable workbook from original document bytes for write-back
+        workbook = openpyxl.load_workbook(BytesIO(document.content))
+        log_memory(self.logger, "xlsx: _after_translate load_workbook (writable)", f"{len(cells_to_translate)} cells")
         for i, cell_info in enumerate(cells_to_translate):
             sheet_name = cell_info["sheet_name"]
             coordinate = cell_info["coordinate"]
@@ -147,20 +159,27 @@ class XlsxTranslator(AiTranslator):
             else:
                 self.logger.error("Invalid XlsxTranslatorConfig parameter")
 
-        workbook_output_stream = BytesIO()
-        # Save modified workbook to new file
+        # Save to a temp file instead of BytesIO to reduce peak memory for large workbooks.
+        # workbook.save(BytesIO()) + getvalue() keeps both the full buffer and a bytes copy in memory,
+        # which can trigger OOM when the xlsx is large (e.g. 10MB+ with many cells).
+        fd, path = tempfile.mkstemp(suffix=".xlsx")
         try:
-            workbook.save(workbook_output_stream)
+            os.close(fd)
+            workbook.save(path)
+            with open(path, "rb") as f:
+                return f.read()
         finally:
             workbook.close()
-        return workbook_output_stream.getvalue()
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
 
     def translate(self, document: Document) -> Self:
 
-        workbook, cells_to_translate, original_texts = self._pre_translate(document)
+        cells_to_translate, original_texts = self._pre_translate(document)
         if not cells_to_translate:
             print("\nNo plain text content found in specified regions that needs translation.")
-            workbook.close()
             return self
         if self.glossary_agent:
             self.glossary_dict_gen = self.glossary_agent.send_segments(original_texts, self.chunk_size)
@@ -172,15 +191,15 @@ class XlsxTranslator(AiTranslator):
         else:
             translated_texts = original_texts
 
-        document.content = self._after_translate(workbook, cells_to_translate, translated_texts, original_texts)
+        document.content = self._after_translate(document, cells_to_translate, translated_texts, original_texts)
         return self
 
     async def translate_async(self, document: Document) -> Self:
 
-        workbook, cells_to_translate, original_texts = await asyncio.to_thread(self._pre_translate, document)
+        cells_to_translate, original_texts = await asyncio.to_thread(self._pre_translate, document)
+        log_memory(self.logger, "xlsx: after _pre_translate (read_only)", f"{len(cells_to_translate)} cells")
         if not cells_to_translate:
             print("\nNo plain text content found in specified regions that needs translation.")
-            workbook.close()
             return self
 
         if self.glossary_agent:
@@ -189,10 +208,14 @@ class XlsxTranslator(AiTranslator):
                 self.translate_agent.update_glossary_dict(self.glossary_dict_gen)
 
         # --- Step 2: Call translation function ---
+        log_memory(self.logger, "xlsx: before send_segments_async", f"{len(original_texts)} segments")
         if self.translate_agent:
             translated_texts = await self.translate_agent.send_segments_async(original_texts, self.chunk_size)
         else:
             translated_texts = original_texts
-        document.content = await asyncio.to_thread(self._after_translate, workbook, cells_to_translate,
+        log_memory(self.logger, "xlsx: after send_segments_async", f"{len(translated_texts)} results")
+        log_memory(self.logger, "xlsx: before _after_translate (write back)", "")
+        document.content = await asyncio.to_thread(self._after_translate, document, cells_to_translate,
                                                    translated_texts, original_texts)
+        log_memory(self.logger, "xlsx: after _after_translate", f"result size {len(document.content) / (1024*1024):.2f} MB")
         return self

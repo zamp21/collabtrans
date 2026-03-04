@@ -11,6 +11,12 @@ from pathlib import Path
 # Create logger
 logger = logging.getLogger(__name__)
 
+# TRACE is below DEBUG; use for very noisy messages (e.g. config load)
+try:
+    from collabtrans.logger.levels import TRACE
+except ImportError:
+    TRACE = 5
+
 
 @dataclass
 class LDAPConfig:
@@ -151,7 +157,7 @@ class LocalConfig:
                 if 'https' in config_data:
                     config.https = HTTPSConfig(**config_data['https'])
                 
-                logger.debug(f"Loaded local configuration from {resolved_path}")
+                logger.log(TRACE, f"Loaded local configuration from {resolved_path}")
                 return config
             else:
                 logger.warning(f"Local configuration file {resolved_path} not found, using defaults")

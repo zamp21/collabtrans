@@ -18,6 +18,7 @@ import httpx
 
 from collabtrans.global_values import USE_PROXY
 from collabtrans.logger import global_logger
+from collabtrans.utils.memory_utils import log_memory
 from collabtrans.utils.utils import get_httpx_proxies
 
 MAX_REQUESTS_PER_ERROR = 15
@@ -706,6 +707,7 @@ class Agent:
                     nonlocal count
                     count += 1
                     self.logger.info(f"Coroutine completed {count}/{total}")
+                    log_memory(self.logger, f"after chunk {count}/{total}", f"chunk {count}/{total}")
                     return result
 
             for p_text in prompts:

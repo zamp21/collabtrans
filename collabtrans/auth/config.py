@@ -13,6 +13,10 @@ from ..config.env_detector import is_production, get_config_path, get_dev_config
 
 # Create logger
 logger = logging.getLogger(__name__)
+try:
+    from collabtrans.logger.levels import TRACE
+except ImportError:
+    TRACE = 5
 
 _AUTH_CONFIG_SINGLETON: Optional["AuthConfig"] = None
 
@@ -31,7 +35,7 @@ def _resolve_auth_config_path(config_file: str = "local_config.json") -> Path:
     # Absolute path: use directly
     p = Path(config_file)
     if p.is_absolute():
-        logger.debug(f"[AuthConfig] Using absolute path: {p}")
+        logger.log(TRACE, f"[AuthConfig] Using absolute path: {p}")
         return p
 
     # 0) Environment-configured directory (cross-platform override)
@@ -42,7 +46,7 @@ def _resolve_auth_config_path(config_file: str = "local_config.json") -> Path:
     if env_dir:
         env_cfg = Path(env_dir) / config_file
         if env_cfg.exists():
-            logger.debug(f"[AuthConfig] Using env config: {env_cfg}")
+            logger.log(TRACE, f"[AuthConfig] Using env config: {env_cfg}")
             return env_cfg
 
     # 1) Environment-based path (production or development)
@@ -50,13 +54,13 @@ def _resolve_auth_config_path(config_file: str = "local_config.json") -> Path:
         # Production: use /etc/collabtrans/
         prod_cfg = get_prod_config_path(config_file)
         if prod_cfg.exists():
-            logger.debug(f"[AuthConfig] Using production config: {prod_cfg}")
+            logger.log(TRACE, f"[AuthConfig] Using production config: {prod_cfg}")
             return prod_cfg
     else:
         # Development: use project root
         dev_cfg = get_dev_config_path(config_file)
         if dev_cfg.exists():
-            logger.debug(f"[AuthConfig] Using development config: {dev_cfg}")
+            logger.log(TRACE, f"[AuthConfig] Using development config: {dev_cfg}")
             return dev_cfg
 
     # 2) Legacy fallback: System directory (non-Windows)
@@ -64,7 +68,7 @@ def _resolve_auth_config_path(config_file: str = "local_config.json") -> Path:
         system_dir = Path("/etc/collabtrans")
         system_cfg = system_dir / config_file
         if system_dir.exists() and system_cfg.exists():
-            logger.debug(f"[AuthConfig] Using system config (legacy): {system_cfg}")
+            logger.log(TRACE, f"[AuthConfig] Using system config (legacy): {system_cfg}")
             return system_cfg
 
     # 3) Legacy fallback: Executable directory (PyInstaller)

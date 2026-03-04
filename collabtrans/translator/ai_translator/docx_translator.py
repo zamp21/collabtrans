@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2025 QinHan
 # SPDX-License-Identifier: MPL-2.0
 import asyncio
+import os
 import re
+import tempfile
 from dataclasses import dataclass
 from io import BytesIO
 from typing import Self, Literal, List, Dict, Any, Tuple
@@ -639,16 +641,25 @@ class DocxTranslator(AiTranslator):
                         apply_format_to_run(run, format_info, target_font_name, self.logger)
             # --- End of format-aware logic ---
 
-        # Save the modified document to BytesIO stream
-        doc_output_stream = BytesIO()
-        doc.save(doc_output_stream)
-        return doc_output_stream.getvalue()
+        # Save to temp file to reduce peak memory (avoid BytesIO buffer + getvalue() copy for large docx)
+        fd, path = tempfile.mkstemp(suffix=".docx")
+        try:
+            os.close(fd)
+            doc.save(path)
+            with open(path, "rb") as f:
+                return f.read()
+        finally:
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
 
     def translate(self, document: Document) -> Self:
         """
         Synchronously translate .docx file.
         """
         doc, elements_to_translate, original_texts = self._pre_translate(document)
+        document.content = b""  # Free original file bytes early to reduce peak memory
         if not original_texts:
             # Use i18n logger for translation messages
             from collabtrans.logger.logger import i18n_logger
@@ -678,6 +689,7 @@ class DocxTranslator(AiTranslator):
         Asynchronously translate .docx file.
         """
         doc, elements_to_translate, original_texts = await asyncio.to_thread(self._pre_translate, document)
+        document.content = b""  # Free original file bytes early to reduce peak memory
         if not original_texts:
             # Use i18n logger for translation messages
             from collabtrans.logger.logger import i18n_logger

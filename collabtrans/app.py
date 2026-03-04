@@ -1492,6 +1492,9 @@ async def _perform_translation(
         file_stem = Path(original_filename).stem
         file_suffix = Path(original_filename).suffix
         workflow.read_bytes(content=file_contents, stem=file_stem, suffix=file_suffix)
+        from collabtrans.utils.memory_utils import log_memory
+        log_memory(task_logger, "app: after read_bytes", f"file size {len(file_contents) / (1024*1024):.2f} MB")
+        file_contents = None  # Drop ref so only workflow's document holds bytes; reduces peak memory for large files
         await workflow.translate_async()
 
         # 4. Task successful, generate all downloadable files and store

@@ -13,6 +13,7 @@ from collabtrans.agents import AgentConfig, Agent
 from collabtrans.agents.agent import PartialAgentResultError, AgentResultError
 from collabtrans.glossary.glossary import Glossary
 from collabtrans.utils.json_utils import segments2json_chunks, fix_json_string
+from collabtrans.utils.memory_utils import log_memory
 
 
 @dataclass
@@ -398,10 +399,12 @@ class SegmentsTranslateAgent(Agent):
         indexed_originals, chunks, merged_indices_list = await asyncio.to_thread(segments2json_chunks, segments,
                                                                                  chunk_size)
         prompts = [json.dumps(chunk, ensure_ascii=False, indent=0) for chunk in chunks]
+        log_memory(self.logger, "segments: after building chunks", f"{len(chunks)} chunks, {len(segments)} segments")
 
         translated_chunks = await super().send_prompts_async(prompts=prompts, pre_send_handler=self._pre_send_handler,
                                                              result_handler=self._result_handler,
                                                              error_result_handler=self._error_result_handler)
+        log_memory(self.logger, "segments: after all API chunks returned", f"{len(translated_chunks)} chunks")
 
         indexed_translated = indexed_originals.copy()
         failed_segments = {}  # 记录失败的片段: {key: original_text}
@@ -495,6 +498,7 @@ class SegmentsTranslateAgent(Agent):
                 for key, val in original_chunk.items():
                     if key in indexed_originals:
                         failed_segments[key] = indexed_originals[key]
+            log_memory(self.logger, f"segments: after merge chunk {i + 1}/{len(translated_chunks)}", f"chunk {i + 1}/{len(translated_chunks)}")
 
         # 如果有失败的片段，进行第二次翻译
         if failed_segments:
