@@ -1499,6 +1499,8 @@ async def _perform_translation(
 
         # 4. Task successful, generate all downloadable files and store
         task_logger.info("Translation completed, generating temporary result files...")
+        from collabtrans.utils.memory_utils import log_memory
+        log_memory(task_logger, "export: before generating files", "")
         temp_dir = tempfile.mkdtemp(prefix=f"collabtrans_{task_id}_")
         task_state["temp_dir"] = temp_dir
         downloadable_files = {}
@@ -1526,15 +1528,22 @@ async def _perform_translation(
             elif isinstance(workflow, JsonWorkflow):
                 html_config = Json2HTMLExporterConfig(cdn=is_cdn_available)
             elif isinstance(workflow, XlsxWorkflow):
-                html_config = Xlsx2HTMLExporterConfig(cdn=is_cdn_available)
+                # For large XLSX translations, skip HTML export to avoid extra memory usage
+                html_config = None
             elif isinstance(workflow, DocxWorkflow):
-                html_config = Docx2HTMLExporterConfig(cdn=is_cdn_available)
+                # Docx translation result does not require HTML export either
+                html_config = None
             elif isinstance(workflow, SrtWorkflow):
                 html_config = Srt2HTMLExporterConfig(cdn=is_cdn_available)
             elif isinstance(workflow, EpubWorkflow):
                 html_config = Epub2HTMLExporterConfig(cdn=is_cdn_available)
-            export_map['html'] = (lambda: workflow.export_to_html(html_config), f"{filename_stem}_translated.html",
-                                  True)
+
+            if html_config is not None:
+                export_map['html'] = (
+                    lambda: workflow.export_to_html(html_config),
+                    f"{filename_stem}_translated.html",
+                    True,
+                )
         if isinstance(workflow, MDFormatsExportable):
             export_map['markdown'] = (workflow.export_to_markdown, f"{filename_stem}_translated.md", True)
             export_map['markdown_zip'] = (workflow.export_to_markdown_zip, f"{filename_stem}_translated.zip", False)
@@ -1556,6 +1565,7 @@ async def _perform_translation(
         # Loop to generate files
         for file_type, (export_func, filename, is_string_output) in export_map.items():
             try:
+                log_memory(task_logger, f"export: before {file_type}", "")
                 content = await asyncio.to_thread(export_func)
                 content_bytes = content.encode('utf-8') if is_string_output else content
                 file_path = os.path.join(temp_dir, filename)
@@ -1563,6 +1573,7 @@ async def _perform_translation(
                     f.write(content_bytes)
                 downloadable_files[file_type] = {"path": file_path, "filename": filename}
                 task_logger.info(f"Successfully generated {file_type} file")
+                log_memory(task_logger, f"export: after {file_type}", f"size {len(content_bytes) / (1024*1024):.2f} MB")
             except Exception as export_error:
                 task_logger.error(f"Error generating {file_type} file: {export_error}", exc_info=True)
 
