@@ -3,13 +3,15 @@ __pycache__/
 *.py[oc]
 build/
 dist/
+output/
 wheels/
 *.egg-info
 tests/resource/
 tests/
 collabtrans/output/
 # Virtual environments
-.venv
+.venv/
+venv/
 #idea
 .idea/
 # Temporary files

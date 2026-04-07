@@ -1,0 +1,125 @@
+
+1,检查版本
+1.1，检查CUDA版本
+nvcc --version
+
+1.2, 检查GPU版本
+nvidia-smi
+
+1.3,创建虚拟环境
+
+source ~/vllm-env/bin/activate
+
+2, 安装mineru
+2.1 安装包管理器
+pip install uv
+2.2 卸载旧版本
+pip uninstall mineru -y
+
+2.3 安装PyTorch
+pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121
+
+2.4 安装mineru
+uv pip install -U "mineru[core]" -i https://mirrors.aliyun.com/pypi/simple
+
+2.5 验证安装
+mineru --version
+mineru --help
+
+2.6 运行
+pineline模式，快，精度稍差
+mineru -p ./pdfs/demo0.pdf -o test_output/ --backend pineline
+mineru -p ./pdfs/demo0.pdf -o test_output/ --backend pineline --device cuda
+
+VLM模式 GPU
+mineru -p ./pdfs/demo0.pdf -o test_output/ --backend vlm -transformers --device cuda
+
+VLM模式 CPU
+mineru -p ./pdfs/demo0.pdf -o test_output/ --backend vlm -transformers --device cpu
+
+批量处理整个文件夹
+mineru -p ./pdfs -o test_output/ --backend pineline --batch-size 8
+
+2.7 开启web服务
+conda activate mineru
+mineru-gradio --server-name 0.0.0.0 --server-port 7860 --enable-api true
+
+PS:--server-name 0.0.0.0设置后，才可在外部访问
+
+
+2.8 访问web
+http://localhost:7860
+
+下载模型失败解决方案：
+export MINERU_MODEL_SOURCE=modelscope
+
+export CUDA_VISIBLE_DEVICES=0
+export MINERU_BATCH_SIZE=8
+
+遇到无法利用GPU，发现是CUDA版本太新
+# 1. 卸载当前 PyTorch
+pip uninstall torch torchvision torchaudio
+
+# 2. 安装 CUDA 12.0 兼容的 PyTorch 2.4.1
+pip install torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 --index-url https://download.pytorch.org/whl/cu121
+
+# 3. 验证
+python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); print(f'Version: {torch.__version__}')"
+
+
+
+
+3，启动API
+3.1 设置环境变量
+export MINERU_MODEL_SOURCE=modelscope  # 使用ModelScope作为模型源，避免Hugging Face网络问题
+export CUDA_VISIBLE_DEVICES=0  # 指定使用的GPU
+export MINERU_BATCH_SIZE=8  # 批量处理大小
+
+3.2 启动命令
+mineru-api --host 0.0.0.0 --port 8920
+
+3.3 API端点说明（本地部署）
+- 文件解析：/file/parse 或 /file_parse
+- 任务状态：/tasks/{task_id}
+- 任务结果：/tasks/{task_id}/result
+- API文档：/docs 或 /openapi.json
+
+3.4 CollabTrans配置示例
+在 global_config.json 中添加以下配置：
+
+```json
+"mineru": {
+  "name": "MinerU",
+  "model": "vlm",
+  "api_url": "http://localhost:8920",
+  "model_version": "vlm"
+},
+"mineru_public": {
+  "name": "MinerU Public",
+  "model": "vlm",
+  "api_url": "https://mineru.net/api/v4",
+  "model_version": "vlm"
+}
+```
+
+3.5 故障排除
+- API路径404错误：检查API端点是否正确，本地部署使用/file/parse，公共平台使用/api/v4/file-urls/batch
+- 模型下载失败：确保设置了MINERU_MODEL_SOURCE=modelscope
+- CUDA版本不兼容：安装兼容的PyTorch版本（如2.4.1）
+- 上传文件过大：本地部署无限制，公共平台可能有大小限制
+
+3.6 虚拟环境激活
+推荐使用：
+source ~/vllm-env/bin/activate
+
+3.7 PyTorch版本推荐
+推荐安装与当前CUDA版本兼容的PyTorch版本：
+- CUDA 12.1：pip install torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 --index-url https://download.pytorch.org/whl/cu121
+- 验证安装：python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}'); print(f'Version: {torch.__version__}')"
+
+3.8 GPU利用
+确保CUDA可用，并且PyTorch版本与CUDA版本兼容。使用--device cuda参数启用GPU加速。
+
+3.9 批量处理
+批量处理整个文件夹：
+mineru -p ./pdfs -o test_output/ --backend pineline --batch-size 8

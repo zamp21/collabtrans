@@ -197,8 +197,8 @@ async function saveParsingEngineConfig() {
       return false;
     }
 
-    // If there's plain text token input (not *** masked), save sensitive configuration separately
-    if (mineruApiKey && !mineruApiKey.endsWith('***') && key === 'mineru') {
+    // Save sensitive configuration: always send for mineru, even if empty
+    if (key === 'mineru') {
       const r2 = await fetch('/auth/app-config/setting', {
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 

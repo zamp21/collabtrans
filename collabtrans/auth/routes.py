@@ -2375,7 +2375,11 @@ async def test_mineru_connection(request: Request):
             mineru_token = sm.get_mineru_token()
             
             if not mineru_token:
-                return {"success": False, "message": "MinerU API Key not configured"}
+                return {"success": True, "message": "MinerU API Key not configured, using local deployment"}
+            
+            # Get base URL from request data
+            data = await request.json()
+            base_url = data.get('base_url', 'https://mineru.net')
             
             # Test MinerU API connection
             headers = {
@@ -2394,7 +2398,7 @@ async def test_mineru_connection(request: Request):
             
             async with httpx.AsyncClient(timeout=120.0) as client:
                 response = await client.post(
-                    'https://mineru.net/api/v4/file-urls/batch',
+                    f'{base_url}/api/v4/file-urls/batch',
                     headers=headers,
                     json=test_data
                 )

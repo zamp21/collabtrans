@@ -26,9 +26,10 @@ class ConverterMineruConfig(X2MarkdownConverterConfig):
     mineru_token: str
     formula_ocr: bool = True
     model_version: Literal["pipeline", "vlm"] = "vlm"
+    base_url: str = "https://mineru.net"
 
     def gethash(self) -> Hashable:
-        return self.formula_ocr, self.model_version
+        return self.formula_ocr, self.model_version, self.base_url
 
 
 timeout = httpx.Timeout(
@@ -56,13 +57,12 @@ class ConverterMineru(X2MarkdownConverter):
         self.mineru_token = (config.mineru_token or "").strip()
         self.formula = config.formula_ocr
         self.model_version = config.model_version
+        self.base_url = config.base_url.rstrip("/")
         self.attachments: list[AttachMent] = []
         
 
     def _get_header(self):
-        headers = {
-            'Content-Type': 'application/json'
-        }
+        headers = {}
         if self.mineru_token:
             headers["Authorization"] = f"Bearer {self.mineru_token}"
         return headers
@@ -79,44 +79,182 @@ class ConverterMineru(X2MarkdownConverter):
         }
 
     def upload(self, document: Document):
-        # Get upload URL
-        response = client.post(URL, headers=self._get_header(), json=self._get_upload_data(document))
-        response.raise_for_status()
-        result = response.json()
-        # print('response success. result:{}'.format(result))
-        if result["code"] == 0:
-            batch_id = result["data"]["batch_id"]
-            urls = result["data"]["file_urls"]
-            # print('batch_id:{},urls:{}'.format(batch_id, urls))
-            # Get
-            res_upload = client.put(urls[0], content=document.content)
-            res_upload.raise_for_status()
-            # print(f"{urls[0]} upload success")
-            return batch_id
+        # Try different API path structures
+        # First try online service
+        # Check if base_url already contains /api/v4
+        if self.base_url.endswith("/api/v4"):
+            online_path = f"{self.base_url}/file-urls/batch"
+            # For public platform, require API key
+            if not self.mineru_token:
+                raise Exception('API key is required for public MinerU platform')
         else:
-            raise Exception('apply upload url failed,reason:{}'.format(result))
+            online_path = f"{self.base_url}/api/v4/file-urls/batch"
+        try:
+            response = client.post(online_path, headers=self._get_header(), json=self._get_upload_data(document))
+            response.raise_for_status()
+            result = response.json()
+            if result.get("code") == 0:
+                batch_id = result["data"]["batch_id"]
+                urls = result["data"]["file_urls"]
+                res_upload = client.put(urls[0], content=document.content)
+                res_upload.raise_for_status()
+                return batch_id
+        except Exception as e:
+            # Online service failed, try local deployment
+            pass
+        
+        # Try local deployment paths
+        local_paths = [
+            f"{self.base_url}/file_parse",            # Local deployment
+            f"{self.base_url}/file_parse/",           # Local deployment with trailing slash
+            f"{self.base_url}/file/parse",            # Alternative local path
+            f"{self.base_url}/file/parse/",           # Alternative local path with trailing slash
+            f"{self.base_url}/api/file/parse",        # Alternative local path
+            f"{self.base_url}/api/file/parse/",       # Alternative local path with trailing slash
+            f"{self.base_url}/tasks",                # Alternative local path
+            f"{self.base_url}/tasks/"                 # Alternative local path with trailing slash
+        ]
+        
+        for upload_url in local_paths:
+            try:
+                # For local deployment, we need to upload the file directly
+                # Create multipart form data
+                import io
+                
+                # Create a file-like object from the document content
+                file_content = io.BytesIO(document.content)
+                file_content.name = document.name
+                
+                # Create multipart form data
+                data = {
+                    "backend": "hybrid-auto-engine",
+                    "parse_method": "auto",
+                    "formula_enable": self.formula,
+                    "table_enable": True,
+                    "return_md": True
+                }
+                
+                # Send request with file upload
+                response = client.post(
+                    upload_url,
+                    headers=self._get_header(),
+                    data=data,
+                    files={"files": (document.name, file_content, "application/pdf")}
+                )
+                response.raise_for_status()
+                result = response.json()
+                
+                # Check if response format is from local deployment
+                if result.get("status") == "completed" and result.get("results"):
+                    # Local deployment returns results directly
+                    # Store the result for later use
+                    self.local_result = result
+                    return "local_deployment"
+                elif result.get("success"):
+                    # Legacy local deployment format
+                    # Store the result for later use
+                    self.local_result = result
+                    return "local_deployment"
+            except Exception as e:
+                # Log the error for debugging
+                self.logger.error(f"Failed to upload to {upload_url}: {e}")
+                # Try next path
+                continue
+        
+        raise Exception('Failed to upload document to MinerU: all API paths failed')
 
     async def upload_async(self, document: Document):
-        # Get upload URL
-        response = await client_async.post(URL, headers=self._get_header(), json=self._get_upload_data(document))
-        response.raise_for_status()
-        result = response.json()
-        # print('response success. result:{}'.format(result))
-        if result["code"] == 0:
-            batch_id = result["data"]["batch_id"]
-            urls = result["data"]["file_urls"]
-            # print('batch_id:{},urls:{}'.format(batch_id, urls))
-            # Get
-            res_upload = await client_async.put(urls[0], content=document.content)
-            res_upload.raise_for_status()
-            # print(f"{urls[0]} upload success")
-            return batch_id
-        else:
-            raise Exception('apply upload url failed,reason:{}'.format(result))
+        # Try different API path structures
+        # First try online service
+        online_path = f"{self.base_url}/api/v4/file-urls/batch"
+        try:
+            response = await client_async.post(online_path, headers=self._get_header(), json=self._get_upload_data(document))
+            response.raise_for_status()
+            result = response.json()
+            if result.get("code") == 0:
+                batch_id = result["data"]["batch_id"]
+                urls = result["data"]["file_urls"]
+                res_upload = await client_async.put(urls[0], content=document.content)
+                res_upload.raise_for_status()
+                return batch_id
+        except Exception as e:
+            # Online service failed, try local deployment
+            pass
+        
+        # Try local deployment paths
+        local_paths = [
+            f"{self.base_url}/file_parse",            # Local deployment
+            f"{self.base_url}/file_parse/",           # Local deployment with trailing slash
+            f"{self.base_url}/file/parse",            # Alternative local path
+            f"{self.base_url}/file/parse/",           # Alternative local path with trailing slash
+            f"{self.base_url}/api/file/parse",        # Alternative local path
+            f"{self.base_url}/api/file/parse/",       # Alternative local path with trailing slash
+            f"{self.base_url}/tasks",                # Alternative local path
+            f"{self.base_url}/tasks/"                 # Alternative local path with trailing slash
+        ]
+        
+        for upload_url in local_paths:
+            try:
+                # For local deployment, we need to upload the file directly
+                # Create multipart form data
+                import io
+                
+                # Create a file-like object from the document content
+                file_content = io.BytesIO(document.content)
+                file_content.name = document.name
+                
+                # Create multipart form data
+                data = {
+                    "backend": "hybrid-auto-engine",
+                    "parse_method": "auto",
+                    "formula_enable": self.formula,
+                    "table_enable": True,
+                    "return_md": True
+                }
+                
+                # Send request with file upload
+                response = await client_async.post(
+                    upload_url,
+                    headers=self._get_header(),
+                    data=data,
+                    files={"files": (document.name, file_content, "application/pdf")}
+                )
+                response.raise_for_status()
+                result = response.json()
+                
+                # Check if response format is from local deployment
+                if result.get("status") == "completed" and result.get("results"):
+                    # Local deployment returns results directly
+                    # Store the result for later use
+                    self.local_result = result
+                    return "local_deployment"
+                elif result.get("success"):
+                    # Legacy local deployment format
+                    # Store the result for later use
+                    self.local_result = result
+                    return "local_deployment"
+            except Exception as e:
+                # Log the error for debugging
+                self.logger.error(f"Failed to upload to {upload_url}: {e}")
+                # Try next path
+                continue
+        
+        raise Exception('Failed to upload document to MinerU: all API paths failed')
 
     def get_file_url(self, batch_id: str) -> str:
+        # For local deployment, the result is already available
+        if batch_id == "local_deployment":
+            # Local deployment returns results directly
+            # We'll return a dummy URL and handle the actual content in the convert method
+            return "local_deployment"
+        
+        # For online service
         while True:
-            url = f'https://mineru.net/api/v4/extract-results/batch/{batch_id}'
+            # Check if base_url already contains /api/v4
+            if self.base_url.endswith("/api/v4"):
+                url = f'{self.base_url}/extract-results/batch/{batch_id}'
+            else:
+                url = f'{self.base_url}/api/v4/extract-results/batch/{batch_id}'
             header = self._get_header()
             res = client.get(url, headers=header)
             res.raise_for_status()
@@ -128,8 +266,19 @@ class ConverterMineru(X2MarkdownConverter):
                 time.sleep(3)
 
     async def get_file_url_async(self, batch_id: str) -> str:
+        # For local deployment, the result is already available
+        if batch_id == "local_deployment":
+            # Local deployment returns results directly
+            # We'll return a dummy URL and handle the actual content in the convert method
+            return "local_deployment"
+        
+        # For online service
         while True:
-            url = f'https://mineru.net/api/v4/extract-results/batch/{batch_id}'
+            # Check if base_url already contains /api/v4
+            if self.base_url.endswith("/api/v4"):
+                url = f'{self.base_url}/extract-results/batch/{batch_id}'
+            else:
+                url = f'{self.base_url}/api/v4/extract-results/batch/{batch_id}'
             header = self._get_header()
             res = await client_async.get(url, headers=header)
             res.raise_for_status()
@@ -144,6 +293,34 @@ class ConverterMineru(X2MarkdownConverter):
         self.logger.info(f"Converting document to markdown, model_version: {self.model_version}")
         time1 = time.time()
         batch_id = self.upload(document)
+        
+        # Handle local deployment
+        if batch_id == "local_deployment":
+            # Local deployment returns results directly
+            if hasattr(self, 'local_result') and self.local_result:
+                result = self.local_result
+                # Check if result is in new format (with results field)
+                if result.get('results'):
+                    # New format: results are in results field
+                    for filename, file_result in result['results'].items():
+                        if file_result.get('md_content'):
+                            content = file_result['md_content']
+                            self.logger.info(f"Document converted to markdown, time taken: {time.time() - time1} seconds")
+                            md_document = MarkdownDocument.from_bytes(content=content.encode("utf-8"), suffix=".md", stem=document.stem)
+                            return md_document
+                # Check if result is in legacy format (with data.markdown field)
+                elif result.get('data') and result['data'].get('markdown'):
+                    # Legacy format: results are in data.markdown field
+                    content = result['data']['markdown']
+                    self.logger.info(f"Document converted to markdown, time taken: {time.time() - time1} seconds")
+                    md_document = MarkdownDocument.from_bytes(content=content.encode("utf-8"), suffix=".md", stem=document.stem)
+                    return md_document
+                else:
+                    raise Exception('Local deployment returned invalid result format')
+            else:
+                raise Exception('Local deployment result not found')
+        
+        # For online service
         file_url = self.get_file_url(batch_id)
         content, mineru_parsed = get_md_from_zip_url_with_inline_images(zip_url=file_url)
         if mineru_parsed:
@@ -156,6 +333,34 @@ class ConverterMineru(X2MarkdownConverter):
         self.logger.info(f"Converting document to markdown, model_version: {self.model_version}")
         time1 = time.time()
         batch_id = await self.upload_async(document)
+        
+        # Handle local deployment
+        if batch_id == "local_deployment":
+            # Local deployment returns results directly
+            if hasattr(self, 'local_result') and self.local_result:
+                result = self.local_result
+                # Check if result is in new format (with results field)
+                if result.get('results'):
+                    # New format: results are in results field
+                    for filename, file_result in result['results'].items():
+                        if file_result.get('md_content'):
+                            content = file_result['md_content']
+                            self.logger.info(f"Document converted to markdown, time taken: {time.time() - time1} seconds")
+                            md_document = MarkdownDocument.from_bytes(content=content.encode("utf-8"), suffix=".md", stem=document.stem)
+                            return md_document
+                # Check if result is in legacy format (with data.markdown field)
+                elif result.get('data') and result['data'].get('markdown'):
+                    # Legacy format: results are in data.markdown field
+                    content = result['data']['markdown']
+                    self.logger.info(f"Document converted to markdown, time taken: {time.time() - time1} seconds")
+                    md_document = MarkdownDocument.from_bytes(content=content.encode("utf-8"), suffix=".md", stem=document.stem)
+                    return md_document
+                else:
+                    raise Exception('Local deployment returned invalid result format')
+            else:
+                raise Exception('Local deployment result not found')
+        
+        # For online service
         file_url = await self.get_file_url_async(batch_id)
         content, mineru_parsed = await get_md_from_zip_url_with_inline_images_async(zip_url=file_url)
         if mineru_parsed:

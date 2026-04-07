@@ -1249,11 +1249,27 @@ async def _perform_translation(
                         task_logger.error(f"[MinerU] Failed to get token: {e}")
                         mineru_token = ""
                 
+                # Get mineru base URL from global configuration
+                base_url = "https://mineru.net"
+                try:
+                    from collabtrans.config.global_config import get_global_config
+                    global_conf = get_global_config()
+                    # Get mineru engine configuration
+                    engines = getattr(global_conf.translator_settings, 'engines', {})
+                    if not isinstance(engines, dict):
+                        engines = {}
+                    mineru_config = engines.get("mineru", {})
+                    if mineru_config.get("api_url"):
+                        base_url = mineru_config.get("api_url").rstrip("/").rstrip("/api/v4")
+                except Exception as e:
+                    task_logger.error(f"[MinerU] Failed to get base URL: {e}")
+                
                 converter_config = ConverterMineruConfig(
                     logger=task_logger,
                     mineru_token=mineru_token,
                     formula_ocr=payload.formula_ocr,
-                    model_version=payload.model_version
+                    model_version=payload.model_version,
+                    base_url=base_url
                 )
             elif payload.convert_engine == 'docling' and DOCLING_EXIST:
                 # Docling remote mode has been removed, only use local mode
