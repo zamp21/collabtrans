@@ -34,7 +34,7 @@ class ConverterMineruConfig(X2MarkdownConverterConfig):
 
 timeout = httpx.Timeout(
     connect=5.0,   # Connection timeout
-    read=120.0,    # Read timeout: 120 seconds for all API calls
+    read=300.0,    # Read timeout: 300 seconds for all API calls
     write=300.0,   # Write timeout
     pool=5.0
 )
