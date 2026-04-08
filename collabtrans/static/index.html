@@ -698,6 +698,12 @@ $.*"></textarea>
                                                name="formula_ocr" checked>
                                         <label class="form-check-label" for="formula_ocr" data-i18n="formulaOcrLabel">Formula Recognition</label>
                                     </div>
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" role="switch"
+                                               id="ocr_enabled"
+                                               name="ocr_enabled" checked>
+                                        <label class="form-check-label" for="ocr_enabled" data-i18n="ocrEnabledLabel">OCR Recognition</label>
+                                    </div>
                                     <div class="form-check form-switch mb-2" id="codeOcrSwitch">
                                         <input class="form-check-input" type="checkbox" role="switch" id="code_ocr"
                                                name="code_ocr" checked>
@@ -3672,7 +3678,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 formData.append('payload', JSON.stringify({
                     workflow_type: 'markdown_based', // Use markdown_based workflow
                     skip_translate: true, // Skip actual translation
-                    convert_engine: 'identity' // Use identity engine for conversion only
+                    convert_engine: convertEnginSelect.value || 'mineru', // Use the same convert engine as translation
+                    formula_ocr: formulaCheckbox.checked,
+                    code_ocr: codeCheckbox.checked,
+                    model_version: modelVersionSelect.value
                 }));
                 
                 const response = await fetch('/service/translate', {
@@ -3713,7 +3722,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify({
                     target_format: targetFormat,
                     options: {
-                        quality: 'optimized'
+                        quality: 'optimized',
+                        use_mineru: convertEnginSelect.value === 'mineru',
+                        mineru_config: {
+                            formula_ocr: formulaCheckbox.checked,
+                            code_ocr: codeCheckbox.checked,
+                            model_version: modelVersionSelect.value
+                        }
                     }
                 })
             });

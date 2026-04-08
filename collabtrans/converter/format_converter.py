@@ -52,7 +52,9 @@ class FormatConverter:
         pdf_path: str, 
         output_path: str,
         quality: str = 'high',
-        log_queue: Optional[asyncio.Queue] = None
+        log_queue: Optional[asyncio.Queue] = None,
+        use_mineru: bool = False,
+        mineru_config: Optional[dict] = None
     ) -> None:
         """Convert PDF to DOCX format with optimized settings
         
@@ -61,12 +63,9 @@ class FormatConverter:
             output_path: Path to output DOCX file
             quality: Conversion quality (not used, kept for compatibility)
             log_queue: Optional queue for sending log messages to frontend
+            use_mineru: Whether to use MinerU for OCR
+            mineru_config: MinerU configuration
         """
-        try:
-            from pdf2docx import Converter
-        except ImportError:
-            raise ConversionError("pdf2docx library not installed. Please install it with: pip install pdf2docx")
-        
         # Ensure os module is available in function scope
         import os
         
@@ -77,66 +76,104 @@ class FormatConverter:
             # Create output directory if it doesn't exist
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
             
-            # Initialize converter with optimized settings
-            cv = Converter(pdf_path)
-            await self._send_log(log_queue, "Analyzing PDF document...")
-            
-            # Set conversion parameters for better performance
-            # These parameters can help optimize the conversion process
-            try:
-                # Try to set some optimization parameters if available
-                if hasattr(cv, 'set_optimization_level'):
-                    cv.set_optimization_level(1)  # Medium optimization
-            except:
-                pass  # Ignore if not supported
-            
-            # Convert with quality settings
-            await self._send_log(log_queue, "Converting document format...")
-            
-            # Log CPU configuration before starting conversion
-            total_cores = os.cpu_count()
-            cpu_count = max(4, total_cores // 2)
-            await self._send_log(log_queue, f"System detected {total_cores} CPU cores, using {cpu_count} cores for conversion")
-            
-            # Start conversion in a separate thread to avoid blocking
-            
-            conversion_completed = threading.Event()
-            conversion_error = [None]
-            
-            def convert_worker():
+            if use_mineru:
+                # Use MinerU for OCR processing
+                await self._send_log(log_queue, "Using MinerU for OCR processing...")
                 try:
-                    # Use optimized conversion with multi-processing
+                    from collabtrans.converter.x2md.converter_mineru import ConverterMineru, ConverterMineruConfig
+                    from collabtrans.config.global_config import global_config
+                except ImportError as e:
+                    raise ConversionError(f"MinerU converter not available: {str(e)}")
+                
+                # Create MinerU converter
+                mineru_token = global_config.translator_settings.mineru_token
+                config = ConverterMineruConfig(mineru_token=mineru_token)
+                if mineru_config:
+                    config.formula_ocr = mineru_config.get('formula_ocr', False)
+                    config.code_ocr = mineru_config.get('code_ocr', False)
+                    config.model_version = mineru_config.get('model_version', 'default')
+                
+                converter = ConverterMineru(config)
+                
+                # Read PDF and convert to markdown
+                from collabtrans.ir.document import Document
+                document = Document.from_path(pdf_path)
+                markdown_doc = converter.convert(document)
+                
+                # Convert markdown to DOCX
+                await self._send_log(log_queue, "Converting markdown to DOCX...")
+                try:
+                    from markdown2docx import convert as md_to_docx
+                except ImportError:
+                    raise ConversionError("markdown2docx library not installed. Please install it with: pip install markdown2docx")
+                
+                md_content = markdown_doc.content.decode()
+                md_to_docx(md_content, output_path)
+                
+            else:
+                # Use traditional pdf2docx conversion
+                try:
+                    from pdf2docx import Converter
+                except ImportError:
+                    raise ConversionError("pdf2docx library not installed. Please install it with: pip install pdf2docx")
+                
+                # Initialize converter with optimized settings
+                cv = Converter(pdf_path)
+                await self._send_log(log_queue, "Analyzing PDF document...")
+                
+                # Set conversion parameters for better performance
+                try:
+                    if hasattr(cv, 'set_optimization_level'):
+                        cv.set_optimization_level(1)  # Medium optimization
+                except:
+                    pass  # Ignore if not supported
+                
+                # Convert with quality settings
+                await self._send_log(log_queue, "Converting document format...")
+                
+                # Log CPU configuration before starting conversion
+                total_cores = os.cpu_count()
+                cpu_count = max(4, total_cores // 2)
+                await self._send_log(log_queue, f"System detected {total_cores} CPU cores, using {cpu_count} cores for conversion")
+                
+                # Start conversion in a separate thread to avoid blocking
+                conversion_completed = threading.Event()
+                conversion_error = [None]
+                
+                def convert_worker():
                     try:
-                        cv.convert(output_path, multi_processing=True, cpu_count=cpu_count)
-                    except TypeError:
-                        # Final fallback to basic conversion
-                        cv.convert(output_path)
-                    conversion_completed.set()
-                except Exception as e:
-                    conversion_error[0] = e
-                    conversion_completed.set()
-            
-            # Start conversion in background thread
-            convert_thread = threading.Thread(target=convert_worker)
-            convert_thread.start()
-            
-            # Monitor progress
-            start_time = time.time()
-            while not conversion_completed.is_set():
-                elapsed = time.time() - start_time
-                if elapsed > 30:  # After 30 seconds, show progress
-                    await self._send_log(log_queue, f"Conversion in progress... {int(elapsed)} seconds elapsed")
-                    start_time = time.time()  # Reset to avoid spam
-                time.sleep(5)  # Check every 5 seconds
-            
-            # Wait for thread to complete
-            convert_thread.join()
-            
-            # Check for errors
-            if conversion_error[0]:
-                raise conversion_error[0]
-            
-            cv.close()
+                        # Use optimized conversion with multi-processing
+                        try:
+                            cv.convert(output_path, multi_processing=True, cpu_count=cpu_count)
+                        except TypeError:
+                            # Final fallback to basic conversion
+                            cv.convert(output_path)
+                        conversion_completed.set()
+                    except Exception as e:
+                        conversion_error[0] = e
+                        conversion_completed.set()
+                
+                # Start conversion in background thread
+                convert_thread = threading.Thread(target=convert_worker)
+                convert_thread.start()
+                
+                # Monitor progress
+                start_time = time.time()
+                while not conversion_completed.is_set():
+                    elapsed = time.time() - start_time
+                    if elapsed > 30:  # After 30 seconds, show progress
+                        await self._send_log(log_queue, f"Conversion in progress... {int(elapsed)} seconds elapsed")
+                        start_time = time.time()  # Reset to avoid spam
+                    time.sleep(5)  # Check every 5 seconds
+                
+                # Wait for thread to complete
+                convert_thread.join()
+                
+                # Check for errors
+                if conversion_error[0]:
+                    raise conversion_error[0]
+                
+                cv.close()
             
             logger.info(f"PDF to DOCX conversion completed: {output_path}")
             await self._send_log(log_queue, "Conversion completed!")
@@ -151,7 +188,8 @@ class FormatConverter:
         target_format: str,
         quality: str = 'high',
         task_id: str = None,
-        log_queue: Optional[asyncio.Queue] = None
+        log_queue: Optional[asyncio.Queue] = None,
+        options: Optional[Dict[str, Any]] = None
     ) -> str:
         """Convert document to target format"""
         
@@ -192,10 +230,17 @@ class FormatConverter:
             'expires_at': datetime.now() + timedelta(minutes=30)  # 30 minutes retention
         }
         
+        # Get options
+        if not options:
+            options = {}
+        
         try:
             # Perform conversion based on format
             if source_format == 'pdf' and target_format == 'docx':
-                await self.convert_pdf_to_docx(source_path, output_path, quality, log_queue)
+                # Check if MinerU should be used
+                use_mineru = options.get('use_mineru', False)
+                mineru_config = options.get('mineru_config', {})
+                await self.convert_pdf_to_docx(source_path, output_path, quality, log_queue, use_mineru, mineru_config)
             else:
                 raise ConversionError(f"Conversion from {source_format} to {target_format} not implemented")
             

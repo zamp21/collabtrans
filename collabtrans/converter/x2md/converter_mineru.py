@@ -25,11 +25,12 @@ URL = 'https://mineru.net/api/v4/file-urls/batch'
 class ConverterMineruConfig(X2MarkdownConverterConfig):
     mineru_token: str
     formula_ocr: bool = True
+    ocr_enabled: bool = True
     model_version: Literal["pipeline", "vlm"] = "vlm"
     base_url: str = "https://mineru.net"
 
     def gethash(self) -> Hashable:
-        return self.formula_ocr, self.model_version, self.base_url
+        return self.formula_ocr, self.ocr_enabled, self.model_version, self.base_url
 
 
 timeout = httpx.Timeout(
@@ -56,6 +57,7 @@ class ConverterMineru(X2MarkdownConverter):
         super().__init__(config=config)
         self.mineru_token = (config.mineru_token or "").strip()
         self.formula = config.formula_ocr
+        self.ocr_enabled = config.ocr_enabled
         self.model_version = config.model_version
         self.base_url = config.base_url.rstrip("/")
         self.attachments: list[AttachMent] = []
@@ -74,7 +76,7 @@ class ConverterMineru(X2MarkdownConverter):
             "enable_table": True,
             "model_version": self.model_version,
             "files": [
-                {"name": f"{document.name}", "is_ocr": True}
+                {"name": f"{document.name}", "is_ocr": self.ocr_enabled}
             ]
         }
 
@@ -131,7 +133,8 @@ class ConverterMineru(X2MarkdownConverter):
                     "parse_method": "auto",
                     "formula_enable": self.formula,
                     "table_enable": True,
-                    "return_md": True
+                    "return_md": True,
+                    "is_ocr": self.ocr_enabled
                 }
                 
                 # Send request with file upload
@@ -209,7 +212,8 @@ class ConverterMineru(X2MarkdownConverter):
                     "parse_method": "auto",
                     "formula_enable": self.formula,
                     "table_enable": True,
-                    "return_md": True
+                    "return_md": True,
+                    "is_ocr": self.ocr_enabled
                 }
                 
                 # Send request with file upload

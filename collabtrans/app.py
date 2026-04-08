@@ -355,7 +355,8 @@ async def start_convert(task_id: str, req: ConvertRequest, request: Request):
             target_format=req.target_format,
             quality=req.options.get('quality', 'high'),
             task_id=task_id,
-            log_queue=log_queue
+            log_queue=log_queue,
+            options=req.options
         )
         
         return ConvertResponse(
@@ -741,6 +742,7 @@ class MarkdownWorkflowParams(BaseWorkflowParams):
     )
     mineru_token: Optional[str] = Field(None, description="Required API token when `convert_engine` is 'mineru'.")
     formula_ocr: bool = Field(True, description="Whether to perform OCR recognition on formulas. Effective for both `mineru` and `docling`.")
+    ocr_enabled: bool = Field(True, description="Whether to perform OCR recognition on images. Effective for `mineru` engine.")
     code_ocr: bool = Field(True, description="Whether to perform OCR recognition on code blocks. Only effective for `docling` engine.")
     model_version: Literal["pipeline", "vlm"] = Field("vlm",
                                                       description="Version of Mineru model, 'vlm' is the newer version. Only effective for `mineru` engine.")
@@ -1268,6 +1270,7 @@ async def _perform_translation(
                     logger=task_logger,
                     mineru_token=mineru_token,
                     formula_ocr=payload.formula_ocr,
+                    ocr_enabled=payload.ocr_enabled,
                     model_version=payload.model_version,
                     base_url=base_url
                 )

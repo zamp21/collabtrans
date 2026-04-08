@@ -10,14 +10,14 @@
   "translator_settings": {
     "convert_engine": "mineru",
     "mineru_model_version": "vlm",
-    "formula_ocr": false,
-    "code_ocr": false,
+    "formula_ocr": true,
+    "code_ocr": true,
     "skip_translate": false,
     "engines": {
       "mineru": {
         "name": "MinerU",
         "model": "vlm",
-        "api_url": "https://mineru.net/api/v4",
+        "api_url": "http://localhost:8920",
         "model_version": "vlm"
       },
       "docling": {
@@ -218,7 +218,7 @@
   "active_task_ids": [],
   "translator_convert_engine": "mineru",
   "translator_mineru_model_version": "vlm",
-  "translator_formula_ocr": false,
-  "translator_code_ocr": false,
+  "translator_formula_ocr": true,
+  "translator_code_ocr": true,
   "translator_skip_translate": false
 }
