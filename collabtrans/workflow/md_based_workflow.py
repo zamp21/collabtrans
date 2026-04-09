@@ -83,9 +83,39 @@ class MarkdownBasedWorkflow(Workflow[MarkdownBasedWorkflowConfig, Document, Mark
         if hasattr(converter,"attachments"):
             for attachment in converter.attachments:
                 self.attachment.add_attachment(attachment)
-        # Get cached parsed file
+        # Cache parsed file
         md_based_convert_cacher.cache_result(document_md, self.document_original, convert_engin, convert_config)
 
+        return document_md
+
+    async def _get_document_md_async(self, convert_engin: ConvertEngineType, convert_config: X2MarkdownConverterConfig):
+        """Async version that uses cache with lock to prevent duplicate conversions."""
+        import asyncio
+        if self.document_original is None:
+            raise RuntimeError("File has not been read yet. Call read_path or read_bytes first.")
+
+        # Get converter factory
+        if convert_engin in self._converter_factory:
+            converter_class, config_class = self._converter_factory[convert_engin]
+            if config_class and not isinstance(convert_config, config_class):
+                raise TypeError(
+                    f"The correct convert_config was not passed. It should be of type {config_class.__name__}, but it is currently of type {type(convert_config).__name__}.")
+            converter = converter_class(convert_config)
+        else:
+            raise ValueError(f"Parsing engine {convert_engin} does not exist")
+
+        async def do_convert():
+            document_md = await asyncio.to_thread(converter.convert, self.document_original)
+            if hasattr(converter, "attachments"):
+                for attachment in converter.attachments:
+                    self.attachment.add_attachment(attachment)
+            return document_md
+
+        # Get cached result or convert with lock
+        document_md = await md_based_convert_cacher.get_or_convert(
+            self.document_original, convert_engin, convert_config, do_convert
+        )
+        self.attachment.add_document("md_cached", document_md)
         return document_md
 
     def _pre_translate(self, document: Document):
@@ -106,8 +136,11 @@ class MarkdownBasedWorkflow(Workflow[MarkdownBasedWorkflowConfig, Document, Mark
 
     async def translate_async(self) -> Self:
         convert_engine, convert_config, translator_config, translator = self._pre_translate(self.document_original)
-        document_md = await asyncio.to_thread(self._get_document_md, convert_engine, convert_config)
+        self.config.logger.info("[DEBUG] translate_async: Starting document conversion")
+        document_md = await self._get_document_md_async(convert_engine, convert_config)
+        self.config.logger.info("[DEBUG] translate_async: Document conversion completed, starting translation")
         await translator.translate_async(document_md)
+        self.config.logger.info("[DEBUG] translate_async: Translation completed")
         if translator.glossary_dict_gen:
             self.attachment.add_document("glossary", Glossary.glossary_dict2csv(translator.glossary_dict_gen))
         self.document_translated = document_md

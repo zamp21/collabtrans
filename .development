@@ -1,0 +1,7 @@
+# Development environment marker
+# This file indicates that the application is running in development mode.
+# Configuration files will be loaded from the project root directory.
+# 
+# To switch to production mode, delete this file and create a .production file instead,
+# or set the ENV_MODE environment variable to "production".
+

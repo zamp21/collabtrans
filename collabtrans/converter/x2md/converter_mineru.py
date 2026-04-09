@@ -34,10 +34,10 @@ class ConverterMineruConfig(X2MarkdownConverterConfig):
 
 
 timeout = httpx.Timeout(
-    connect=5.0,   # Connection timeout
-    read=300.0,    # Read timeout: 300 seconds for all API calls
+    connect=10.0,   # Connection timeout
+    read=600.0,    # Read timeout: 600 seconds for all API calls
     write=300.0,   # Write timeout
-    pool=5.0
+    pool=10.0
 )
 # if USE_PROXY:
 #     client = httpx.Client(proxies=get_httpx_proxies(), timeout=timeout, verify=False)
@@ -48,8 +48,8 @@ timeout = httpx.Timeout(
 
 limits = httpx.Limits(max_connections=200, max_keepalive_connections=50)
 # trust_env=True lets corporate proxies/CA settings take effect if present
-client = httpx.Client(limits=limits, trust_env=True, timeout=timeout, verify=False)
-client_async = httpx.AsyncClient(limits=limits, trust_env=True, timeout=timeout, verify=False)
+client = httpx.Client(limits=limits, trust_env=True, timeout=timeout, verify=False, follow_redirects=True)
+client_async = httpx.AsyncClient(limits=limits, trust_env=True, timeout=timeout, verify=False, follow_redirects=True)
 
 
 class ConverterMineru(X2MarkdownConverter):
@@ -80,17 +80,30 @@ class ConverterMineru(X2MarkdownConverter):
             ]
         }
 
+    def _is_local_deployment(self) -> bool:
+        """Check if this is a local MinerU deployment"""
+        local_indicators = ['localhost', '127.0.0.1', '0.0.0.0', '::1']
+        for indicator in local_indicators:
+            if indicator in self.base_url.lower():
+                return True
+        # Also check for common internal network patterns (192.168.x.x, 10.x.x.x)
+        import re
+        if re.match(r'https?://(192\.168\.|10\.|172\.1[6-9]\.|172\.2[0-9]\.|172\.3[01]\.)', self.base_url):
+            return True
+        return False
+
     def upload(self, document: Document):
-        # Try different API path structures
-        # First try online service
-        # Check if base_url already contains /api/v4
+        # Detect local deployment first to avoid unnecessary API calls
+        if self._is_local_deployment():
+            self.logger.info(f"Detected local deployment: {self.base_url}, using local API paths")
+            return self._upload_local(document)
+
+        # Try public platform first for non-local deployments
         if self.base_url.endswith("/api/v4"):
             online_path = f"{self.base_url}/file-urls/batch"
-            # For public platform, require API key
-            if not self.mineru_token:
-                raise Exception('API key is required for public MinerU platform')
         else:
             online_path = f"{self.base_url}/api/v4/file-urls/batch"
+
         try:
             response = client.post(online_path, headers=self._get_header(), json=self._get_upload_data(document))
             response.raise_for_status()
@@ -102,19 +115,20 @@ class ConverterMineru(X2MarkdownConverter):
                 res_upload.raise_for_status()
                 return batch_id
         except Exception as e:
-            # Online service failed, try local deployment
-            pass
-        
-        # Try local deployment paths
+            self.logger.warning(f"Public platform API failed: {e}, trying local deployment")
+            return self._upload_local(document)
+
+        raise Exception('Failed to upload document to MinerU')
+
+    def _upload_local(self, document: Document):
+        """Upload to local MinerU deployment"""
         local_paths = [
-            f"{self.base_url}/file_parse",            # Local deployment
-            f"{self.base_url}/file_parse/",           # Local deployment with trailing slash
-            f"{self.base_url}/file/parse",            # Alternative local path
-            f"{self.base_url}/file/parse/",           # Alternative local path with trailing slash
-            f"{self.base_url}/api/file/parse",        # Alternative local path
-            f"{self.base_url}/api/file/parse/",       # Alternative local path with trailing slash
-            f"{self.base_url}/tasks",                # Alternative local path
-            f"{self.base_url}/tasks/"                 # Alternative local path with trailing slash
+            f"{self.base_url}/file_parse",
+            f"{self.base_url}/file_parse/",
+            f"{self.base_url}/file/parse",
+            f"{self.base_url}/file/parse/",
+            f"{self.base_url}/api/file/parse",
+            f"{self.base_url}/api/file/parse/",
         ]
         
         for upload_url in local_paths:
@@ -134,6 +148,7 @@ class ConverterMineru(X2MarkdownConverter):
                     "formula_enable": self.formula,
                     "table_enable": True,
                     "return_md": True,
+                    "return_content_list": True,  # Request structured content for better table handling
                     "is_ocr": self.ocr_enabled
                 }
                 
@@ -164,12 +179,20 @@ class ConverterMineru(X2MarkdownConverter):
                 # Try next path
                 continue
         
-        raise Exception('Failed to upload document to MinerU: all API paths failed')
+        raise Exception('Failed to upload document to MinerU: all local API paths failed')
 
     async def upload_async(self, document: Document):
-        # Try different API path structures
-        # First try online service
-        online_path = f"{self.base_url}/api/v4/file-urls/batch"
+        # Detect local deployment first to avoid unnecessary API calls
+        if self._is_local_deployment():
+            self.logger.info(f"Detected local deployment: {self.base_url}, using local API paths")
+            return await self._upload_local_async(document)
+
+        # Try public platform first for non-local deployments
+        if self.base_url.endswith("/api/v4"):
+            online_path = f"{self.base_url}/file-urls/batch"
+        else:
+            online_path = f"{self.base_url}/api/v4/file-urls/batch"
+
         try:
             response = await client_async.post(online_path, headers=self._get_header(), json=self._get_upload_data(document))
             response.raise_for_status()
@@ -181,42 +204,39 @@ class ConverterMineru(X2MarkdownConverter):
                 res_upload.raise_for_status()
                 return batch_id
         except Exception as e:
-            # Online service failed, try local deployment
-            pass
-        
-        # Try local deployment paths
+            self.logger.warning(f"Public platform API failed: {e}, trying local deployment")
+            return await self._upload_local_async(document)
+
+        raise Exception('Failed to upload document to MinerU')
+
+    async def _upload_local_async(self, document: Document):
+        """Upload to local MinerU deployment (async version)"""
         local_paths = [
-            f"{self.base_url}/file_parse",            # Local deployment
-            f"{self.base_url}/file_parse/",           # Local deployment with trailing slash
-            f"{self.base_url}/file/parse",            # Alternative local path
-            f"{self.base_url}/file/parse/",           # Alternative local path with trailing slash
-            f"{self.base_url}/api/file/parse",        # Alternative local path
-            f"{self.base_url}/api/file/parse/",       # Alternative local path with trailing slash
-            f"{self.base_url}/tasks",                # Alternative local path
-            f"{self.base_url}/tasks/"                 # Alternative local path with trailing slash
+            f"{self.base_url}/file_parse",
+            f"{self.base_url}/file_parse/",
+            f"{self.base_url}/file/parse",
+            f"{self.base_url}/file/parse/",
+            f"{self.base_url}/api/file/parse",
+            f"{self.base_url}/api/file/parse/",
         ]
-        
+
         for upload_url in local_paths:
             try:
-                # For local deployment, we need to upload the file directly
-                # Create multipart form data
                 import io
-                
-                # Create a file-like object from the document content
+
                 file_content = io.BytesIO(document.content)
                 file_content.name = document.name
-                
-                # Create multipart form data
+
                 data = {
                     "backend": "hybrid-auto-engine",
                     "parse_method": "auto",
                     "formula_enable": self.formula,
                     "table_enable": True,
                     "return_md": True,
+                    "return_content_list": True,  # Request structured content for better table handling
                     "is_ocr": self.ocr_enabled
                 }
-                
-                # Send request with file upload
+
                 response = await client_async.post(
                     upload_url,
                     headers=self._get_header(),
@@ -225,25 +245,18 @@ class ConverterMineru(X2MarkdownConverter):
                 )
                 response.raise_for_status()
                 result = response.json()
-                
-                # Check if response format is from local deployment
+
                 if result.get("status") == "completed" and result.get("results"):
-                    # Local deployment returns results directly
-                    # Store the result for later use
                     self.local_result = result
                     return "local_deployment"
                 elif result.get("success"):
-                    # Legacy local deployment format
-                    # Store the result for later use
                     self.local_result = result
                     return "local_deployment"
             except Exception as e:
-                # Log the error for debugging
                 self.logger.error(f"Failed to upload to {upload_url}: {e}")
-                # Try next path
                 continue
-        
-        raise Exception('Failed to upload document to MinerU: all API paths failed')
+
+        raise Exception('Failed to upload document to MinerU: all local API paths failed')
 
     def get_file_url(self, batch_id: str) -> str:
         # For local deployment, the result is already available

@@ -53,17 +53,19 @@ class MDTranslator(AiTranslator):
                 result = chunks
             content = join_markdown_texts(result)
             # Perform some robustness enhancement operations
-            content = content.replace(r'\（', r'\(')
-            content = content.replace(r'\）', r'\)')
+            content = content.replace(r'\uff08', r'\(')
+            content = content.replace(r'\uff09', r'\)')
 
             document.content = content.encode()
         self.logger.info("Translation completed")
         return self
 
     async def translate_async(self, document: MarkdownDocument) -> Self:
-        self.logger.info("Translating markdown")
+        self.logger.info("[DEBUG] translate_async: Translating markdown")
         with MDMaskUrisContext(document):
+            self.logger.info("[DEBUG] translate_async: Entered MDMaskUrisContext")
             chunks: list[str] = split_markdown_text(document.content.decode(), self.chunk_size)
+            self.logger.info(f"[DEBUG] translate_async: Split into {len(chunks)} chunks")
 
             if self.glossary_agent:
                 self.glossary_dict_gen = await self.glossary_agent.send_segments_async(chunks, self.chunk_size)
@@ -72,17 +74,19 @@ class MDTranslator(AiTranslator):
 
             self.logger.info(f"Markdown divided into {len(chunks)} chunks")
             if self.translate_agent:
+                self.logger.info("[DEBUG] translate_async: Using translate_agent")
                 result: list[str] = await self.translate_agent.send_chunks_async(chunks)
             else:
+                self.logger.info("[DEBUG] translate_async: skip_translate=True, using original chunks")
                 result = chunks
 
             def run():
                 content = join_markdown_texts(result)
                 # Perform some robustness enhancement operations
-                content = content.replace(r'\（', r'\(')
-                content = content.replace(r'\）', r'\)')
+                content = content.replace(r'\uff08', r'\(')
+                content = content.replace(r'\uff09', r'\)')
                 document.content = content.encode()
 
             await asyncio.to_thread(run)
-        self.logger.info("Translation completed")
+        self.logger.info("[DEBUG] translate_async: Translation completed")
         return self

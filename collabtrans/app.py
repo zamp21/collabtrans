@@ -1065,14 +1065,6 @@ async def _perform_translation(
     temp_dir = None
 
     try:
-        # Handle convert_only tasks
-        if task_state.get('convert_only', False):
-            task_logger.info("Conversion-only task, skipping translation processing")
-            task_state["status_message"] = "Conversion task ready"
-            task_state["download_ready"] = True
-            task_state["is_processing"] = False
-            task_state["task_end_time"] = time.time()
-            return
         # 1. Select appropriate Workflow Class based on workflow type
         workflow_class = WORKFLOW_DICT.get(payload.workflow_type)
         if not workflow_class:
@@ -1206,9 +1198,13 @@ async def _perform_translation(
         def get_user_glossary():
             """Get user-selected glossary"""
             try:
+                # Check if username attribute exists in payload
+                username = getattr(payload, 'username', None)
+                if not username:
+                    return {}
                 from .glossary.manager import get_glossary_manager
                 manager = get_glossary_manager()
-                return manager.merge_user_glossaries(payload.username)
+                return manager.merge_user_glossaries(username)
             except Exception as e:
                 logger.warning(f"Failed to get user glossary: {e}")
                 return {}

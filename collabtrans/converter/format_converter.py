@@ -1,6 +1,6 @@
 """
 Document format converter module.
-Supports PDF to DOCX conversion using pdf2docx library.
+Supports PDF to DOCX conversion using MinerU + Pandoc.
 """
 
 import asyncio
@@ -8,7 +8,7 @@ import logging
 import os
 import tempfile
 import uuid
-import threading
+import subprocess
 import time
 from pathlib import Path
 from typing import Dict, Any, Optional
@@ -48,8 +48,8 @@ class FormatConverter:
         return self.supported_formats.get(source_format.lower(), [])
     
     async def convert_pdf_to_docx(
-        self, 
-        pdf_path: str, 
+        self,
+        pdf_path: str,
         output_path: str,
         quality: str = 'high',
         log_queue: Optional[asyncio.Queue] = None,
@@ -57,130 +57,303 @@ class FormatConverter:
         mineru_config: Optional[dict] = None
     ) -> None:
         """Convert PDF to DOCX format with optimized settings
-        
+
         Args:
             pdf_path: Path to input PDF file
             output_path: Path to output DOCX file
             quality: Conversion quality (not used, kept for compatibility)
             log_queue: Optional queue for sending log messages to frontend
             use_mineru: Whether to use MinerU for OCR
-            mineru_config: MinerU configuration
+            mineru_config: MinerU configuration dict with keys:
+                - api_url: MinerU API URL (e.g., 'http://localhost:8920')
+                - model_version: Model version ('vlm' or 'pipeline')
+                - formula_ocr: Enable formula OCR
+                - ocr_enabled: Enable OCR
+                - mineru_token: API token (optional for local deployment)
         """
-        # Ensure os module is available in function scope
         import os
-        
+
         try:
             logger.info(f"Starting PDF to DOCX conversion: {pdf_path} -> {output_path}")
             await self._send_log(log_queue, "Starting PDF to DOCX conversion...")
-            
-            # Create output directory if it doesn't exist
+
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
-            
+
             if use_mineru:
-                # Use MinerU for OCR processing
-                await self._send_log(log_queue, "Using MinerU for OCR processing...")
-                try:
-                    from collabtrans.converter.x2md.converter_mineru import ConverterMineru, ConverterMineruConfig
-                    from collabtrans.config.global_config import global_config
-                except ImportError as e:
-                    raise ConversionError(f"MinerU converter not available: {str(e)}")
-                
-                # Create MinerU converter
-                mineru_token = global_config.translator_settings.mineru_token
-                config = ConverterMineruConfig(mineru_token=mineru_token)
-                if mineru_config:
-                    config.formula_ocr = mineru_config.get('formula_ocr', False)
-                    config.code_ocr = mineru_config.get('code_ocr', False)
-                    config.model_version = mineru_config.get('model_version', 'default')
-                
-                converter = ConverterMineru(config)
-                
-                # Read PDF and convert to markdown
-                from collabtrans.ir.document import Document
-                document = Document.from_path(pdf_path)
-                markdown_doc = converter.convert(document)
-                
-                # Convert markdown to DOCX
-                await self._send_log(log_queue, "Converting markdown to DOCX...")
-                try:
-                    from markdown2docx import convert as md_to_docx
-                except ImportError:
-                    raise ConversionError("markdown2docx library not installed. Please install it with: pip install markdown2docx")
-                
-                md_content = markdown_doc.content.decode()
-                md_to_docx(md_content, output_path)
-                
+                # Use MinerU + Pandoc for conversion
+                await self._send_log(log_queue, "Using MinerU + Pandoc for conversion...")
+                await self._convert_pdf_to_docx_with_mineru(pdf_path, output_path, log_queue, mineru_config)
             else:
                 # Use traditional pdf2docx conversion
-                try:
-                    from pdf2docx import Converter
-                except ImportError:
-                    raise ConversionError("pdf2docx library not installed. Please install it with: pip install pdf2docx")
-                
-                # Initialize converter with optimized settings
-                cv = Converter(pdf_path)
-                await self._send_log(log_queue, "Analyzing PDF document...")
-                
-                # Set conversion parameters for better performance
-                try:
-                    if hasattr(cv, 'set_optimization_level'):
-                        cv.set_optimization_level(1)  # Medium optimization
-                except:
-                    pass  # Ignore if not supported
-                
-                # Convert with quality settings
-                await self._send_log(log_queue, "Converting document format...")
-                
-                # Log CPU configuration before starting conversion
-                total_cores = os.cpu_count()
-                cpu_count = max(4, total_cores // 2)
-                await self._send_log(log_queue, f"System detected {total_cores} CPU cores, using {cpu_count} cores for conversion")
-                
-                # Start conversion in a separate thread to avoid blocking
-                conversion_completed = threading.Event()
-                conversion_error = [None]
-                
-                def convert_worker():
-                    try:
-                        # Use optimized conversion with multi-processing
-                        try:
-                            cv.convert(output_path, multi_processing=True, cpu_count=cpu_count)
-                        except TypeError:
-                            # Final fallback to basic conversion
-                            cv.convert(output_path)
-                        conversion_completed.set()
-                    except Exception as e:
-                        conversion_error[0] = e
-                        conversion_completed.set()
-                
-                # Start conversion in background thread
-                convert_thread = threading.Thread(target=convert_worker)
-                convert_thread.start()
-                
-                # Monitor progress
-                start_time = time.time()
-                while not conversion_completed.is_set():
-                    elapsed = time.time() - start_time
-                    if elapsed > 30:  # After 30 seconds, show progress
-                        await self._send_log(log_queue, f"Conversion in progress... {int(elapsed)} seconds elapsed")
-                        start_time = time.time()  # Reset to avoid spam
-                    time.sleep(5)  # Check every 5 seconds
-                
-                # Wait for thread to complete
-                convert_thread.join()
-                
-                # Check for errors
-                if conversion_error[0]:
-                    raise conversion_error[0]
-                
-                cv.close()
-            
+                await self._convert_pdf_to_docx_with_pdf2docx(pdf_path, output_path, log_queue)
+
             logger.info(f"PDF to DOCX conversion completed: {output_path}")
             await self._send_log(log_queue, "Conversion completed!")
-            
+
         except Exception as e:
             logger.error(f"PDF to DOCX conversion failed: {e}")
             raise ConversionError(f"Conversion failed: {str(e)}")
+
+    async def _convert_pdf_to_docx_with_mineru(
+        self,
+        pdf_path: str,
+        output_path: str,
+        log_queue: Optional[asyncio.Queue] = None,
+        mineru_config: Optional[dict] = None
+    ) -> None:
+        """Convert PDF to DOCX using MinerU (PDF→Markdown/ContentList) + python-docx"""
+
+        # Load MinerU configuration from global_config if not provided
+        if not mineru_config:
+            try:
+                from collabtrans.config.global_config import get_global_config
+                gc = get_global_config()
+                mineru_engine = gc.translator_settings.engines.get('mineru', {})
+                mineru_config = {
+                    'api_url': mineru_engine.get('api_url', 'http://localhost:8920'),
+                    'model_version': mineru_engine.get('model_version', gc.translator_settings.mineru_model_version),
+                    'formula_ocr': gc.translator_settings.formula_ocr,
+                    'ocr_enabled': True,
+                    'mineru_token': gc.translator_mineru_token
+                }
+            except Exception as e:
+                logger.warning(f"Failed to load MinerU config from global_config: {e}")
+                mineru_config = {
+                    'api_url': 'http://localhost:8920',
+                    'model_version': 'vlm',
+                    'formula_ocr': True,
+                    'ocr_enabled': True,
+                    'mineru_token': ''
+                }
+
+        # Get MinerU configuration
+        api_url = mineru_config.get('api_url', 'http://localhost:8920')
+        model_version = mineru_config.get('model_version', 'vlm')
+        formula_ocr = mineru_config.get('formula_ocr', True)
+        ocr_enabled = mineru_config.get('ocr_enabled', True)
+        mineru_token = mineru_config.get('mineru_token', '')
+
+        await self._send_log(log_queue, f"MinerU API: {api_url}, Model: {model_version}")
+
+        # Import MinerU converter
+        try:
+            from collabtrans.converter.x2md.converter_mineru import ConverterMineru, ConverterMineruConfig
+        except ImportError as e:
+            raise ConversionError(f"MinerU converter not available: {str(e)}")
+
+        # Read PDF document
+        from collabtrans.ir.document import Document
+        document = Document.from_path(pdf_path)
+
+        # Use cacher with lock to prevent duplicate MinerU calls
+        from collabtrans.cacher import md_based_convert_cacher
+        config = ConverterMineruConfig(
+            mineru_token=mineru_token,
+            base_url=api_url,
+            model_version=model_version,
+            formula_ocr=formula_ocr,
+            ocr_enabled=ocr_enabled
+        )
+
+        # Create converter for later use
+        converter = ConverterMineru(config)
+
+        async def do_convert():
+            await self._send_log(log_queue, "Parsing PDF with MinerU...")
+            # Run synchronous convert in thread
+            result = await asyncio.to_thread(converter.convert, document)
+            await self._send_log(log_queue, "PDF parsed successfully")
+            return result
+
+        # Get cached result or convert with lock
+        markdown_doc = await md_based_convert_cacher.get_or_convert(
+            document, 'mineru', config, do_convert
+        )
+
+        # Check if we have content_list for better table handling
+        content_list = None
+        if hasattr(converter, 'local_result') and converter.local_result:
+            result = converter.local_result
+            if result.get('results'):
+                for filename, file_result in result['results'].items():
+                    if file_result.get('content_list'):
+                        content_list = file_result['content_list']
+                        break
+
+        # Use content_list to build DOCX with proper tables (preferred method)
+        if content_list:
+            await self._send_log(log_queue, "Building DOCX with structured content...")
+            await self._build_docx_from_content_list(content_list, output_path, log_queue)
+        else:
+            # Fallback to Pandoc conversion
+            await self._send_log(log_queue, "Converting markdown to DOCX with Pandoc...")
+            await self._build_docx_from_markdown(markdown_doc, output_path, log_queue)
+
+        await self._send_log(log_queue, "DOCX file created successfully")
+
+    async def _build_docx_from_content_list(
+        self,
+        content_list: list,
+        output_path: str,
+        log_queue: Optional[asyncio.Queue] = None
+    ) -> None:
+        """Build DOCX from MinerU content_list with proper table support"""
+        try:
+            from docx import Document as DocxDocument
+            from docx.shared import Inches, Pt
+            from docx.enum.text import WD_ALIGN_PARAGRAPH
+        except ImportError:
+            raise ConversionError("python-docx not installed. Install with: pip install python-docx")
+
+        doc = DocxDocument()
+        table_count = 0
+
+        for item in content_list:
+            # Handle both dict and string items
+            if isinstance(item, str):
+                # Plain text item
+                if item.strip():
+                    doc.add_paragraph(item)
+                continue
+
+            if not isinstance(item, dict):
+                continue
+
+            item_type = item.get('type', 'text')
+
+            if item_type == 'text':
+                # Add text paragraph
+                text = item.get('text', '')
+                if text and isinstance(text, str) and text.strip():
+                    doc.add_paragraph(text)
+
+            elif item_type == 'title':
+                # Add heading
+                text = item.get('text', '')
+                level = item.get('level', 1)
+                if text and isinstance(text, str) and text.strip():
+                    heading = doc.add_heading(text, level=min(level, 9))
+
+            elif item_type == 'table':
+                # Build table from table data
+                table_data = item.get('table_body', [])
+                if table_data and isinstance(table_data, list) and len(table_data) > 0:
+                    rows = len(table_data)
+                    # Find max columns
+                    max_cols = 0
+                    for row_data in table_data:
+                        if isinstance(row_data, list):
+                            max_cols = max(max_cols, len(row_data))
+
+                    if rows > 0 and max_cols > 0:
+                        table = doc.add_table(rows=rows, cols=max_cols)
+                        table.style = 'Table Grid'
+
+                        for i, row_data in enumerate(table_data):
+                            if not isinstance(row_data, list):
+                                continue
+                            row = table.rows[i]
+                            for j, cell_data in enumerate(row_data):
+                                if j < max_cols:
+                                    cell = row.cells[j]
+                                    cell_text = str(cell_data) if cell_data is not None else ''
+                                    cell.text = cell_text
+
+                        table_count += 1
+                        doc.add_paragraph()  # Add space after table
+
+            elif item_type == 'image':
+                # Handle images (base64 or path)
+                # For now, skip images as they need special handling
+                pass
+
+            elif item_type == 'equation':
+                # Handle equations as text for now
+                text = item.get('latex', '') or item.get('text', '')
+                if text and isinstance(text, str) and text.strip():
+                    doc.add_paragraph(f"[Formula: {text}]")
+
+        if table_count > 0:
+            await self._send_log(log_queue, f"Created {table_count} tables in DOCX")
+
+        doc.save(output_path)
+
+    async def _build_docx_from_markdown(
+        self,
+        markdown_doc,
+        output_path: str,
+        log_queue: Optional[asyncio.Queue] = None
+    ) -> None:
+        """Build DOCX from Markdown using Pandoc (fallback method)"""
+        temp_md_path = output_path.replace('.docx', '.md')
+        try:
+            # Write markdown content to temp file
+            md_content = markdown_doc.content.decode('utf-8')
+            with open(temp_md_path, 'w', encoding='utf-8') as f:
+                f.write(md_content)
+
+            # Convert markdown to DOCX using Pandoc with enhanced table support
+            result = subprocess.run(
+                [
+                    'pandoc',
+                    temp_md_path,
+                    '-o', output_path,
+                    '--from=markdown+pipe_tables+grid_tables+multiline_tables+raw_html+tex_math_dollars',
+                    '--to=docx',
+                    '--wrap=none',
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+
+            if result.returncode != 0:
+                raise ConversionError(f"Pandoc conversion failed: {result.stderr}")
+
+        finally:
+            # Clean up temp markdown file
+            if os.path.exists(temp_md_path):
+                os.remove(temp_md_path)
+
+    async def _convert_pdf_to_docx_with_pdf2docx(
+        self,
+        pdf_path: str,
+        output_path: str,
+        log_queue: Optional[asyncio.Queue] = None
+    ) -> None:
+        """Convert PDF to DOCX using pdf2docx library"""
+        import os
+
+        try:
+            from pdf2docx import Converter
+        except ImportError:
+            raise ConversionError("pdf2docx library not installed. Please install it with: pip install pdf2docx")
+
+        cv = Converter(pdf_path)
+        await self._send_log(log_queue, "Analyzing PDF document...")
+
+        try:
+            if hasattr(cv, 'set_optimization_level'):
+                cv.set_optimization_level(1)
+        except:
+            pass
+
+        await self._send_log(log_queue, "Converting document format...")
+
+        total_cores = os.cpu_count() or 8
+        cpu_count = max(4, total_cores // 2)
+        await self._send_log(log_queue, f"System detected {total_cores} CPU cores, using {cpu_count} cores")
+
+        # Run conversion in thread
+        def convert_worker():
+            try:
+                cv.convert(output_path, multi_processing=True, cpu_count=cpu_count)
+            except TypeError:
+                cv.convert(output_path)
+            finally:
+                cv.close()
+
+        await asyncio.to_thread(convert_worker)
     
     async def convert(
         self,

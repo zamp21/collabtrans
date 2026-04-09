@@ -52,7 +52,6 @@ http://localhost:7860
 
 下载模型失败解决方案：
 export MINERU_MODEL_SOURCE=modelscope
-
 export CUDA_VISIBLE_DEVICES=0
 export MINERU_BATCH_SIZE=8
 
@@ -123,3 +122,147 @@ source ~/vllm-env/bin/activate
 3.9 批量处理
 批量处理整个文件夹：
 mineru -p ./pdfs -o test_output/ --backend pineline --batch-size 8
+
+4.0 开机启动（systemd 服务方式）
+
+4.1 创建服务文件
+sudo nano /etc/systemd/system/mineru-api.service
+
+4.2 服务文件内容（使用动态用户占位符）
+[Unit]
+Description=MinerU API Service
+After=network.target
+
+[Service]
+Type=simple
+User=%u
+Group=%u
+Environment="MINERU_MODEL_SOURCE=modelscope"
+Environment="CUDA_VISIBLE_DEVICES=0"
+Environment="MINERU_BATCH_SIZE=8"
+Environment="PATH=/home/%u/vllm-env/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/home/%u/vllm-env/bin/mineru-api --host 0.0.0.0 --port 8920
+WorkingDirectory=/home/%u
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+
+说明：%u 是 systemd 占位符，会自动替换为当前执行 systemctl 命令的用户名
+例如：用户 alice 执行 enable 时，%u 自动替换为 alice
+
+4.3 启用和管理服务
+# 重载 systemd 配置
+sudo systemctl daemon-reload
+
+# 启用开机自启
+sudo systemctl enable mineru-api.service
+
+# 启动服务
+sudo systemctl start mineru-api.service
+
+# 查看服务状态
+sudo systemctl status mineru-api.service
+
+# 停止服务
+sudo systemctl stop mineru-api.service
+
+# 重启服务
+sudo systemctl restart mineru-api.service
+
+# 查看日志
+sudo journalctl -u mineru-api.service -f
+
+4.4 注意事项
+- 确保 User 和 Group 与实际用户名一致
+- 确保 PATH 包含虚拟环境的 bin 目录
+- WorkingDirectory 设置为用户主目录
+- Restart=always 确保服务异常退出后自动重启
+
+4.5 验证开机启动
+# 重启系统后验证
+sudo reboot
+# 重启后检查服务状态
+sudo systemctl status mineru-api.service
+
+---替代方案---
+
+4.6 方案二：用户级 systemd 服务（无需 sudo，更安全）
+# 创建用户级服务目录
+mkdir -p ~/.config/systemd/user/
+
+# 创建服务文件
+nano ~/.config/systemd/user/mineru-api.service
+
+# 服务文件内容（无需用户名）
+[Unit]
+Description=MinerU API Service
+After=network.target
+
+[Service]
+Type=simple
+Environment="MINERU_MODEL_SOURCE=modelscope"
+Environment="CUDA_VISIBLE_DEVICES=0"
+Environment="MINERU_BATCH_SIZE=8"
+ExecStart=%h/vllm-env/bin/mineru-api --host 0.0.0.0 --port 8920
+WorkingDirectory=%h
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
+
+说明：%h 是 systemd 占位符，自动替换为当前用户的 home 目录
+
+# 启用用户级服务（无需 sudo）
+systemctl --user enable mineru-api.service
+systemctl --user start mineru-api.service
+
+# 允许用户服务在登录前启动（需要执行一次）
+sudo loginctl enable-linger $USER
+
+# 管理命令（无需 sudo）
+systemctl --user status mineru-api.service
+systemctl --user stop mineru-api.service
+systemctl --user restart mineru-api.service
+
+# 查看日志
+journalctl --user -u mineru-api.service -f
+
+4.7 方案三：crontab @reboot 方式
+# 编辑用户 crontab
+crontab -e
+
+# 添加以下内容
+@reboot sleep 30 && source ~/vllm-env/bin/activate && export MINERU_MODEL_SOURCE=modelscope && export CUDA_VISIBLE_DEVICES=0 && export MINERU_BATCH_SIZE=8 && ~/vllm-env/bin/mineru-api --host 0.0.0.0 --port 8920 >> ~/mineru-api.log 2>&1
+
+# 查看 crontab 任务
+crontab -l
+
+4.8 方案四：创建启动脚本
+# 创建启动脚本
+nano ~/start-mineru.sh
+
+# 脚本内容
+#!/bin/bash
+sleep 30  # 等待系统完全启动
+source ~/vllm-env/bin/activate
+export MINERU_MODEL_SOURCE=modelscope
+export CUDA_VISIBLE_DEVICES=0
+export MINERU_BATCH_SIZE=8
+nohup ~/vllm-env/bin/mineru-api --host 0.0.0.0 --port 8920 >> ~/mineru-api.log 2>&1 &
+
+# 添加执行权限
+chmod +x ~/start-mineru.sh
+
+# 添加到 crontab
+crontab -e
+@reboot ~/start-mineru.sh
+
+推荐使用方案二（用户级 systemd），优点：
+- 无需 sudo 权限
+- 自动使用当前用户环境
+- 服务管理更规范
+- 日志集中管理
+- 支持开机自动启动（需先执行 loginctl enable-linger）
