@@ -2,9 +2,11 @@
 # SPDX-License-Identifier: MPL-2.0
 
 import asyncio
+import logging
+import os
+import re
 import time
 import zipfile
-import logging
 from dataclasses import dataclass
 from typing import Hashable, Literal
 
@@ -151,6 +153,7 @@ class ConverterMineru(X2MarkdownConverter):
                     "table_enable": "true",
                     "return_md": "true",
                     "return_content_list": "true",  # Request structured content for better table handling
+                    "return_images": "true",  # Request extracted images
                 }
                 
                 # Send request with file upload
@@ -311,7 +314,7 @@ class ConverterMineru(X2MarkdownConverter):
         self.logger.info(f"Converting document to markdown, model_version: {self.model_version}")
         time1 = time.time()
         batch_id = self.upload(document)
-        
+
         # Handle local deployment
         if batch_id == "local_deployment":
             # Local deployment returns results directly
@@ -323,6 +326,9 @@ class ConverterMineru(X2MarkdownConverter):
                     for filename, file_result in result['results'].items():
                         if file_result.get('md_content'):
                             content = file_result['md_content']
+                            # Embed images if available
+                            if file_result.get('images'):
+                                content = self._embed_images_to_markdown(content, file_result['images'])
                             self.logger.info(f"Document converted to markdown, time taken: {time.time() - time1} seconds")
                             md_document = MarkdownDocument.from_bytes(content=content.encode("utf-8"), suffix=".md", stem=document.stem)
                             return md_document
@@ -330,6 +336,9 @@ class ConverterMineru(X2MarkdownConverter):
                 elif result.get('data') and result['data'].get('markdown'):
                     # Legacy format: results are in data.markdown field
                     content = result['data']['markdown']
+                    # Embed images if available
+                    if result.get('data').get('images'):
+                        content = self._embed_images_to_markdown(content, result['data']['images'])
                     self.logger.info(f"Document converted to markdown, time taken: {time.time() - time1} seconds")
                     md_document = MarkdownDocument.from_bytes(content=content.encode("utf-8"), suffix=".md", stem=document.stem)
                     return md_document
@@ -337,7 +346,7 @@ class ConverterMineru(X2MarkdownConverter):
                     raise Exception('Local deployment returned invalid result format')
             else:
                 raise Exception('Local deployment result not found')
-        
+
         # For online service
         file_url = self.get_file_url(batch_id)
         content, mineru_parsed = get_md_from_zip_url_with_inline_images(zip_url=file_url)
@@ -347,11 +356,48 @@ class ConverterMineru(X2MarkdownConverter):
         md_document = MarkdownDocument.from_bytes(content=content.encode("utf-8"), suffix=".md", stem=document.stem)
         return md_document
 
+    def _embed_images_to_markdown(self, markdown_content: str, images: dict) -> str:
+        """
+        Replace relative image paths in markdown with base64 data URIs.
+
+        Args:
+            markdown_content: Markdown content with relative image paths
+            images: Dict of {image_name: base64_data_uri}
+
+        Returns:
+            Markdown content with embedded images
+        """
+        import re
+
+        def replace_image(match):
+            alt_text = match.group(1)
+            image_path = match.group(2)
+
+            # Extract image filename from path (e.g., "images/abc.png" -> "abc.png")
+            image_name = os.path.basename(image_path)
+
+            # Check if we have base64 data for this image
+            if image_name in images:
+                # Replace with base64 data URI
+                return f"![{alt_text}]({images[image_name]})"
+
+            # Try matching without extension variations
+            for key in images:
+                if os.path.splitext(key)[0] == os.path.splitext(image_name)[0]:
+                    return f"![{alt_text}]({images[key]})"
+
+            # Keep original if no match found
+            return match.group(0)
+
+        # Match markdown image syntax: ![alt](path)
+        pattern = r'!\[([^\]]*)\]\(([^)]+)\)'
+        return re.sub(pattern, replace_image, markdown_content)
+
     async def convert_async(self, document: Document) -> MarkdownDocument:
         self.logger.info(f"Converting document to markdown, model_version: {self.model_version}")
         time1 = time.time()
         batch_id = await self.upload_async(document)
-        
+
         # Handle local deployment
         if batch_id == "local_deployment":
             # Local deployment returns results directly
@@ -363,6 +409,9 @@ class ConverterMineru(X2MarkdownConverter):
                     for filename, file_result in result['results'].items():
                         if file_result.get('md_content'):
                             content = file_result['md_content']
+                            # Embed images if available
+                            if file_result.get('images'):
+                                content = self._embed_images_to_markdown(content, file_result['images'])
                             self.logger.info(f"Document converted to markdown, time taken: {time.time() - time1} seconds")
                             md_document = MarkdownDocument.from_bytes(content=content.encode("utf-8"), suffix=".md", stem=document.stem)
                             return md_document
@@ -370,6 +419,9 @@ class ConverterMineru(X2MarkdownConverter):
                 elif result.get('data') and result['data'].get('markdown'):
                     # Legacy format: results are in data.markdown field
                     content = result['data']['markdown']
+                    # Embed images if available
+                    if result.get('data').get('images'):
+                        content = self._embed_images_to_markdown(content, result['data']['images'])
                     self.logger.info(f"Document converted to markdown, time taken: {time.time() - time1} seconds")
                     md_document = MarkdownDocument.from_bytes(content=content.encode("utf-8"), suffix=".md", stem=document.stem)
                     return md_document
@@ -377,7 +429,7 @@ class ConverterMineru(X2MarkdownConverter):
                     raise Exception('Local deployment returned invalid result format')
             else:
                 raise Exception('Local deployment result not found')
-        
+
         # For online service
         file_url = await self.get_file_url_async(batch_id)
         content, mineru_parsed = await get_md_from_zip_url_with_inline_images_async(zip_url=file_url)
