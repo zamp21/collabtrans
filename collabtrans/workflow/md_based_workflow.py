@@ -23,9 +23,10 @@ from collabtrans.converter.x2md.base import X2MarkdownConverterConfig, X2Markdow
 from collabtrans.exporter.md.md2html_exporter import MD2HTMLExporterConfig, MD2HTMLExporter
 from collabtrans.exporter.md.md2md_exporter import MD2MDExporter
 from collabtrans.exporter.md.md2mdzip_exporter import MD2MDZipExporter
+from collabtrans.exporter.md.md2docx_exporter import MD2DocxExporter, MD2DocxExporterConfig
 from collabtrans.exporter.md.types import ConvertEngineType
 from collabtrans.workflow.base import Workflow, WorkflowConfig
-from collabtrans.workflow.interfaces import MDFormatsExportable, HTMLExportable
+from collabtrans.workflow.interfaces import MDFormatsExportable, HTMLExportable, DocxExportable
 from collabtrans.translator.ai_translator.md_translator import MDTranslatorConfig, MDTranslator
 
 
@@ -39,7 +40,8 @@ class MarkdownBasedWorkflowConfig(WorkflowConfig):
 
 class MarkdownBasedWorkflow(Workflow[MarkdownBasedWorkflowConfig, Document, MarkdownDocument],
                             HTMLExportable[MD2HTMLExporterConfig],
-                            MDFormatsExportable[ExporterConfig]):
+                            MDFormatsExportable[ExporterConfig],
+                            DocxExportable[MD2DocxExporterConfig]):
     _converter_factory: dict[
         ConvertEngineType, Tuple[Type[X2MarkdownConverter|ConverterIdentity], Type[X2MarkdownConverterConfig]] | None] = {
         "identity": (ConverterIdentity, None)
@@ -175,4 +177,31 @@ class MarkdownBasedWorkflow(Workflow[MarkdownBasedWorkflowConfig, Document, Mark
                              _: ExporterConfig | None = None) -> Self:
 
         self._save(exporter=MD2MDZipExporter(), name=name, output_dir=output_dir)
+        return self
+
+    def export_to_docx(self, config: MD2DocxExporterConfig | None = None) -> bytes:
+        """Export translated document to DOCX format using Pandoc.
+
+        Args:
+            config: Optional DOCX exporter configuration
+
+        Returns:
+            DOCX file content as bytes
+        """
+        docu = self._export(MD2DocxExporter(config))
+        return docu.content
+
+    def save_as_docx(self, name: str = None, output_dir: Path | str = "./output",
+                     config: MD2DocxExporterConfig | None = None) -> Self:
+        """Save translated document as DOCX file using Pandoc.
+
+        Args:
+            name: Output filename (without extension)
+            output_dir: Output directory path
+            config: Optional DOCX exporter configuration
+
+        Returns:
+            Self for method chaining
+        """
+        self._save(exporter=MD2DocxExporter(config=config), name=name, output_dir=output_dir)
         return self
