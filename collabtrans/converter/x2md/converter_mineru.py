@@ -142,14 +142,15 @@ class ConverterMineru(X2MarkdownConverter):
                 file_content.name = document.name
                 
                 # Create multipart form data
+                # Note: MinerU expects lowercase string "true"/"false" for boolean values
                 data = {
+                    "lang_list": ["ch"],
                     "backend": "hybrid-auto-engine",
-                    "parse_method": "auto",
-                    "formula_enable": self.formula,
-                    "table_enable": True,
-                    "return_md": True,
-                    "return_content_list": True,  # Request structured content for better table handling
-                    "is_ocr": self.ocr_enabled
+                    "parse_method": "ocr" if self.ocr_enabled else "auto",
+                    "formula_enable": str(self.formula).lower(),
+                    "table_enable": "true",
+                    "return_md": "true",
+                    "return_content_list": "true",  # Request structured content for better table handling
                 }
                 
                 # Send request with file upload
