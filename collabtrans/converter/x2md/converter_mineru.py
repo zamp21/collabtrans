@@ -163,7 +163,19 @@ class ConverterMineru(X2MarkdownConverter):
                     data=data,
                     files={"files": (document.name, file_content, "application/pdf")}
                 )
-                response.raise_for_status()
+
+                # Log response for debugging
+                self.logger.info(f"MinerU response status: {response.status_code}")
+
+                if response.status_code != 200:
+                    # Try to get error details from response
+                    try:
+                        error_detail = response.json()
+                        self.logger.error(f"MinerU error response: {error_detail}")
+                    except:
+                        self.logger.error(f"MinerU error response text: {response.text}")
+                    response.raise_for_status()
+
                 result = response.json()
                 
                 # Check if response format is from local deployment
