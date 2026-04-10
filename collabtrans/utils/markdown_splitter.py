@@ -69,21 +69,22 @@ class MarkdownBlockSplitter:
 
     def _split_into_logical_blocks(self, markdown_text: str) -> List[str]:
         """
-        Split Markdown text into logical blocks (headers, paragraphs, code blocks, empty line separators, etc.)
+        Split Markdown text into logical blocks (headers, paragraphs, code blocks, HTML blocks, empty line separators, etc.)
         """
         # Normalize line breaks
         text = markdown_text.replace('\r\n', '\n')
 
-        # Split code blocks and other content
-        code_block_pattern = r'(```[\s\S]*?```|~~~[\s\S]*?~~~)'
-        parts = re.split(code_block_pattern, text)
+        # Pattern to match code blocks and HTML blocks (like tables)
+        # We need to protect these from being split incorrectly
+        block_pattern = r'(```[\s\S]*?```|~~~[\s\S]*?~~~|<table[\s\S]*?</table>)'
+        parts = re.split(block_pattern, text, flags=re.IGNORECASE)
 
         blocks = []
         for i, part in enumerate(parts):
             if not part:
                 continue
 
-            if i % 2 == 1:  # This is a code block
+            if i % 2 == 1:  # This is a code block or HTML table - keep as single unit
                 blocks.append(part)
             else:  # This is regular Markdown content
                 # Split by one or more empty lines and preserve separators
@@ -97,7 +98,12 @@ class MarkdownBlockSplitter:
     def _split_large_block(self, block: str) -> List[str]:
         """
         Split a single block that exceeds max_block_size
+        HTML tables and code blocks should not be split
         """
+        # HTML tables should not be split - return as single chunk even if oversized
+        if block.strip().lower().startswith('<table') and block.strip().lower().endswith('</table>'):
+            return [block]
+
         # Prioritize code blocks
         if block.startswith(('```', '~~~')):
             fence = '```' if block.startswith('```') else '~~~'
@@ -160,7 +166,7 @@ def split_markdown_text(markdown_text: str, max_block_size=5000) -> List[str]:
 def _needs_single_newline_join(prev_chunk: str, next_chunk: str) -> bool:
     """
     Determine if two blocks should be joined with a single newline
-    This usually happens between consecutive lines of lists, tables, quote blocks
+    This usually happens between consecutive lines of lists, tables, quote blocks, or HTML elements
     """
     if not prev_chunk.strip() or not next_chunk.strip():
         return False
@@ -168,7 +174,7 @@ def _needs_single_newline_join(prev_chunk: str, next_chunk: str) -> bool:
     last_line_prev = prev_chunk.rstrip().split('\n')[-1].lstrip()
     first_line_next = next_chunk.lstrip().split('\n')[0].lstrip()
 
-    # Tables
+    # Markdown Tables
     if last_line_prev.startswith('|') and last_line_prev.endswith('|') and \
             first_line_next.startswith('|') and first_line_next.endswith('|'):
         return True
@@ -181,6 +187,19 @@ def _needs_single_newline_join(prev_chunk: str, next_chunk: str) -> bool:
     # Quotes
     if last_line_prev.startswith('>') and first_line_next.startswith('>'):
         return True
+
+    # HTML elements - if previous chunk ends with HTML tag or next starts with HTML tag
+    # This handles cases where HTML tables or other elements are split
+    html_end_pattern = r'</\w+>\s*$'
+    html_start_pattern = r'^\s*<\w+'
+
+    if re.search(html_end_pattern, prev_chunk, re.IGNORECASE) or \
+       re.match(html_start_pattern, first_line_next, re.IGNORECASE):
+        # Check if this looks like continuation of HTML content
+        # Don't add extra newlines between HTML elements
+        if '<table' in prev_chunk.lower() or '</table>' in prev_chunk.lower() or \
+           '<table' in next_chunk.lower() or '</table>' in next_chunk.lower():
+            return True
 
     return False
 

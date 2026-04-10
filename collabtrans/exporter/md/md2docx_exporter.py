@@ -33,10 +33,15 @@ class MD2DocxExporter(MDExporter):
     """
     Export Markdown to DOCX using Pandoc.
 
+    Uses a two-step conversion process:
+    1. Markdown → HTML (preserves HTML tables from MinerU using raw_html extension)
+    2. HTML → DOCX (converts HTML tables to proper DOCX tables)
+
     Handles:
     - Base64 embedded images (extracts to temporary files)
-    - HTML tables (converted via pandoc raw_html)
-    - LaTeX formulas (via tex_math_dollars)
+    - HTML tables (inline tables from MinerU OCR)
+    - Markdown pipe tables
+    - LaTeX formulas (preserved through conversion)
 
     Requires pandoc to be installed on the system.
     """
@@ -156,42 +161,69 @@ class MD2DocxExporter(MDExporter):
                 f.write(markdown_content)
 
             try:
-                # Build pandoc command
-                # Key extensions:
-                # - pipe_tables+grid_tables: Markdown table formats
-                # - raw_html: Allow HTML tables
-                # - tex_math_dollars: $..$ and $$...$$ for LaTeX math
-                cmd = [
+                # Two-step conversion to properly handle HTML tables:
+                # 1. Markdown → HTML (preserves HTML tables from MinerU)
+                # 2. HTML → DOCX (converts HTML tables to proper DOCX tables)
+                html_path = os.path.join(temp_dir, f"{document.stem}.html")
+
+                # Step 1: Convert markdown to HTML
+                # Using raw_html extension to preserve inline HTML tables
+                md_to_html_cmd = [
                     'pandoc',
                     md_path,
-                    '-o', docx_path,
+                    '-o', html_path,
                     '--from=markdown+pipe_tables+grid_tables+multiline_tables+raw_html+tex_math_dollars',
-                    '--to=docx',
-                    '--wrap=none',
-                    '--resource-path=' + temp_dir,  # Allow pandoc to find images
+                    '--to=html',
+                    '--resource-path=' + temp_dir,
                 ]
 
-                # Add optional parameters
                 if config.reference_doc and os.path.exists(config.reference_doc):
-                    cmd.extend(['--reference-doc', config.reference_doc])
+                    md_to_html_cmd.extend(['--reference-doc', config.reference_doc])
 
-                if config.toc:
-                    cmd.append('--toc')
-                    cmd.extend(['--toc-depth', str(config.toc_depth)])
+                logger.info(f"Running pandoc MD→HTML: {' '.join(md_to_html_cmd)}")
 
-                logger.info(f"Running pandoc: {' '.join(cmd)}")
-
-                # Run pandoc
-                result = subprocess.run(
-                    cmd,
+                md_to_html_result = subprocess.run(
+                    md_to_html_cmd,
                     capture_output=True,
                     text=True,
-                    timeout=300  # 5 minutes timeout for large documents
+                    timeout=120
                 )
 
-                if result.returncode != 0:
-                    logger.error(f"Pandoc conversion failed: {result.stderr}")
-                    raise RuntimeError(f"Pandoc conversion failed: {result.stderr}")
+                if md_to_html_result.returncode != 0:
+                    logger.error(f"Pandoc MD→HTML failed: {md_to_html_result.stderr}")
+                    raise RuntimeError(f"Pandoc MD→HTML conversion failed: {md_to_html_result.stderr}")
+
+                # Step 2: Convert HTML to DOCX
+                # This properly converts HTML tables to DOCX tables
+                html_to_docx_cmd = [
+                    'pandoc',
+                    html_path,
+                    '-o', docx_path,
+                    '--from=html',
+                    '--to=docx',
+                    '--wrap=none',
+                    '--resource-path=' + temp_dir,
+                ]
+
+                if config.reference_doc and os.path.exists(config.reference_doc):
+                    html_to_docx_cmd.extend(['--reference-doc', config.reference_doc])
+
+                if config.toc:
+                    html_to_docx_cmd.append('--toc')
+                    html_to_docx_cmd.extend(['--toc-depth', str(config.toc_depth)])
+
+                logger.info(f"Running pandoc HTML→DOCX: {' '.join(html_to_docx_cmd)}")
+
+                html_to_docx_result = subprocess.run(
+                    html_to_docx_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=180  # 3 minutes for HTML to DOCX
+                )
+
+                if html_to_docx_result.returncode != 0:
+                    logger.error(f"Pandoc HTML→DOCX failed: {html_to_docx_result.stderr}")
+                    raise RuntimeError(f"Pandoc HTML→DOCX conversion failed: {html_to_docx_result.stderr}")
 
                 # Read the generated DOCX file
                 with open(docx_path, 'rb') as f:
