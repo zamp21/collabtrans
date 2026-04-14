@@ -30,7 +30,11 @@ class MDBasedCovertCacher:
 
     def get_cached_result(self, document: Document, convert_engin: str,
                           convert_config: ConverterConfig) -> MarkdownDocument | None:
-        return self.cache_dict.get(self._get_hashcode(document, convert_engin, convert_config))
+        cached = self.cache_dict.get(self._get_hashcode(document, convert_engin, convert_config))
+        if cached is not None:
+            # Return a copy to prevent cache pollution from translation workflow
+            return cached.copy()
+        return None
 
     def cache_result(self, convert_result: MarkdownDocument, document: Document, convert_engin: str,
                      convert_config: ConverterConfig) -> MarkdownDocument:

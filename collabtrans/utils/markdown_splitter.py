@@ -174,7 +174,7 @@ def _needs_single_newline_join(prev_chunk: str, next_chunk: str) -> bool:
     last_line_prev = prev_chunk.rstrip().split('\n')[-1].lstrip()
     first_line_next = next_chunk.lstrip().split('\n')[0].lstrip()
 
-    # Markdown Tables
+    # Markdown Tables (pipe tables)
     if last_line_prev.startswith('|') and last_line_prev.endswith('|') and \
             first_line_next.startswith('|') and first_line_next.endswith('|'):
         return True
@@ -188,18 +188,27 @@ def _needs_single_newline_join(prev_chunk: str, next_chunk: str) -> bool:
     if last_line_prev.startswith('>') and first_line_next.startswith('>'):
         return True
 
-    # HTML elements - if previous chunk ends with HTML tag or next starts with HTML tag
-    # This handles cases where HTML tables or other elements are split
+    # HTML table handling - CRITICAL: Two complete tables should NOT be joined with single newline
+    # Check if prev_chunk ends with a complete table and next_chunk starts with a new table
+    prev_has_complete_table = prev_chunk.strip().lower().endswith('</table>')
+    next_starts_table = next_chunk.strip().lower().startswith('<table')
+
+    # If both are complete tables, use double newline (return False)
+    if prev_has_complete_table and next_starts_table:
+        return False
+
+    # If previous chunk ends with an HTML tag and next starts with a tag that's NOT a new table
+    # (e.g., continuation of same table or other inline HTML)
     html_end_pattern = r'</\w+>\s*$'
     html_start_pattern = r'^\s*<\w+'
 
-    if re.search(html_end_pattern, prev_chunk, re.IGNORECASE) or \
+    if re.search(html_end_pattern, prev_chunk, re.IGNORECASE) and \
        re.match(html_start_pattern, first_line_next, re.IGNORECASE):
-        # Check if this looks like continuation of HTML content
-        # Don't add extra newlines between HTML elements
-        if '<table' in prev_chunk.lower() or '</table>' in prev_chunk.lower() or \
-           '<table' in next_chunk.lower() or '</table>' in next_chunk.lower():
-            return True
+        # Only use single newline if it's NOT a complete table followed by new table
+        if not (prev_has_complete_table and next_starts_table):
+            # Check if this is continuation within same HTML structure
+            if not prev_has_complete_table or not next_starts_table:
+                return True
 
     return False
 

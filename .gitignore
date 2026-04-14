@@ -23,6 +23,7 @@ secrets.json
 .env
 .env.local
 .vscode
+.claude
 
 # 用户配置文件
 user_profiles/

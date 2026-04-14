@@ -92,6 +92,16 @@ class MD2HTMLExporter(MDExporter):
             extension_configs=extension_configs
         )
 
+        # Add border="1" to all HTML tables for visible borders
+        # MinerU generates HTML tables without border attributes
+        def add_table_border(match):
+            attrs = match.group(1)  # Attributes after 'table', before '>'
+            if 'border=' in attrs.lower():
+                return match.group(0)  # Already has border, keep original
+            return '<table border="1"' + attrs + '>'
+
+        html_content = re.sub(r'<table\b([^>]*)>', add_table_border, html_content)
+
         render = jinja2.Template(html_template).render(
             title=document.stem,
             pico=pico,

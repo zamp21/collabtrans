@@ -6,6 +6,7 @@ Supports PDF to DOCX conversion using MinerU + Pandoc.
 import asyncio
 import logging
 import os
+import re
 import tempfile
 import uuid
 import subprocess
@@ -155,7 +156,8 @@ class FormatConverter:
             ocr_enabled=ocr_enabled
         )
 
-        # Create converter for later use
+        # Create converter - always create fresh converter for Convert workflow
+        # to avoid cache pollution from translation workflow
         converter = ConverterMineru(config)
 
         async def do_convert():
@@ -165,118 +167,41 @@ class FormatConverter:
             await self._send_log(log_queue, "PDF parsed successfully")
             return result
 
-        # Get cached result or convert with lock
-        markdown_doc = await md_based_convert_cacher.get_or_convert(
-            document, 'mineru', config, do_convert
-        )
+        # For Convert workflow: directly call MinerU without using cache
+        # This ensures we get clean markdown with base64 images,
+        # not placeholder-contaminated markdown from translation workflow
+        await self._send_log(log_queue, "Converting PDF with MinerU (bypassing cache)...")
+        markdown_doc = await do_convert()
 
-        # Check if we have content_list for better table handling
-        content_list = None
-        if hasattr(converter, 'local_result') and converter.local_result:
-            result = converter.local_result
-            if result.get('results'):
-                for filename, file_result in result['results'].items():
-                    if file_result.get('content_list'):
-                        content_list = file_result['content_list']
-                        break
+        # Save intermediate markdown to temp directory for debugging
+        temp_dir = tempfile.gettempdir()
+        base_name = os.path.basename(output_path).replace('.docx', '')
+        temp_md_path = os.path.join(temp_dir, f"{base_name}_convert.md")
+        try:
+            md_content = markdown_doc.content.decode('utf-8')
+            with open(temp_md_path, 'w', encoding='utf-8') as f:
+                f.write(md_content)
+            await self._send_log(log_queue, f"Intermediate markdown saved to: {temp_md_path}")
+            logger.info(f"Intermediate markdown saved to: {temp_md_path}")
+        except Exception as e:
+            logger.warning(f"Failed to save intermediate markdown: {e}")
 
-        # Use content_list to build DOCX with proper tables (preferred method)
-        if content_list:
-            await self._send_log(log_queue, "Building DOCX with structured content...")
-            await self._build_docx_from_content_list(content_list, output_path, log_queue)
-        else:
-            # Fallback to Pandoc conversion
-            await self._send_log(log_queue, "Converting markdown to DOCX with Pandoc...")
-            await self._build_docx_from_markdown(markdown_doc, output_path, log_queue)
+        # Check if result has placeholders (should not happen with fresh MinerU call)
+        md_content = markdown_doc.content.decode('utf-8')
+        has_placeholders = bool(re.search(r'<ph-[a-zA-Z0-9]+>', md_content))
+        if has_placeholders:
+            await self._send_log(log_queue, "Warning: MinerU result contains unexpected placeholders")
+            logger.warning("Fresh MinerU result contains placeholders - unexpected!")
+
+        # Use Pandoc to convert markdown (handles HTML tables with rowspan/colspan and images properly)
+        # Pandoc path is preferred because:
+        # 1. HTML tables in markdown are preserved and converted correctly
+        # 2. Base64 images are handled correctly
+        # 3. python-docx doesn't support rowspan/colspan
+        await self._send_log(log_queue, "Converting markdown to DOCX with Pandoc (handles HTML tables and images)...")
+        await self._build_docx_from_markdown(markdown_doc, output_path, log_queue)
 
         await self._send_log(log_queue, "DOCX file created successfully")
-
-    async def _build_docx_from_content_list(
-        self,
-        content_list: list,
-        output_path: str,
-        log_queue: Optional[asyncio.Queue] = None
-    ) -> None:
-        """Build DOCX from MinerU content_list with proper table support"""
-        try:
-            from docx import Document as DocxDocument
-            from docx.shared import Inches, Pt
-            from docx.enum.text import WD_ALIGN_PARAGRAPH
-        except ImportError:
-            raise ConversionError("python-docx not installed. Install with: pip install python-docx")
-
-        doc = DocxDocument()
-        table_count = 0
-
-        for item in content_list:
-            # Handle both dict and string items
-            if isinstance(item, str):
-                # Plain text item
-                if item.strip():
-                    doc.add_paragraph(item)
-                continue
-
-            if not isinstance(item, dict):
-                continue
-
-            item_type = item.get('type', 'text')
-
-            if item_type == 'text':
-                # Add text paragraph
-                text = item.get('text', '')
-                if text and isinstance(text, str) and text.strip():
-                    doc.add_paragraph(text)
-
-            elif item_type == 'title':
-                # Add heading
-                text = item.get('text', '')
-                level = item.get('level', 1)
-                if text and isinstance(text, str) and text.strip():
-                    heading = doc.add_heading(text, level=min(level, 9))
-
-            elif item_type == 'table':
-                # Build table from table data
-                table_data = item.get('table_body', [])
-                if table_data and isinstance(table_data, list) and len(table_data) > 0:
-                    rows = len(table_data)
-                    # Find max columns
-                    max_cols = 0
-                    for row_data in table_data:
-                        if isinstance(row_data, list):
-                            max_cols = max(max_cols, len(row_data))
-
-                    if rows > 0 and max_cols > 0:
-                        table = doc.add_table(rows=rows, cols=max_cols)
-                        table.style = 'Table Grid'
-
-                        for i, row_data in enumerate(table_data):
-                            if not isinstance(row_data, list):
-                                continue
-                            row = table.rows[i]
-                            for j, cell_data in enumerate(row_data):
-                                if j < max_cols:
-                                    cell = row.cells[j]
-                                    cell_text = str(cell_data) if cell_data is not None else ''
-                                    cell.text = cell_text
-
-                        table_count += 1
-                        doc.add_paragraph()  # Add space after table
-
-            elif item_type == 'image':
-                # Handle images (base64 or path)
-                # For now, skip images as they need special handling
-                pass
-
-            elif item_type == 'equation':
-                # Handle equations as text for now
-                text = item.get('latex', '') or item.get('text', '')
-                if text and isinstance(text, str) and text.strip():
-                    doc.add_paragraph(f"[Formula: {text}]")
-
-        if table_count > 0:
-            await self._send_log(log_queue, f"Created {table_count} tables in DOCX")
-
-        doc.save(output_path)
 
     async def _build_docx_from_markdown(
         self,
@@ -285,35 +210,162 @@ class FormatConverter:
         log_queue: Optional[asyncio.Queue] = None
     ) -> None:
         """Build DOCX from Markdown using Pandoc (fallback method)"""
-        temp_md_path = output_path.replace('.docx', '.md')
+        import tempfile
+
+        # Save markdown to a temp directory instead of deleting
+        temp_dir = tempfile.gettempdir()
+        base_name = os.path.basename(output_path).replace('.docx', '')
+        temp_md_path = os.path.join(temp_dir, f"{base_name}_convert.md")
+
         try:
             # Write markdown content to temp file
             md_content = markdown_doc.content.decode('utf-8')
             with open(temp_md_path, 'w', encoding='utf-8') as f:
                 f.write(md_content)
 
-            # Convert markdown to DOCX using Pandoc with enhanced table support
-            result = subprocess.run(
+            await self._send_log(log_queue, f"Intermediate markdown saved to: {temp_md_path}")
+            logger.info(f"Intermediate markdown saved to: {temp_md_path}")
+
+            # Convert markdown to DOCX using two-step process for proper HTML table handling
+            # Step 1: MD → HTML (preserves HTML tables with rowspan/colspan)
+            # Step 2: HTML → DOCX (converts HTML tables to proper DOCX tables)
+            html_path = os.path.join(temp_dir, f"{base_name}_convert.html")
+
+            await self._send_log(log_queue, "Converting markdown to DOCX via HTML (two-step process)")
+            logger.info(f"Running pandoc MD→HTML: {temp_md_path} → {html_path}")
+
+            # Step 1: Convert markdown to HTML
+            md_to_html_result = subprocess.run(
                 [
                     'pandoc',
                     temp_md_path,
-                    '-o', output_path,
+                    '-o', html_path,
                     '--from=markdown+pipe_tables+grid_tables+multiline_tables+raw_html+tex_math_dollars',
-                    '--to=docx',
-                    '--wrap=none',
+                    '--to=html',
                 ],
                 capture_output=True,
                 text=True,
                 timeout=60
             )
 
-            if result.returncode != 0:
-                raise ConversionError(f"Pandoc conversion failed: {result.stderr}")
+            if md_to_html_result.returncode != 0:
+                logger.error(f"Pandoc MD→HTML failed: {md_to_html_result.stderr}")
+                raise ConversionError(f"Pandoc MD→HTML conversion failed: {md_to_html_result.stderr}")
 
-        finally:
-            # Clean up temp markdown file
-            if os.path.exists(temp_md_path):
-                os.remove(temp_md_path)
+            logger.info(f"Pandoc MD→HTML completed successfully")
+
+            # Read and modify HTML to add border attributes for tables
+            with open(html_path, 'r', encoding='utf-8') as f:
+                html_content = f.read()
+
+            # Add border="1" to all table tags (Pandoc HTML→DOCX needs this for visible borders)
+            # Properly handle both <table> and <table attrs> cases
+            def add_border_attr(match):
+                attrs = match.group(1)  # Attributes after 'table', before '>'
+                if 'border=' in attrs.lower():
+                    return match.group(0)  # Already has border, keep original
+                # Add border="1" attribute, keep existing attributes and the closing >
+                return '<table border="1"' + attrs + '>'
+
+            html_content = re.sub(
+                r'<table\b([^>]*)>',
+                add_border_attr,
+                html_content
+            )
+
+            with open(html_path, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+
+            await self._send_log(log_queue, "Added table borders to HTML")
+            logger.info("Added table border attributes to HTML")
+
+            # Step 2: Convert HTML to DOCX
+            logger.info(f"Running pandoc HTML→DOCX: {html_path} → {output_path}")
+            html_to_docx_result = subprocess.run(
+                [
+                    'pandoc',
+                    html_path,
+                    '-o', output_path,
+                    '--from=html',
+                    '--to=docx',
+                    '--wrap=none',
+                ],
+                capture_output=True,
+                text=True,
+                timeout=120
+            )
+
+            if html_to_docx_result.returncode != 0:
+                logger.error(f"Pandoc HTML→DOCX failed: {html_to_docx_result.stderr}")
+                raise ConversionError(f"Pandoc HTML→DOCX conversion failed: {html_to_docx_result.stderr}")
+
+            logger.info(f"Pandoc HTML→DOCX completed successfully")
+
+            await self._send_log(log_queue, f"Pandoc converted HTML→DOCX: {output_path}")
+
+            # Add table borders using python-docx
+            logger.info("Starting table border processing with python-docx")
+            try:
+                from docx import Document as DocxDocument
+                from docx.oxml import parse_xml
+                from docx.oxml.ns import qn
+
+                logger.info("python-docx imported successfully, loading DOCX file")
+                doc = DocxDocument(output_path)
+                table_count = len(doc.tables)
+                logger.info(f"Found {table_count} tables in DOCX for border processing")
+                await self._send_log(log_queue, f"Found {table_count} tables in DOCX")
+
+                for table in doc.tables:
+                    tbl = table._tbl
+                    tblPr = tbl.tblPr
+
+                    if tblPr is None:
+                        tblPr = parse_xml(r'<w:tblPr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"/>')
+                        tbl.insert(0, tblPr)
+
+                    # Remove tblStyle element to prevent style borders from overriding our borders
+                    existing_style = tblPr.find(qn('w:tblStyle'))
+                    if existing_style is not None:
+                        tblPr.remove(existing_style)
+                        logger.debug("Removed table style reference to enable explicit borders")
+
+                    # Create tblBorders element with visible borders
+                    tblBorders_xml = parse_xml(
+                        r'<w:tblBorders xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+                        r'<w:top w:val="single" w:sz="12" w:space="0" w:color="000000"/>'
+                        r'<w:left w:val="single" w:sz="12" w:space="0" w:color="000000"/>'
+                        r'<w:bottom w:val="single" w:sz="12" w:space="0" w:color="000000"/>'
+                        r'<w:right w:val="single" w:sz="12" w:space="0" w:color="000000"/>'
+                        r'<w:insideH w:val="single" w:sz="8" w:space="0" w:color="000000"/>'
+                        r'<w:insideV w:val="single" w:sz="8" w:space="0" w:color="000000"/>'
+                        r'</w:tblBorders>'
+                    )
+
+                    # Remove existing borders if present
+                    existing_borders = tblPr.find(qn('w:tblBorders'))
+                    if existing_borders is not None:
+                        tblPr.remove(existing_borders)
+
+                    tblPr.append(tblBorders_xml)
+
+                if table_count > 0:
+                    doc.save(output_path)
+                    await self._send_log(log_queue, f"Added borders to {table_count} tables")
+                    logger.info(f"Added table borders to DOCX (found {table_count} tables)")
+
+            except ImportError as e:
+                await self._send_log(log_queue, f"Warning: python-docx not available: {e}")
+                logger.warning(f"python-docx not available: {e}")
+            except Exception as e:
+                await self._send_log(log_queue, f"Warning: Failed to add borders: {e}")
+                logger.warning(f"Failed to add table borders: {e}")
+
+        except Exception as e:
+            logger.error(f"_build_docx_from_markdown error: {e}")
+            raise
+
+        # Note: We keep the temp_md_path file for debugging, don't delete it
 
     async def _convert_pdf_to_docx_with_pdf2docx(
         self,
@@ -391,6 +443,7 @@ class FormatConverter:
             'source_path': source_path,
             'target_format': target_format,
             'output_path': output_path,
+            'intermediate_files': {},  # Will store md_path and html_path
             'status': 'processing',
             'start_time': datetime.now(),
             'error': None
@@ -456,20 +509,40 @@ class FormatConverter:
             'target_format': task.get('target_format', 'docx')
         }
     
-    def get_conversion_file(self, convert_id: str) -> Optional[str]:
-        """Get converted file path if conversion is completed"""
+    def get_conversion_file(self, convert_id: str) -> Optional[Dict[str, str]]:
+        """Get converted file paths if conversion is completed
+
+        Returns:
+            Dict with keys: 'docx', 'md', 'html' containing file paths
+            Returns None if conversion not found or not completed
+        """
         if convert_id not in conversion_tasks:
             return None
-        
+
         task = conversion_tasks[convert_id]
         if task['status'] != 'completed':
             return None
-        
+
         output_path = task['output_path']
         if not os.path.exists(output_path):
             return None
-        
-        return output_path
+
+        # Derive intermediate file paths from output_path naming pattern
+        # output_path: /tmp/convert_{convert_id}_{source_stem}.docx
+        # md_path: /tmp/convert_{convert_id}_{source_stem}_convert.md
+        # html_path: /tmp/convert_{convert_id}_{source_stem}_convert.html
+        base_name = os.path.basename(output_path).replace('.docx', '')
+        temp_dir = os.path.dirname(output_path)
+        md_path = os.path.join(temp_dir, f"{base_name}_convert.md")
+        html_path = os.path.join(temp_dir, f"{base_name}_convert.html")
+
+        result = {
+            'docx': output_path,
+            'md': md_path if os.path.exists(md_path) else None,
+            'html': html_path if os.path.exists(html_path) else None
+        }
+
+        return result
     
     def cleanup_expired_files(self):
         """Clean up expired conversion files"""

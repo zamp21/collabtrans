@@ -118,12 +118,40 @@ class MD2DocxExporter(MDExporter):
         """
         Process HTML tables to ensure they render correctly in DOCX.
 
-        Pandoc should handle raw HTML tables, but we can add some preprocessing
-        if needed.
+        Add border attribute to HTML tables so they have visible borders in DOCX.
+        MinerU generates tables without border attributes, which results in
+        invisible borders in the exported DOCX.
         """
-        # HTML tables should be handled by pandoc's raw_html extension
-        # No additional processing needed for now
-        return markdown_content
+        # Add border="1" to all <table> tags that don't already have border attribute
+        # This ensures tables have visible borders in DOCX
+        def add_border_to_table(match):
+            table_tag = match.group(0)
+            # Check if border attribute already exists
+            if 'border' not in table_tag:
+                return table_tag.replace('<table', '<table border="1"', 1)
+            return table_tag
+
+        # Match <table> tags (including those with attributes)
+        updated_content = re.sub(r'<table\b[^>]*>', add_border_to_table, markdown_content)
+        return updated_content
+
+    def _add_table_border_style_to_html(self, html_content: str) -> str:
+        """
+        Add border attribute to HTML tables after MD→HTML conversion.
+
+        Pandoc converts HTML tables with border="1" attribute to DOCX tables with borders.
+        CSS styles don't work for Pandoc's HTML→DOCX conversion, so we use the border attribute.
+        """
+        # Add border="1" to all <table> tags that don't already have it
+        def add_border(match):
+            table_tag = match.group(0)
+            if 'border=' not in table_tag.lower():
+                # Add border="1" attribute
+                return '<table border="1"' + table_tag[len('<table'):]
+            return table_tag
+
+        html_content = re.sub(r'<table\b[^>]*>', add_border, html_content)
+        return html_content
 
     def export(self, document: MarkdownDocument) -> Document:
         """
@@ -140,102 +168,197 @@ class MD2DocxExporter(MDExporter):
         config = self.config if isinstance(self.config, MD2DocxExporterConfig) else MD2DocxExporterConfig()
 
         # Create a temporary directory for all files
-        with tempfile.TemporaryDirectory() as temp_dir:
-            md_path = os.path.join(temp_dir, f"{document.stem}.md")
-            docx_path = os.path.join(temp_dir, f"{document.stem}.docx")
-            image_dir = os.path.join(temp_dir, "images")
+        # Use system temp directory and keep files for debugging
+        temp_dir = tempfile.gettempdir()
+        debug_prefix = f"translation_{document.stem}"
+        md_path = os.path.join(temp_dir, f"{debug_prefix}_input.md")
+        docx_path = os.path.join(temp_dir, f"{debug_prefix}_output.docx")
+        html_path = os.path.join(temp_dir, f"{debug_prefix}_intermediate.html")
+        image_dir = os.path.join(temp_dir, f"{debug_prefix}_images")
 
-            # Get markdown content
-            markdown_content = document.content.decode('utf-8')
+        # Get markdown content
+        markdown_content = document.content.decode('utf-8')
 
-            # Process content
-            if config.extract_images:
-                # Extract base64 images to files (use relative paths from md_dir)
-                markdown_content, _ = self._extract_base64_images(markdown_content, image_dir, temp_dir)
+        # Save original markdown for debugging
+        with open(md_path, 'w', encoding='utf-8') as f:
+            f.write(markdown_content)
+        logger.info(f"[Translation DOCX] Saved input markdown to: {md_path}")
 
-            # Process HTML tables
-            markdown_content = self._process_html_tables(markdown_content)
+        # Count HTML tables in input
+        html_tables_in_input = len(re.findall(r'<table[^>]*>.*?</table>', markdown_content, re.IGNORECASE | re.DOTALL))
+        logger.info(f"[Translation DOCX] HTML tables in input markdown: {html_tables_in_input}")
 
-            # Write processed markdown
-            with open(md_path, 'w', encoding='utf-8') as f:
-                f.write(markdown_content)
+        # Process content
+        if config.extract_images:
+            # Extract base64 images to files (use relative paths from md_dir)
+            markdown_content, _ = self._extract_base64_images(markdown_content, image_dir, temp_dir)
 
+        # Process HTML tables
+        markdown_content = self._process_html_tables(markdown_content)
+
+        # Save processed markdown for debugging
+        processed_md_path = os.path.join(temp_dir, f"{debug_prefix}_processed.md")
+        with open(processed_md_path, 'w', encoding='utf-8') as f:
+            f.write(markdown_content)
+        logger.info(f"[Translation DOCX] Saved processed markdown to: {processed_md_path}")
+
+        try:
+            # Two-step conversion to properly handle HTML tables:
+            # 1. Markdown → HTML (preserves HTML tables from MinerU)
+            # 2. HTML → DOCX (converts HTML tables to proper DOCX tables)
+
+            # Step 1: Convert markdown to HTML
+            # Using raw_html extension to preserve inline HTML tables
+            md_to_html_cmd = [
+                'pandoc',
+                processed_md_path,
+                '-o', html_path,
+                '--from=markdown+pipe_tables+grid_tables+multiline_tables+raw_html+tex_math_dollars',
+                '--to=html',
+                '--resource-path=' + temp_dir,
+            ]
+
+            if config.reference_doc and os.path.exists(config.reference_doc):
+                md_to_html_cmd.extend(['--reference-doc', config.reference_doc])
+
+            logger.info(f"[Translation DOCX] Running pandoc MD→HTML: {' '.join(md_to_html_cmd)}")
+
+            md_to_html_result = subprocess.run(
+                md_to_html_cmd,
+                capture_output=True,
+                text=True,
+                timeout=120
+            )
+
+            if md_to_html_result.returncode != 0:
+                logger.error(f"Pandoc MD→HTML failed: {md_to_html_result.stderr}")
+                raise RuntimeError(f"Pandoc MD→HTML conversion failed: {md_to_html_result.stderr}")
+
+            # Read the generated HTML and add table border styles
+            with open(html_path, 'r', encoding='utf-8') as f:
+                html_content = f.read()
+
+            # Count HTML tables in intermediate HTML
+            html_tables_in_html = len(re.findall(r'<table[^>]*>.*?</table>', html_content, re.IGNORECASE | re.DOTALL))
+            logger.info(f"[Translation DOCX] HTML tables in intermediate HTML: {html_tables_in_html}")
+
+            # Add CSS border styles for tables
+            html_content = self._add_table_border_style_to_html(html_content)
+
+            # Write the modified HTML back
+            with open(html_path, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+
+            logger.info(f"[Translation DOCX] Saved intermediate HTML to: {html_path}")
+            logger.info("[Translation DOCX] Added table border styles to HTML")
+
+            # Step 2: Convert HTML to DOCX
+            # This properly converts HTML tables to DOCX tables
+            html_to_docx_cmd = [
+                'pandoc',
+                html_path,
+                '-o', docx_path,
+                '--from=html',
+                '--to=docx',
+                '--wrap=none',
+                '--resource-path=' + temp_dir,
+            ]
+
+            if config.reference_doc and os.path.exists(config.reference_doc):
+                html_to_docx_cmd.extend(['--reference-doc', config.reference_doc])
+
+            if config.toc:
+                html_to_docx_cmd.append('--toc')
+                html_to_docx_cmd.extend(['--toc-depth', str(config.toc_depth)])
+
+            logger.info(f"[Translation DOCX] Running pandoc HTML→DOCX: {' '.join(html_to_docx_cmd)}")
+
+            html_to_docx_result = subprocess.run(
+                html_to_docx_cmd,
+                capture_output=True,
+                text=True,
+                timeout=180  # 3 minutes for HTML to DOCX
+            )
+
+            if html_to_docx_result.returncode != 0:
+                logger.error(f"Pandoc HTML→DOCX failed: {html_to_docx_result.stderr}")
+                raise RuntimeError(f"Pandoc HTML→DOCX conversion failed: {html_to_docx_result.stderr}")
+
+            # Read the generated DOCX file
+            with open(docx_path, 'rb') as f:
+                docx_content = f.read()
+
+            # Add table borders using python-docx (Pandoc doesn't add borders from HTML)
             try:
-                # Two-step conversion to properly handle HTML tables:
-                # 1. Markdown → HTML (preserves HTML tables from MinerU)
-                # 2. HTML → DOCX (converts HTML tables to proper DOCX tables)
-                html_path = os.path.join(temp_dir, f"{document.stem}.html")
+                from docx import Document as DocxDocument
+                from docx.oxml import parse_xml
+                from docx.oxml.ns import qn
 
-                # Step 1: Convert markdown to HTML
-                # Using raw_html extension to preserve inline HTML tables
-                md_to_html_cmd = [
-                    'pandoc',
-                    md_path,
-                    '-o', html_path,
-                    '--from=markdown+pipe_tables+grid_tables+multiline_tables+raw_html+tex_math_dollars',
-                    '--to=html',
-                    '--resource-path=' + temp_dir,
-                ]
+                # Load the DOCX
+                doc = DocxDocument(docx_path)
 
-                if config.reference_doc and os.path.exists(config.reference_doc):
-                    md_to_html_cmd.extend(['--reference-doc', config.reference_doc])
+                logger.info(f"[Translation DOCX] Found {len(doc.tables)} tables in DOCX before border processing")
 
-                logger.info(f"Running pandoc MD→HTML: {' '.join(md_to_html_cmd)}")
+                # Add borders to all tables
+                for table in doc.tables:
+                    tbl = table._tbl
+                    tblPr = tbl.tblPr
 
-                md_to_html_result = subprocess.run(
-                    md_to_html_cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=120
-                )
+                    # Find or create tblPr
+                    if tblPr is None:
+                        tblPr = parse_xml(r'<w:tblPr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"/>')
+                        tbl.insert(0, tblPr)
 
-                if md_to_html_result.returncode != 0:
-                    logger.error(f"Pandoc MD→HTML failed: {md_to_html_result.stderr}")
-                    raise RuntimeError(f"Pandoc MD→HTML conversion failed: {md_to_html_result.stderr}")
+                    # Remove tblStyle element to prevent style borders from overriding our borders
+                    # Pandoc's "Table" style has conditional formatting with nil borders that override tblBorders
+                    existing_style = tblPr.find(qn('w:tblStyle'))
+                    if existing_style is not None:
+                        tblPr.remove(existing_style)
+                        logger.debug("Removed table style reference to enable explicit borders")
 
-                # Step 2: Convert HTML to DOCX
-                # This properly converts HTML tables to DOCX tables
-                html_to_docx_cmd = [
-                    'pandoc',
-                    html_path,
-                    '-o', docx_path,
-                    '--from=html',
-                    '--to=docx',
-                    '--wrap=none',
-                    '--resource-path=' + temp_dir,
-                ]
+                    # Create tblBorders element with proper namespace
+                    # sz=12 means 3/4 point (12/8 = 1.5 pt), visible borders
+                    tblBorders_xml = parse_xml(
+                        r'<w:tblBorders xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+                        r'<w:top w:val="single" w:sz="12" w:space="0" w:color="000000"/>'
+                        r'<w:left w:val="single" w:sz="12" w:space="0" w:color="000000"/>'
+                        r'<w:bottom w:val="single" w:sz="12" w:space="0" w:color="000000"/>'
+                        r'<w:right w:val="single" w:sz="12" w:space="0" w:color="000000"/>'
+                        r'<w:insideH w:val="single" w:sz="8" w:space="0" w:color="000000"/>'
+                        r'<w:insideV w:val="single" w:sz="8" w:space="0" w:color="000000"/>'
+                        r'</w:tblBorders>'
+                    )
 
-                if config.reference_doc and os.path.exists(config.reference_doc):
-                    html_to_docx_cmd.extend(['--reference-doc', config.reference_doc])
+                    # Remove existing tblBorders if present (find by tag name)
+                    existing_borders = tblPr.find(qn('w:tblBorders'))
+                    if existing_borders is not None:
+                        tblPr.remove(existing_borders)
 
-                if config.toc:
-                    html_to_docx_cmd.append('--toc')
-                    html_to_docx_cmd.extend(['--toc-depth', str(config.toc_depth)])
+                    # Add new borders to tblPr
+                    tblPr.append(tblBorders_xml)
 
-                logger.info(f"Running pandoc HTML→DOCX: {' '.join(html_to_docx_cmd)}")
+                # Save the modified DOCX
+                doc.save(docx_path)
 
-                html_to_docx_result = subprocess.run(
-                    html_to_docx_cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=180  # 3 minutes for HTML to DOCX
-                )
-
-                if html_to_docx_result.returncode != 0:
-                    logger.error(f"Pandoc HTML→DOCX failed: {html_to_docx_result.stderr}")
-                    raise RuntimeError(f"Pandoc HTML→DOCX conversion failed: {html_to_docx_result.stderr}")
-
-                # Read the generated DOCX file
+                # Read the modified content
                 with open(docx_path, 'rb') as f:
                     docx_content = f.read()
 
-                logger.info(f"Successfully converted markdown to DOCX ({len(docx_content)} bytes)")
+                logger.info(f"[Translation DOCX] Added table borders to DOCX (found {len(doc.tables)} tables)")
+                logger.info(f"[Translation DOCX] Saved final DOCX to: {docx_path}")
 
-                return Document.from_bytes(
-                    suffix=".docx",
-                    content=docx_content,
-                    stem=document.stem
-                )
+            except ImportError:
+                logger.warning("python-docx not available, tables may not have borders. Install: pip install python-docx")
+            except Exception as e:
+                logger.warning(f"Failed to add table borders: {e}")
 
-            except subprocess.TimeoutExpired:
-                raise RuntimeError("Pandoc conversion timed out")
+            logger.info(f"[Translation DOCX] Successfully converted markdown to DOCX ({len(docx_content)} bytes)")
+
+            return Document.from_bytes(
+                suffix=".docx",
+                content=docx_content,
+                stem=document.stem
+            )
+
+        except subprocess.TimeoutExpired:
+            raise RuntimeError("Pandoc conversion timed out")

@@ -399,39 +399,103 @@ async def get_convert_status(task_id: str, convert_id: str):
 
 
 @pdf_router.get("/convert/{task_id}/download/{convert_id}")
-async def download_converted_file(task_id: str, convert_id: str):
-    """Download converted file"""
+async def download_converted_file(task_id: str, convert_id: str, format: str = 'docx'):
+    """Download converted file
+
+    Args:
+        format: File format to download - 'docx', 'md', or 'html'
+    """
     try:
         from collabtrans.converter.format_converter import converter
-        
-        # Get converted file path
-        file_path = converter.get_conversion_file(convert_id)
-        if not file_path:
+
+        # Get converted file paths
+        file_paths = converter.get_conversion_file(convert_id)
+        if not file_paths:
             raise HTTPException(status_code=404, detail="Converted file not found or conversion not completed")
-        
+
+        # Select file based on format
+        if format == 'docx':
+            file_path = file_paths.get('docx')
+            media_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        elif format == 'md':
+            file_path = file_paths.get('md')
+            media_type = 'text/markdown; charset=utf-8'
+        elif format == 'html':
+            file_path = file_paths.get('html')
+            media_type = 'text/html; charset=utf-8'
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported format: {format}")
+
+        if not file_path:
+            raise HTTPException(status_code=404, detail=f"File format '{format}' not available")
+
         if not os.path.exists(file_path):
-            raise HTTPException(status_code=404, detail="Converted file no longer exists")
-        
+            raise HTTPException(status_code=404, detail="File no longer exists")
+
         # Get file info
         file_stat = os.stat(file_path)
         file_size = file_stat.st_size
-        
+
         # Generate filename
         original_filename = tasks_state.get(task_id, {}).get('original_filename', 'document')
         file_stem = Path(original_filename).stem
-        target_format = converter.get_conversion_status(convert_id).get('target_format', 'docx')
-        download_filename = f"{file_stem}.{target_format}"
-        
+        download_filename = f"{file_stem}.{format}"
+
         # Return file
         return FileResponse(
             path=file_path,
             filename=download_filename,
-            media_type='application/octet-stream'
+            media_type=media_type
         )
-        
+
     except Exception as e:
         logger.error(f"Download converted file failed: {e}")
         raise HTTPException(status_code=500, detail=f"Download converted file failed: {e}")
+
+
+@pdf_router.get("/convert/{task_id}/formats/{convert_id}")
+async def get_available_formats(task_id: str, convert_id: str):
+    """Get available download formats for a conversion"""
+    try:
+        from collabtrans.converter.format_converter import converter
+
+        # Get converted file paths
+        file_paths = converter.get_conversion_file(convert_id)
+        if not file_paths:
+            return {"formats": []}
+
+        # Get original filename for download names
+        original_filename = tasks_state.get(task_id, {}).get('original_filename', 'document')
+        file_stem = Path(original_filename).stem
+
+        # Build available formats list
+        formats = []
+        for fmt, path in file_paths.items():
+            if path and os.path.exists(path):
+                file_size = os.path.getsize(path)
+                formats.append({
+                    "format": fmt,
+                    "filename": f"{file_stem}.{fmt}",
+                    "size": file_size,
+                    "available": True
+                })
+            else:
+                formats.append({
+                    "format": fmt,
+                    "filename": f"{file_stem}.{fmt}",
+                    "size": 0,
+                    "available": False
+                })
+
+        return {
+            "formats": formats,
+            "convert_id": convert_id,
+            "task_id": task_id
+        }
+
+    except Exception as e:
+        logger.error(f"Get available formats failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Get available formats failed: {e}")
 
 
 # --- Global Configuration ---

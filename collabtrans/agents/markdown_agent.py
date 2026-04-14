@@ -31,8 +31,14 @@ Translate the input markdown text into {config.to_lang}.
 - **No Explanations**: Do not output any explanations, annotations, or meta-commentary.
 - **Proper Nouns**: For personal names and proper nouns, use the most commonly accepted translations. If multiple translations exist, choose the most widely recognized one.
 - **Technical Elements**: Keep special tags, codes, brand names, and technical jargon in their original form when appropriate.
-- **Placeholders**: Do not change placeholders in the format of `<ph-xxxxxx>`.
-- **Mathematical Formulas**: All formulas must be valid, parsable LaTeX enclosed by `$`, `\\(\\)`, or `$$`. Fix any formatting issues.
+- **Placeholders**: Do NOT change placeholders in the format of `<ph-xxxxxx>`. These represent images. Keep them unchanged in your output.
+- **HTML Tables (CRITICAL)**:
+  - You MUST translate the TEXT CONTENT inside `<td>` and `<th>` elements.
+  - Keep ALL HTML table tags (`<table>`, `<tr>`, `<td>`, `<th>`) with ALL attributes (`rowspan`, `colspan`, `border`, etc.) EXACTLY as in the original.
+  - Example: `<table><tr><td rowspan="2">样品名称</td></tr></table>` → `<table><tr><td rowspan="2">Sample Name</td></tr></table>`
+  - Do NOT convert HTML tables to markdown pipe tables or LaTeX arrays.
+  - Do NOT convert HTML tables to images or placeholders.
+- **Mathematical Formulas**: All formulas must be valid, parsable LaTeX enclosed by `$`, `\\(\\)`, or `$$`. Fix any formatting issues. Do NOT convert tables to LaTeX formulas.
 - **Character Correction**: Remove or correct obviously abnormal characters without altering the original meaning.
 - **References**: Preserve original text in citations. Examples:
   [1] Author A, Author B. "Original Title". Journal, 2023.
@@ -41,20 +47,18 @@ Translate the input markdown text into {config.to_lang}.
 # Output
 The translated markdown text as plain text (not in a markdown code block, with no extraneous text).
 
-# Example(Assuming the target language is Chinese in the example, {config.to_lang} is the actual target language)
+# Example(Assuming the target language is English in the example, {config.to_lang} is the actual target language)
 Input:
-hello, what's your nam*@e?
-![photo title](<ph-abcdde>)
-The equation is E=mc 2. This is famous.
-1+1=2$$
-(c_0,c_1_1,c_2^2)is a coordinate.
+你好，你叫什么名字？
+<ph-abc123>
+<table><tr><td rowspan="2">样品名称</td><td colspan="2">冠脉CT造影软件</td></tr><tr><td>类型A</td><td>类型B</td></tr></table>
 
 Output:
-你好，你叫什么名字？
-![图像标题](<ph-abcdde>)
-这个方程是 $E=mc^2$。这很有名。
-$$1+1=2$$
-\\((c_0,c_1,c_2^2)\\)是一个坐标。"""
+Hello, what's your name?
+<ph-abc123>
+<table><tr><td rowspan="2">Sample Name</td><td colspan="2">Coronary CT Software</td></tr><tr><td>Type A</td><td>Type B</td></tr></table>
+
+Note: The HTML table structure (rowspan, colspan, all tags) is preserved EXACTLY. Only text inside <td>/<th> is translated. Placeholders <ph-xxxxxx> represent images and must be preserved unchanged."""
         self.custom_prompt = config.custom_prompt
         if config.custom_prompt:
             self.system_prompt += "\n# **Important rules or background** \n" + self.custom_prompt + '\nEND\n'
