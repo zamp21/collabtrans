@@ -137,12 +137,14 @@ async def login_page(
     """Login page"""
     from .config import AuthConfig
     config = AuthConfig.get_config()
+    root_path = request.scope.get("root_path", "") or ""
     return templates.TemplateResponse("login.html", {
         "request": request,
         "next_url": next_url,
         "error": error,
         "ldap_enabled": config.ldap_enabled,
-        "login_banner": config.login_banner
+        "login_banner": config.login_banner,
+        "root_path": root_path
     })
 
 
@@ -279,8 +281,16 @@ async def login(
         session_manager.reset_login_attempts(client_ip)
         logger.info(f"Reset login attempts for IP {client_ip}")
         
-        # Determine redirect URL
-        redirect_url = next_url if next_url and next_url.startswith('/') else "/"
+        # Determine redirect URL, handle root_path for reverse proxy deployment
+        root_path = request.scope.get("root_path", "") or ""
+        # If next_url doesn't start with root_path, prepend it
+        if next_url and next_url.startswith('/'):
+            if root_path and not next_url.startswith(root_path):
+                redirect_url = root_path + next_url
+            else:
+                redirect_url = next_url
+        else:
+            redirect_url = root_path + "/"
         logger.info(f"Login successful, redirect URL: {redirect_url}")
         
         return LoginResponse(
@@ -321,10 +331,11 @@ async def logout(request: Request, response: Response):
 async def logout_get(request: Request, response: Response):
     """GET logout, redirect to login page"""
     session_manager = get_session_manager()
-    
+
     await session_manager.destroy_session(request, response)
-    
-    return RedirectResponse(url="/login", status_code=302)
+
+    root_path = request.scope.get("root_path", "") or ""
+    return RedirectResponse(url=f"{root_path}/login", status_code=302)
 
 
 @auth_router.get("/user", response_model=UserInfo)

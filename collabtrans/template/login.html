@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-i18n-title="loginPageTitle">Login - CollabTrans</title>
-    <link href="/static/bootstrap.css" rel="stylesheet">
-    <link href="/static/bootstrap-icons.css" rel="stylesheet">
+    <link href="{{ root_path }}/static/bootstrap.css" rel="stylesheet">
+    <link href="{{ root_path }}/static/bootstrap-icons.css" rel="stylesheet">
     <style>
         body {
             background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
@@ -66,7 +66,7 @@
                 <div class="card login-card">
                     <div class="card-body p-5">
                         <div class="text-center mb-4">
-                            <img src="/static/favicon.ico" alt="CollabTrans Logo" style="width: 48px; height: 48px; margin-bottom: 16px;">
+                            <img src="{{ root_path }}/static/favicon.ico" alt="CollabTrans Logo" style="width: 48px; height: 48px; margin-bottom: 16px;">
                             <h2 class="text-white mb-2">
                                 CollabTrans
                             </h2>
@@ -84,7 +84,7 @@
                         </div>
 
                         <!-- Login Form -->
-                        <form id="loginForm" method="POST" action="/login">
+                        <form id="loginForm" method="POST" action="{{ root_path }}/login">
                             <input type="hidden" name="next_url" value="{{ next_url or '' }}">
                             
                             <div class="mb-3">
@@ -176,8 +176,10 @@
         </div>
     </div>
 
-    <script src="/static/bootstrap.bundle.min.js"></script>
+    <script src="{{ root_path }}/static/bootstrap.bundle.min.js"></script>
     <script>
+        // Root path for reverse proxy deployment
+        const ROOT_PATH = "{{ root_path }}";
         // i18n init for login page
         (async function initLoginI18n() {
             try {
@@ -185,7 +187,7 @@
                 let lang = localStorage.getItem('ui_language');
                 if (!lang) {
                     try {
-                        const resp = await fetch('/auth/app-config', { credentials: 'include' });
+                        const resp = await fetch(ROOT_PATH + '/auth/app-config', { credentials: 'include' });
                         if (resp.ok) {
                             const data = await resp.json();
                             lang = data.default_language || null;
@@ -198,7 +200,7 @@
                 }
 
                 // 2) Load i18nLogin.json (login-specific)
-                const res = await fetch('/i18n/i18nLogin.json', { cache: 'no-store' });
+                const res = await fetch(ROOT_PATH + '/i18n/i18nLogin.json', { cache: 'no-store' });
                 const all = await res.json();
                 const dict = all[lang] || all['en'];
 
@@ -242,7 +244,7 @@
             const formData = new FormData(this);
             
             try {
-                const response = await fetch('/login', {
+                const response = await fetch(ROOT_PATH + '/login', {
                     method: 'POST',
                     body: formData
                 });
@@ -268,7 +270,7 @@
                 } else {
                     // Login failed, show error
                 try {
-                    const res = await fetch('/i18n/i18nLogin.json', { cache: 'no-store' });
+                    const res = await fetch(ROOT_PATH + '/i18n/i18nLogin.json', { cache: 'no-store' });
                         const dictAll = await res.json();
                         const lang = localStorage.getItem('ui_language') || 'en';
                         const dict = dictAll[lang] || dictAll['en'];
@@ -279,7 +281,7 @@
                 }
             } catch (error) {
                 try {
-                    const res = await fetch('/i18n/i18nLogin.json', { cache: 'no-store' });
+                    const res = await fetch(ROOT_PATH + '/i18n/i18nLogin.json', { cache: 'no-store' });
                     const dictAll = await res.json();
                     const lang = localStorage.getItem('ui_language') || 'en';
                     const dict = dictAll[lang] || dictAll['en'];

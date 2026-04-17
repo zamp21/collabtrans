@@ -48,5 +48,8 @@
     "cert_file": "/mnt/2TDisk/workplace/collabtrans/certs/dev.local.crt",
     "key_file": "/mnt/2TDisk/workplace/collabtrans/certs/dev.local.key",
     "force_redirect": false
+  },
+  "server": {
+    "root_path": "/collabtrans"
   }
 }

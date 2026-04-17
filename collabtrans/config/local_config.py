@@ -90,6 +90,12 @@ class HTTPSConfig:
 
 
 @dataclass
+class ServerConfig:
+    """Server configuration for reverse proxy deployment"""
+    root_path: str = ""  # e.g., "/collabtrans" for nginx subpath deployment
+
+
+@dataclass
 class LocalConfig:
     """Local configuration class, manages system-level settings"""
     
@@ -113,6 +119,9 @@ class LocalConfig:
     
     # HTTPS settings
     https: HTTPSConfig = field(default_factory=HTTPSConfig)
+
+    # Server settings (for reverse proxy deployment)
+    server: ServerConfig = field(default_factory=ServerConfig)
     
     @classmethod
     def load_from_file(cls, config_file: str = "local_config.json") -> "LocalConfig":
@@ -156,6 +165,10 @@ class LocalConfig:
                 # Load HTTPS configuration
                 if 'https' in config_data:
                     config.https = HTTPSConfig(**config_data['https'])
+
+                # Load Server configuration
+                if 'server' in config_data:
+                    config.server = ServerConfig(**config_data['server'])
                 
                 logger.log(TRACE, f"Loaded local configuration from {resolved_path}")
                 return config
@@ -181,7 +194,8 @@ class LocalConfig:
                 'redis': asdict(self.redis),
                 'security': asdict(self.security),
                 'messages': asdict(self.messages),
-                'https': asdict(self.https)
+                'https': asdict(self.https),
+                'server': asdict(self.server)
             }
             
             with open(resolved_path, 'w', encoding='utf-8') as f:
@@ -203,7 +217,8 @@ class LocalConfig:
             'redis': asdict(self.redis),
             'security': asdict(self.security),
             'messages': asdict(self.messages),
-            'https': asdict(self.https)
+            'https': asdict(self.https),
+            'server': asdict(self.server)
         }
     
     def update_from_dict(self, config_data: Dict[str, Any]) -> None:
@@ -250,6 +265,12 @@ class LocalConfig:
                 for key, value in config_data['https'].items():
                     if hasattr(self.https, key):
                         setattr(self.https, key, value)
-                        
+
+            # Update Server configuration
+            if 'server' in config_data:
+                for key, value in config_data['server'].items():
+                    if hasattr(self.server, key):
+                        setattr(self.server, key, value)
+
         except Exception as e:
             logger.error(f"Error updating local configuration: {e}")

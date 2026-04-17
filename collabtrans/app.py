@@ -2613,6 +2613,12 @@ def service_get_default_params(): return JSONResponse(content=default_params)
 async def service_get_app_version(): return JSONResponse(content={"version": __version__})
 
 
+def _get_redirect_url(request: Request, path: str) -> str:
+    """Build redirect URL with root_path prefix for reverse proxy deployment."""
+    root_path = request.scope.get("root_path", "") or ""
+    return root_path + path
+
+
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def main_page(request: Request):
     # Redirect to login page if not authenticated
@@ -2620,7 +2626,7 @@ async def main_page(request: Request):
         from collabtrans.auth import get_session_manager
         session_manager = get_session_manager()
         if not await session_manager.is_authenticated(request):
-            return RedirectResponse(url="/login?next=/", status_code=302)
+            return RedirectResponse(url=_get_redirect_url(request, "/login?next=/"), status_code=302)
     except Exception:
         # Continue directly when authentication module is unavailable
         pass
@@ -2639,7 +2645,7 @@ async def settings_page(request: Request):
         from collabtrans.auth import get_session_manager
         session_manager = get_session_manager()
         if not await session_manager.is_authenticated(request):
-            return RedirectResponse(url="/login?next=/settings", status_code=302)
+            return RedirectResponse(url=_get_redirect_url(request, "/login?next=/settings"), status_code=302)
         # Allow super admin, admin group members, or app admin (glossary management role) to access
         try:
             user = await session_manager.get_user(request)
@@ -2652,9 +2658,9 @@ async def settings_page(request: Request):
             except Exception:
                 can_app_admin = False
             if not user or not (user.is_super_admin() or user.is_admin() or can_app_admin):
-                return RedirectResponse(url="/", status_code=302)
+                return RedirectResponse(url=_get_redirect_url(request, "/"), status_code=302)
         except Exception:
-            return RedirectResponse(url="/", status_code=302)
+            return RedirectResponse(url=_get_redirect_url(request, "/"), status_code=302)
     except Exception:
         # Continue directly when authentication module is unavailable
         pass
@@ -2672,7 +2678,7 @@ async def main_page_admin(request: Request):
         from collabtrans.auth import get_session_manager
         session_manager = get_session_manager()
         if not await session_manager.is_authenticated(request):
-            return RedirectResponse(url="/login?next=/admin", status_code=302)
+            return RedirectResponse(url=_get_redirect_url(request, "/login?next=/admin"), status_code=302)
     except Exception:
         pass
 
@@ -2981,6 +2987,7 @@ def run_app(port: int | None = None):
 
         # Read global and sensitive configuration, enable built-in TLS as needed
         ssl_kwargs = {}
+        root_path = None  # Initialize root_path before try block
         try:
             from collabtrans.config.global_config import get_global_config
             from collabtrans.config.local_config import LocalConfig
@@ -2988,6 +2995,13 @@ def run_app(port: int | None = None):
             from collabtrans.config.global_config import save_global_config
             global_config = get_global_config()
             local_config = LocalConfig.load_from_file()
+
+            # Get root_path for reverse proxy subpath deployment
+            root_path = local_config.server.root_path if local_config.server.root_path else None
+            if root_path:
+                print(f"Server root_path configured: {root_path}")
+                # Update FastAPI app's root_path for URL generation
+                app.root_path = root_path
             
             if local_config.https.enabled:
                 cert_file = local_config.https.cert_file or ""
@@ -3039,7 +3053,12 @@ def run_app(port: int | None = None):
         except Exception as _e:
             print(f"Failed to read HTTPS configuration, will start with HTTP: {_e}")
 
-        uvicorn.run(app, host="0.0.0.0", port=port_to_use, workers=1, log_level="debug", access_log=False, **ssl_kwargs)
+        # Prepare uvicorn arguments
+        uvicorn_kwargs = ssl_kwargs
+        if root_path:
+            uvicorn_kwargs["root_path"] = root_path
+
+        uvicorn.run(app, host="0.0.0.0", port=port_to_use, workers=1, log_level="debug", access_log=False, **uvicorn_kwargs)
     except Exception as e:
         print(f"Startup failed: {e}")
 

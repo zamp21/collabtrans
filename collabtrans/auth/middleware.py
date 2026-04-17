@@ -39,21 +39,27 @@ class AuthMiddleware(BaseHTTPMiddleware):
         """Handle request"""
         path = request.url.path
         method = request.method
-        
+        root_path = request.scope.get("root_path", "") or ""
+
+        # Strip root_path from path for exempt checking (handles reverse proxy cases)
+        effective_path = path
+        if root_path and path.startswith(root_path):
+            effective_path = path[len(root_path):] or "/"
+
         # Check if it's an exempt path
-        if self._is_exempt_path(path):
+        if self._is_exempt_path(effective_path):
             return await call_next(request)
-        
+
         # Check if it's an exempt API path (GET requests only)
-        if self._is_exempt_api_path(path, method):
+        if self._is_exempt_api_path(effective_path, method):
             return await call_next(request)
-        
+
         # Check if user is authenticated
         if not await self.session_manager.is_authenticated(request):
             # Build login URL with next parameter
-            login_url = f"/login?next={path}"
+            login_url = f"{root_path}/login?next={root_path}{effective_path}"
             return RedirectResponse(url=login_url, status_code=302)
-        
+
         # User is authenticated, continue processing request
         return await call_next(request)
     
