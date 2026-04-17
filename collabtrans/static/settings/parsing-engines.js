@@ -6,7 +6,7 @@ let engineConfigs = {};
 // Load engine configurations
 async function loadEngineConfigs() {
   try {
-    const resp = await fetch('/auth/app-config');
+    const resp = await fetch(apiUrl('/auth/app-config'));
     if (!resp.ok) {
       return;
     }
@@ -106,7 +106,7 @@ function updateEngineFields() {
 // Load MinerU API Key (masked display)
 async function loadMineruApiKey() {
   try {
-    const resp = await fetch('/auth/app-config/raw-secrets', { credentials: 'include' });
+    const resp = await fetch(apiUrl('/auth/app-config/raw-secrets'), { credentials: 'include' });
     if (!resp.ok) return;
     const secrets = await resp.json();
     // Prioritize new structure meta
@@ -183,7 +183,7 @@ async function saveParsingEngineConfig() {
     };
 
     // Save non-sensitive configuration
-    const resp = await fetch('/auth/app-config', {
+    const resp = await fetch(apiUrl('/auth/app-config'), {
       method: 'POST', 
       headers: { 'Content-Type': 'application/json' }, 
       credentials: 'include',
@@ -199,7 +199,7 @@ async function saveParsingEngineConfig() {
 
     // Save sensitive configuration: always send for mineru, even if empty
     if (key === 'mineru') {
-      const r2 = await fetch('/auth/app-config/setting', {
+      const r2 = await fetch(apiUrl('/auth/app-config/setting'), {
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
         credentials: 'include',
@@ -275,7 +275,7 @@ async function testMineruConnectionInSettings() {
       statusBadge.textContent = 'Testing...';
     }
     // Load current config
-    const r = await fetch('/auth/app-config', { credentials: 'include' });
+    const r = await fetch(apiUrl('/auth/app-config'), { credentials: 'include' });
     if (!r.ok) throw new Error('Failed to load config');
     const cfg = await r.json();
     const ts = cfg.translator_settings || {};
@@ -287,7 +287,7 @@ async function testMineruConnectionInSettings() {
     if (!baseUrl || !model) {
       throw new Error('Missing API URL or model_version');
     }
-    const resp = await fetch('/auth/mineru/test-connection', {
+    const resp = await fetch(apiUrl('/auth/mineru/test-connection'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',

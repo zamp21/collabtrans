@@ -8,7 +8,7 @@ let ldapInitiallyEnabled = false;
 // Load LDAP configuration
 async function loadLdapConfig() {
   try {
-    const resp = await fetch('/auth/ldap-config');
+    const resp = await fetch(apiUrl('/auth/ldap-config'));
     if (!resp.ok) return false;
     const cfg = await resp.json();
     const ldapEnabledEl = document.getElementById('ldapEnabled');
@@ -51,7 +51,7 @@ async function loadLdapConfig() {
 // Load session and security configuration
 async function loadSessionSecurityConfig() {
   try {
-    const resp = await fetch('/auth/app-config');
+    const resp = await fetch(apiUrl('/auth/app-config'));
     if (!resp.ok) return false;
     const cfg = await resp.json();
     
@@ -115,7 +115,7 @@ async function saveLoginSettings(silent = false) {
     ldap_test_validated: ldapTestValidated
   };
   
-  const ldapResp = await fetch('/auth/ldap-config', {
+  const ldapResp = await fetch(apiUrl('/auth/ldap-config'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(ldapPayload)
@@ -128,7 +128,7 @@ async function saveLoginSettings(silent = false) {
     login_attempt_window: parseInt(document.getElementById('loginAttemptWindowInput').value || '300')
   };
   
-  const sessionSecurityResp = await fetch('/auth/app-config', {
+  const sessionSecurityResp = await fetch(apiUrl('/auth/app-config'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(sessionSecurityPayload)
@@ -261,7 +261,7 @@ async function testLdapConnectivity() {
       
       console.log('Sending LDAP test request:', payload);
       
-      const resp = await fetch('/auth/test-ldap', {
+      const resp = await fetch(apiUrl('/auth/test-ldap'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

@@ -3,9 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Dynamic base path for reverse proxy subpath deployment -->
+    <script>
+        // Detect root path from URL for nginx reverse proxy deployment
+        (function() {
+            var path = window.location.pathname;
+            // Extract base path (e.g., '/collabtrans/' from '/collabtrans/' or '/collabtrans/login')
+            var basePath = '/';
+            if (path !== '/' && path !== '/index.html') {
+                // Find the common prefix that ends with '/'
+                var segments = path.split('/');
+                // If path is like '/collabtrans/' or '/collabtrans/login', basePath is '/collabtrans/'
+                if (segments.length >= 2 && segments[1] !== '') {
+                    basePath = '/' + segments[1] + '/';
+                }
+            }
+            // Set base tag for all relative URLs
+            var base = document.createElement('base');
+            base.href = basePath;
+            document.head.appendChild(base);
+            // Global ROOT_PATH for JavaScript usage
+            window.ROOT_PATH = basePath.replace(/\/$/, '');  // Remove trailing slash
+            console.log('🔧 Base path set to:', basePath);
+            console.log('🔧 ROOT_PATH:', window.ROOT_PATH);
+            // Helper function to build API URLs with ROOT_PATH
+            window.apiUrl = function(path) {
+                if (path.startsWith('/') && window.ROOT_PATH) {
+                    return window.ROOT_PATH + path;
+                }
+                return path;
+            };
+            window.pageUrl = function(path) {
+                if (path.startsWith('/') && window.ROOT_PATH) {
+                    return window.ROOT_PATH + path;
+                }
+                return path;
+            };
+        })();
+    </script>
 
     <title data-i18n-title="pageTitle">Interactive Document Translation</title>
-    
+
     <!-- Debug logging for main page -->
     <script>
         console.log('🏠 Main page HTML loaded');
@@ -14,11 +52,11 @@
         console.log('🍪 Cookies:', document.cookie);
         console.log('🔍 User agent:', navigator.userAgent);
     </script>
-    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="static/favicon.ico" type="image/x-icon">
     <!-- Bootstrap CSS -->
-    <link href="/static/bootstrap.css" rel="stylesheet" crossorigin="anonymous">
+    <link href="static/bootstrap.css" rel="stylesheet" crossorigin="anonymous">
     <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="/static/bootstrap-icons.css">
+    <link rel="stylesheet" href="static/bootstrap-icons.css">
 
     <style>
         body {
@@ -303,7 +341,7 @@
                 const saved = localStorage.getItem('frontend_log_level');
                 if(saved){ setLevel(saved); } else { setLevel('INFO'); }
                 // 2) try backend config (async update)
-                fetch('/auth/app-config', {credentials:'include'}).then(r=>r.ok?r.json():null).then(cfg=>{
+                fetch(apiUrl('/auth/app-config'), {credentials:'include'}).then(r=>r.ok?r.json():null).then(cfg=>{
                     if(!cfg) return;
                     const lvl = (cfg.logging && cfg.logging.level) || cfg.logging_level || cfg['logging.level'] || cfg.frontend_log_level;
                     if(lvl){ setLevel(lvl); }
@@ -323,7 +361,7 @@
             <div class="settings-panel">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <div class="d-flex align-items-center">
-                        <img src="/static/favicon.ico" alt="CollabTrans Logo" style="width: 96px; height: 96px; margin-right: 20px;">
+                        <img src="static/favicon.ico" alt="CollabTrans Logo" style="width: 96px; height: 96px; margin-right: 20px;">
                         <div style="height: 96px; display: flex; flex-direction: column; justify-content: center;">
                             <h1 class="mb-1 fw-bold" style="font-size: 2.5rem;">AI </h1>
                             <p class="mb-0 text-muted" style="font-size: 1.25rem;">Document Translation Agent</p>
@@ -744,7 +782,7 @@ $.*"></textarea>
                                         
                                         <div class="alert alert-info">
                                             <i class="bi bi-info-circle me-2"></i>
-                                            <span data-i18n="detailedConfigInfo">For detailed configuration, please go to</span> <a href="/settings" class="alert-link" data-i18n="settingsPageLink">Settings Page</a>
+                                            <span data-i18n="detailedConfigInfo">For detailed configuration, please go to</span> <a href="settings" class="alert-link" data-i18n="settingsPageLink">Settings Page</a>
                                         </div>
                                         
                                         <div class="row g-3">
@@ -1199,7 +1237,7 @@ $.*"></textarea>
                     <h4 class="mb-0"><i class="bi bi-list-task me-2"></i><span data-i18n="taskListTitle">Task List</span></h4>
                     <div class="d-flex align-items-center gap-2">
                         <button class="btn btn-outline-secondary" id="addNewTaskBtn"><i class="bi bi-plus-circle-fill me-2"></i><span data-i18n="newTaskBtn">New Task</span></button>
-                        <a href="/settings" class="btn btn-outline-secondary" id="settingsBtn" style="display:none;" title="Settings" data-i18n-title="settingsTitle">
+                        <a href="settings" class="btn btn-outline-secondary" id="settingsBtn" style="display:none;" title="Settings" data-i18n-title="settingsTitle">
                             <i class="bi bi-gear me-1"></i><span data-i18n="settingsTitle">Settings</span>
                         </a>
                         
@@ -1323,7 +1361,7 @@ $.*"></textarea>
                     <!-- Task cards will be injected here -->
                 </div>
                 <div id="no-task-placeholder" class="text-center text-muted mt-5">
-                    <img src="/static/favicon.ico" alt="LOGO" style="width:10%;min-width: 55px; height: auto;">
+                    <img src="static/favicon.ico" alt="LOGO" style="width:10%;min-width: 55px; height: auto;">
                     <p class="mt-3" data-i18n="noTaskPlaceholder">No tasks currently, click "New Task" to get started!</p>
                 </div>
                 
@@ -1721,7 +1759,7 @@ $.*"></textarea>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    fetch('/static/tutorial.html')
+    fetch(apiUrl('/static/tutorial.html'))
         .then(function(resp) { return resp.text(); })
         .then(function(html) {
             var container = document.createElement('div');
@@ -1738,13 +1776,13 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 <!-- Bootstrap JS -->
-<script src="/static/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+<script src="static/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
 <!-- Split.js for resizable panes -->
-<script src="/static/split.min.js"></script>
+<script src="static/split.min.js"></script>
 <!-- [NEW] PapaParse for CSV parsing -->
-<script src="/static/papaparse.min.js"></script>
+<script src="static/papaparse.min.js"></script>
 <!-- Preview module -->
-<script src="/static/js/preview.js"></script>
+<script src="static/js/preview.js"></script>
 <script type="module">
     // --- I18N Data ---
     // Initialize with a minimal fallback for critical error messages.
@@ -1900,7 +1938,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load and render current user information
     async function loadAndRenderCurrentUser() {
         try {
-            const resp = await fetch('/auth/user', { credentials: 'include' });
+            const resp = await fetch(apiUrl('/auth/user'), { credentials: 'include' });
             if (!resp.ok) return;
             const user = await resp.json();
             const name = user.display_name || user.username || '--';
@@ -1914,7 +1952,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load Usage Message
     async function loadUsageMessage() {
         try {
-            const resp = await fetch('/auth/message-config', { credentials: 'include' });
+            const resp = await fetch(apiUrl('/auth/message-config'), { credentials: 'include' });
             if (!resp.ok) return;
             const data = await resp.json();
             const usageElement = document.getElementById('usageMessage');
@@ -2035,12 +2073,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 if (confirm('Are you sure you want to logout?')) {
                     try {
-                        const response = await fetch('/auth/logout', {
+                        const response = await fetch(apiUrl('/auth/logout'), {
                             method: 'POST',
                             credentials: 'include'
                         });
                         if (response.ok) {
-                            window.location.href = '/';
+                            window.location.href = pageUrl('/');
                         }
                     } catch (error) {
                         console.error('Logout failed:', error);
@@ -2347,7 +2385,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
             
-            const response = await fetch('/auth/app-config/setting', {
+            const response = await fetch(apiUrl('/auth/app-config/setting'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -2902,7 +2940,7 @@ document.addEventListener('DOMContentLoaded', function() {
     async function loadGlobalPlatformConfigs() {
         try {
             console.log('[DEBUG] loadGlobalPlatformConfigs - starting to load platform configs');
-            const resp = await fetch('/auth/app-config', { credentials: 'include' });
+            const resp = await fetch(apiUrl('/auth/app-config'), { credentials: 'include' });
             if (!resp.ok) {
                 console.error('[DEBUG] loadGlobalPlatformConfigs - API response not ok:', resp.status, resp.statusText);
                 return;
@@ -2972,7 +3010,7 @@ document.addEventListener('DOMContentLoaded', function() {
      */
     async function displayCurrentAiConfig() {
         try {
-            const resp = await fetch('/auth/app-config', { credentials: 'include' });
+            const resp = await fetch(apiUrl('/auth/app-config'), { credentials: 'include' });
             if (!resp.ok) return;
             const cfg = await resp.json();
             
@@ -3030,7 +3068,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Load configuration for selected platform
         try {
-            const resp = await fetch('/auth/app-config');
+            const resp = await fetch(apiUrl('/auth/app-config'));
             if (!resp.ok) return;
             const cfg = await resp.json();
             
@@ -3047,7 +3085,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 let rsec = { ok: false };
                 try {
                     if (window.userPermissions && window.userPermissions.is_admin) {
-                        rsec = await fetch('/auth/app-config/raw-secrets', { credentials: 'include' });
+                        rsec = await fetch(apiUrl('/auth/app-config/raw-secrets'), { credentials: 'include' });
                     }
                 } catch (_) {}
                 if (rsec.ok) {
@@ -3133,7 +3171,7 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         try {
             setBanner('warning', 'Testing AI platform connection...');
-            const r = await fetch('/auth/app-config', { credentials: 'include' });
+            const r = await fetch(apiUrl('/auth/app-config'), { credentials: 'include' });
             if (!r.ok) throw new Error('Failed to load config');
             const cfg = await r.json();
             // Fallback selection from config if missing
@@ -3175,7 +3213,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (selectedPlatform !== 'custom' && apiType !== 'ollama') {
                 let hasKey = false;
                 try {
-                    const rs = await fetch('/auth/app-config/raw-secrets', { credentials: 'include' });
+                    const rs = await fetch(apiUrl('/auth/app-config/raw-secrets'), { credentials: 'include' });
                     if (rs.ok) {
                         const secrets = await rs.json();
                         if (secrets.platform_api_keys_meta && secrets.platform_api_keys_meta[selectedPlatform]) {
@@ -3192,7 +3230,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
             }
-            const resp = await fetch('/auth/test-ai-platform', {
+            const resp = await fetch(apiUrl('/auth/test-ai-platform'), {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
                 body: JSON.stringify({ platform_type: selectedPlatform, base_url: baseUrl, model_name: model, api_type: apiType })
             });
@@ -3404,7 +3442,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function releaseTask(backendTaskId) {
         try {
-            await fetch(`/service/release/${backendTaskId}`, {method: 'POST'});
+            await fetch(apiUrl(`/service/release/${backendTaskId}`), {method: 'POST'});
             console.log(`[${backendTaskId}] Release request sent to backend.`);
         } catch (error) {
             console.error(`[${backendTaskId}] Failed to send release request:`, error);
@@ -3684,7 +3722,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     model_version: modelVersionSelect.value
                 }));
                 
-                const response = await fetch('/service/translate', {
+                const response = await fetch(apiUrl('/service/translate'), {
                     method: 'POST',
                     // Don't set Content-Type header, browser will set it automatically with boundary for multipart/form-data
                     body: formData
@@ -3714,7 +3752,7 @@ document.addEventListener('DOMContentLoaded', function() {
         addConvertLog(cardId, 'frontend.conversion.task.started');
         
         try {
-            const response = await fetch(`/convert/${taskId}`, {
+            const response = await fetch(apiUrl(`/convert/${taskId}`), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -3799,7 +3837,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const poll = async () => {
             try {
-                const response = await fetch(`/convert/${taskId}/status/${convertId}`);
+                const response = await fetch(apiUrl(`/convert/${taskId}/status/${convertId}`));
                 if (!response.ok) {
                     throw new Error('Failed to get conversion status');
                 }
@@ -3813,16 +3851,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Add converted file to downloads
                     const {state} = tasks[cardId];
                     if (status.download_url && status.filename) {
+                        // Add root_path prefix to download_url for reverse proxy compatibility
+                        const fullDownloadUrl = window.ROOT_PATH ? window.ROOT_PATH + status.download_url : status.download_url;
                         // Store converted file info in task state
                         if (!state.converted_files) {
                             state.converted_files = {};
                         }
-                        state.converted_files[status.filename] = status.download_url;
-                        
+                        state.converted_files[status.filename] = fullDownloadUrl;
+
                         // Update task state to show download ready
                         state.download_ready = true;
                         state.downloads = state.downloads || {};
-                        state.downloads[status.filename] = status.download_url;
+                        state.downloads[status.filename] = fullDownloadUrl;
                         
                         // Update result buttons to show download options
                         updateResultButtons(cardId, {
@@ -4030,7 +4070,7 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.append('file', state.file);  // File with Content-Type: application/octet-stream
             formData.append('payload', JSON.stringify(payload));  // JSON string for workflow parameters
 
-            const response = await fetch('/service/translate', {
+            const response = await fetch(apiUrl('/service/translate'), {
                 method: 'POST',
                 // Don't set Content-Type header, browser will set it automatically with boundary for multipart/form-data
                 body: formData
@@ -4083,7 +4123,7 @@ document.addEventListener('DOMContentLoaded', function() {
         elements.startBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> <span data-i18n="status_cancelling">${getText('status_cancelling')}</span>`;
 
         try {
-            const response = await fetch(`/service/cancel/${backendTaskId}`, {method: 'POST'});
+            const response = await fetch(apiUrl(`/service/cancel/${backendTaskId}`), {method: 'POST'});
             const result = await response.json();
 
             if (response.ok && result.cancelled) {
@@ -4129,7 +4169,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const {elements} = card;
 
         try {
-            const response = await fetch(`/service/logs/${backendTaskId}`);
+            const response = await fetch(apiUrl(`/service/logs/${backendTaskId}`));
             if (!response.ok) return;
             const data = await response.json();
             if (data.logs && data.logs.length > 0) {
@@ -4155,7 +4195,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const cardId = elements.card.dataset.cardId;
 
         try {
-            const response = await fetch(`/service/status/${backendTaskId}`);
+            const response = await fetch(apiUrl(`/service/status/${backendTaskId}`));
             if (!response.ok) {
                 if (response.status === 404 && isRestore) {
                     console.warn(`Task ${backendTaskId} not found on server (404). Removing from UI.`);
@@ -4326,6 +4366,23 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateResultButtons(cardId, status) {
         const {elements, state} = tasks[cardId];
         const {downloads, attachment} = status;
+
+        // Add root_path prefix to download URLs for reverse proxy compatibility
+        if (downloads && window.ROOT_PATH) {
+            Object.keys(downloads).forEach(key => {
+                if (downloads[key] && downloads[key].startsWith('/')) {
+                    downloads[key] = window.ROOT_PATH + downloads[key];
+                }
+            });
+        }
+        if (attachment && window.ROOT_PATH) {
+            Object.keys(attachment).forEach(key => {
+                if (attachment[key] && attachment[key].startsWith('/')) {
+                    attachment[key] = window.ROOT_PATH + attachment[key];
+                }
+            });
+        }
+
         state.downloads = downloads;
         state.attachment = attachment;
         
@@ -4466,7 +4523,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const pdfController = new AbortController();
                 const pdfTimeoutId = setTimeout(() => pdfController.abort(), 60000); // 60 second timeout
                 
-                const resp = await fetch('/export/pdf/from-html', {
+                const resp = await fetch(apiUrl('/export/pdf/from-html'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     signal: pdfController.signal,
@@ -4601,7 +4658,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     try {
                         // Check user permissions
                         if (window.userPermissions && window.userPermissions.is_admin) {
-                            const response = await fetch('/auth/app-config/raw-secrets', {
+                            const response = await fetch(apiUrl('/auth/app-config/raw-secrets'), {
                                 method: 'GET',
                                 credentials: 'include'
                             });
@@ -4668,7 +4725,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function loadUserPermissions() {
         try {
-            const response = await fetch('/auth/user/permissions', {
+            const response = await fetch(apiUrl('/auth/user/permissions'), {
                 method: 'GET',
                 credentials: 'include'
             });
@@ -4697,7 +4754,7 @@ document.addEventListener('DOMContentLoaded', function() {
      */
     async function loadAppConfig() {
         try {
-            const response = await fetch('/auth/app-config', {
+            const response = await fetch(apiUrl('/auth/app-config'), {
                 method: 'GET',
                 credentials: 'include'
             });
@@ -4756,7 +4813,7 @@ document.addEventListener('DOMContentLoaded', function() {
      */
     async function handleLogout() {
         try {
-            const response = await fetch('/logout', {
+            const response = await fetch(apiUrl('/logout'), {
                 method: 'GET',
                 credentials: 'include'
             });
@@ -4767,16 +4824,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 sessionStorage.clear();
                 
                 // Redirect to login page
-                window.location.href = '/login';
+                window.location.href = pageUrl('/login');
             } else {
                 console.error('Logout failed:', response.statusText);
                 // Still redirect to login page even if logout request failed
-                window.location.href = '/login';
+                window.location.href = pageUrl('/login');
             }
         } catch (error) {
             console.error('Logout error:', error);
             // Still redirect to login page even if logout request failed
-            window.location.href = '/login';
+            window.location.href = pageUrl('/login');
         }
     }
 
@@ -4790,7 +4847,7 @@ document.addEventListener('DOMContentLoaded', function() {
      */
     async function loadSecretsConfig() {
         try {
-            const response = await fetch('/auth/app-config', {
+            const response = await fetch(apiUrl('/auth/app-config'), {
                 method: 'GET',
                 credentials: 'include'
             });
@@ -4878,7 +4935,7 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             // Add cache busting parameter to force reload
             const timestamp = new Date().getTime();
-            const response = await fetch(`/i18n/i18nMain.json?t=${timestamp}`);
+            const response = await fetch(apiUrl(`/i18n/i18nMain.json?t=${timestamp}`));
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             i18nData = await response.json();
         } catch (error) {
@@ -4967,7 +5024,7 @@ document.addEventListener('DOMContentLoaded', function() {
         isAdminMode = window.location.pathname.includes('/admin');
         try {
             const [metaRes, enginRes, paramsRes] = await Promise.all([
-                fetch("/service/meta"), fetch('/service/engin-list'), fetch("/service/default-params")
+                fetch(apiUrl('/service/meta')), fetch(apiUrl('/service/engin-list')), fetch(apiUrl('/service/default-params'))
             ]);
             if (!metaRes.ok || !enginRes.ok || !paramsRes.ok) throw new Error("Failed to fetch initial data.");
 
@@ -5247,7 +5304,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if(!currentPassword || !newPassword){ alert(getText ? getText('fillPasswords','Please fill passwords') : 'Please fill passwords'); return; }
                     if(newPassword.length < 6){ alert(getText ? getText('passwordTooShort','Password too short (>=6)') : 'Password too short (>=6)'); return; }
                     if(newPassword !== newPasswordConfirm){ alert(getText ? getText('passwordNotMatch','Two passwords do not match') : 'Two passwords do not match'); return; }
-                    const resp = await fetch('/auth/local-users/me/change-password', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({current_password: currentPassword, new_password: newPassword}) });
+                    const resp = await fetch(apiUrl('/auth/local-users/me/change-password'), { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({current_password: currentPassword, new_password: newPassword}) });
                     if(resp.ok){
                         alert(getText ? getText('passwordUpdated','Password updated') : 'Password updated');
                         const modalEl = document.getElementById('changePasswordModal');
@@ -5267,7 +5324,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (isAdminMode) {
             document.title = "DocuTranslate - Admin Panel";
             try {
-                const response = await fetch('/service/task-list');
+                const response = await fetch(apiUrl('/service/task-list'));
                 if (!response.ok) throw new Error(`Failed to fetch task list: ${response.statusText}`);
                 const allTaskIds = await response.json();
                 if (allTaskIds && allTaskIds.length > 0) {
@@ -5342,7 +5399,7 @@ document.addEventListener('DOMContentLoaded', function() {
         statusBadge.textContent = 'Testing...';
         
         try {
-            const response = await fetch('/auth/mineru/test-connection', {
+            const response = await fetch(apiUrl('/auth/mineru/test-connection'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -5430,7 +5487,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         async checkForUpdates() {
             try {
-                const response = await fetch('/auth/prompts/check-updates', {
+                const response = await fetch(apiUrl('/auth/prompts/check-updates'), {
                     method: 'GET',
                     credentials: 'include'
                 });
@@ -5449,7 +5506,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         async refreshPrompts() {
             try {
-                const response = await fetch('/auth/prompts', {
+                const response = await fetch(apiUrl('/auth/prompts'), {
                     method: 'GET',
                     credentials: 'include'
                 });
@@ -5490,7 +5547,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         async loadPrompts() {
             try {
-                const response = await fetch('/auth/prompts', {
+                const response = await fetch(apiUrl('/auth/prompts'), {
                     method: 'GET',
                     credentials: 'include'
                 });
@@ -5625,7 +5682,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const selectedGlobalIds = Array.from(document.querySelectorAll('#globalPromptsList input[type="checkbox"]:checked'))
                     .map(input => input.value);
                 
-                const response = await fetch('/auth/prompts/selection', {
+                const response = await fetch(apiUrl('/auth/prompts/selection'), {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json'
@@ -5671,7 +5728,7 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.append('is_global', 'true');
             
             try {
-                const response = await fetch('/auth/prompts/upload', {
+                const response = await fetch(apiUrl('/auth/prompts/upload'), {
                     method: 'POST',
                     credentials: 'include',
                     body: formData
@@ -5711,7 +5768,7 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.append('is_global', 'false');
             
             try {
-                const response = await fetch('/auth/prompts/upload', {
+                const response = await fetch(apiUrl('/auth/prompts/upload'), {
                     method: 'POST',
                     credentials: 'include',
                     body: formData
@@ -5743,7 +5800,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         async downloadPrompt(promptId) {
             try {
-                const response = await fetch(`/auth/prompts/${promptId}/download`, {
+                const response = await fetch(apiUrl(`/auth/prompts/${promptId}/download`), {
                     method: 'GET',
                     credentials: 'include'
                 });
@@ -5774,7 +5831,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             try {
-                const response = await fetch(`/auth/prompts/${promptId}`, {
+                const response = await fetch(apiUrl(`/auth/prompts/${promptId}`), {
                     method: 'DELETE',
                     credentials: 'include'
                 });
@@ -5851,7 +5908,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         try {
             // Get simplified global prompts
-            const response = await fetch('/auth/prompts/simple', {
+            const response = await fetch(apiUrl('/auth/prompts/simple'), {
                 method: 'GET',
                 credentials: 'include'
             });
@@ -6059,7 +6116,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         try {
-            const response = await fetch('/auth/prompts/personal', {
+            const response = await fetch(apiUrl('/auth/prompts/personal'), {
                 method: 'DELETE',
                 credentials: 'include'
             });
@@ -6090,7 +6147,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.previewMergedPrompts = async function() {
         try {
             // Get simplified global prompts
-            const response = await fetch('/auth/prompts/simple', {
+            const response = await fetch(apiUrl('/auth/prompts/simple'), {
                 method: 'GET',
                 credentials: 'include'
             });
@@ -6206,7 +6263,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 .filter(input => input.value.startsWith('global_'))
                 .map(input => input.value);
             
-            const response = await fetch('/auth/prompts/selection', {
+            const response = await fetch(apiUrl('/auth/prompts/selection'), {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json'
@@ -6237,7 +6294,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!container) return;
         
         try {
-            const response = await fetch('/auth/glossaries', {
+            const response = await fetch(apiUrl('/auth/glossaries'), {
                 method: 'GET',
                 credentials: 'include'
             });
@@ -6333,7 +6390,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.previewSingleGlossary = async function(glossaryId) {
         try {
             // Get single glossary content
-            const response = await fetch(`/auth/glossaries/${glossaryId}/download`, {
+            const response = await fetch(apiUrl(`/auth/glossaries/${glossaryId}/download`), {
                 method: 'GET',
                 credentials: 'include'
             });
@@ -6377,7 +6434,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Add selected global glossaries
         for (const globalId of selectedGlobalIds) {
             try {
-                const response = await fetch(`/auth/glossaries/${globalId}/download`, {
+                const response = await fetch(apiUrl(`/auth/glossaries/${globalId}/download`), {
                     method: 'GET',
                     credentials: 'include'
                 });
@@ -6535,7 +6592,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 .filter(input => input.value.startsWith('global_'))
                 .map(input => input.value);
             
-            const response = await fetch('/auth/glossaries/selection', {
+            const response = await fetch(apiUrl('/auth/glossaries/selection'), {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json'
@@ -6565,7 +6622,7 @@ document.addEventListener('DOMContentLoaded', function() {
     async function getMergedPrompt() {
         try {
             // Get simplified global prompts
-            const response = await fetch('/auth/prompts/simple', {
+            const response = await fetch(apiUrl('/auth/prompts/simple'), {
                 method: 'GET',
                 credentials: 'include'
             });
@@ -6682,7 +6739,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 try {
-                    const response = await fetch('/local-users/me/change-password', {
+                    const response = await fetch(apiUrl('/local-users/me/change-password'), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -6818,7 +6875,7 @@ document.addEventListener('DOMContentLoaded', function() {
   })();
 </script>
 <!-- Log i18n support -->
-<script src="/static/log/log-i18n.js"></script>
+<script src="static/log/log-i18n.js"></script>
 <!-- Hidden Theme and Language Submenus -->
 <ul class="dropdown-menu" id="userThemeMenu" style="display: none;">
     <li><a class="dropdown-item" href="#" data-theme="light"><i class="bi bi-sun-fill me-2"></i><span data-i18n="themeLight">Light</span></a></li>

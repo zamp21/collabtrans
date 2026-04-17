@@ -4,7 +4,7 @@
 // Load banner configuration
 async function loadBannerConfig() {
   try {
-    const resp = await fetch('/auth/message-config');
+    const resp = await fetch(apiUrl('/auth/message-config'));
     if (!resp.ok) return false;
     const cfg = await resp.json();
     document.getElementById('loginBannerInput').value = cfg.login_banner || 'Welcome to document translation system.';
@@ -22,7 +22,7 @@ async function saveBannerSettings(silent = false) {
     usage_message: document.getElementById('usageMessageInput').value.trim()
   };
   
-  const resp = await fetch('/auth/message-config', {
+  const resp = await fetch(apiUrl('/auth/message-config'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(bannerPayload)

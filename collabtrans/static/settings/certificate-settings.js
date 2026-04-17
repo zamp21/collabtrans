@@ -3,7 +3,7 @@ let certificateModal = null;
 
 async function loadCertificateList() {
     try {
-        const resp = await fetch('/auth/certificate-list', { credentials: 'include' });
+        const resp = await fetch(apiUrl('/auth/certificate-list'), { credentials: 'include' });
         if (!resp.ok) {
             throw new Error(`HTTP ${resp.status}`);
         }
@@ -97,7 +97,7 @@ function initCertificateModal() {
             generateBtn.disabled = true;
             generateBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i><span data-i18n="generating">Generating...</span>';
 
-            const resp = await fetch('/auth/generate-certificate', {
+            const resp = await fetch(apiUrl('/auth/generate-certificate'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',

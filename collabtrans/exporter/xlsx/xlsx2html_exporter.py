@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Xlsx2HTMLExporterConfig(ExporterConfig):
-    cdn: bool = True
+    cdn: bool = False  # Default to local resources for reverse proxy compatibility
 
 
 class Xlsx2HTMLExporter(XlsxExporter):

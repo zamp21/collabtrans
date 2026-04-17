@@ -53,7 +53,7 @@ function startUpdateCheck() {
 // Check for updates
 async function checkForUpdates() {
     try {
-        const response = await fetch('/auth/glossaries/check-updates', {
+        const response = await fetch(apiUrl('/auth/glossaries/check-updates'), {
             method: 'GET',
             credentials: 'include'
         });
@@ -74,7 +74,7 @@ async function checkForUpdates() {
 // Load glossary data
 async function loadGlossaries() {
     try {
-        const response = await fetch('/auth/glossaries', {
+        const response = await fetch(apiUrl('/auth/glossaries'), {
             method: 'GET',
             credentials: 'include'
         });
@@ -160,7 +160,7 @@ async function saveGlossarySelection() {
             selectedGlossaries.push(checkbox.value);
         });
         
-        const response = await fetch('/auth/glossaries/selection', {
+        const response = await fetch(apiUrl('/auth/glossaries/selection'), {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
@@ -209,7 +209,7 @@ async function uploadGlobalGlossary() {
     }
     
     try {
-        const response = await fetch('/auth/glossaries/upload', {
+        const response = await fetch(apiUrl('/auth/glossaries/upload'), {
             method: 'POST',
             credentials: 'include',
             body: formData
@@ -239,7 +239,7 @@ async function uploadGlobalGlossary() {
 // Download glossary
 async function downloadGlossary(glossaryId) {
     try {
-        const response = await fetch(`/auth/glossaries/${glossaryId}/download`, {
+        const response = await fetch(apiUrl(`/auth/glossaries/${glossaryId}/download`), {
             method: 'GET',
             credentials: 'include'
         });
@@ -271,7 +271,7 @@ async function deleteGlossary(glossaryId) {
     }
     
     try {
-        const response = await fetch(`/auth/glossaries/${glossaryId}`, {
+        const response = await fetch(apiUrl(`/auth/glossaries/${glossaryId}`), {
             method: 'DELETE',
             credentials: 'include'
         });

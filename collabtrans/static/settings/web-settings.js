@@ -4,7 +4,7 @@
 // Load app configuration
 async function loadAppConfig() {
   try {
-    const resp = await fetch('/auth/app-config');
+    const resp = await fetch(apiUrl('/auth/app-config'));
     if (!resp.ok) return null;
     const cfg = await resp.json();
     
@@ -19,7 +19,7 @@ async function loadAppConfig() {
       const certName = certPath ? (certPath.split('/').pop()) : null;
       if (certName) {
         try {
-          const lresp = await fetch('/auth/certificate-list', { credentials: 'include' });
+          const lresp = await fetch(apiUrl('/auth/certificate-list'), { credentials: 'include' });
           if (lresp.ok) {
             const list = await lresp.json();
             const cert = (list.certificates || []).find(c => c.type === 'cert' && c.name === certName);
@@ -47,7 +47,7 @@ async function loadAppConfig() {
 
 // Save app configuration
 async function saveAppConfig(patch) {
-  const resp = await fetch('/auth/app-config', {
+  const resp = await fetch(apiUrl('/auth/app-config'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(patch)
@@ -60,7 +60,7 @@ async function uploadCertAndKey(certFile, keyFile) {
   const fd = new FormData();
   if (certFile) fd.append('cert', certFile);
   if (keyFile) fd.append('key', keyFile);
-  const resp = await fetch('/auth/web/upload-cert', { method: 'POST', body: fd });
+  const resp = await fetch(apiUrl('/auth/web/upload-cert'), { method: 'POST', body: fd });
   return resp.ok;
 }
 
@@ -200,7 +200,7 @@ async function initWebSettingsModule() {
         // Refresh display after upload
         await loadAppConfig();
         
-        const resp = await fetch('/auth/web/test-https', {
+        const resp = await fetch(apiUrl('/auth/web/test-https'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({})
@@ -236,7 +236,7 @@ async function initWebSettingsModule() {
   try {
     const container = document.getElementById('embedded-certificate-content');
     if (container) {
-      const resp = await fetch('/static/settings/certificate-settings.html', { cache: 'no-store' });
+      const resp = await fetch(apiUrl('/static/settings/certificate-settings.html'), { cache: 'no-store' });
       if (resp.ok) {
         const html = await resp.text();
         container.innerHTML = html;

@@ -18,7 +18,7 @@ class I18nManager {
 
   async load() {
     try {
-      const response = await fetch('/i18n/i18nSettings.json', { cache: 'no-store' });
+      const response = await fetch(apiUrl('/i18n/i18nSettings.json'), { cache: 'no-store' });
       if (!response.ok) {
         throw new Error(`Failed to load i18n data: ${response.statusText}`);
       }
@@ -218,7 +218,7 @@ async function loadModuleContent(moduleName) {
   if (!contentDiv) return;
 
   try {
-    const response = await fetch(`/static/settings/${moduleName}.html`, { cache: 'no-store' });
+    const response = await fetch(apiUrl(`/static/settings/${moduleName}.html`), { cache: 'no-store' });
     if (!response.ok) {
       throw new Error(`Failed to load ${moduleName} module`);
     }
@@ -232,7 +232,7 @@ async function loadModuleContent(moduleName) {
     // Load corresponding JavaScript module
     const script = document.createElement('script');
     const ts = Date.now();
-    script.src = `/static/settings/${moduleName}.js?v=${ts}`;
+    script.src = apiUrl(`/static/settings/${moduleName}.js?v=${ts}`);
     script.onload = () => {
       loadedModules.add(moduleName);
       
@@ -282,7 +282,7 @@ async function loadModuleContent(moduleName) {
 // --- User Permissions ---
 async function loadUserPermissionsForSettings() {
   try {
-    const response = await fetch('/auth/user/permissions', { credentials: 'include' });
+    const response = await fetch(apiUrl('/auth/user/permissions'), { credentials: 'include' });
     if (response.ok) {
       settingsUserPermissions = await response.json();
       

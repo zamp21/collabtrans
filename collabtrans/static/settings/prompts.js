@@ -40,7 +40,7 @@ function setupEventListeners() {
 // Load prompts list
 async function loadPrompts() {
     try {
-        const response = await fetch('/auth/prompts/simple', {
+        const response = await fetch(apiUrl('/auth/prompts/simple'), {
             method: 'GET',
             credentials: 'include'
         });
@@ -113,7 +113,7 @@ async function addPrompt() {
     }
     
     try {
-        const response = await fetch('/auth/prompts/simple', {
+        const response = await fetch(apiUrl('/auth/prompts/simple'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -157,7 +157,7 @@ async function deletePrompt(index) {
     }
     
     try {
-        const response = await fetch(`/auth/prompts/simple/${prompt.id}`, {
+        const response = await fetch(apiUrl(`/auth/prompts/simple/${prompt.id}`), {
             method: 'DELETE',
             credentials: 'include'
         });

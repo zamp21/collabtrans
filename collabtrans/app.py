@@ -1342,7 +1342,7 @@ async def _perform_translation(
                     formula_ocr=payload.formula_ocr,
                     artifact=None
                 )
-            html_exporter_config = MD2HTMLExporterConfig(cdn=True)
+            html_exporter_config = MD2HTMLExporterConfig()
             workflow_config = MarkdownBasedWorkflowConfig(
                 convert_engine=payload.convert_engine, converter_config=converter_config,
                 translator_config=translator_config, html_exporter_config=html_exporter_config,
@@ -1372,7 +1372,7 @@ async def _perform_translation(
             translator_args = inject_global_api_key(translator_args)
             translator_config = TXTTranslatorConfig(**translator_args)
 
-            html_exporter_config = TXT2HTMLExporterConfig(cdn=True)
+            html_exporter_config = TXT2HTMLExporterConfig()
             workflow_config = TXTWorkflowConfig(
                 translator_config=translator_config, html_exporter_config=html_exporter_config,
                 logger=task_logger
@@ -1401,7 +1401,7 @@ async def _perform_translation(
             translator_args = inject_global_api_key(translator_args)
             translator_config = JsonTranslatorConfig(**translator_args)
 
-            html_exporter_config = Json2HTMLExporterConfig(cdn=True)
+            html_exporter_config = Json2HTMLExporterConfig()
             workflow_config = JsonWorkflowConfig(
                 translator_config=translator_config, html_exporter_config=html_exporter_config,
                 logger=task_logger
@@ -1430,7 +1430,7 @@ async def _perform_translation(
             translator_args = inject_global_api_key(translator_args)
             translator_config = XlsxTranslatorConfig(**translator_args)
 
-            html_exporter_config = Xlsx2HTMLExporterConfig(cdn=True)
+            html_exporter_config = Xlsx2HTMLExporterConfig()
             workflow_config = XlsxWorkflowConfig(
                 translator_config=translator_config,
                 html_exporter_config=html_exporter_config,
@@ -1466,7 +1466,7 @@ async def _perform_translation(
             task_logger.info(f"[DEBUG] translator_args temperature after inject_global_api_key: {translator_args.get('temperature', 'NOT_FOUND')}")
             translator_config = DocxTranslatorConfig(**translator_args)
 
-            html_exporter_config = Docx2HTMLExporterConfig(cdn=True)
+            html_exporter_config = Docx2HTMLExporterConfig()
             workflow_config = DocxWorkflowConfig(
                 translator_config=translator_config,
                 html_exporter_config=html_exporter_config,
@@ -1496,7 +1496,7 @@ async def _perform_translation(
             translator_args = inject_global_api_key(translator_args)
             translator_config = SrtTranslatorConfig(**translator_args)
 
-            html_exporter_config = Srt2HTMLExporterConfig(cdn=True)
+            html_exporter_config = Srt2HTMLExporterConfig()
             workflow_config = SrtWorkflowConfig(
                 translator_config=translator_config,
                 html_exporter_config=html_exporter_config,
@@ -1526,7 +1526,7 @@ async def _perform_translation(
             translator_args = inject_global_api_key(translator_args)
             translator_config = EpubTranslatorConfig(**translator_args)
 
-            html_exporter_config = Epub2HTMLExporterConfig(cdn=True)
+            html_exporter_config = Epub2HTMLExporterConfig()
             workflow_config = EpubWorkflowConfig(
                 translator_config=translator_config,
                 html_exporter_config=html_exporter_config,
@@ -1585,14 +1585,8 @@ async def _perform_translation(
         downloadable_files = {}
         filename_stem = task_state['original_filename_stem']
 
-        # Check CDN availability
-        is_cdn_available = True
-        try:
-            await httpx_client.head("https://s4.zstatic.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js",
-                                    timeout=3)
-        except (httpx.TimeoutException, httpx.RequestError):
-            is_cdn_available = False
-            task_logger.warning("CDN connection failed, will use local JS for rendering.")
+        # Always use local resources for reverse proxy compatibility
+        is_cdn_available = False
 
         # Define export function mapping
         export_map = {}
@@ -2843,7 +2837,7 @@ async def preview_xlsx(file: UploadFile = File(...), max_rows: int = 200):
 
         wrapped = (
             "<html><head><meta charset='utf-8'>"
-            "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css\">"
+            "<style>" + resource_path("static/bootstrap.css").read_text(encoding="utf-8") + "</style>"
             "<style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial;padding:12px}.sheet{margin-bottom:24px}</style>"
             "</head><body>" + "\n".join(tabs_html) + "</body></html>"
         )

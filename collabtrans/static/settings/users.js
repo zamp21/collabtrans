@@ -4,7 +4,7 @@
 
   async function fetchUsers(){
     try {
-      const resp = await fetch('/auth/local-users', {credentials:'include'});
+      const resp = await fetch(apiUrl('/auth/local-users'), {credentials:'include'});
       if(!resp.ok) {
         if(resp.status === 401 || resp.status === 403 || resp.status === 302){
           // Not authenticated or no permission
@@ -34,7 +34,7 @@
 
   async function fetchAppConfig(){
     try{
-      const resp = await fetch('/auth/app-config', {credentials:'include'});
+      const resp = await fetch(apiUrl('/auth/app-config'), {credentials:'include'});
       if(!resp.ok) return null;
       return await resp.json();
     }catch(_){ return null; }
@@ -146,7 +146,7 @@
           const newPwd = input.value.trim();
           if(!newPwd){ window.SettingsCore?.showNotification(window.SettingsCore.getText('fillPasswords','Please fill passwords'), 'warning'); return; }
           if(newPwd.length < 6){ window.SettingsCore?.showNotification(window.SettingsCore.getText('passwordTooShort','Password too short (>=6)'), 'warning'); return; }
-          const resp = await fetch(`/auth/local-users/${encodeURIComponent(username)}/reset-password`,{
+          const resp = await fetch(apiUrl(`/auth/local-users/${encodeURIComponent(username)}/reset-password`), {
             method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({password:newPwd})
           });
           if(resp.ok){ window.SettingsCore?.showNotification(window.SettingsCore.getText('passwordResetOk','Password reset'), 'success'); }
@@ -160,7 +160,7 @@
       }else if(action==='delete'){
         const msg = (window.SettingsCore?.getText('confirmDeleteUser','Delete this user?'));
         if(!confirm(msg)) return;
-        const resp = await fetch(`/auth/local-users/${encodeURIComponent(username)}`,{method:'DELETE', credentials:'include'});
+        const resp = await fetch(apiUrl(`/auth/local-users/${encodeURIComponent(username)}`), {method:'DELETE', credentials:'include'});
         if(resp.ok){ window.SettingsCore?.showNotification(window.SettingsCore.getText('deleted','Deleted'), 'success'); }
         else { window.SettingsCore?.showNotification(window.SettingsCore.getText('deleteFailed','Delete failed'), 'error'); }
         if(resp.ok) await initUsersModule(true);
@@ -179,12 +179,12 @@
       if(mode === 'create'){
         if(!username || !pwd){ window.SettingsCore?.showNotification(window.SettingsCore.getText('usernamePasswordRequired','Username and password required'), 'warning'); return; }
         if(pwd.length < 6){ window.SettingsCore?.showNotification(window.SettingsCore.getText('passwordTooShort','Password too short (>=6)'), 'warning'); return; }
-        const resp = await fetch('/auth/local-users',{method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username, password:pwd, role, display_name, email})});
+        const resp = await fetch(apiUrl('/auth/local-users'), {method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username, password:pwd, role, display_name, email})});
         if(resp.ok){ window.SettingsCore?.showNotification(window.SettingsCore.getText('created','Created'), 'success'); }
         else { const t = await resp.text(); window.SettingsCore?.showNotification(window.SettingsCore.getText('createFailed','Create failed')+': '+t, 'error'); }
       }else{
         if(!username){ return; }
-        const resp = await fetch(`/auth/local-users/${encodeURIComponent(username)}`,{method:'PUT', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({role, display_name, email})});
+        const resp = await fetch(apiUrl(`/auth/local-users/${encodeURIComponent(username)}`), {method:'PUT', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({role, display_name, email})});
         if(resp.ok){ window.SettingsCore?.showNotification(window.SettingsCore.getText('saved','Saved'), 'success'); }
         else { const t = await resp.text(); window.SettingsCore?.showNotification(window.SettingsCore.getText('saveFailed','Save failed')+': '+t, 'error'); }
       }
@@ -195,7 +195,7 @@
 
   async function initUsersModule(silent){
     try{
-      const htmlResp = await fetch(`/static/settings/users.html?v=${Date.now()}`, {cache:'no-store'});
+      const htmlResp = await fetch(apiUrl(`/static/settings/users.html?v=${Date.now()}`), {cache:'no-store'});
       if(!htmlResp.ok) throw new Error('Failed to load users module');
       document.getElementById('users-content').innerHTML = await htmlResp.text();
       

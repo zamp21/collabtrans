@@ -50,6 +50,6 @@
     "force_redirect": false
   },
   "server": {
-    "root_path": "/collabtrans"
+    "root_path": "/trans"
   }
 }

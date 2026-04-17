@@ -13,7 +13,7 @@ from collabtrans.ir.document import Document
 
 @dataclass
 class Docx2HTMLExporterConfig(ExporterConfig):
-    cdn: bool = True
+    cdn: bool = False  # Default to local resources for reverse proxy compatibility
 
 
 class Docx2HTMLExporter(DocxExporter):

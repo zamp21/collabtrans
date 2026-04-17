@@ -3,11 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Dynamic base path for reverse proxy subpath deployment -->
+    <script>
+        (function() {
+            var path = window.location.pathname;
+            var basePath = '/';
+            if (path !== '/' && path !== '/settings.html') {
+                var segments = path.split('/');
+                if (segments.length >= 2 && segments[1] !== '') {
+                    basePath = '/' + segments[1] + '/';
+                }
+            }
+            var base = document.createElement('base');
+            base.href = basePath;
+            document.head.appendChild(base);
+            window.ROOT_PATH = basePath.replace(/\/$/, '');
+            window.apiUrl = function(p) { return p.startsWith('/') && window.ROOT_PATH ? window.ROOT_PATH + p : p; };
+            window.pageUrl = function(p) { return p.startsWith('/') && window.ROOT_PATH ? window.ROOT_PATH + p : p; };
+        })();
+    </script>
     <title data-i18n-title="settingsTitle">Settings</title>
-    <link rel="icon" href="/static/favicon.ico">
-    <link href="/static/bootstrap.css" rel="stylesheet">
-    <link href="/static/bootstrap-icons.css" rel="stylesheet">
-    <link href="/static/pico.css" rel="stylesheet">
+    <link rel="icon" href="static/favicon.ico">
+    <link href="static/bootstrap.css" rel="stylesheet">
+    <link href="static/bootstrap-icons.css" rel="stylesheet">
+    <link href="static/pico.css" rel="stylesheet">
     <style>
         .settings-nav {
             background: var(--bs-tertiary-bg);
@@ -121,7 +140,7 @@
                 };
                 const saved = localStorage.getItem('frontend_log_level');
                 if(saved){ setLevel(saved); } else { setLevel('INFO'); }
-                fetch('/auth/app-config', {credentials:'include'}).then(r=>r.ok?r.json():null).then(cfg=>{
+                fetch(apiUrl('/auth/app-config'), {credentials:'include'}).then(r=>r.ok?r.json():null).then(cfg=>{
                     if(!cfg) return;
                     const lvl = (cfg.logging && cfg.logging.level) || cfg.logging_level || cfg['logging.level'] || cfg.frontend_log_level;
                     if(lvl){ setLevel(lvl); }
@@ -136,9 +155,9 @@
   <div class="container-fluid">
     <div class="d-flex align-items-center justify-content-between w-100">
       <div class="d-flex align-items-center">
-        <a class="navbar-brand" href="/">Settings</a>
+        <a class="navbar-brand" href="./">Settings</a>
       </div>
-      <a class="btn btn-sm btn-outline-light" href="/" data-i18n="homePageBtn">Home</a>
+      <a class="btn btn-sm btn-outline-light" href="./" data-i18n="homePageBtn">Home</a>
     </div>
   </div>
 </nav>
@@ -341,8 +360,8 @@
 
 </main>
 
-<script src="/static/bootstrap.bundle.min.js"></script>
-<script src="/static/settings/settings-core.js?v=20251005"></script>
+<script src="static/bootstrap.bundle.min.js"></script>
+<script src="static/settings/settings-core.js?v=20251005"></script>
 <script>
   // Initialize everything when page loads
   document.addEventListener('DOMContentLoaded', () => {

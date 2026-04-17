@@ -20,7 +20,7 @@ from collabtrans.ir.document import Document
 
 @dataclass
 class Epub2HTMLExporterConfig(ExporterConfig):
-    cdn: bool = True
+    cdn: bool = False  # Default to local resources for reverse proxy compatibility
 
 
 class Epub2HTMLExporter(EpubExporter):

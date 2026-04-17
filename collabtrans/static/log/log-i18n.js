@@ -16,7 +16,7 @@ class LogI18n {
     async init() {
         try {
             // Get log messages from backend
-            const response = await fetch('/api/log-messages');
+            const response = await fetch(apiUrl('/api/log-messages'));
             if (response.ok) {
                 this.logMessages = await response.json();
                 this.initialized = true;

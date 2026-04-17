@@ -12,7 +12,7 @@ from collabtrans.utils.resource_utils import resource_path
 
 @dataclass
 class TXT2HTMLExporterConfig(ExporterConfig):
-    cdn: bool = True
+    cdn: bool = False  # Default to local resources for reverse proxy compatibility
 
 
 class TXT2HTMLExporter(TXTExporter):

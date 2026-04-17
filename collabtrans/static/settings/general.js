@@ -4,7 +4,7 @@
 // Load general settings
 async function loadGeneralSettings() {
   try {
-    const resp = await fetch('/auth/app-config', { credentials: 'include' });
+    const resp = await fetch(apiUrl('/auth/app-config'), { credentials: 'include' });
     if (!resp.ok) return;
     const cfg = await resp.json();
     console.log('[General][load] backend default_language =', cfg.default_language, 'ui_language(user)=', cfg.ui_language);
@@ -35,7 +35,7 @@ async function saveGeneralSettings() {
     // Only keeping default_language in General; other admin fields removed
     };
 
-    const resp = await fetch('/auth/app-config', {
+    const resp = await fetch(apiUrl('/auth/app-config'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',

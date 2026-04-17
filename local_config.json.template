@@ -49,4 +49,7 @@
     "key_file": "/path/to/your/key.key",
     "force_redirect": false
   }
+  "server": {
+    "root_path": "/trans"
+  }
 }
