@@ -1156,53 +1156,34 @@ async def _perform_translation(
                 
                 platform_key = None
                 platform_config = None
-                
-                # First, try to identify platform by URL keywords
-                if 'deepseek' in base_url:
-                    platform_key = 'deepseek'
-                elif 'openai' in base_url:
-                    platform_key = 'openai'
-                elif 'bigmodel' in base_url or 'zhipu' in base_url:
-                    platform_key = 'zhipu'
-                elif 'dashscope' in base_url or 'aliyun' in base_url:
-                    platform_key = 'dashscope'
-                elif 'siliconflow' in base_url:
-                    platform_key = 'siliconflow'
-                elif 'ark.' in base_url or 'volcengine' in base_url:
-                    platform_key = 'volcengine_ark'
-                elif ':11434' in base_url or 'ollama' in base_url:
-                    # Ollama typically uses port 11434
-                    platform_key = None  # Will try to find by URL match
-                    logger.info(f"[DEBUG] inject_global_api_key - detected possible Ollama URL (port 11434)")
-                
-                # If platform_key identified, get config
-                if platform_key:
-                    platform_config = global_conf.get_ai_platform_config(platform_key)
-                
-                # If not identified by keywords, try to find platform by matching base_url
-                if not platform_config:
-                    # Clean base_url for comparison (remove trailing slashes and common paths)
-                    base_url_clean = base_url_raw.strip().rstrip('/')
+
+                # Identify platform by matching base_url against configured platform URLs
+                base_url_clean = base_url_raw.strip().rstrip('/')
+                for path_prefix in ['/v1', '/v1/chat', '/v1/chat/completions', '/api', '/api/chat']:
+                    if base_url_clean.endswith(path_prefix):
+                        base_url_clean = base_url_clean[:-len(path_prefix)]
+
+                # Try to find matching platform by URL from configuration
+                for key, config in global_conf.ai_platforms.items():
+                    if key == 'default_platform':
+                        continue
+                    config_url_clean = config.url.strip().rstrip('/')
                     for path_prefix in ['/v1', '/v1/chat', '/v1/chat/completions', '/api', '/api/chat']:
-                        if base_url_clean.endswith(path_prefix):
-                            base_url_clean = base_url_clean[:-len(path_prefix)]
-                    
-                    # Try to find matching platform by URL
-                    for key, config in global_conf.ai_platforms.items():
-                        if key == 'default_platform':  # Skip special key
-                            continue
-                        config_url_clean = config.url.strip().rstrip('/')
-                        # Remove common paths from config URL too
-                        for path_prefix in ['/v1', '/v1/chat', '/v1/chat/completions', '/api', '/api/chat']:
-                            if config_url_clean.endswith(path_prefix):
-                                config_url_clean = config_url_clean[:-len(path_prefix)]
-                        
-                        # Compare URLs (case-insensitive)
-                        if config_url_clean.lower() == base_url_clean.lower():
-                            platform_key = key
-                            platform_config = config
-                            logger.info(f"[DEBUG] inject_global_api_key - matched platform by URL: {platform_key}")
-                            break
+                        if config_url_clean.endswith(path_prefix):
+                            config_url_clean = config_url_clean[:-len(path_prefix)]
+
+                    # Compare URLs (case-insensitive)
+                    if config_url_clean.lower() == base_url_clean.lower():
+                        platform_key = key
+                        platform_config = config
+                        logger.info(f"[DEBUG] inject_global_api_key - matched platform by URL: {platform_key}")
+                        break
+
+                # Special handling for Ollama (port 11434)
+                is_ollama = ':11434' in base_url or 'ollama' in base_url
+                if is_ollama and not args.get('api_type'):
+                    args['api_type'] = 'ollama'
+                    logger.info(f"[DEBUG] inject_global_api_key - detected Ollama platform")
 
                 logger.info(f"[DEBUG] inject_global_api_key - detected platform_key: {platform_key}")
 
@@ -1210,32 +1191,23 @@ async def _perform_translation(
                 if platform_config and platform_config.api_type and not args.get('api_type'):
                     args['api_type'] = platform_config.api_type
                     logger.info(f"[DEBUG] inject_global_api_key - injected api_type: {platform_config.api_type} for platform: {platform_key}")
-                elif not args.get('api_type'):
-                    # If still no api_type, try to infer from URL
-                    if ':11434' in base_url or 'ollama' in base_url:
-                        args['api_type'] = 'ollama'
-                        logger.info(f"[DEBUG] inject_global_api_key - inferred api_type: ollama from URL")
 
-                # Only read API Key from sensitive configuration
-                # For Ollama, API key is optional (local deployments don't require it)
+                # Get API key from secrets for the detected platform
                 api_keys = secrets.get_api_keys() or {}
-                key = api_keys.get(platform_key) if platform_key else None
-                
-                # Determine if API key is required based on api_type
+                api_key = api_keys.get(platform_key) if platform_key else None
+
                 api_type = args.get('api_type', 'openai')
-                is_ollama = api_type == 'ollama'
-                
-                if key:
-                    args['api_key'] = key
+
+                if api_key:
+                    args['api_key'] = api_key
                     logger.info(f"[DEBUG] inject_global_api_key - injected API key for platform: {platform_key}")
                 elif is_ollama:
-                    # Ollama doesn't require API key, set to None or empty string
+                    # Ollama doesn't require API key
                     args['api_key'] = None
-                    logger.info(f"[DEBUG] inject_global_api_key - No API key for Ollama platform (not required for local deployments)")
+                    logger.info(f"[DEBUG] inject_global_api_key - No API key for Ollama platform (not required)")
                 elif platform_key:
                     # For other platforms, warn if API key is missing
                     logger.warning(f"API Key for platform {platform_key} not found, please save the corresponding platform Key in the admin interface")
-                # If platform_key is None, we couldn't identify the platform, but that's OK for custom/Ollama platforms
                 
                 # Note: We do NOT inject platform temperature here, as user's temperature setting should take priority
                 # Platform temperature is only used for display purposes in the UI

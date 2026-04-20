@@ -2342,6 +2342,16 @@ async def test_ai_platform(
                 logger.info(f"[AI Platform Test] OpenAI-compatible API response - status: {response.status_code}")
             
             if response.status_code == 200:
+                # Check for error in response body (some platforms return HTTP 200 with error body)
+                try:
+                    response_data = response.json()
+                    if "errorCode" in response_data or "error" in response_data or "errorMsg" in response_data:
+                        error_msg = response_data.get("errorMsg") or response_data.get("error") or response_data.get("message") or "Unknown API error"
+                        error_code = response_data.get("errorCode") or response_data.get("error_code") or ""
+                        logger.error(f"[AI Platform Test] API error in response body - platform: {platform_type}, error_code: {error_code}, error_msg: {error_msg}")
+                        return {"success": False, "error": f"API Error {error_code}: {error_msg}"}
+                except Exception:
+                    pass# Response is valid
                 logger.info(f"[AI Platform Test] Connection test successful - user: {_mask_username(user.username)}, platform: {platform_type}")
                 return {"success": True, "message": "AI platform connection test successful"}
             else:

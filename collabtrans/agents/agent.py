@@ -444,10 +444,16 @@ class Agent:
             )
             response.raise_for_status()
             response_data = response.json()
-            
+
             # Save API call (request and response)
             self._save_api_call(request_log_data, response_data)
-            
+
+            # Check for API error response (some platforms return HTTP 200 with error body)
+            if "errorCode" in response_data or "error" in response_data or "errorMsg" in response_data:
+                error_msg = response_data.get("errorMsg") or response_data.get("error") or response_data.get("message") or "Unknown API error"
+                error_code = response_data.get("errorCode") or response_data.get("error_code") or ""
+                raise ValueError(f"API Error {error_code}: {error_msg}")
+
             # Parse response based on API type
             if self.api_type == "ollama":
                 # Ollama response format: {"message": {"content": "..."}}
@@ -786,10 +792,16 @@ class Agent:
             )
             response.raise_for_status()
             response_data = response.json()
-            
+
             # Save API call (request and response)
             self._save_api_call(request_log_data, response_data)
-            
+
+            # Check for API error response (some platforms return HTTP 200 with error body)
+            if "errorCode" in response_data or "error" in response_data or "errorMsg" in response_data:
+                error_msg = response_data.get("errorMsg") or response_data.get("error") or response_data.get("message") or "Unknown API error"
+                error_code = response_data.get("errorCode") or response_data.get("error_code") or ""
+                raise ValueError(f"API Error {error_code}: {error_msg}")
+
             # Parse response based on API type
             if self.api_type == "ollama":
                 # Ollama response format: {"message": {"content": "..."}}
