@@ -32,6 +32,7 @@ def _resolve_auth_config_path(config_file: str = "local_config.json") -> Path:
         2) Executable directory (PyInstaller) / same-dir as binary (or cwd) (legacy fallback)
         3) Project root (development) fallback (legacy)
     """
+    logger.debug(f"[AuthConfig] Attempting to read config from: {config_file}")
     # Absolute path: use directly
     p = Path(config_file)
     if p.is_absolute():
@@ -54,13 +55,13 @@ def _resolve_auth_config_path(config_file: str = "local_config.json") -> Path:
         # Production: use /etc/collabtrans/
         prod_cfg = get_prod_config_path(config_file)
         if prod_cfg.exists():
-            logger.log(TRACE, f"[AuthConfig] Using production config: {prod_cfg}")
+            logger.debug(f"[AuthConfig] Using production config: {prod_cfg}")
             return prod_cfg
     else:
         # Development: use project root
         dev_cfg = get_dev_config_path(config_file)
         if dev_cfg.exists():
-            logger.log(TRACE, f"[AuthConfig] Using development config: {dev_cfg}")
+            logger.debug(f"[AuthConfig] Using development config: {dev_cfg}")
             return dev_cfg
 
     # 2) Legacy fallback: System directory (non-Windows)
@@ -68,7 +69,7 @@ def _resolve_auth_config_path(config_file: str = "local_config.json") -> Path:
         system_dir = Path("/etc/collabtrans")
         system_cfg = system_dir / config_file
         if system_dir.exists() and system_cfg.exists():
-            logger.log(TRACE, f"[AuthConfig] Using system config (legacy): {system_cfg}")
+            logger.debug(f"[AuthConfig] Using system config (legacy): {system_cfg}")
             return system_cfg
 
     # 3) Legacy fallback: Executable directory (PyInstaller)
@@ -88,7 +89,9 @@ def _resolve_auth_config_path(config_file: str = "local_config.json") -> Path:
 
     # 4) Legacy fallback: Development: project root (two levels up from this file)
     project_root = Path(__file__).resolve().parents[2]
-    return project_root / config_file
+    fallback_path = project_root / config_file
+    logger.debug(f"[AuthConfig] Using fallback project root path: {fallback_path}")
+    return fallback_path
 
 
 @dataclass

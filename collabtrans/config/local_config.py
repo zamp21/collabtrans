@@ -130,7 +130,8 @@ class LocalConfig:
             # Resolve the actual config file path
             from ..auth.config import _resolve_auth_config_path
             resolved_path = _resolve_auth_config_path(config_file)
-            
+            logger.info(f"[LocalConfig] Loading configuration from: {resolved_path}")
+
             if resolved_path.exists():
                 with open(resolved_path, 'r', encoding='utf-8') as f:
                     config_data = json.load(f)

@@ -2964,6 +2964,8 @@ def run_app(port: int | None = None):
 
             # Get root_path for reverse proxy subpath deployment
             root_path = local_config.server.root_path if local_config.server.root_path else None
+            print(f"[Config] local_config.server.root_path: '{local_config.server.root_path}'")
+            print(f"[Config] resolved root_path for uvicorn: '{root_path}'")
             if root_path:
                 print(f"Server root_path configured: {root_path}")
                 # Update FastAPI app's root_path for URL generation
@@ -3017,7 +3019,8 @@ def run_app(port: int | None = None):
                 else:
                     print("HTTPS is enabled, but certificate or private key file does not exist, will start with HTTP.")
         except Exception as _e:
-            print(f"Failed to read HTTPS configuration, will start with HTTP: {_e}")
+            print(f"Failed to read configuration (root_path may be affected): {_e}")
+            print(f"[Config] Warning: root_path will be None due to configuration loading failure")
 
         # Prepare uvicorn arguments
         uvicorn_kwargs = ssl_kwargs
