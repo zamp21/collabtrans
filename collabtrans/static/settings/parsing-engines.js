@@ -6,7 +6,7 @@ let engineConfigs = {};
 // Load engine configurations
 async function loadEngineConfigs() {
   try {
-    const resp = await fetch(apiUrl('/auth/app-config'));
+    const resp = await fetch(window.apiUrl('/auth/app-config'));
     if (!resp.ok) {
       return;
     }
@@ -106,7 +106,7 @@ function updateEngineFields() {
 // Load MinerU API Key (masked display)
 async function loadMineruApiKey() {
   try {
-    const resp = await fetch(apiUrl('/auth/app-config/raw-secrets'), { credentials: 'include' });
+    const resp = await fetch(window.apiUrl('/auth/app-config/raw-secrets'), { credentials: 'include' });
     if (!resp.ok) return;
     const secrets = await resp.json();
     // Prioritize new structure meta
@@ -153,15 +153,15 @@ async function saveParsingEngineConfig() {
   try {
     const key = document.getElementById('engineSelect').value || 'mineru';
     const name = document.getElementById('engineName').value.trim();
-    const apiUrl = document.getElementById('engineApiUrl').value.trim();
+    const engineApiUrlValue = document.getElementById('engineApiUrl').value.trim();
     const mineruModelVersion = document.getElementById('mineruModelVersion').value.trim();
     const mineruApiKey = (document.getElementById('mineruApiKey').value || '').trim();
 
     // Update local engine configuration object
     engineConfigs[key] = engineConfigs[key] || {};
     engineConfigs[key].name = name || getText('mineruPlaceholder');
-    if (apiUrl) {
-      engineConfigs[key].api_url = apiUrl;
+    if (engineApiUrlValue) {
+      engineConfigs[key].api_url = engineApiUrlValue;
     } else {
       delete engineConfigs[key].api_url;
     }
@@ -183,7 +183,7 @@ async function saveParsingEngineConfig() {
     };
 
     // Save non-sensitive configuration
-    const resp = await fetch(apiUrl('/auth/app-config'), {
+    const resp = await fetch(window.apiUrl('/auth/app-config'), {
       method: 'POST', 
       headers: { 'Content-Type': 'application/json' }, 
       credentials: 'include',
@@ -199,7 +199,7 @@ async function saveParsingEngineConfig() {
 
     // Save sensitive configuration: always send for mineru, even if empty
     if (key === 'mineru') {
-      const r2 = await fetch(apiUrl('/auth/app-config/setting'), {
+      const r2 = await fetch(window.apiUrl('/auth/app-config/setting'), {
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
         credentials: 'include',
@@ -275,7 +275,7 @@ async function testMineruConnectionInSettings() {
       statusBadge.textContent = 'Testing...';
     }
     // Load current config
-    const r = await fetch(apiUrl('/auth/app-config'), { credentials: 'include' });
+    const r = await fetch(window.apiUrl('/auth/app-config'), { credentials: 'include' });
     if (!r.ok) throw new Error('Failed to load config');
     const cfg = await r.json();
     const ts = cfg.translator_settings || {};
@@ -287,7 +287,7 @@ async function testMineruConnectionInSettings() {
     if (!baseUrl || !model) {
       throw new Error('Missing API URL or model_version');
     }
-    const resp = await fetch(apiUrl('/auth/mineru/test-connection'), {
+    const resp = await fetch(window.apiUrl('/auth/mineru/test-connection'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
