@@ -3113,7 +3113,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Home: Test AI platform connection (badge only, no dialogs)
     async function homeTestAiPlatform() {
         // Resolve platform select element or fallback to stored/default
-        const selectEl = document.getElementById('platformSelect')
+        const selectEl = document.getElementById('platform_select')
+            || document.getElementById('platformSelect')
             || document.getElementById('translatorPlatformSelect')
             || document.querySelector('[data-role="home-platform-select"]');
         let selectedPlatform = (selectEl && selectEl.value) || '';
@@ -3212,18 +3213,25 @@ document.addEventListener('DOMContentLoaded', function() {
             // check api key configured (skip for Custom Platform and Ollama)
             if (selectedPlatform !== 'custom' && apiType !== 'ollama') {
                 let hasKey = false;
-                try {
-                    const rs = await fetch(apiUrl('/auth/app-config/raw-secrets'), { credentials: 'include' });
-                    if (rs.ok) {
-                        const secrets = await rs.json();
-                        if (secrets.platform_api_keys_meta && secrets.platform_api_keys_meta[selectedPlatform]) {
-                            hasKey = !!secrets.platform_api_keys_meta[selectedPlatform].configured;
-                        } else if (secrets.platform_api_keys && secrets.platform_api_keys[selectedPlatform]) {
-                            const v = secrets.platform_api_keys[selectedPlatform];
-                            hasKey = !!(typeof v === 'string' ? v : (v?.key));
+                // First check from app-config (works for all users)
+                if (cfg.platform_api_keys_configured && cfg.platform_api_keys_configured[selectedPlatform]) {
+                    hasKey = true;
+                }
+                // Fallback to raw-secrets for admin users
+                if (!hasKey) {
+                    try {
+                        const rs = await fetch(window.apiUrl('/auth/app-config/raw-secrets'), { credentials: 'include' });
+                        if (rs.ok) {
+                            const secrets = await rs.json();
+                            if (secrets.platform_api_keys_meta && secrets.platform_api_keys_meta[selectedPlatform]) {
+                                hasKey = !!secrets.platform_api_keys_meta[selectedPlatform].configured;
+                            } else if (secrets.platform_api_keys && secrets.platform_api_keys[selectedPlatform]) {
+                                const v = secrets.platform_api_keys[selectedPlatform];
+                                hasKey = !!(typeof v === 'string' ? v : (v?.key));
+                            }
                         }
-                    }
-                } catch(_) {}
+                    } catch(_) {}
+                }
                 if (!hasKey) {
                     setBanner('danger', 'API Key not configured for selected platform');
                     console.warn('[Home][AI Test] API key not configured');

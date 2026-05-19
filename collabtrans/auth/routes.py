@@ -623,6 +623,17 @@ async def get_app_config_api(
         for key in allowed_keys:
             if key in config_dict:
                 filtered_config[key] = config_dict[key]
+
+        # Add API key configuration status for non-admin users (only boolean, not actual keys)
+        from ..config.secrets_manager import get_secrets_manager
+        secrets_manager = get_secrets_manager()
+        api_keys_meta = secrets_manager.get_api_keys_meta()
+        # Convert to simple boolean status
+        platform_api_keys_configured = {}
+        for platform_key, meta in api_keys_meta.items():
+            platform_api_keys_configured[platform_key] = meta.get("configured", False)
+        filtered_config['platform_api_keys_configured'] = platform_api_keys_configured
+
         return filtered_config
     else:
         # Admin users, return all configuration but hide sensitive information

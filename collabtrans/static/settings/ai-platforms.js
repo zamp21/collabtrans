@@ -7,7 +7,7 @@ let platformConfigs = window.platformConfigs || {};
 async function loadPlatformConfigs() {
   try {
     console.log('[DEBUG] loadPlatformConfigs - starting to load platform configs');
-    const resp = await fetch(apiUrl('/auth/app-config'));
+    const resp = await fetch(window.apiUrl('/auth/app-config'));
     if (!resp.ok) {
       console.error('[DEBUG] loadPlatformConfigs - API response not ok:', resp.status, resp.statusText);
       return;
@@ -53,7 +53,7 @@ async function loadPlatformConfigs() {
         defSel.appendChild(option);
       }
       // Preselect from config if available
-      const respCfg = await fetch(apiUrl('/auth/app-config'));
+      const respCfg = await fetch(window.apiUrl('/auth/app-config'));
       if (respCfg.ok) {
         const cfg2 = await respCfg.json();
         const def = (cfg2.ai_platforms && cfg2.ai_platforms.default_platform) || cfg2.ai_platforms_default_platform || null;
@@ -164,7 +164,7 @@ function updatePlatformSelect() {
 // Load AI platform configuration
 async function loadAiPlatformConfig() {
   try {
-    const resp = await fetch(apiUrl('/auth/app-config'));
+    const resp = await fetch(window.apiUrl('/auth/app-config'));
     if (!resp.ok) return;
     const cfg = await resp.json();
     
@@ -206,7 +206,7 @@ async function loadAiPlatformConfig() {
 // Load API Key
 async function loadApiKey(platform) {
   try {
-    const resp = await fetch(apiUrl('/auth/app-config/raw-secrets'), { credentials: 'include' });
+    const resp = await fetch(window.apiUrl('/auth/app-config/raw-secrets'), { credentials: 'include' });
     if (!resp.ok) return;
     const secrets = await resp.json();
     
@@ -418,7 +418,7 @@ async function saveAiPlatformConfig() {
     // Get current platform configurations to avoid overwriting other platforms
     let currentPlatforms = {};
     try {
-      const resp = await fetch(apiUrl('/auth/app-config'), { credentials: 'include' });
+      const resp = await fetch(window.apiUrl('/auth/app-config'), { credentials: 'include' });
       if (resp.ok) {
         const config = await resp.json();
         currentPlatforms = config.ai_platforms || {};
@@ -446,7 +446,7 @@ async function saveAiPlatformConfig() {
     };
 
     // Save basic configuration
-    const resp1 = await fetch(apiUrl('/auth/app-config'), {
+    const resp1 = await fetch(window.apiUrl('/auth/app-config'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -460,7 +460,7 @@ async function saveAiPlatformConfig() {
       // Get current API Keys, ensure not overwriting other platforms (prioritize new structure with meta)
       let currentApiKeys = {};
       try {
-        const resp = await fetch(apiUrl('/auth/app-config/raw-secrets'), { credentials: 'include' });
+        const resp = await fetch(window.apiUrl('/auth/app-config/raw-secrets'), { credentials: 'include' });
         if (resp.ok) {
           const secrets = await resp.json();
           if (secrets.platform_api_keys_meta && typeof secrets.platform_api_keys_meta === 'object') {
@@ -484,7 +484,7 @@ async function saveAiPlatformConfig() {
       currentApiKeys[platformType] = { key: apiKeyValue, configured: true };
       console.log(`[DEBUG] saveAiPlatformConfig - updated API keys:`, Object.keys(currentApiKeys));
       
-      const resp2 = await fetch(apiUrl('/auth/app-config/setting'), {
+      const resp2 = await fetch(window.apiUrl('/auth/app-config/setting'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -507,7 +507,7 @@ async function saveAiPlatformConfig() {
         const defSel = document.getElementById('defaultPlatformSelect');
         if (defSel && defSel.value) {
           // Prefer single-setting endpoint to avoid overwriting ai_platforms block accidentally
-          await fetch(apiUrl('/auth/app-config/setting'), {
+          await fetch(window.apiUrl('/auth/app-config/setting'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
@@ -522,7 +522,7 @@ async function saveAiPlatformConfig() {
       await loadApiKey(platformType);
       // Sync current platform to backend user configuration for homepage reading
       try {
-        await fetch(apiUrl('/auth/app-config/setting'), {
+        await fetch(window.apiUrl('/auth/app-config/setting'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -580,7 +580,7 @@ async function testAiPlatform() {
       throw new Error('Model name is required');
     }
 
-    // Determine if API key is configured (masked OK). If input empty, check server raw-secrets meta
+    // Determine if API key is configured (masked OK). If input empty, check server config for status
     // For Custom Platform and Ollama, skip API key check
     if (platformType === 'custom' || apiType === 'ollama') {
       // Allow empty API key for custom platform and Ollama
@@ -588,14 +588,25 @@ async function testAiPlatform() {
       let apiKeyConfigured = !!apiKeyInputVal;
       if (!apiKeyConfigured) {
         try {
-          const rs = await fetch(apiUrl('/auth/app-config/raw-secrets'), { credentials: 'include' });
+          // First try to get from app-config (works for all users)
+          const rs = await fetch(window.apiUrl('/auth/app-config'), { credentials: 'include' });
           if (rs.ok) {
-            const secrets = await rs.json();
-            if (secrets.platform_api_keys_meta && secrets.platform_api_keys_meta[platformType]) {
-              apiKeyConfigured = !!secrets.platform_api_keys_meta[platformType].configured;
-            } else if (secrets.platform_api_keys && secrets.platform_api_keys[platformType]) {
-              const v = secrets.platform_api_keys[platformType];
-              apiKeyConfigured = !!(typeof v === 'string' ? v : (v?.key));
+            const config = await rs.json();
+            if (config.platform_api_keys_configured && config.platform_api_keys_configured[platformType]) {
+              apiKeyConfigured = true;
+            }
+          }
+          // If still not found and user might be admin, try raw-secrets as fallback
+          if (!apiKeyConfigured) {
+            const rs2 = await fetch(window.apiUrl('/auth/app-config/raw-secrets'), { credentials: 'include' });
+            if (rs2.ok) {
+              const secrets = await rs2.json();
+              if (secrets.platform_api_keys_meta && secrets.platform_api_keys_meta[platformType]) {
+                apiKeyConfigured = !!secrets.platform_api_keys_meta[platformType].configured;
+              } else if (secrets.platform_api_keys && secrets.platform_api_keys[platformType]) {
+                const v = secrets.platform_api_keys[platformType];
+                apiKeyConfigured = !!(typeof v === 'string' ? v : (v?.key));
+              }
             }
           }
         } catch(e) { /* ignore and keep apiKeyConfigured as-is */ }
@@ -610,7 +621,7 @@ async function testAiPlatform() {
       }
     }
 
-    const resp = await fetch(apiUrl('/auth/test-ai-platform'), {
+    const resp = await fetch(window.apiUrl('/auth/test-ai-platform'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
