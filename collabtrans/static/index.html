@@ -2336,6 +2336,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let previewSplitInstance = null;
     let userPermissions = null;
     let appConfig = null;
+    window.appConfig = null;  // Global reference for config
 
     const apiHrefMap = {
         "https://openrouter.ai/api/v1": "https://openrouter.ai/settings/keys",
@@ -3014,10 +3015,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!resp.ok) return;
             const cfg = await resp.json();
             
-            // Determine platform selection: user config > localStorage > system default > hard default
+            // Determine platform selection: user config > localStorage > system default > first available platform
             const stored = (() => { try { return localStorage.getItem('translator_platform_type'); } catch (e) { return null; } })();
             const sysDefault = (cfg.ai_platforms && cfg.ai_platforms.default_platform) || cfg.ai_platforms_default_platform || null;
-            const platformType = cfg.translator_platform_type || stored || sysDefault || 'deepseek';
+            const firstAvailable = Object.keys(cfg.ai_platforms || {}).filter(k => k !== 'default_platform')[0] || null;
+            const platformType = cfg.translator_platform_type || stored || sysDefault || firstAvailable || '';
             if (platformSelect) {
                 platformSelect.value = platformType;
             }
@@ -3121,9 +3123,10 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('[Home][AI Test] initial select value:', selectedPlatform);
         let lsVal = '';
         try { lsVal = localStorage.getItem('translator_platform_type') || ''; } catch(_) {}
-        const appCfgDefault = window.appConfig ? (window.appConfig.ai_platforms_default_platform || '') : '';
+        const appCfgDefault = window.appConfig ? (window.appConfig.ai_platforms_default_platform || (window.appConfig.ai_platforms && window.appConfig.ai_platforms.default_platform) || '') : '';
+        const firstAvailable = window.appConfig && window.appConfig.ai_platforms ? Object.keys(window.appConfig.ai_platforms).filter(k => k !== 'default_platform')[0] : '';
         if (!selectedPlatform) {
-            selectedPlatform = lsVal || appCfgDefault || '';
+            selectedPlatform = lsVal || appCfgDefault || firstAvailable || '';
         }
         console.log('[Home][AI Test] sources -> dom:', (selectEl && selectEl.value) || '', 'localStorage:', lsVal, 'appConfig default:', appCfgDefault, 'chosen:', selectedPlatform);
 
@@ -3192,10 +3195,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 const domVal = (selectEl && selectEl.value) || '';
                 let lsVal2 = '';
                 try { lsVal2 = localStorage.getItem('translator_platform_type') || ''; } catch(_) {}
-                const appCfgDefault2 = window.appConfig ? (window.appConfig.ai_platforms_default_platform || '') : '';
+                const appCfgDefault2 = window.appConfig ? (window.appConfig.ai_platforms_default_platform || (window.appConfig.ai_platforms && window.appConfig.ai_platforms.default_platform) || '') : '';
                 const cfgDefault2 = (cfg.ai_platforms_default_platform)
+                    || (cfg.ai_platforms && cfg.ai_platforms.default_platform)
                     || (cfg.translator_platform_type)
-                    || (Object.keys(cfg.ai_platforms || {})[0] || '');
+                    || (Object.keys(cfg.ai_platforms || {}).filter(k => k !== 'default_platform')[0] || '');
                 selectedPlatform = domVal || lsVal2 || appCfgDefault2 || cfgDefault2;
                 console.log('[Home][AI Test] recomputed selected:', {domVal, lsVal2, appCfgDefault2, cfgDefault2, selectedPlatform});
             }
@@ -4769,6 +4773,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (response.ok) {
                 appConfig = await response.json();
+                window.appConfig = appConfig;  // Make config globally accessible
                 console.log('App config loaded:', Object.keys(appConfig).length, 'settings');
                 // After config loading, try to fill default model based on platform (put in microtask queue to ensure it runs after other initialization)
                 Promise.resolve().then(() => { try { if (typeof mainPlatformUpdater === 'function') mainPlatformUpdater(); } catch (e) {} });
@@ -4989,8 +4994,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 // AI model settings moved to settings page - no platform selection needed
 
                 function resolvePlatformType() {
-                    // AI model settings moved to settings page - no platform selection needed
-                    return (typeof getFromConfig === 'function' && getFromConfig('translator_platform_type')) || 'deepseek';
+                    // Use config default platform, fallback to first available platform
+                    const sysDefault = (window.appConfig && (window.appConfig.ai_platforms_default_platform || (window.appConfig.ai_platforms && window.appConfig.ai_platforms.default_platform)));
+                    const firstAvailable = window.appConfig && window.appConfig.ai_platforms ? Object.keys(window.appConfig.ai_platforms).filter(k => k !== 'default_platform')[0] : null;
+                    return (typeof getFromConfig === 'function' && getFromConfig('translator_platform_type')) || sysDefault || firstAvailable || '';
                 }
 
                 function renderMaskedByPlatform() {
@@ -5258,13 +5265,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 event: 'input',
                 handler: e => {
                     const val = glossaryAgentPlatformSelect.value;
+                    const sysDefault2 = (appConfig && (appConfig.ai_platforms_default_platform || (appConfig.ai_platforms && appConfig.ai_platforms.default_platform)));
+                    const firstAvailable2 = appConfig && appConfig.ai_platforms ? Object.keys(appConfig.ai_platforms).filter(k => k !== 'default_platform')[0] : null;
                     const platformType = (function() {
                         if (appConfig && appConfig.platform_urls && val && val.startsWith('http')) {
                             for (const [ptype, purl] of Object.entries(appConfig.platform_urls)) {
                                 if (purl === val) return ptype;
                             }
                         }
-                        return getFromConfig('glossary_agent_platform_type') || val || 'deepseek';
+                        return getFromConfig('glossary_agent_platform_type') || val || sysDefault2 || firstAvailable2 || '';
                     })();
                     const dictKey = 'glossary_agent_platform_models';
                     const dict = getFromConfig(dictKey) || {};
